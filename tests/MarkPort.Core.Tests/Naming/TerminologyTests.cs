@@ -50,7 +50,7 @@ public partial class TerminologyTests
             var relative = Path.GetRelativePath(root, file);
             var parts = relative.Split(Path.DirectorySeparatorChar);
             var inScope = (parts[0] is "src" or "tests" && Path.GetExtension(file) is ".cs" or ".xaml")
-                          || relative == "README.md"
+                          || relative is "README.md" or "README.ja.md"
                           || (parts[0] == "specs" && parts.Contains("contracts"));
             if (!inScope || parts.Any(part => SkippedFolders.Contains(part)) || Path.GetFileName(file) == "TerminologyTests.cs")
             {
