@@ -111,14 +111,37 @@ public class FileStatusProjectorTests : JapaneseUiTests
             new PageRecord { Index = 2, Step3 = PageStep3Status.Done, Usage = new UsageInfo(200, 20, 220) },
             new PageRecord { Index = 3, Step3 = PageStep3Status.Done, Usage = UsageInfo.Unavailable },
             new PageRecord { Index = 4, IsDeleted = true, Step3 = PageStep3Status.Skipped },
-            new PageRecord { Index = 5, Step3 = PageStep3Status.Failed },
+            new PageRecord { Index = 5, Step3 = PageStep3Status.Failed, Error = "HTTP 500\nserver  error" },
         ];
 
         var row = FileStatusProjector.Project(document);
 
         Assert.Equal("prompt=300 completion=30 total=330", row.UsageText); // only the pages that reported it
-        Assert.Equal(["prompt=100 completion=10 total=110", "prompt=200 completion=20 total=220", "取得不可", string.Empty, string.Empty], row.Pages.Select(p => p.UsageText));
+        Assert.Equal(["prompt=100 completion=10 total=110", "prompt=200 completion=20 total=220", "取得不可", string.Empty, "HTTP 500 server error"], row.Pages.Select(p => p.UsageText));
         Assert.Equal(["完了", "完了", "完了", "対象外", "失敗"], row.Pages.Select(p => p.VlmState));
+    }
+
+    [Fact]
+    public void AFailedPageWithoutACause_ShowsUnavailableInTheUsageColumn()
+    {
+        var document = Doc(StepStatus.Done, StepStatus.Done, StepStatus.Done);
+        document.Pages = [new PageRecord { Index = 1, Step3 = PageStep3Status.Failed }];
+
+        Assert.Equal("取得不可", FileStatusProjector.Project(document).Pages[0].UsageText);
+    }
+
+    [Theory]
+    [InlineData(StepStatus.Pending, "")]
+    [InlineData(StepStatus.Running, "")]
+    [InlineData(StepStatus.Interrupted, "")]
+    [InlineData(StepStatus.Done, "取得不可")]
+    [InlineData(StepStatus.Failed, "取得不可")]
+    public void WithoutUsage_TheFileTotalIsEmptyUntilStep3HasFinishedOrFailed(StepStatus step3, string expected)
+    {
+        var document = Doc(StepStatus.Done, StepStatus.Done, step3);
+        document.Pages = [new PageRecord { Index = 1, Step3 = PageStep3Status.Pending }];
+
+        Assert.Equal(expected, FileStatusProjector.Project(document).UsageText);
     }
 
     [Fact]

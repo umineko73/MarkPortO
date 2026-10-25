@@ -53,7 +53,7 @@ public enum FileDisplayState
 /// <param name="Label">Where the page is in the source.</param>
 /// <param name="IsDeleted">A deleted page (a "×" over it).</param>
 /// <param name="VlmState">The VLM reading of the page: done, failed, skipped, or waiting.</param>
-/// <param name="UsageText">The tokens used, or 取得不可; empty when the VLM is not used.</param>
+/// <param name="UsageText">The tokens used, or 取得不可; the cause when the page failed; empty when the VLM is not used.</param>
 public sealed record PageRow(int Index, string Label, bool IsDeleted, string VlmState, string UsageText);
 
 /// <summary>One row of the file list.</summary>
@@ -65,7 +65,7 @@ public sealed record PageRow(int Index, string Label, bool IsDeleted, string Vlm
 /// <param name="PageCount">Number of pages (images) so far.</param>
 /// <param name="DeletedPageCount">How many of them are deleted pages.</param>
 /// <param name="Message">The reason of a failure, or the note about a restart; empty otherwise.</param>
-/// <param name="UsageText">Total VLM usage of the file, <c>取得不可</c>, or empty when step 3 is not used.</param>
+/// <param name="UsageText">Total VLM usage of the file; <c>取得不可</c> when step 3 finished or failed without it; empty before that and when step 3 is not used.</param>
 /// <param name="Pages">The pages, for the detail view.</param>
 /// <param name="FullPath">The full path of the source, for the tooltip.</param>
 /// <param name="Source">The document the row was made from, to make the texts again when the language changes.</param>
@@ -102,7 +102,7 @@ public static class FileStatusProjector
             document.Pages.Count,
             document.Pages.Count(p => p.IsDeleted),
             MessageOf(document),
-            usesVlm ? UsageText(TotalUsage(document)) : string.Empty,
+            usesVlm ? FileUsageText(document) : string.Empty,
             [.. document.Pages.Select(p => ToRow(p, usesVlm))],
             document.SourcePath,
             document);
@@ -202,6 +202,13 @@ public static class FileStatusProjector
         return new UsageInfo(Sum(u => u.PromptTokens), Sum(u => u.CompletionTokens), Sum(u => u.TotalTokens));
     }
 
+    /// <summary>The usage of the file: the tokens when they are known; 取得不可 only once step 3 has finished or failed; empty before that.</summary>
+    private static string FileUsageText(DocumentRecord document)
+    {
+        var total = TotalUsage(document);
+        return total is null && document.Step3 is not (StepStatus.Done or StepStatus.Failed) ? string.Empty : UsageText(total);
+    }
+
     private static string UsageText(UsageInfo? usage)
     {
         if (usage is not { IsAvailable: true })
@@ -212,6 +219,14 @@ public static class FileStatusProjector
         string Part(string name, int? value) => value.HasValue ? string.Create(CultureInfo.InvariantCulture, $"{name}={value.Value}") : string.Empty;
         return string.Join(' ', new[] { Part("prompt", usage.PromptTokens), Part("completion", usage.CompletionTokens), Part("total", usage.TotalTokens) }.Where(t => t.Length > 0));
     }
+
+    /// <summary>The usage of a page once it is read; for a page that failed, the cause (the column is shared); empty before that.</summary>
+    private static string PageUsageText(PageRecord page) => page.Step3 switch
+    {
+        PageStep3Status.Done => UsageText(page.Usage),
+        PageStep3Status.Failed => string.IsNullOrWhiteSpace(page.Error) ? UnavailableText : string.Join(' ', page.Error.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)),
+        _ => string.Empty,
+    };
 
     private static PageRow ToRow(PageRecord page, bool usesVlm)
     {
@@ -230,7 +245,7 @@ public static class FileStatusProjector
             PageLabel.Text(page.SourceLabel, CultureInfo.CurrentUICulture),
             page.IsDeleted,
             usesVlm ? vlmState : string.Empty,
-            usesVlm && !page.IsDeleted && page.Step3 == PageStep3Status.Done ? UsageText(page.Usage) : string.Empty);
+            usesVlm && !page.IsDeleted ? PageUsageText(page) : string.Empty);
     }
 }
 

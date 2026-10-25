@@ -61,10 +61,15 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <ListBox Grid.Column="0" ItemsSource="{Binding InputPaths}" Height="84" />
+          <ListBox Grid.Column="0" ItemsSource="{Binding InputPaths}" MinHeight="84" SelectionMode="Extended" SelectionChanged="OnInputSelectionChanged">
+            <ListBox.InputBindings>
+              <KeyBinding Key="Delete" Command="{Binding RemoveSelectedInputsCommand}" />
+            </ListBox.InputBindings>
+          </ListBox>
           <StackPanel Grid.Column="1" Margin="8,0,0,0" Width="150">
             <Button Content="{DynamicResource Main_AddFiles}" Command="{Binding AddFilesCommand}" Margin="0,0,0,4" Padding="4" />
             <Button Content="{DynamicResource Main_AddFolder}" Command="{Binding AddFolderCommand}" Margin="0,0,0,4" Padding="4" />
+            <Button Content="{DynamicResource Main_RemoveSelected}" Command="{Binding RemoveSelectedInputsCommand}" Margin="0,0,0,4" Padding="4" />
             <Button Content="{DynamicResource Main_ClearInputs}" Command="{Binding ClearInputsCommand}" Padding="4" />
           </StackPanel>
         </Grid>
@@ -242,6 +247,11 @@
               <DataGridTextColumn.Header>
                 <TextBlock Text="{DynamicResource Main_Col_Usage}" />
               </DataGridTextColumn.Header>
+              <DataGridTextColumn.CellStyle>
+                <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                  <Setter Property="ToolTip" Value="{Binding UsageText}" />
+                </Style>
+              </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
           </DataGrid.Columns>
         </DataGrid>

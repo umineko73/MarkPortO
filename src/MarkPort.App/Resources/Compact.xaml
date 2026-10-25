@@ -45,12 +45,20 @@
   <!-- The theme reads its font-size keys when it loads, so the size is also set where it is inherited from. -->
   <Style TargetType="Window" BasedOn="{StaticResource {x:Type Window}}">
     <Setter Property="FontSize" Value="12" />
+    <!-- In the default (Ideal) mode, small Japanese text loses part of some glyphs (the closing bracket) under this theme. -->
+    <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
   </Style>
   <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
     <Setter Property="FontSize" Value="12" />
   </Style>
   <Style TargetType="Menu" BasedOn="{StaticResource {x:Type Menu}}">
     <Setter Property="FontSize" Value="12" />
+  </Style>
+  <!-- The theme's list box has no frame and a faint background; the same background and frame as the text boxes keep it visible. -->
+  <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+    <Setter Property="Background" Value="{DynamicResource TextControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
   </Style>
   <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="HorizontalAlignment" Value="Stretch" />

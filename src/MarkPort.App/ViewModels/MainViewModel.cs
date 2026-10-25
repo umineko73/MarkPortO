@@ -67,6 +67,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         AddFilesCommand = new RelayCommand(AddFilesAsync, () => !IsRunning);
         AddFolderCommand = new RelayCommand(AddFolderAsync, () => !IsRunning);
         ClearInputsCommand = new RelayCommand(ClearInputsAsync, () => !IsRunning);
+        RemoveSelectedInputsCommand = new RelayCommand(RemoveSelectedInputsAsync, () => !IsRunning && SelectedInputPaths.Count > 0);
         BrowseOutputCommand = new RelayCommand(BrowseOutputAsync, () => !IsRunning);
         ConnectionSettingsCommand = new RelayCommand(OpenConnectionSettingsAsync, () => !IsRunning);
         PromptsCommand = new RelayCommand(() => { ShowPrompts?.Invoke(); return Task.CompletedTask; }, () => !IsRunning);
@@ -108,7 +109,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             if (Set(ref _running, value))
             {
-                foreach (var command in new[] { StartCommand, InterruptCommand, ResumeCommand, RetryFailedCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, PromptsCommand })
+                foreach (var command in new[] { StartCommand, InterruptCommand, ResumeCommand, RetryFailedCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, PromptsCommand })
                 {
                     command.RaiseCanExecuteChanged();
                 }
@@ -307,6 +308,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public RelayCommand ClearInputsCommand { get; }
 
+    public RelayCommand RemoveSelectedInputsCommand { get; }
+
+    /// <summary>The rows selected in the list of inputs; the window sets it when the selection changes.</summary>
+    public IReadOnlyList<string> SelectedInputPaths { get; private set; } = [];
+
+    public void SetSelectedInputs(IEnumerable<string> paths)
+    {
+        SelectedInputPaths = [.. paths];
+        RemoveSelectedInputsCommand.RaiseCanExecuteChanged();
+    }
+
     public RelayCommand BrowseOutputCommand { get; }
 
     public RelayCommand ConnectionSettingsCommand { get; }
@@ -365,6 +377,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private Task ClearInputsAsync()
     {
         InputPaths.Clear();
+        SaveInputs();
+        return Task.CompletedTask;
+    }
+
+    private Task RemoveSelectedInputsAsync()
+    {
+        foreach (var path in SelectedInputPaths)
+        {
+            InputPaths.Remove(path);
+        }
+
+        SelectedInputPaths = [];
+        RemoveSelectedInputsCommand.RaiseCanExecuteChanged();
         SaveInputs();
         return Task.CompletedTask;
     }
