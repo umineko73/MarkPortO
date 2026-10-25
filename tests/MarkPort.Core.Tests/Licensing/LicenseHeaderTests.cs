@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2026 umineko73
-// Author: umineko73
 //
 // This file is part of MarkPort.
 //
@@ -50,7 +49,7 @@ public class LicenseHeaderTests
             count++;
             var start = File.ReadAllText(file);
             start = start[..Math.Min(start.Length, 1200)];
-            if (!start.Contains("SPDX-License-Identifier: GPL-3.0-only") || !start.Contains("Author: umineko73"))
+            if (!start.Contains("SPDX-License-Identifier: GPL-3.0-only"))
             {
                 missing.Add(relative);
             }

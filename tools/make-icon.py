@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 umineko73
-# Author: umineko73
 #
 # This file is part of MarkPort.
 #
