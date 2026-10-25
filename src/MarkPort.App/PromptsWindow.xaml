@@ -1,0 +1,48 @@
+<!--
+  SPDX-License-Identifier: GPL-3.0-only
+  Copyright (C) 2026 umineko73
+  Author: umineko73
+
+  This file is part of MarkPort.
+
+  MarkPort is free software: you can redistribute it and/or modify it under the terms of
+  the GNU General Public License, version 3 only, as published by the Free Software Foundation.
+
+  MarkPort is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+  See the GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License along with MarkPort.
+  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
+-->
+
+<Window x:Class="MarkPort.App.PromptsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="Assets/MarkPort.ico" Title="{DynamicResource Prompts_Title}" Height="520" Width="760" MinHeight="420" MinWidth="560"
+        WindowStartupLocation="CenterOwner">
+  <Grid Margin="12">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,8"
+               Text="{DynamicResource Prompts_Note}" />
+    <TabControl Grid.Row="1" x:Name="Tabs">
+      <TabItem Header="Word (docx)">
+        <TextBox x:Name="DocxBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="6" />
+      </TabItem>
+      <TabItem Header="Excel (xlsx)">
+        <TextBox x:Name="XlsxBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="6" />
+      </TabItem>
+      <TabItem Header="PowerPoint (pptx)">
+        <TextBox x:Name="PptxBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="6" />
+      </TabItem>
+    </TabControl>
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+      <Button Content="{DynamicResource Prompts_Reset}" Click="OnResetCurrent" Padding="10,3" Margin="0,0,8,0" />
+      <Button Content="{DynamicResource Prompts_Close}" IsDefault="True" IsCancel="True" Padding="16,3" Click="OnClose" />
+    </StackPanel>
+  </Grid>
+</Window>

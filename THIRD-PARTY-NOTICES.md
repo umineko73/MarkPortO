@@ -1,0 +1,35 @@
+# Third-party notices
+
+MarkPort itself is licensed under the GNU General Public License, version 3 only (GPL-3.0-only); see [`LICENSE`](LICENSE). The packages below are under MIT or Apache-2.0, which can be combined with GPL-3.0.
+
+MarkPort uses the packages below. The license of each is the one declared in its NuGet package (checked against the package's `.nuspec`). The versions are the ones pinned in [`Directory.Packages.props`](Directory.Packages.props).
+
+## Packages that ship with MarkPort
+
+| Package | Version | License | Used for |
+|---|---|---|---|
+| DocumentFormat.OpenXml | 3.5.1 | MIT | Reading docx / xlsx / pptx, and making the temporary copies used for printing |
+| PdfPig | 0.1.16 | Apache-2.0 | Reading the text of each PDF page (page assignment for docx) |
+| System.Drawing.Common | 10.0.13 | MIT | Making and saving images |
+| Microsoft.Extensions.Logging.Abstractions | 10.0.13 | MIT | Logging interfaces |
+| System.Security.Cryptography.ProtectedData | 10.0.13 | MIT | Protecting access keys typed on the screen (DPAPI, current user) |
+| System.CommandLine | 2.0.13 | MIT | The command line |
+
+Copyright of the Microsoft packages: © Microsoft Corporation. All rights reserved.
+
+## Used only to build and test (not shipped)
+
+| Package | License |
+|---|---|
+| Microsoft.NET.Test.Sdk | MIT |
+| xunit, xunit.runner.visualstudio | Apache-2.0 |
+
+## Not bundled
+
+MarkPort does not include or redistribute the following. It starts the copy installed on the computer.
+
+- Microsoft Office (Word, Excel, PowerPoint): used through COM to make PDFs. Needs its own license.
+- LibreOffice: used in headless mode to make PDFs ([Mozilla Public License 2.0](https://www.libreoffice.org/about-us/licenses/)).
+- Windows (`Windows.Data.Pdf`): turns PDF pages into images.
+
+The full license text of each package is in the package itself (the `.nupkg`, or `~/.nuget/packages/<name>/<version>/`).

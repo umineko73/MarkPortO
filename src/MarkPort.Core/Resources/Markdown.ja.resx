@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <!-- Japanese texts of the output Markdown. The key is the English text used in the code (Loc.M). -->
+  <data name="Page {0}" xml:space="preserve">
+    <value>{0}ページ目</value>
+  </data>
+  <data name="Slide {0}" xml:space="preserve">
+    <value>{0}枚目のスライド</value>
+  </data>
+  <data name="Sheet &quot;{0}&quot;" xml:space="preserve">
+    <value>シート「{0}」</value>
+  </data>
+  <data name="**About this Markdown**" xml:space="preserve">
+    <value>**このMarkdownの構造**</value>
+  </data>
+  <data name="- Source file: `{0}`" xml:space="preserve">
+    <value>- 元のファイル: `{0}`</value>
+  </data>
+  <data name="- Page separator: `&lt;!-- page: N --&gt;` (N is the page number). Everything from this line to the next separator is the content of that page." xml:space="preserve">
+    <value>- ページの区切り: `&lt;!-- page: N --&gt;`（N は通し番号）。この行から次の区切りまでが、そのページの内容です。</value>
+  </data>
+  <data name="- Page images (Step2): `![Page N](images/page-NNN.png)`. An image of the page as it is printed." xml:space="preserve">
+    <value>- ページ画像（Step2）: `![ページ N](images/page-NNN.png)`。そのページを印刷した見た目の画像です。</value>
+  </data>
+  <data name="- Page images (Step2): not included in this Markdown. The image files are saved in `images/`." xml:space="preserve">
+    <value>- ページ画像（Step2）: このMarkdownには含まれていません。画像ファイルは `images/` に保存されています。</value>
+  </data>
+  <data name="- VLM results (Step3): between `&lt;!-- vlm:begin page=N --&gt;` and `&lt;!-- vlm:end --&gt;`. The text read from the image. The usage is written in `&lt;!-- usage page=N prompt=… completion=… total=… --&gt;`." xml:space="preserve">
+    <value>- VLM読み取り結果（Step3）: `&lt;!-- vlm:begin page=N --&gt;` と `&lt;!-- vlm:end --&gt;` の間。画像から読み取ったテキストです。使用量は `&lt;!-- usage page=N prompt=… completion=… total=… --&gt;` に書きます。</value>
+  </data>
+  <data name="- VLM results (Step3): not included in this Markdown." xml:space="preserve">
+    <value>- VLM読み取り結果（Step3）: このMarkdownには含まれていません。</value>
+  </data>
+  <data name="- Deleted pages: a quote that starts with `&gt; **{0}**`, after the marker `&lt;!-- deleted page=N --&gt;`. A page that was marked with an X in the original document. The text and the image reference of the page are not included." xml:space="preserve">
+    <value>- 削除ページ: `&lt;!-- deleted page=N --&gt;` の目印のあとの、`&gt; **{0}**` で始まる引用。元の文書で×印が付けられたページです。そのページのテキストと画像参照は含まれません。</value>
+  </data>
+  <data name="- Sheets (xlsx): `&lt;!-- sheet: name part=2/3 columns=I:P --&gt;`. Written on every page; it shows which sheet and which columns. When a sheet with many columns is split into several images, the part is 2/3 and so on." xml:space="preserve">
+    <value>- シート（xlsx）: `&lt;!-- sheet: 名前 part=2/3 columns=I:P --&gt;`。すべてのページに書き、どのシートのどの列の範囲かを示します。列が多いシートを複数の画像に分けた場合は、part が 2/3 のように分かれます。</value>
+  </data>
+  <data name="[Deleted page]" xml:space="preserve">
+    <value>[削除ページ]</value>
+  </data>
+  <data name="{0} of the original document was excluded because an X was drawn over the whole page." xml:space="preserve">
+    <value>元の文書の{0}は、全面に×印が付けられていたため除外しました。</value>
+  </data>
+  <data name="{0} of the original document was excluded because an X was drawn over the whole page. The image is saved as `{1}`." xml:space="preserve">
+    <value>元の文書の{0}は、全面に×印が付けられていたため除外しました。画像は `{1}` に保存しています。</value>
+  </data>
+  <data name="alt|Page {0}" xml:space="preserve">
+    <value>ページ {0}</value>
+  </data>
+  <data name="&gt; **VLM usage**: **unavailable** (pages: {0}, pages with usage: 0)" xml:space="preserve">
+    <value>&gt; **VLM使用量**: **取得不可**（ページ数: {0}、取得できたページ: 0）</value>
+  </data>
+  <data name="&gt; **VLM usage**: total prompt={0} completion={1} total={2} (pages: {3}, pages with usage: {4})" xml:space="preserve">
+    <value>&gt; **VLM使用量**: 合計 prompt={0} completion={1} total={2}（ページ数: {3}、取得できたページ: {4}）</value>
+  </data>
+  <data name="unavailable" xml:space="preserve">
+    <value>取得不可</value>
+  </data>
+</root>

@@ -1,0 +1,14 @@
+# Build output
+bin/
+obj/
+.vs/
+*.user
+TestResults/
+
+# Generated test fixtures and work files
+tests/fixtures/
+*.corrupt-*
+
+# OS
+Thumbs.db
+.DS_Store

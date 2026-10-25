@@ -1,0 +1,117 @@
+<!--
+  SPDX-License-Identifier: GPL-3.0-only
+  Copyright (C) 2026 umineko73
+  Author: umineko73
+
+  This file is part of MarkPort.
+
+  MarkPort is free software: you can redistribute it and/or modify it under the terms of
+  the GNU General Public License, version 3 only, as published by the Free Software Foundation.
+
+  MarkPort is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+  See the GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License along with MarkPort.
+  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
+-->
+
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+  <!-- English. The keys are the same as in Strings.ja.xaml (a test checks it). -->
+  <sys:String x:Key="Menu_Settings">_Settings</sys:String>
+  <sys:String x:Key="Menu_Language">_Language</sys:String>
+  <sys:String x:Key="Menu_Lang_System">Follow the OS</sys:String>
+  <sys:String x:Key="Menu_Lang_Ja">日本語</sys:String>
+  <sys:String x:Key="Menu_Lang_En">English</sys:String>
+  <sys:String x:Key="Menu_VlmSettings">VLM connection settings…</sys:String>
+  <sys:String x:Key="Menu_Prompts">Prompt settings…</sys:String>
+  <sys:String x:Key="Menu_Help">_Help</sys:String>
+  <sys:String x:Key="Menu_About">About MarkPort…</sys:String>
+  <sys:String x:Key="Menu_Licenses">Licenses…</sys:String>
+  <sys:String x:Key="Main_Inputs">Files and folders to convert</sys:String>
+  <sys:String x:Key="Main_AddFiles">Add files…</sys:String>
+  <sys:String x:Key="Main_AddFolder">Add folder…</sys:String>
+  <sys:String x:Key="Main_ClearInputs">Clear the list</sys:String>
+  <sys:String x:Key="Main_Output">Output folder</sys:String>
+  <sys:String x:Key="Main_Browse">Browse…</sys:String>
+  <sys:String x:Key="Main_Conditions">Conditions</sys:String>
+  <sys:String x:Key="Main_Cond_Types">File types</sys:String>
+  <sys:String x:Key="Main_Cond_TypesNote">(used when a folder is given)</sys:String>
+  <sys:String x:Key="Main_Cond_Range">Scope</sys:String>
+  <sys:String x:Key="Main_Cond_Recurse">Include sub-folders</sys:String>
+  <sys:String x:Key="Main_Cond_Hidden">Include hidden sheets and slides</sys:String>
+  <sys:String x:Key="Main_Cond_Convert">Conversion</sys:String>
+  <sys:String x:Key="Main_Cond_Engine">Engine:</sys:String>
+  <sys:String x:Key="Main_Cond_Dpi">Image DPI:</sys:String>
+  <sys:String x:Key="Main_Cond_Step1">Convert the text to Markdown and save an image of every page</sys:String>
+  <sys:String x:Key="Main_Cond_Step1Always">(always)</sys:String>
+  <sys:String x:Key="Main_Cond_Step2">Put the images into the Markdown</sys:String>
+  <sys:String x:Key="Main_Cond_Step3">Read the text from the images with the VLM</sys:String>
+  <sys:String x:Key="Main_Cond_Connection">Connection:</sys:String>
+  <sys:String x:Key="Main_Start">Start</sys:String>
+  <sys:String x:Key="Main_Interrupt">Interrupt</sys:String>
+  <sys:String x:Key="Main_Resume">Resume</sys:String>
+  <sys:String x:Key="Main_RetryFailed">Retry failed only</sys:String>
+  <sys:String x:Key="Main_Col_File">File</sys:String>
+  <sys:String x:Key="Main_Col_Type">Type</sys:String>
+  <sys:String x:Key="Main_Col_State">State</sys:String>
+  <sys:String x:Key="Main_Col_Pages">Pages</sys:String>
+  <sys:String x:Key="Main_Col_Deleted">Deleted</sys:String>
+  <sys:String x:Key="Main_Col_Usage">VLM usage</sys:String>
+  <sys:String x:Key="Main_Col_Message">Message</sys:String>
+  <sys:String x:Key="Main_PagesGroup">Pages of the selected file</sys:String>
+  <sys:String x:Key="Main_Col_Page">Page</sys:String>
+  <sys:String x:Key="Main_Col_Position">Position</sys:String>
+  <sys:String x:Key="Main_Col_DeletedPage">Deleted page</sys:String>
+  <sys:String x:Key="Main_Col_VlmState">VLM reading</sys:String>
+  <sys:String x:Key="Status_Ready">Add files or a folder, choose the output folder, and press Start.</sys:String>
+  <sys:String x:Key="Status_NoEngine">No conversion engine (Microsoft Office or LibreOffice) was found. Install one of them.</sys:String>
+  <sys:String x:Key="Status_EngineChanged">{0} was not found, so the engine was changed to {1}.</sys:String>
+  <sys:String x:Key="Status_DpiSet">The image DPI is now {0}.</sys:String>
+  <sys:String x:Key="Status_DpiInvalid">Enter a whole number from {0} to {1} for the DPI (now: {2}).</sys:String>
+  <sys:String x:Key="Conn_None">(none)</sys:String>
+  <sys:String x:Key="Status_NoDocuments">No documents to convert were found. {0}</sys:String>
+  <sys:String x:Key="Status_Interrupting">Interrupting… the file being processed stops at a safe point.</sys:String>
+  <sys:String x:Key="Status_CheckSettings">Check the settings: {0}</sys:String>
+  <sys:String x:Key="Status_VlmNotReady">The VLM connection could not be prepared.</sys:String>
+  <sys:String x:Key="Status_Running">Converting…</sys:String>
+  <sys:String x:Key="Status_NothingToResume">There is no conversion to resume. {0}</sys:String>
+  <sys:String x:Key="Status_CouldNotStart">The conversion could not be started: {0}</sys:String>
+  <sys:String x:Key="Status_Head_Interrupted">Interrupted</sys:String>
+  <sys:String x:Key="Status_Head_DoneWithFailures">Finished (with failures)</sys:String>
+  <sys:String x:Key="Status_Head_Done">Finished</sys:String>
+  <sys:String x:Key="Status_Summary">{0}: {1} done, {2} failed, {3} not finished. Output: {4}</sys:String>
+  <sys:String x:Key="Dialog_SelectFolder">Select a folder</sys:String>
+  <sys:String x:Key="Dialog_SelectFiles">Select files to convert</sys:String>
+  <sys:String x:Key="Dialog_Filter">Office documents (*.docx;*.xlsx;*.pptx)|*.docx;*.xlsx;*.pptx|All files (*.*)|*.*</sys:String>
+  <sys:String x:Key="Conn_Title">VLM connection settings</sys:String>
+  <sys:String x:Key="Conn_List">Connections</sys:String>
+  <sys:String x:Key="Conn_InUse">In use:</sys:String>
+  <sys:String x:Key="Conn_Add">Add</sys:String>
+  <sys:String x:Key="Conn_Remove">Remove</sys:String>
+  <sys:String x:Key="Conn_Selected">Selected connection</sys:String>
+  <sys:String x:Key="Conn_Name">Name</sys:String>
+  <sys:String x:Key="Conn_Model">Model</sys:String>
+  <sys:String x:Key="Conn_Timeout">Timeout (seconds)</sys:String>
+  <sys:String x:Key="Conn_ApiKeyEnv">Environment variable for the access key</sys:String>
+  <sys:String x:Key="Conn_ApiKeyEnvTip">Enter only the name of the variable. The value of the key is not saved. It takes priority over the key below.</sys:String>
+  <sys:String x:Key="Conn_ApiKey">Access key</sys:String>
+  <sys:String x:Key="Conn_State">Current state:</sys:String>
+  <sys:String x:Key="Conn_KeyNote">  A key you enter is saved so that only this user on this PC can read it. Empty the box to erase it.</sys:String>
+  <sys:String x:Key="Conn_Use">Use this connection</sys:String>
+  <sys:String x:Key="Conn_CheckConnection">Check connection</sys:String>
+  <sys:String x:Key="Conn_CheckImage">Check image analysis</sys:String>
+  <sys:String x:Key="Conn_DefaultName">Connection {0}</sys:String>
+  <sys:String x:Key="Conn_Failed">Failed: </sys:String>
+  <sys:String x:Key="Conn_Ok">OK: </sys:String>
+  <sys:String x:Key="Conn_LastRun"> (last run: {0})</sys:String>
+  <sys:String x:Key="Prompts_Title">VLM prompt settings</sys:String>
+  <sys:String x:Key="Prompts_Note">The instruction sent to the VLM in Step3 to read the text from an image. It is set for each type of document. It is saved when you leave the box. If you empty it, the default text comes back.</sys:String>
+  <sys:String x:Key="Prompts_Reset">Reset the shown type to the default</sys:String>
+  <sys:String x:Key="Prompts_Close">Close</sys:String>
+  <sys:String x:Key="About_Title">About MarkPort</sys:String>
+  <sys:String x:Key="About_Body">MarkPort {0}&#10;&#10;Converts Word, Excel and PowerPoint documents to Markdown and an image of each page.&#10;&#10;Author: umineko73&#10;License: GPL-3.0-only</sys:String>
+  <sys:String x:Key="Licenses_NotFound">The license file was not found: {0}</sys:String>
+</ResourceDictionary>

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MarkPort.App/MarkPort.App.csproj" />
+    <Project Path="src/MarkPort.Cli/MarkPort.Cli.csproj" />
+    <Project Path="src/MarkPort.Core/MarkPort.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MarkPort.Cli.Tests/MarkPort.Cli.Tests.csproj" />
+    <Project Path="tests/MarkPort.Core.Tests/MarkPort.Core.Tests.csproj" />
+  </Folder>
+</Solution>
