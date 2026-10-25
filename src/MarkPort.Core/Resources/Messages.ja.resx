@@ -310,6 +310,9 @@
   <data name="Running" xml:space="preserve">
     <value>実行中</value>
   </data>
+  <data name="Running {0}/{1}" xml:space="preserve">
+    <value>実行中 {0}/{1}</value>
+  </data>
   <data name="unavailable" xml:space="preserve">
     <value>取得不可</value>
   </data>

@@ -16,6 +16,7 @@
 using System.Globalization;
 using MarkPort.Core.Convert;
 using MarkPort.Core.Jobs.Models;
+using MarkPort.Core.Pipeline;
 
 namespace MarkPort.Cli;
 
@@ -28,6 +29,7 @@ public sealed class ConsoleProgress(TextWriter output, bool quiet)
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, (StepStatus One, StepStatus Two, StepStatus Three)> _last = [];
+    private readonly Dictionary<string, int> _step3Read = [];
 
     public void Report(DocumentRecord document)
     {
@@ -41,6 +43,7 @@ public sealed class ConsoleProgress(TextWriter output, bool quiet)
             Line(document, 1, now.Step1, known ? before.One : (StepStatus?)null);
             Line(document, 2, now.Step2, known ? before.Two : (StepStatus?)null);
             Line(document, 3, now.Step3, known ? before.Three : (StepStatus?)null);
+            Step3Pages(document);
         }
     }
 
@@ -54,6 +57,55 @@ public sealed class ConsoleProgress(TextWriter output, bool quiet)
                 CultureInfo.InvariantCulture,
                 $"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] {document.DocId} {document.Display()}  skipped ({state})"));
         }
+    }
+
+    /// <summary>While step 3 runs, a line for each page that was finished: <c>step3  page=5/12  tokens=prompt:820 completion:240 total:1060</c> (not with --quiet).</summary>
+    private void Step3Pages(DocumentRecord document)
+    {
+        if (quiet || document.Step3 != StepStatus.Running)
+        {
+            return;
+        }
+
+        var (read, total) = FileStatusProjector.Step3Progress(document);
+        _step3Read.TryGetValue(document.DocId, out var shown);
+        if (read == 0 || read == shown)
+        {
+            return;
+        }
+
+        _step3Read[document.DocId] = read;
+        var last = document.Pages.Last(p => !p.IsDeleted && p.Step3 is PageStep3Status.Done or PageStep3Status.Failed);
+        var detail = last.Step3 == PageStep3Status.Failed ? "  failed" : TokensText(last.Usage);
+        output.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] {document.DocId} {document.Display()}  step3  page={read}/{total}{detail}"));
+    }
+
+    private static string TokensText(UsageInfo? usage)
+    {
+        if (usage is not { IsAvailable: true })
+        {
+            return string.Empty;
+        }
+
+        var parts = new List<string>();
+        if (usage.PromptTokens is { } prompt)
+        {
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"prompt:{prompt}"));
+        }
+
+        if (usage.CompletionTokens is { } completion)
+        {
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"completion:{completion}"));
+        }
+
+        if (usage.TotalTokens is { } total)
+        {
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"total:{total}"));
+        }
+
+        return parts.Count == 0 ? string.Empty : "  tokens=" + string.Join(' ', parts);
     }
 
     private void Line(DocumentRecord document, int step, StepStatus now, StepStatus? before)

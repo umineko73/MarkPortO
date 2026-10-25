@@ -64,6 +64,34 @@ public class FileStatusProjectorTests : JapaneseUiTests
     }
 
     [Fact]
+    public void WhileStep3Runs_TheListShowsHowManyPagesAreFinished()
+    {
+        var document = Doc(StepStatus.Done, StepStatus.Done, StepStatus.Running);
+        document.Pages =
+        [
+            new PageRecord { Index = 1, Step3 = PageStep3Status.Done },
+            new PageRecord { Index = 2, Step3 = PageStep3Status.Failed },
+            new PageRecord { Index = 3, IsDeleted = true, Step3 = PageStep3Status.Skipped },
+            new PageRecord { Index = 4, Step3 = PageStep3Status.Pending },
+        ];
+
+        var row = FileStatusProjector.Project(document);
+
+        Assert.Equal(2, row.Step3Read);
+        Assert.Equal(3, row.Step3Total);
+        Assert.Equal("実行中 2/3", FileStatusProjector.Step3Text(row));
+    }
+
+    [Fact]
+    public void WhenStep3IsNotRunning_TheListShowsOnlyTheStateOfTheStep()
+    {
+        var document = Doc(StepStatus.Done, StepStatus.Done, StepStatus.Done);
+        document.Pages = [new PageRecord { Index = 1, Step3 = PageStep3Status.Done }];
+
+        Assert.Equal("完了", FileStatusProjector.Step3Text(FileStatusProjector.Project(document)));
+    }
+
+    [Fact]
     public void AFailedFile_ShowsTheReason()
     {
         var document = Doc(StepStatus.Failed);

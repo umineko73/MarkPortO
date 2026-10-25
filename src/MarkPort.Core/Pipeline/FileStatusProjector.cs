@@ -69,6 +69,8 @@ public sealed record PageRow(int Index, string Label, bool IsDeleted, string Vlm
 /// <param name="Pages">The pages, for the detail view.</param>
 /// <param name="FullPath">The full path of the source, for the tooltip.</param>
 /// <param name="Source">The document the row was made from, to make the texts again when the language changes.</param>
+/// <param name="Step3Read">How many pages step 3 has finished (read or failed); the deleted pages are not counted.</param>
+/// <param name="Step3Total">How many pages step 3 reads; the deleted pages are not counted.</param>
 public sealed record FileRow(
     string DocId,
     string FileName,
@@ -81,7 +83,9 @@ public sealed record FileRow(
     string UsageText,
     IReadOnlyList<PageRow> Pages,
     string FullPath = "",
-    DocumentRecord? Source = null);
+    DocumentRecord? Source = null,
+    int Step3Read = 0,
+    int Step3Total = 0);
 
 /// <summary>Turns the saved state of a document into the row the file list shows (FR-013, FR-022).</summary>
 public static class FileStatusProjector
@@ -105,7 +109,9 @@ public static class FileStatusProjector
             usesVlm ? FileUsageText(document) : string.Empty,
             [.. document.Pages.Select(p => ToRow(p, usesVlm))],
             document.SourcePath,
-            document);
+            document,
+            Step3Progress(document).Read,
+            Step3Progress(document).Total);
     }
 
     public static FileDisplayState StateOf(DocumentRecord document)
@@ -166,6 +172,17 @@ public static class FileStatusProjector
         StepStatus.Interrupted => Loc.T("Interrupted"),
         _ => throw new ArgumentOutOfRangeException(nameof(status)),
     };
+
+    /// <summary>How many of the pages step 3 reads are finished (read or failed); the deleted pages are not counted.</summary>
+    public static (int Read, int Total) Step3Progress(DocumentRecord document) =>
+        (document.Pages.Count(p => !p.IsDeleted && p.Step3 is PageStep3Status.Done or PageStep3Status.Failed),
+         document.Pages.Count(p => !p.IsDeleted));
+
+    /// <summary>The text of step 3 in the list: while it runs, how many of the pages are finished (<c>実行中 3/12</c>).</summary>
+    public static string Step3Text(FileRow row) =>
+        row.StepStates[2] == StepStatus.Running && row.Step3Total > 0
+            ? Loc.T("Running {0}/{1}", row.Step3Read, row.Step3Total)
+            : StepText(row.StepStates[2]);
 
     private static string MessageOf(DocumentRecord document)
     {

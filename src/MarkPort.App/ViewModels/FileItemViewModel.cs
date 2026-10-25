@@ -43,7 +43,7 @@ public sealed class FileItemViewModel : ObservableObject
 
     public string Step2Text => FileStatusProjector.StepText(_row.StepStates[1]);
 
-    public string Step3Text => FileStatusProjector.StepText(_row.StepStates[2]);
+    public string Step3Text => FileStatusProjector.Step3Text(_row);
 
     public int PageCount => _row.PageCount;
 

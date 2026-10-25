@@ -194,7 +194,7 @@
           </DataGridTextColumn>
           <DataGridTextColumn Header="Step1" Binding="{Binding Step1Text}" Width="80" />
           <DataGridTextColumn Header="Step2" Binding="{Binding Step2Text}" Width="80" />
-          <DataGridTextColumn Header="Step3" Binding="{Binding Step3Text}" Width="80" />
+          <DataGridTextColumn Header="Step3" Binding="{Binding Step3Text}" Width="100" />
           <DataGridTextColumn Binding="{Binding PageCount}" Width="64">
             <DataGridTextColumn.Header>
               <TextBlock Text="{DynamicResource Main_Col_Pages}" />
