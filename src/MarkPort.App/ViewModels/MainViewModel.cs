@@ -39,6 +39,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly Dispatcher _dispatcher;
     private CancellationTokenSource? _cancellation;
     private string _status = string.Empty;
+    private Func<string> _statusSource = () => string.Empty; // makes the text again when the language changes
     private bool _running;
     private string _dpiText;
     private FileItemViewModel? _selected;
@@ -52,15 +53,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         var loaded = store.Load();
         var messages = loaded.Warnings.Concat(loaded.ValidationErrors).ToList();
-        _status = messages.Count > 0 ? string.Join(" / ", messages) : UiText.Get("Status_Ready");
+        _statusSource = () => messages.Count > 0 ? string.Join(" / ", messages) : UiText.Get("Status_Ready");
 
         var settings = store.Current;
         InputPaths = new ObservableCollection<string>(settings.Input.Paths);
         _dpiText = settings.Images.Dpi.ToString(CultureInfo.InvariantCulture);
         if (DetectEngines() is { } engineNote)
         {
-            _status = messages.Count > 0 ? $"{_status} / {engineNote}" : engineNote;
+            var before = _statusSource;
+            _statusSource = () => messages.Count > 0 ? $"{before()} / {engineNote()}" : engineNote();
         }
+
+        _status = _statusSource();
 
         StartCommand = new RelayCommand(StartAsync, CanStart);
         InterruptCommand = new RelayCommand(InterruptAsync, () => IsRunning);
@@ -108,6 +112,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         get => _status;
         private set => Set(ref _status, value);
+    }
+
+    /// <summary>
+    /// Shows a message in the status bar. The message is kept as the way to make it, so that it is made again in the new
+    /// language when the language is changed.
+    /// </summary>
+    private void SetStatus(Func<string> source)
+    {
+        _statusSource = source;
+        Status = source();
     }
 
     public bool IsRunning
@@ -196,7 +210,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Checks which engines are installed and fills the combo box. A saved engine that is gone is replaced.</summary>
-    private string? DetectEngines()
+    private Func<string>? DetectEngines()
     {
         var engine = _store.Current.Engine;
         var found = new List<EngineChoice>();
@@ -223,13 +237,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         if (found.Count == 0)
         {
-            return UiText.Get("Status_NoEngine");
+            return () => UiText.Get("Status_NoEngine");
         }
         else if (found.All(c => c.Kind != engine.Kind))
         {
             var fallback = found[0];
             _store.Update(s => s.Engine.Kind = fallback.Kind);
-            return UiText.Get("Status_EngineChanged", engine.Kind == EngineKind.Office ? "Microsoft Office" : "LibreOffice", fallback.Name);
+            var was = engine.Kind == EngineKind.Office ? "Microsoft Office" : "LibreOffice";
+            return () => UiText.Get("Status_EngineChanged", was, fallback.Name);
         }
 
         return null;
@@ -268,6 +283,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(LanguageIsEnglish));
         Raise(nameof(LanguageIsSystem));
         Raise(nameof(ConnectionInUse));
+        Status = _statusSource();
         if (!IsRunning)
         {
             // The texts of the list were made in the earlier language: make them again.
@@ -293,11 +309,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 && dpi is >= SettingsLimits.MinDpi and <= SettingsLimits.MaxDpi)
             {
                 _store.Update(s => s.Images.Dpi = dpi);
-                Status = UiText.Get("Status_DpiSet", dpi);
+                SetStatus(() => UiText.Get("Status_DpiSet", dpi));
             }
             else
             {
-                Status = UiText.Get("Status_DpiInvalid", SettingsLimits.MinDpi, SettingsLimits.MaxDpi, _store.Current.Images.Dpi);
+                var kept = _store.Current.Images.Dpi;
+                SetStatus(() => UiText.Get("Status_DpiInvalid", SettingsLimits.MinDpi, SettingsLimits.MaxDpi, kept));
             }
         }
     }
@@ -502,7 +519,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private Task InterruptAsync()
     {
-        Status = UiText.Get("Status_Interrupting");
+        SetStatus(() => UiText.Get("Status_Interrupting"));
         _cancellation?.Cancel();
         return Task.CompletedTask;
     }
@@ -514,7 +531,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var errors = snapshot.ValidateForRun();
         if (errors.Count > 0)
         {
-            Status = UiText.Get("Status_CheckSettings", string.Join(" / ", errors));
+            SetStatus(() => UiText.Get("Status_CheckSettings", string.Join(" / ", errors)));
             return;
         }
 
@@ -525,7 +542,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var (setup, setupError) = VlmSetupFactory.Create(snapshot);
             if (setup is null && snapshot.Steps.Step3)
             {
-                Status = setupError ?? UiText.Get("Status_VlmNotReady");
+                SetStatus(() => setupError ?? UiText.Get("Status_VlmNotReady"));
                 return;
             }
 
@@ -546,24 +563,24 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _cancellation = new CancellationTokenSource();
         _scanVersion++; // a search for the earlier run that is still going is out of date
         IsRunning = true;
-        Status = UiText.Get("Status_Running");
+        SetStatus(() => UiText.Get("Status_Running"));
         try
         {
             var result = await Task.Run(() => run(service, snapshot, _cancellation.Token));
             feed.Flush();
-            Status = Summary(result);
+            SetStatus(() => Summary(result));
         }
         catch (JobNotFoundException ex)
         {
-            Status = UiText.Get("Status_NothingToResume", ex.Message);
+            SetStatus(() => UiText.Get("Status_NothingToResume", ex.Message));
         }
         catch (ConvertStartException ex)
         {
-            Status = ex.Message;
+            SetStatus(() => ex.Message);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            Status = UiText.Get("Status_CouldNotStart", ex.Message);
+            SetStatus(() => UiText.Get("Status_CouldNotStart", ex.Message));
         }
         finally
         {
@@ -616,10 +633,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                     Files.Add(new FileItemViewModel(FileStatusProjector.Project(document)));
                 }
 
-                var text = run.CanResume
+                string Text() => run.CanResume
                     ? UiText.Get("Status_Previous_Resume", run.DoneCount, run.FailedCount, run.UnfinishedCount)
                     : UiText.Get("Status_Previous_Retry", run.DoneCount, run.FailedCount, run.UnfinishedCount);
-                Status = appendToStatus && Status != UiText.Get("Status_Ready") ? $"{Status} / {text}" : text;
+                var before = _statusSource;
+                var keepEarlier = appendToStatus && Status != UiText.Get("Status_Ready");
+                SetStatus(() => keepEarlier ? $"{before()} / {Text()}" : Text());
             }
         }
 
