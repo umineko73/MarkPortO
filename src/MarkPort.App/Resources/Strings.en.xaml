@@ -24,6 +24,10 @@
   <sys:String x:Key="Menu_Lang_System">Follow the OS</sys:String>
   <sys:String x:Key="Menu_Lang_Ja">日本語</sys:String>
   <sys:String x:Key="Menu_Lang_En">English</sys:String>
+  <sys:String x:Key="Menu_Theme">_Theme</sys:String>
+  <sys:String x:Key="Menu_Theme_System">Follow the OS</sys:String>
+  <sys:String x:Key="Menu_Theme_Light">Light</sys:String>
+  <sys:String x:Key="Menu_Theme_Dark">Dark</sys:String>
   <sys:String x:Key="Menu_VlmSettings">VLM connection settings…</sys:String>
   <sys:String x:Key="Menu_Prompts">Prompt settings…</sys:String>
   <sys:String x:Key="Menu_Help">_Help</sys:String>

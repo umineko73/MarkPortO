@@ -4,6 +4,7 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>MarkPort.App</RootNamespace>
     <AssemblyName>MarkPort</AssemblyName>
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <ApplicationIcon>Assets\MarkPort.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>

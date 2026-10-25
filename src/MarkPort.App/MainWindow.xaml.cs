@@ -49,6 +49,7 @@ public partial class MainWindow : Window
 
     private void OnLanguageClick(object sender, RoutedEventArgs e) => _viewModel.SetLanguage((string)((System.Windows.Controls.MenuItem)sender).Tag);
 
+    private void OnThemeClick(object sender, RoutedEventArgs e) => _viewModel.SetTheme((string)((System.Windows.Controls.MenuItem)sender).Tag);
 
     private void OnAboutClick(object sender, RoutedEventArgs e)
     {

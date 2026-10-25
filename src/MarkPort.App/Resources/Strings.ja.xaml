@@ -24,6 +24,10 @@
   <sys:String x:Key="Menu_Lang_System">OSに合わせる</sys:String>
   <sys:String x:Key="Menu_Lang_Ja">日本語</sys:String>
   <sys:String x:Key="Menu_Lang_En">English</sys:String>
+  <sys:String x:Key="Menu_Theme">テーマ(_T)</sys:String>
+  <sys:String x:Key="Menu_Theme_System">OSに合わせる</sys:String>
+  <sys:String x:Key="Menu_Theme_Light">ライト</sys:String>
+  <sys:String x:Key="Menu_Theme_Dark">ダーク</sys:String>
   <sys:String x:Key="Menu_VlmSettings">VLM接続の設定…</sys:String>
   <sys:String x:Key="Menu_Prompts">プロンプトの設定…</sys:String>
   <sys:String x:Key="Menu_Help">ヘルプ(_H)</sys:String>

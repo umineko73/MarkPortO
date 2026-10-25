@@ -28,6 +28,11 @@
           <MenuItem Header="{DynamicResource Menu_Lang_Ja}" Tag="ja" Click="OnLanguageClick" IsCheckable="True" IsChecked="{Binding LanguageIsJapanese, Mode=OneWay}" />
           <MenuItem Header="{DynamicResource Menu_Lang_En}" Tag="en" Click="OnLanguageClick" IsCheckable="True" IsChecked="{Binding LanguageIsEnglish, Mode=OneWay}" />
         </MenuItem>
+        <MenuItem Header="{DynamicResource Menu_Theme}">
+          <MenuItem Header="{DynamicResource Menu_Theme_System}" Tag="system" Click="OnThemeClick" IsCheckable="True" IsChecked="{Binding ThemeIsSystem, Mode=OneWay}" />
+          <MenuItem Header="{DynamicResource Menu_Theme_Light}" Tag="light" Click="OnThemeClick" IsCheckable="True" IsChecked="{Binding ThemeIsLight, Mode=OneWay}" />
+          <MenuItem Header="{DynamicResource Menu_Theme_Dark}" Tag="dark" Click="OnThemeClick" IsCheckable="True" IsChecked="{Binding ThemeIsDark, Mode=OneWay}" />
+        </MenuItem>
         <Separator />
         <MenuItem Header="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" />
         <MenuItem Header="{DynamicResource Menu_Prompts}" Command="{Binding PromptsCommand}" />

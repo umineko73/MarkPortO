@@ -232,6 +232,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public bool LanguageIsSystem => !LanguageIsJapanese && !LanguageIsEnglish;
 
+    public bool ThemeIsLight => _store.Current.Ui.Theme == UiSettings.LightTheme;
+
+    public bool ThemeIsDark => _store.Current.Ui.Theme == UiSettings.DarkTheme;
+
+    public bool ThemeIsSystem => !ThemeIsLight && !ThemeIsDark;
+
+    /// <summary>Changes the theme of the screen at once and saves it (<c>system</c>, <c>light</c> or <c>dark</c>).</summary>
+    public void SetTheme(string setting)
+    {
+        _store.Update(s => s.Ui.Theme = setting);
+        ThemeService.Apply(setting);
+        Raise(nameof(ThemeIsLight));
+        Raise(nameof(ThemeIsDark));
+        Raise(nameof(ThemeIsSystem));
+    }
+
     /// <summary>Changes the language of the screen at once and saves it (<c>system</c>, <c>ja</c> or <c>en</c>).</summary>
     public void SetLanguage(string setting)
     {

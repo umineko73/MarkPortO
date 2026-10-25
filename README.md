@@ -102,7 +102,7 @@ The list shows the state of each file: waiting, Step1 to Step3 running, done, do
 }
 ```
 
-The location of the file can be changed with the environment variable `MARKPORT_SETTINGS`; both the app and the command line use it when `--settings` is not given. `ui.language` is `system`, `ja` or `en`. `ui.theme` is reserved: the dark theme is on hold, and the app always uses the light theme.
+The location of the file can be changed with the environment variable `MARKPORT_SETTINGS`; both the app and the command line use it when `--settings` is not given. `ui.language` is `system`, `ja` or `en`. `ui.theme` is `system`, `light` or `dark`.
 
 **About API keys.** Write the *name* of an environment variable (`apiKeyEnv`) in `settings.json`; the value itself is not stored. A key typed in the app is stored so that only the current Windows user can decrypt it (DPAPI). Keys never appear in logs, Markdown or state files.
 
