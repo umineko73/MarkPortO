@@ -13,11 +13,6 @@ tests/fixtures/
 Thumbs.db
 .DS_Store
 
-# Specifications (Spec Kit) are kept locally and are not published
-/specs/
-
-# Files and folders that start with a dot are kept locally and are not published,
-# except the two that the repository itself needs.
-/.*
-!/.gitignore
-!/.editorconfig
+# Tool-managed folders (worktrees, IDE state) are not committed
+/.kilo/
+/.vs/
