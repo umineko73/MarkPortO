@@ -60,6 +60,27 @@
     <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
+  <!-- Card: the same surface as the groups of the Windows 11 Settings app (translucent white, a thin frame, rounded corners), with the heading above it. -->
+  <Style TargetType="GroupBox" BasedOn="{StaticResource {x:Type GroupBox}}">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="GroupBox">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <ContentPresenter Grid.Row="0" ContentSource="Header" RecognizesAccessKey="True" Margin="2,0,2,2"
+                              TextElement.FontWeight="SemiBold" TextElement.Foreground="{DynamicResource GroupBoxHeaderForeground}" />
+            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" SnapsToDevicePixels="True">
+              <ContentPresenter Margin="{TemplateBinding Padding}" />
+            </Border>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
   <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="HorizontalAlignment" Value="Stretch" />
   </Style>
