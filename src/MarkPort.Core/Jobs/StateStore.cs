@@ -108,6 +108,22 @@ public sealed class StateStore
         ];
     }
 
+    /// <summary>
+    /// Gives up interrupted jobs, so they are not offered for a resume any more (FR-013g). Only jobs that can be resumed
+    /// now are changed; the output files and the saved state stay.
+    /// </summary>
+    public void Abandon(IEnumerable<Guid> jobIds)
+    {
+        foreach (var id in jobIds)
+        {
+            if (LoadJob(id) is { } job && IsResumable(job, includeFinishedWithErrors: false))
+            {
+                job.Status = JobStatus.Abandoned;
+                SaveJob(job);
+            }
+        }
+    }
+
     public bool IsResumable(JobState job, bool includeFinishedWithErrors = false) => job.Status switch
     {
         JobStatus.Interrupted => !IsLocked(job.JobId),

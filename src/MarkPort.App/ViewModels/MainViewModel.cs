@@ -42,6 +42,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool _running;
     private string _dpiText;
     private FileItemViewModel? _selected;
+    private PreviousRun? _previous;
+    private int _scanVersion;
 
     public MainViewModel(SettingsStore store, Dispatcher dispatcher)
     {
@@ -60,10 +62,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _status = messages.Count > 0 ? $"{_status} / {engineNote}" : engineNote;
         }
 
-        StartCommand = new RelayCommand(StartAsync, () => !IsRunning);
+        StartCommand = new RelayCommand(StartAsync, CanStart);
         InterruptCommand = new RelayCommand(InterruptAsync, () => IsRunning);
-        ResumeCommand = new RelayCommand(() => ResumeAsync(ResumeMode.Unfinished), () => !IsRunning);
-        RetryFailedCommand = new RelayCommand(() => ResumeAsync(ResumeMode.RetryFailed), () => !IsRunning);
+        ResumeCommand = new RelayCommand(() => ResumeAsync(ResumeMode.Unfinished), () => !IsRunning && _previous is { CanResume: true });
+        RetryFailedCommand = new RelayCommand(() => ResumeAsync(ResumeMode.RetryFailed), () => !IsRunning && _previous is { CanRetryFailed: true });
         AddFilesCommand = new RelayCommand(AddFilesAsync, () => !IsRunning);
         AddFolderCommand = new RelayCommand(AddFolderAsync, () => !IsRunning);
         ClearInputsCommand = new RelayCommand(ClearInputsAsync, () => !IsRunning);
@@ -71,6 +73,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         BrowseOutputCommand = new RelayCommand(BrowseOutputAsync, () => !IsRunning);
         ConnectionSettingsCommand = new RelayCommand(OpenConnectionSettingsAsync, () => !IsRunning);
         PromptsCommand = new RelayCommand(() => { ShowPrompts?.Invoke(); return Task.CompletedTask; }, () => !IsRunning);
+
+        InputPaths.CollectionChanged += (_, _) => UpdateRunCommands();
+        _ = RefreshPreviousAsync(showFiles: true, appendToStatus: true); // the earlier run in the output folder (FR-013e)
     }
 
     /// <summary>Opens the window for VLM connections (set by the window).</summary>
@@ -83,6 +88,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public Func<string?>? PickFolder { get; set; }
 
     public Func<IReadOnlyList<string>>? PickFiles { get; set; }
+
+    /// <summary>Asks a yes/no question with the given text; true for yes (set by the window).</summary>
+    public Func<string, bool>? Confirm { get; set; }
 
     // ---- state ----
 
@@ -128,6 +136,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 _store.Update(s => s.Output.Folder = value);
                 Raise();
+                UpdateRunCommands();
+                _ = RefreshPreviousAsync(showFiles: true);
             }
         }
     }
@@ -430,11 +440,29 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(TypeDocx));
         Raise(nameof(TypeXlsx));
         Raise(nameof(TypePptx));
+        UpdateRunCommands();
     }
 
     // ---- running ----
 
-    private Task StartAsync() => RunAsync(async (service, snapshot, token) =>
+    private Task StartAsync()
+    {
+        // An interrupted run is still waiting in the output folder: ask before a new one is started (FR-013g).
+        if (_previous is { CanResume: true } previous
+            && Confirm is { } confirm
+            && !confirm(UiText.Get("Confirm_StartWithInterrupted", previous.DoneCount, previous.FailedCount, previous.UnfinishedCount)))
+        {
+            return Task.CompletedTask;
+        }
+
+        // The interrupted runs that this one replaces are given up once it has really started (FR-013g).
+        var replaced = _previous is { CanResume: true }
+            ? new StateStore(_store.Current.Output.Folder).FindResumableJobs(null, includeFinishedWithErrors: false).Select(j => j.JobId).ToList()
+            : [];
+        return StartRunAsync(replaced);
+    }
+
+    private Task StartRunAsync(IReadOnlyList<Guid> replaced) => RunAsync(async (service, snapshot, token) =>
     {
         var found = InputEnumerator.Enumerate(snapshot.Input.Paths, snapshot.Input.Types, snapshot.Input.Recurse);
         if (found.Inputs.Count == 0)
@@ -453,19 +481,24 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Options = ConvertRequest.OptionsFrom(snapshot),
             },
             token);
-    });
+    }, outputFolder => new StateStore(outputFolder).Abandon(replaced));
 
-    private Task ResumeAsync(ResumeMode mode) => RunAsync((service, snapshot, token) =>
+    // The earlier run shown on the screen is the one to resume, whatever the input list holds (FR-013f).
+    private Task ResumeAsync(ResumeMode mode)
+    {
+        var jobId = _previous?.Job.JobId;
+        return RunAsync((service, snapshot, token) =>
         service.ResumeAsync(
             new ResumeRequest
             {
                 OutputFolder = snapshot.Output.Folder,
-                GivenInputs = snapshot.Input.Paths,
+                JobId = jobId,
                 Mode = mode,
                 Step2 = snapshot.Steps.Step2,
                 Step3 = snapshot.Steps.Step3,
             },
             token));
+    }
 
     private Task InterruptAsync()
     {
@@ -474,7 +507,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return Task.CompletedTask;
     }
 
-    private async Task RunAsync(Func<ConvertService, AppSettings, CancellationToken, Task<ConvertResult>> run)
+    private async Task RunAsync(Func<ConvertService, AppSettings, CancellationToken, Task<ConvertResult>> run, Action<string>? afterPlanned = null)
     {
         // The run uses a copy, so a change on the screen during the run does not change a run in progress.
         var snapshot = JsonDefaults.Deserialize<AppSettings>(JsonDefaults.Serialize(_store.Current))!;
@@ -503,10 +536,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var service = new ConvertService(engine, vlm: vlm);
         using var feed = new FileStatusFeed();
         feed.Updated += rows => _dispatcher.BeginInvoke(() => Apply(rows));
-        service.Planned += documents => _dispatcher.Invoke(() => Fill(documents));
+        service.Planned += documents =>
+        {
+            _dispatcher.Invoke(() => Fill(documents));
+            afterPlanned?.Invoke(snapshot.Output.Folder);
+        };
         service.DocumentChanged += feed.Post;
 
         _cancellation = new CancellationTokenSource();
+        _scanVersion++; // a search for the earlier run that is still going is out of date
         IsRunning = true;
         Status = UiText.Get("Status_Running");
         try
@@ -535,6 +573,57 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _cancellation = null;
             IsRunning = false;
         }
+
+        // What can be resumed has changed with this run.
+        await RefreshPreviousAsync(showFiles: false);
+    }
+
+    private bool CanStart() =>
+        !IsRunning
+        && InputPaths.Count > 0
+        && !string.IsNullOrWhiteSpace(_store.Current.Output.Folder)
+        && _store.Current.Input.Types.Count > 0;
+
+    private void UpdateRunCommands()
+    {
+        StartCommand.RaiseCanExecuteChanged();
+        ResumeCommand.RaiseCanExecuteChanged();
+        RetryFailedCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Looks in the output folder for the earlier run (FR-013e). It decides whether "resume" and "retry failed only" can be
+    /// pressed and, when <paramref name="showFiles"/> is set, shows the files of that run in the list.
+    /// </summary>
+    private async Task RefreshPreviousAsync(bool showFiles, bool appendToStatus = false)
+    {
+        var version = ++_scanVersion;
+        var folder = _store.Current.Output.Folder;
+        var run = await Task.Run(() => PreviousRunFinder.Find(folder));
+        if (version != _scanVersion || IsRunning)
+        {
+            return;
+        }
+
+        _previous = run;
+        if (showFiles)
+        {
+            Files.Clear();
+            if (run is not null)
+            {
+                foreach (var document in run.Documents)
+                {
+                    Files.Add(new FileItemViewModel(FileStatusProjector.Project(document)));
+                }
+
+                var text = run.CanResume
+                    ? UiText.Get("Status_Previous_Resume", run.DoneCount, run.FailedCount, run.UnfinishedCount)
+                    : UiText.Get("Status_Previous_Retry", run.DoneCount, run.FailedCount, run.UnfinishedCount);
+                Status = appendToStatus && Status != UiText.Get("Status_Ready") ? $"{Status} / {text}" : text;
+            }
+        }
+
+        UpdateRunCommands();
     }
 
     private static string Summary(ConvertResult result)

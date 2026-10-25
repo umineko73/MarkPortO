@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         {
             PickFolder = PickFolder,
             PickFiles = PickFiles,
+            Confirm = text => MessageBox.Show(this, text, UiText.Get("Confirm_Title"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes,
             ShowConnectionSettings = ShowConnectionSettings,
             ShowPrompts = ShowPrompts,
         };

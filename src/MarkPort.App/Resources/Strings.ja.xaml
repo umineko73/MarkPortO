@@ -80,6 +80,8 @@
   <sys:String x:Key="Status_Interrupting">中断しています…処理中のファイルは区切りの良いところで止まります。</sys:String>
   <sys:String x:Key="Status_CheckSettings">設定を確認してください: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">VLMの接続を準備できませんでした。</sys:String>
+  <sys:String x:Key="Status_Previous_Resume">出力先に前回の変換があります: 完了 {0}、失敗 {1}、未完了 {2}。「再開」で続きを実行できます。</sys:String>
+  <sys:String x:Key="Status_Previous_Retry">出力先に、失敗を含む前回の変換があります: 完了 {0}、失敗 {1}、未完了 {2}。「失敗のみ再試行」で失敗分をもう一度実行できます。</sys:String>
   <sys:String x:Key="Status_Running">変換しています…</sys:String>
   <sys:String x:Key="Status_NothingToResume">再開できる変換がありません。{0}</sys:String>
   <sys:String x:Key="Status_CouldNotStart">変換を始められませんでした: {0}</sys:String>
@@ -87,6 +89,8 @@
   <sys:String x:Key="Status_Head_DoneWithFailures">完了しました（失敗あり）</sys:String>
   <sys:String x:Key="Status_Head_Done">完了しました</sys:String>
   <sys:String x:Key="Status_Summary">{0}: 完了 {1}、失敗 {2}、未完了 {3}。出力先: {4}</sys:String>
+  <sys:String x:Key="Confirm_Title">新しい変換の開始</sys:String>
+  <sys:String x:Key="Confirm_StartWithInterrupted">出力先に、中断した変換が残っています（完了 {0}、失敗 {1}、未完了 {2}）。&#10;&#10;それでも新しく変換を始めますか？ 中断した変換は再開できなくなります（出力済みのファイルは消えません）。&#10;続きを実行するときは「いいえ」を選び、「再開」を押してください。</sys:String>
   <sys:String x:Key="Dialog_SelectFolder">フォルダを選択</sys:String>
   <sys:String x:Key="Dialog_SelectFiles">変換するファイルを選択</sys:String>
   <sys:String x:Key="Dialog_Filter">Office文書 (*.docx;*.xlsx;*.pptx)|*.docx;*.xlsx;*.pptx|すべてのファイル (*.*)|*.*</sys:String>

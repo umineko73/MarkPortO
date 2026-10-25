@@ -52,6 +52,9 @@ public enum JobStatus
     Interrupted,
     Completed,
     CompletedWithErrors,
+
+    /// <summary>Left interrupted, and given up when a new run was started (FR-013g). It cannot be resumed.</summary>
+    Abandoned,
 }
 
 /// <summary>State of the VLM reading (step 3) of one page.</summary>

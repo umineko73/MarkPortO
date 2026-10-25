@@ -80,6 +80,8 @@
   <sys:String x:Key="Status_Interrupting">Interrupting… the file being processed stops at a safe point.</sys:String>
   <sys:String x:Key="Status_CheckSettings">Check the settings: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">The VLM connection could not be prepared.</sys:String>
+  <sys:String x:Key="Status_Previous_Resume">An earlier conversion was found in the output folder: {0} done, {1} failed, {2} not finished. Press Resume to continue it.</sys:String>
+  <sys:String x:Key="Status_Previous_Retry">An earlier conversion with failures was found in the output folder: {0} done, {1} failed, {2} not finished. Press Retry failed only to run the failures again.</sys:String>
   <sys:String x:Key="Status_Running">Converting…</sys:String>
   <sys:String x:Key="Status_NothingToResume">There is no conversion to resume. {0}</sys:String>
   <sys:String x:Key="Status_CouldNotStart">The conversion could not be started: {0}</sys:String>
@@ -87,6 +89,8 @@
   <sys:String x:Key="Status_Head_DoneWithFailures">Finished (with failures)</sys:String>
   <sys:String x:Key="Status_Head_Done">Finished</sys:String>
   <sys:String x:Key="Status_Summary">{0}: {1} done, {2} failed, {3} not finished. Output: {4}</sys:String>
+  <sys:String x:Key="Confirm_Title">Start a new conversion</sys:String>
+  <sys:String x:Key="Confirm_StartWithInterrupted">An interrupted conversion is left in the output folder ({0} done, {1} failed, {2} not finished).&#10;&#10;Start a new conversion anyway? The interrupted one can no longer be resumed (the files already written stay).&#10;To continue it, choose No and press Resume.</sys:String>
   <sys:String x:Key="Dialog_SelectFolder">Select a folder</sys:String>
   <sys:String x:Key="Dialog_SelectFiles">Select files to convert</sys:String>
   <sys:String x:Key="Dialog_Filter">Office documents (*.docx;*.xlsx;*.pptx)|*.docx;*.xlsx;*.pptx|All files (*.*)|*.*</sys:String>
