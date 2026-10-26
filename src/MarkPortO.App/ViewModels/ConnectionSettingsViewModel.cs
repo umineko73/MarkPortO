@@ -97,6 +97,13 @@ public sealed class ConnectionEditorViewModel : ObservableObject
                 // A model name of a server means nothing to a command: start from the usual one.
                 _profile.Command ??= CommandKind.Claude;
                 _profile.Model = CommandDefaults.InitialModel(_profile.Command.Value);
+
+                // A command has no address (FR-043).
+                _profile.BaseUrl = string.Empty;
+            }
+            else if (string.IsNullOrWhiteSpace(_profile.BaseUrl))
+            {
+                _profile.BaseUrl = "http://localhost:1234/v1";
             }
         });
     }
