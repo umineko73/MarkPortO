@@ -66,7 +66,9 @@ public class Step3Tests
         Assert.Equal(StepStatus.Done, document.Step3);
         Assert.Equal(2, server.Requests.Count(r => r.HasImage));
         var markdown = MarkdownOf(document);
-        Assert.Contains("<!-- vlm:begin page=1 -->\nECHO:DOCX-PROMPT\n<!-- vlm:end -->\n<!-- usage page=1 prompt=100 completion=20 total=120 -->", markdown);
+        // The prompt is followed by the fixed supplement (FR-042), in the language of the Markdown.
+        var sent = PromptSupplement.Build("DOCX-PROMPT", "ja");
+        Assert.Contains($"<!-- vlm:begin page=1 -->\nECHO:{sent}\n<!-- vlm:end -->\n<!-- usage page=1 prompt=100 completion=20 total=120 -->", markdown);
         Assert.Contains("<!-- vlm:begin page=2 -->", markdown);
         Assert.Contains("> **VLM使用量**: 合計 prompt=200 completion=40 total=240（ページ数: 2、取得できたページ: 2）", markdown);
         // SC-006: the pages add up to the file total.

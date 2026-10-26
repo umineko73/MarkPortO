@@ -41,7 +41,7 @@ public static class MarkdownRenderer
 
         var builder = new StringBuilder();
         builder.Append("# ").Append(MarkdownText.Escape(fileName).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
-        AppendStructureNote(builder, fileName, document.Kind, includeImages, includeVlm, language);
+        AppendStructureNote(builder, fileName, document.Kind, includeImages, includeVlm, document.Pages.Any(p => p.Bands > 1), language);
 
         if (includeVlm && TryUsageLine(document.Pages, language) is { } usageLine)
         {
@@ -65,7 +65,7 @@ public static class MarkdownRenderer
         return "images/page-" + pageIndex.ToString("D" + digits, CultureInfo.InvariantCulture) + ".png";
     }
 
-    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, string language)
+    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, bool hasBands, string language)
     {
         void Line(string text) => builder.Append("> ").Append(text).Append('\n');
 
@@ -79,6 +79,11 @@ public static class MarkdownRenderer
         Line(includeVlm
             ? Loc.M("- VLM results (Step3): between `<!-- vlm:begin page=N -->` and `<!-- vlm:end -->`. The text read from the image. The usage is written in `<!-- usage page=N prompt=… completion=… total=… -->`.", language)
             : Loc.M("- VLM results (Step3): not included in this Markdown.", language));
+        if (includeVlm && hasBands)
+        {
+            Line(Loc.M("- Pages read in bands: `<!-- vlm:begin page=N bands=M -->`. A page with many lines was read in M parts, from the top, and the results were joined.", language));
+        }
+
         Line(Loc.M("- Deleted pages: a quote that starts with `> **{0}**`, after the marker `<!-- deleted page=N -->`. A page that was marked with an X in the original document. The text and the image reference of the page are not included.", language, Loc.M("[Deleted page]", language)));
         if (kind == DocumentKind.Xlsx)
         {
@@ -169,7 +174,9 @@ public static class MarkdownRenderer
         switch (page.Step3)
         {
             case PageStep3Status.Done when page.VlmText is not null:
-                builder.Append("\n<!-- vlm:begin page=").Append(number).Append(" -->\n")
+                builder.Append("\n<!-- vlm:begin page=").Append(number)
+                    .Append(page.Bands > 1 ? " bands=" + page.Bands.ToString(CultureInfo.InvariantCulture) : string.Empty)
+                    .Append(" -->\n")
                     .Append(MarkdownText.NeutraliseMarkers(page.VlmText.Trim()))
                     .Append("\n<!-- vlm:end -->\n");
                 builder.Append(UsageComment(page));

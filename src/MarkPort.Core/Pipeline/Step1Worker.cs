@@ -311,7 +311,10 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var total = layout.Pdf.Count;
         var pages = new List<PageRecord>(total);
         var opened = new Dictionary<string, Windows.Data.Pdf.PdfDocument>(StringComparer.OrdinalIgnoreCase);
+        var textSources = new Dictionary<string, UglyToad.PdfPig.PdfDocument?>(StringComparer.OrdinalIgnoreCase);
 
+        try
+        {
         for (var i = 0; i < total; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -354,7 +357,16 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                 layout.Warnings.Add(new Warning("ImageFailed", ex.Message, index));
             }
 
+            page.TextLines = TextLinesOf(layout.Pdf[i], textSources);
             pages.Add(page);
+        }
+        }
+        finally
+        {
+            foreach (var source in textSources.Values)
+            {
+                source?.Dispose();
+            }
         }
 
         // The text of a deleted page is not kept: it must not reach the Markdown (FR-012).
@@ -367,6 +379,26 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         document.Pages = pages;
         document.Blocks = kept;
         document.Warnings = [.. carried, .. layout.Warnings];
+    }
+
+    /// <summary>The lines of text of a page, from the PDF, for cutting the page into bands (FR-041); <c>null</c> when they cannot be read.</summary>
+    private static List<LineSpan>? TextLinesOf(PdfPageRef reference, Dictionary<string, UglyToad.PdfPig.PdfDocument?> sources)
+    {
+        try
+        {
+            if (!sources.TryGetValue(reference.PdfPath, out var source))
+            {
+                source = UglyToad.PdfPig.PdfDocument.Open(reference.PdfPath);
+                sources[reference.PdfPath] = source;
+            }
+
+            return source is null ? null : [.. PdfLineExtractor.GetLines(source, reference.PageIndexInPdf)];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+        {
+            sources[reference.PdfPath] = null; // not readable: the pages of this PDF are read whole
+            return null;
+        }
     }
 
     private static void TryDeleteDirectory(string path)

@@ -68,7 +68,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
                     continue; // read in an earlier run
                 }
 
-                await ReadPageAsync(document, page, reader, prompt, cancellationToken).ConfigureAwait(false);
+                await ReadPageAsync(document, page, reader, prompt, context.MaxLinesPerRead, cancellationToken).ConfigureAwait(false);
                 document.UsageTotal = Total(document);
                 MarkdownRenderer.Write(document);
                 context.Save(document);
@@ -94,7 +94,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
         }
     }
 
-    private static async Task ReadPageAsync(DocumentRecord document, PageRecord page, IVlmReader reader, string prompt, CancellationToken cancellationToken)
+    private static async Task ReadPageAsync(DocumentRecord document, PageRecord page, IVlmReader reader, string prompt, int maxLines, CancellationToken cancellationToken)
     {
         try
         {
@@ -105,19 +105,36 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
 
             var path = Path.Combine(document.OutputFolder, page.ImageFile.Replace('/', Path.DirectorySeparatorChar));
             var png = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
-            VlmResponse answer;
-            try
+            var language = document.MarkdownLanguage;
+            var bands = BandPlanner.Plan(page.TextLines, maxLines);
+            string text;
+            UsageInfo usage;
+            if (bands.Count == 0)
             {
-                answer = await reader.ReadAsync(prompt, png, cancellationToken).ConfigureAwait(false);
+                var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language), png, cancellationToken).ConfigureAwait(false);
+                text = answer.Text;
+                usage = answer.Usage;
             }
-            catch (VlmException ex) when (ex.TimedOut)
+            else
             {
-                // A local model sometimes stalls on one request and answers the next at once: try once more (FR-013c).
-                answer = await reader.ReadAsync(prompt, png, cancellationToken).ConfigureAwait(false);
+                // A page with many lines is read in bands, from the top; one band that fails fails the page (FR-041).
+                var texts = new List<string>(bands.Count);
+                var usages = new List<UsageInfo>(bands.Count);
+                for (var i = 0; i < bands.Count; i++)
+                {
+                    var strip = Crop(png, bands[i]);
+                    var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, i + 1, bands.Count), strip, cancellationToken).ConfigureAwait(false);
+                    texts.Add(answer.Text);
+                    usages.Add(answer.Usage);
+                }
+
+                text = BandMerger.Merge(texts);
+                usage = Sum(usages);
             }
 
-            page.VlmText = answer.Text;
-            page.Usage = answer.Usage;
+            page.VlmText = text;
+            page.Usage = usage;
+            page.Bands = bands.Count;
             page.Step3 = PageStep3Status.Done;
             page.Error = null;
         }
@@ -128,6 +145,44 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             page.Error = SecretRedact(ex.Message);
             document.Warnings.Add(new Warning("VlmPageFailed", $"{PageLabel.Text(page.SourceLabel, CultureInfo.CurrentUICulture)}: {page.Error}", page.Index));
         }
+    }
+
+    private static async Task<VlmResponse> ReadOnceAsync(IVlmReader reader, string prompt, byte[] png, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await reader.ReadAsync(prompt, png, cancellationToken).ConfigureAwait(false);
+        }
+        catch (VlmException ex) when (ex.TimedOut)
+        {
+            // A local model sometimes stalls on one request and answers the next at once: try once more (FR-013c).
+            return await reader.ReadAsync(prompt, png, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static byte[] Crop(byte[] png, Band band)
+    {
+        try
+        {
+            return BandImage.Crop(png, band);
+        }
+        catch (Exception ex) when (ex is ArgumentException or System.Runtime.InteropServices.ExternalException)
+        {
+            throw new VlmException(Loc.T("The page image could not be cut into bands."));
+        }
+    }
+
+    /// <summary>The usage of the bands added up; unavailable when none reported it.</summary>
+    private static UsageInfo Sum(IReadOnlyList<UsageInfo> usages)
+    {
+        var known = usages.Where(u => u.IsAvailable).ToList();
+        if (known.Count == 0)
+        {
+            return UsageInfo.Unavailable;
+        }
+
+        static int? Add(IEnumerable<int?> values) => values.Any(v => v.HasValue) ? values.Sum(v => v ?? 0) : null;
+        return new UsageInfo(Add(known.Select(u => u.PromptTokens)), Add(known.Select(u => u.CompletionTokens)), Add(known.Select(u => u.TotalTokens)));
     }
 
     /// <summary>The total of the pages that reported their usage; unavailable when none did.</summary>

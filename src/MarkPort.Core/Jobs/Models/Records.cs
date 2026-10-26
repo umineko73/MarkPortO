@@ -28,6 +28,9 @@ public sealed record UsageInfo(int? PromptTokens, int? CompletionTokens, int? To
     public bool IsAvailable => PromptTokens.HasValue || CompletionTokens.HasValue || TotalTokens.HasValue;
 }
 
+/// <summary>Where a line of text is on the page: fractions of the page height from the top (FR-041).</summary>
+public sealed record LineSpan(double Top, double Bottom);
+
 public sealed record Warning(string Code, string Message, int? PageIndex = null);
 
 public sealed record DocumentError(int Step, string Message);
@@ -64,6 +67,12 @@ public sealed class PageRecord
     public PageStep3Status Step3 { get; set; } = PageStep3Status.Pending;
 
     public string? VlmText { get; set; }
+
+    /// <summary>The lines of text of the page, from the top, taken from the PDF. <c>null</c> when they are not known (FR-041).</summary>
+    public List<LineSpan>? TextLines { get; set; }
+
+    /// <summary>How many bands the page was read in; 0 when it was read whole (FR-041).</summary>
+    public int Bands { get; set; }
 
     public UsageInfo? Usage { get; set; }
 

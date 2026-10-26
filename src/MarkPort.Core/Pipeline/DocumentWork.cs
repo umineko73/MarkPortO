@@ -48,6 +48,9 @@ public sealed class JobContext(
     /// <summary>The prompts of the three document types.</summary>
     public PromptSettings? Prompts { get; init; }
 
+    /// <summary>The most lines read in one request; 0 never splits a page (FR-041).</summary>
+    public int MaxLinesPerRead { get; init; }
+
     /// <summary>The scratch folder of a document (temporary copies and the PDF).</summary>
     public string WorkDirectory(DocumentRecord document) => Store.WorkDirectory(Job.JobId, document.DocId);
 

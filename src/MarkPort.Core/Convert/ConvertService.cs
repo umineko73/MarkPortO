@@ -179,6 +179,7 @@ public sealed class ConvertService
             Changed = document => DocumentChanged?.Invoke(document),
             Vlm = _vlm?.Reader,
             Prompts = _vlm?.Prompts,
+            MaxLinesPerRead = _vlm?.MaxLinesPerRead ?? 0,
         };
         var works = toRun.Select(d => new DocumentWork(d, context)).ToList();
 

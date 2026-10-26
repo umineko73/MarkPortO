@@ -25,8 +25,9 @@ public sealed class VlmSetup : IDisposable
 {
     private readonly IDisposable? _owned;
 
-    public VlmSetup(IVlmReader reader, PromptSettings prompts, string connectionName, Func<CancellationToken, Task<CheckResult>> preflight, IDisposable? owned = null)
+    public VlmSetup(IVlmReader reader, PromptSettings prompts, string connectionName, Func<CancellationToken, Task<CheckResult>> preflight, IDisposable? owned = null, int maxLinesPerRead = 0)
     {
+        MaxLinesPerRead = maxLinesPerRead;
         Reader = reader;
         Prompts = prompts;
         ConnectionName = connectionName;
@@ -39,6 +40,9 @@ public sealed class VlmSetup : IDisposable
     public PromptSettings Prompts { get; }
 
     public string ConnectionName { get; }
+
+    /// <summary>The most lines read in one request; 0 never splits a page (FR-041).</summary>
+    public int MaxLinesPerRead { get; }
 
     /// <summary>The connection check done before step 1 starts (FR-019c).</summary>
     public Func<CancellationToken, Task<CheckResult>> Preflight { get; }
@@ -69,6 +73,6 @@ public static class VlmSetupFactory
 
         var client = new VlmClient(connection, key.Key, handler);
         var checker = new ConnectionChecker(client, connection);
-        return (new VlmSetup(client, settings.Vlm.Prompts, connection.Name, checker.CheckConnectionAsync, client), null);
+        return (new VlmSetup(client, settings.Vlm.Prompts, connection.Name, checker.CheckConnectionAsync, client, connection.MaxLinesPerRead), null);
     }
 }

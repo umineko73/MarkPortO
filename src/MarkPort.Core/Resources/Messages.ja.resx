@@ -337,4 +337,7 @@
   <data name="{0} page(s) could not be read ({1}: {2}). Use &quot;Retry failed only&quot; to read only the failed pages." xml:space="preserve">
     <value>{0}ページの読み取りに失敗しました（{1}: {2}）。「失敗のみ再試行」で、失敗したページだけをやり直せます。</value>
   </data>
+  <data name="The page image could not be cut into bands." xml:space="preserve">
+    <value>ページの画像を帯に分けられませんでした。</value>
+  </data>
 </root>
