@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 umineko73
 #
-# Continuous integration for GitHub Actions. GitHub reads workflows only from .github/workflows/, and folders that
-# start with a dot are not kept in this repository: to turn this on, copy this file to .github/workflows/ci.yml.
+# Continuous integration for GitHub Actions. Of the folders that start with a dot, only .github/ is kept in this
+# repository (GitHub reads workflows only from there).
 #
 # Windows is required (WPF, and Windows.Data.Pdf). The runner has no Microsoft Office, so those tests are skipped;
 # the tests of the other engine are skipped too if LibreOffice is not installed on the runner.

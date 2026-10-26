@@ -164,7 +164,7 @@ dotnet test MarkPortO.slnx --filter "Engine!=Office"   # Officeが無い環境�
 ./build.ps1 -Task Publish            # ビルド、テスト、artifacts/MarkPortO-win-x64.zip の作成（画面、`cli/` のコマンドライン、ライセンスの文書）
 ```
 
-.NET SDK は `global.json` で固定しています（10.0.100、または新しい機能バンド）。GitHub Actions 用のワークフローは `tools/ci/github-actions.yml` にあります。使うときは、`.github/workflows/ci.yml` にコピーしてください。
+.NET SDK は `global.json` で固定しています（10.0.100、または新しい機能バンド）。GitHub Actions 用のワークフローは `.github/workflows/ci.yml` です（Microsoft Office が無い Windows で、ビルドとテストを行います）。
 
 ```text
 src/MarkPortO.Core/   変換処理のすべて（画面に依存しない）
@@ -172,7 +172,8 @@ src/MarkPortO.Cli/    コマンドライン
 src/MarkPortO.App/    画面（WPF）
 tests/               テスト（検証用の文書は、テストコードが生成します）
 build.ps1            復元、ビルド、テスト、配布用の作成
-tools/               補助のスクリプト（アイコン、ライセンスヘッダー）、CIのワークフロー
+tools/               補助のスクリプト（アイコン、ライセンスヘッダー）
+.github/workflows/   CIのワークフロー
 ```
 
 - `src/MarkPortO.App/Assets/MarkPortO.ico` は `python tools/make-icon.py`（Pillow が必要）で作り直せます。
