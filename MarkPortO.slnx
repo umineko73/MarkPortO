@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MarkPortO.App/MarkPortO.App.csproj" />
+    <Project Path="src/MarkPortO.Cli/MarkPortO.Cli.csproj" />
+    <Project Path="src/MarkPortO.Core/MarkPortO.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MarkPortO.Cli.Tests/MarkPortO.Cli.Tests.csproj" />
+    <Project Path="tests/MarkPortO.FakeVlmCommand/MarkPortO.FakeVlmCommand.csproj" />
+    <Project Path="tests/MarkPortO.Core.Tests/MarkPortO.Core.Tests.csproj" />
+  </Folder>
+</Solution>

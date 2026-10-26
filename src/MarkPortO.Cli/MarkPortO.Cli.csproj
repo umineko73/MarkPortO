@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>MarkPortO.Cli</RootNamespace>
+    <AssemblyName>markporto</AssemblyName>
+    <ApplicationIcon>..\MarkPortO.App\Assets\MarkPortO.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MarkPortO.Core\MarkPortO.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MarkPortO.Cli.Tests" />
+  </ItemGroup>
+</Project>

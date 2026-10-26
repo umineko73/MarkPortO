@@ -1,4 +1,4 @@
-# MarkPort
+# MarkPortO
 
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4.svg)
@@ -10,7 +10,7 @@ Word・Excel・PowerPoint の文書（docx・xlsx・pptx）を、Markdownと、�
 
 > 開発中です。実機での手動の確認が済んでいない部分があります。
 
-![MarkPort のメイン画面](docs/images/main-window.ja.png)
+![MarkPortO のメイン画面](docs/images/main-window.ja.png)
 
 *メイン画面（サンプルのデータで描いたものです）。*
 
@@ -48,14 +48,14 @@ Word・Excel・PowerPoint の文書（docx・xlsx・pptx）を、Markdownと、�
 
 ```powershell
 git clone <リポジトリのURL>
-cd MarkPort
-dotnet build MarkPort.slnx
+cd MarkPortO
+dotnet build MarkPortO.slnx
 
 # コマンドライン
-dotnet run --project src/MarkPort.Cli -- convert D:\docs\報告書.docx --out D:\out
+dotnet run --project src/MarkPortO.Cli -- convert D:\docs\報告書.docx --out D:\out
 
 # 画面
-dotnet run --project src/MarkPort.App
+dotnet run --project src/MarkPortO.App
 ```
 
 画面では、ファイルまたはフォルダを追加し、出力先を選んで「開始」を押します。
@@ -65,13 +65,13 @@ dotnet run --project src/MarkPort.App
 ### コマンドライン
 
 ```powershell
-dotnet run --project src/MarkPort.Cli -- convert D:\docs\報告書.docx --out D:\out
-dotnet run --project src/MarkPort.Cli -- convert D:\docs --out D:\out --types docx,xlsx --recurse
-dotnet run --project src/MarkPort.Cli -- convert --resume --out D:\out      # 中断した変換を再開する
-dotnet run --project src/MarkPort.Cli -- list-jobs --out D:\out             # 出力先にある変換の一覧
-dotnet run --project src/MarkPort.Cli -- convert D:\docs --out D:\out --step3 on --settings settings.json   # VLMで読み取る
-dotnet run --project src/MarkPort.Cli -- check-connection --settings settings.json    # VLMサーバーへの接続を確かめる
-dotnet run --project src/MarkPort.Cli -- list-connections --settings settings.json   # 登録した接続の一覧（キーは表示しない）
+dotnet run --project src/MarkPortO.Cli -- convert D:\docs\報告書.docx --out D:\out
+dotnet run --project src/MarkPortO.Cli -- convert D:\docs --out D:\out --types docx,xlsx --recurse
+dotnet run --project src/MarkPortO.Cli -- convert --resume --out D:\out      # 中断した変換を再開する
+dotnet run --project src/MarkPortO.Cli -- list-jobs --out D:\out             # 出力先にある変換の一覧
+dotnet run --project src/MarkPortO.Cli -- convert D:\docs --out D:\out --step3 on --settings settings.json   # VLMで読み取る
+dotnet run --project src/MarkPortO.Cli -- check-connection --settings settings.json    # VLMサーバーへの接続を確かめる
+dotnet run --project src/MarkPortO.Cli -- list-connections --settings settings.json   # 登録した接続の一覧（キーは表示しない）
 ```
 
 主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`、`--engine`、`--dpi`、`--step2 on|off`、`--step3 on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。コマンドラインの指定は `settings.json` より優先されます。
@@ -83,12 +83,12 @@ dotnet run --project src/MarkPort.Cli -- list-connections --settings settings.js
 ### 画面
 
 ```powershell
-dotnet run --project src/MarkPort.App
+dotnet run --project src/MarkPortO.App
 ```
 
 メニューバーの「設定」に、言語（OSに合わせる / 日本語 / English）、VLM接続の設定、プロンプトの設定があります。「ヘルプ」に、バージョン情報とライセンス表記があります。
 
-ファイルまたはフォルダを追加し、出力先を選んで「開始」を押します。「条件」には、対象の種類、範囲、変換（エンジンとDPI）、Step1〜Step3の行があります（Step1は常に実行します）。一覧に、ファイルごとの状態（待機中、Step1〜3の実行中、完了、完了（一部失敗）、失敗、中断）が出ます。フォルダを指定したファイルは、指定したフォルダからの相対パスで表示します。VLMが読み取れなかったページがあるファイルは、「失敗のみ再試行」で、そのページだけを読み直せます。画面で設定した値は、すぐに `settings.json`（`%APPDATA%\MarkPort\settings.json`）に保存され、次回の起動で元に戻ります。
+ファイルまたはフォルダを追加し、出力先を選んで「開始」を押します。「条件」には、対象の種類、範囲、変換（エンジンとDPI）、Step1〜Step3の行があります（Step1は常に実行します）。一覧に、ファイルごとの状態（待機中、Step1〜3の実行中、完了、完了（一部失敗）、失敗、中断）が出ます。フォルダを指定したファイルは、指定したフォルダからの相対パスで表示します。VLMが読み取れなかったページがあるファイルは、「失敗のみ再試行」で、そのページだけを読み直せます。画面で設定した値は、すぐに `settings.json`（`%APPDATA%\MarkPortO\settings.json`）に保存され、次回の起動で元に戻ります。
 
 ### `settings.json` の例
 
@@ -104,13 +104,13 @@ dotnet run --project src/MarkPort.App
   "vlm": {
     "selected": "local",
     "connections": [
-      { "name": "local", "baseUrl": "http://localhost:1234/v1", "model": "vision-model", "apiKeyEnv": "MARKPORT_API_KEY", "timeoutSeconds": 120 }
+      { "name": "local", "baseUrl": "http://localhost:1234/v1", "model": "vision-model", "apiKeyEnv": "MARKPORTO_API_KEY", "timeoutSeconds": 120 }
     ]
   }
 }
 ```
 
-設定ファイルの場所は、環境変数 `MARKPORT_SETTINGS` で変えられます（画面もコマンドラインも、`--settings` を指定しないときに使います）。言語とテーマは `ui.language`（`system` / `ja` / `en`）と `ui.theme`（`system` / `light` / `dark`）です。
+設定ファイルの場所は、環境変数 `MARKPORTO_SETTINGS` で変えられます（画面もコマンドラインも、`--settings` を指定しないときに使います）。言語とテーマは `ui.language`（`system` / `ja` / `en`）と `ui.theme`（`system` / `light` / `dark`）です。
 
 ### Claude Code、Codex、OpenCode で読み取る（外部コマンド）
 
@@ -129,8 +129,8 @@ Step3は、ログイン済みのコマンド（`claude`、`codex`、`opencode`�
 **ページ画像は、コマンドの提供元のサービス（ネットワークの外）に送られ、お使いのアカウントに利用料が発生することがあります。** コマンドは、これに加えて、環境の情報（例: アカウントのメールアドレス）を提供元に送ることがあります。機密の文書には使わないでください。このため、この種類の接続（と、`api.openai.com` のようにローカルネットワークの外にあるOpenAI互換の接続）は、同意したあとにだけ使えます。
 
 ```powershell
-dotnet run --project src/MarkPort.Cli -- consent cloud --settings settings.json            # 注意を表示し、同意を記録する
-dotnet run --project src/MarkPort.Cli -- consent cloud --revoke --settings settings.json   # 取り消す
+dotnet run --project src/MarkPortO.Cli -- consent cloud --settings settings.json            # 注意を表示し、同意を記録する
+dotnet run --project src/MarkPortO.Cli -- consent cloud --revoke --settings settings.json   # 取り消す
 ```
 
 画面では、接続の設定で「同意する…」を押します。変換を始める前にも、確認が出ます。同意がなければ、何も起動せず、何も送りません。`--max-pages`、`--max-cost`、`--parallel` で、その実行だけ、接続の設定を上書きできます。
@@ -150,9 +150,9 @@ dotnet run --project src/MarkPort.Cli -- consent cloud --revoke --settings setti
 ## 開発
 
 ```powershell
-dotnet build MarkPort.slnx
-dotnet test MarkPort.slnx                            # 使えるエンジンが無い環境では、そのエンジンを使うテストはスキップされます
-dotnet test MarkPort.slnx --filter "Engine!=Office"   # Officeが無い環境（LibreOfficeのみ）
+dotnet build MarkPortO.slnx
+dotnet test MarkPortO.slnx                            # 使えるエンジンが無い環境では、そのエンジンを使うテストはスキップされます
+dotnet test MarkPortO.slnx --filter "Engine!=Office"   # Officeが無い環境（LibreOfficeのみ）
 ```
 
 `build.ps1` は、同じことを1回で行い、配布用のプログラムも作れます。
@@ -161,25 +161,25 @@ dotnet test MarkPort.slnx --filter "Engine!=Office"   # Officeが無い環境（
 ./build.ps1                          # 復元、ビルド、テスト（Release）
 ./build.ps1 -Task Build              # ビルドだけ
 ./build.ps1 -SkipOffice              # Microsoft Office が無いコンピューター
-./build.ps1 -Task Publish            # ビルド、テスト、artifacts/MarkPort-win-x64.zip の作成（画面、`cli/` のコマンドライン、ライセンスの文書）
+./build.ps1 -Task Publish            # ビルド、テスト、artifacts/MarkPortO-win-x64.zip の作成（画面、`cli/` のコマンドライン、ライセンスの文書）
 ```
 
 .NET SDK は `global.json` で固定しています（10.0.100、または新しい機能バンド）。GitHub Actions 用のワークフローは `tools/ci/github-actions.yml` にあります。使うときは、`.github/workflows/ci.yml` にコピーしてください。
 
 ```text
-src/MarkPort.Core/   変換処理のすべて（画面に依存しない）
-src/MarkPort.Cli/    コマンドライン
-src/MarkPort.App/    画面（WPF）
+src/MarkPortO.Core/   変換処理のすべて（画面に依存しない）
+src/MarkPortO.Cli/    コマンドライン
+src/MarkPortO.App/    画面（WPF）
 tests/               テスト（検証用の文書は、テストコードが生成します）
 build.ps1            復元、ビルド、テスト、配布用の作成
 tools/               補助のスクリプト（アイコン、ライセンスヘッダー）、CIのワークフロー
 ```
 
-- `src/MarkPort.App/Assets/MarkPort.ico` は `python tools/make-icon.py`（Pillow が必要）で作り直せます。
+- `src/MarkPortO.App/Assets/MarkPortO.ico` は `python tools/make-icon.py`（Pillow が必要）で作り直せます。
 - すべてのソースファイルの先頭に、同じライセンスヘッダーを付けています。新しいファイルを足したら、`python tools/add-license-header.py` でヘッダーを付けてください（付け忘れは試験で見つかります）。
 
 ## ライセンス
 
-MarkPort は [GNU General Public License バージョン3（GPL-3.0-only）](LICENSE) のもとで公開します。「それ以降のバージョン」は選べません（`-only`）。Copyright (C) 2026 umineko73。
+MarkPortO は [GNU General Public License バージョン3（GPL-3.0-only）](LICENSE) のもとで公開します。「それ以降のバージョン」は選べません（`-only`）。Copyright (C) 2026 umineko73。
 
 依存パッケージのライセンスは [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) にあります。

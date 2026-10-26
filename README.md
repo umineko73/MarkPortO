@@ -1,4 +1,4 @@
-# MarkPort
+# MarkPortO
 
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4.svg)
@@ -6,11 +6,11 @@
 
 **English** | [日本語](README.ja.md)
 
-MarkPort converts Word, Excel and PowerPoint documents (docx, xlsx, pptx) into Markdown plus one PNG image per page. It comes as a WPF desktop app and a command-line tool, and both use the same conversion code, so it can also run unattended in a build or CI job.
+MarkPortO converts Word, Excel and PowerPoint documents (docx, xlsx, pptx) into Markdown plus one PNG image per page. It comes as a WPF desktop app and a command-line tool, and both use the same conversion code, so it can also run unattended in a build or CI job.
 
 > **Status: under development.** Some parts still need a manual check on a real machine.
 
-![The main window of MarkPort](docs/images/main-window.png)
+![The main window of MarkPortO](docs/images/main-window.png)
 
 *The main window, drawn with sample data.*
 
@@ -46,14 +46,14 @@ A conversion has three steps, and each step runs on its own thread so that the s
 
 ```powershell
 git clone <repository-url>
-cd MarkPort
-dotnet build MarkPort.slnx
+cd MarkPortO
+dotnet build MarkPortO.slnx
 
 # Command line
-dotnet run --project src/MarkPort.Cli -- convert D:\docs\report.docx --out D:\out
+dotnet run --project src/MarkPortO.Cli -- convert D:\docs\report.docx --out D:\out
 
 # Desktop app
-dotnet run --project src/MarkPort.App
+dotnet run --project src/MarkPortO.App
 ```
 
 In the app, add files or a folder, choose an output folder, and press **Start**.
@@ -63,13 +63,13 @@ In the app, add files or a folder, choose an output folder, and press **Start**.
 ### Command line
 
 ```powershell
-dotnet run --project src/MarkPort.Cli -- convert D:\docs\report.docx --out D:\out
-dotnet run --project src/MarkPort.Cli -- convert D:\docs --out D:\out --types docx,xlsx --recurse
-dotnet run --project src/MarkPort.Cli -- convert --resume --out D:\out      # continue an interrupted run
-dotnet run --project src/MarkPort.Cli -- list-jobs --out D:\out             # list the runs in an output folder
-dotnet run --project src/MarkPort.Cli -- convert D:\docs --out D:\out --step3 on --settings settings.json   # read with a VLM
-dotnet run --project src/MarkPort.Cli -- check-connection --settings settings.json    # test the VLM server
-dotnet run --project src/MarkPort.Cli -- list-connections --settings settings.json   # list the connections (keys are not shown)
+dotnet run --project src/MarkPortO.Cli -- convert D:\docs\report.docx --out D:\out
+dotnet run --project src/MarkPortO.Cli -- convert D:\docs --out D:\out --types docx,xlsx --recurse
+dotnet run --project src/MarkPortO.Cli -- convert --resume --out D:\out      # continue an interrupted run
+dotnet run --project src/MarkPortO.Cli -- list-jobs --out D:\out             # list the runs in an output folder
+dotnet run --project src/MarkPortO.Cli -- convert D:\docs --out D:\out --step3 on --settings settings.json   # read with a VLM
+dotnet run --project src/MarkPortO.Cli -- check-connection --settings settings.json    # test the VLM server
+dotnet run --project src/MarkPortO.Cli -- list-connections --settings settings.json   # list the connections (keys are not shown)
 ```
 
 Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden`, `--engine`, `--dpi`, `--step2 on|off`, `--step3 on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options on the command line override `settings.json`.
@@ -80,7 +80,7 @@ Exit codes: `0` everything succeeded, `1` some files failed, `2` invalid argumen
 
 The **Settings** menu has the language (follow Windows / Japanese / English), the VLM connections and the prompts. The **Help** menu has the version and the license notices.
 
-The list shows the state of each file: waiting, Step1 to Step3 running, done, done (some pages failed), failed, interrupted. For a folder, a file is shown by its path relative to that folder. If the VLM could not read some pages of a file, **Retry failed** reads only those pages again. Values you set in the app are saved to `settings.json` (`%APPDATA%\MarkPort\settings.json`) at once and restored on the next start.
+The list shows the state of each file: waiting, Step1 to Step3 running, done, done (some pages failed), failed, interrupted. For a folder, a file is shown by its path relative to that folder. If the VLM could not read some pages of a file, **Retry failed** reads only those pages again. Values you set in the app are saved to `settings.json` (`%APPDATA%\MarkPortO\settings.json`) at once and restored on the next start.
 
 ### `settings.json`
 
@@ -96,13 +96,13 @@ The list shows the state of each file: waiting, Step1 to Step3 running, done, do
   "vlm": {
     "selected": "local",
     "connections": [
-      { "name": "local", "baseUrl": "http://localhost:1234/v1", "model": "vision-model", "apiKeyEnv": "MARKPORT_API_KEY", "timeoutSeconds": 120 }
+      { "name": "local", "baseUrl": "http://localhost:1234/v1", "model": "vision-model", "apiKeyEnv": "MARKPORTO_API_KEY", "timeoutSeconds": 120 }
     ]
   }
 }
 ```
 
-The location of the file can be changed with the environment variable `MARKPORT_SETTINGS`; both the app and the command line use it when `--settings` is not given. `ui.language` is `system`, `ja` or `en`. `ui.theme` is `system`, `light` or `dark`.
+The location of the file can be changed with the environment variable `MARKPORTO_SETTINGS`; both the app and the command line use it when `--settings` is not given. `ui.language` is `system`, `ja` or `en`. `ui.theme` is `system`, `light` or `dark`.
 
 **About API keys.** Write the *name* of an environment variable (`apiKeyEnv`) in `settings.json`; the value itself is not stored. A key typed in the app is stored so that only the current Windows user can decrypt it (DPAPI). Keys never appear in logs, Markdown or state files.
 
@@ -123,8 +123,8 @@ Step3 can also use a command you have already logged in to: `claude`, `codex` or
 **The page images are sent to the service behind the command, outside your network, and charges may apply to your account.** The command may also send information about your environment (for example the email address of your account) to its provider. Do not use this for confidential documents. Because of this, such a connection (and an OpenAI-compatible connection whose address is not in the local network, such as `api.openai.com`) is used only after you agree:
 
 ```powershell
-dotnet run --project src/MarkPort.Cli -- consent cloud --settings settings.json            # shows the notice and records the consent
-dotnet run --project src/MarkPort.Cli -- consent cloud --revoke --settings settings.json   # withdraw it
+dotnet run --project src/MarkPortO.Cli -- consent cloud --settings settings.json            # shows the notice and records the consent
+dotnet run --project src/MarkPortO.Cli -- consent cloud --revoke --settings settings.json   # withdraw it
 ```
 
 In the app, press **Agree...** in the connection settings; the app also asks before a conversion starts. Without the consent nothing is started and nothing is sent. `--max-pages`, `--max-cost` and `--parallel` override the settings of the connection for one run.
@@ -144,9 +144,9 @@ out/report/
 ## Development
 
 ```powershell
-dotnet build MarkPort.slnx
-dotnet test MarkPort.slnx                            # tests that need an engine are skipped if it is not installed
-dotnet test MarkPort.slnx --filter "Engine!=Office"   # no Microsoft Office (LibreOffice only)
+dotnet build MarkPortO.slnx
+dotnet test MarkPortO.slnx                            # tests that need an engine are skipped if it is not installed
+dotnet test MarkPortO.slnx --filter "Engine!=Office"   # no Microsoft Office (LibreOffice only)
 ```
 
 `build.ps1` does the same in one step and can also make the programs:
@@ -155,25 +155,25 @@ dotnet test MarkPort.slnx --filter "Engine!=Office"   # no Microsoft Office (Lib
 ./build.ps1                          # restore, build and test (Release)
 ./build.ps1 -Task Build              # build only
 ./build.ps1 -SkipOffice              # a computer without Microsoft Office
-./build.ps1 -Task Publish            # build, test, and write artifacts/MarkPort-win-x64.zip (the app, the command line in `cli/`, the license files)
+./build.ps1 -Task Publish            # build, test, and write artifacts/MarkPortO-win-x64.zip (the app, the command line in `cli/`, the license files)
 ```
 
 The .NET SDK is pinned by `global.json` (10.0.100 or a later feature band). A workflow for GitHub Actions is in `tools/ci/github-actions.yml`; copy it to `.github/workflows/ci.yml` to use it.
 
 ```text
-src/MarkPort.Core/   all of the conversion code (no dependency on the UI)
-src/MarkPort.Cli/    command-line tool
-src/MarkPort.App/    desktop app (WPF)
+src/MarkPortO.Core/   all of the conversion code (no dependency on the UI)
+src/MarkPortO.Cli/    command-line tool
+src/MarkPortO.App/    desktop app (WPF)
 tests/               tests (the test documents are generated by the test code)
 build.ps1            restore, build, test and publish
 tools/               helper scripts (icon, license headers), the CI workflow
 ```
 
-- `src/MarkPort.App/Assets/MarkPort.ico` can be recreated with `python tools/make-icon.py` (needs Pillow).
+- `src/MarkPortO.App/Assets/MarkPortO.ico` can be recreated with `python tools/make-icon.py` (needs Pillow).
 - Every source file starts with the same license header. After adding a file, run `python tools/add-license-header.py`; a test fails if a header is missing.
 
 ## License
 
-MarkPort is released under the [GNU General Public License, version 3 only (GPL-3.0-only)](LICENSE). The "or any later version" option is not offered. Copyright (C) 2026 umineko73.
+MarkPortO is released under the [GNU General Public License, version 3 only (GPL-3.0-only)](LICENSE). The "or any later version" option is not offered. Copyright (C) 2026 umineko73.
 
 The licenses of the dependencies are listed in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).

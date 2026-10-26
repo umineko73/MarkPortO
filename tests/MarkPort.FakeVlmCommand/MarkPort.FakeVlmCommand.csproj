@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>MarkPort.FakeVlmCommand</RootNamespace>
-    <AssemblyName>MarkPort.FakeVlmCommand</AssemblyName>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
-</Project>

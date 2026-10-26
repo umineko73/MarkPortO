@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 umineko73
 #
-# This file is part of MarkPort.
+# This file is part of MarkPortO.
 #
-# MarkPort is free software: you can redistribute it and/or modify it under the terms of
+# MarkPortO is free software: you can redistribute it and/or modify it under the terms of
 # the GNU General Public License, version 3 only, as published by the Free Software Foundation.
 #
-# MarkPort is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# MarkPortO is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
 # without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 # See the GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along with MarkPort.
+# You should have received a copy of the GNU General Public License along with MarkPortO.
 # If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
 [CmdletBinding()]
@@ -40,9 +40,9 @@ function Invoke-Step([string] $Name, [scriptblock] $Body) {
     }
 }
 
-Invoke-Step 'restore' { dotnet restore MarkPort.slnx }
+Invoke-Step 'restore' { dotnet restore MarkPortO.slnx }
 # TreatWarningsAsErrors is on in Directory.Build.props: a warning fails the build.
-Invoke-Step 'build' { dotnet build MarkPort.slnx -c $Configuration --no-restore }
+Invoke-Step 'build' { dotnet build MarkPortO.slnx -c $Configuration --no-restore }
 
 if ($Task -in 'Test', 'Publish') {
     $filter = @()
@@ -53,7 +53,7 @@ if ($Task -in 'Test', 'Publish') {
         $filter = @('--filter', 'Engine!=Office')
     }
 
-    Invoke-Step 'test' { dotnet test MarkPort.slnx -c $Configuration --no-build @filter }
+    Invoke-Step 'test' { dotnet test MarkPortO.slnx -c $Configuration --no-build @filter }
 }
 
 if ($Task -eq 'Publish') {
@@ -63,14 +63,14 @@ if ($Task -eq 'Publish') {
     }
 
     # Framework-dependent: the .NET 10 Desktop Runtime must be installed on the computer that runs it.
-    # The names MarkPort.exe (app) and markport.exe (command line) differ only in case, which is the same name on
+    # The names MarkPortO.exe (app) and markporto.exe (command line) differ only in case, which is the same name on
     # Windows, so the command line goes to its own folder. The app also copies LICENSE.txt and THIRD-PARTY-NOTICES.md.
-    $root = Join-Path $out 'MarkPort'
-    Invoke-Step 'publish app' { dotnet publish src/MarkPort.App -c $Configuration --no-build -o $root }
-    Invoke-Step 'publish cli' { dotnet publish src/MarkPort.Cli -c $Configuration --no-build -o (Join-Path $root 'cli') }
+    $root = Join-Path $out 'MarkPortO'
+    Invoke-Step 'publish app' { dotnet publish src/MarkPortO.App -c $Configuration --no-build -o $root }
+    Invoke-Step 'publish cli' { dotnet publish src/MarkPortO.Cli -c $Configuration --no-build -o (Join-Path $root 'cli') }
     Copy-Item README.md, README.ja.md -Destination $root
 
-    $zip = Join-Path $out 'MarkPort-win-x64.zip'
-    Compress-Archive -Path (Join-Path $out 'MarkPort\*') -DestinationPath $zip
+    $zip = Join-Path $out 'MarkPortO-win-x64.zip'
+    Compress-Archive -Path (Join-Path $out 'MarkPortO\*') -DestinationPath $zip
     Write-Host "Wrote $zip"
 }

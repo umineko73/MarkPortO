@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 umineko73
 #
-# This file is part of MarkPort.
+# This file is part of MarkPortO.
 #
-# MarkPort is free software: you can redistribute it and/or modify it under the terms of
+# MarkPortO is free software: you can redistribute it and/or modify it under the terms of
 # the GNU General Public License, version 3 only, as published by the Free Software Foundation.
 #
-# MarkPort is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# MarkPortO is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
 # without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 # See the GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along with MarkPort.
+# You should have received a copy of the GNU General Public License along with MarkPortO.
 # If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
 """Adds the GPL-3.0-only header to every source file that does not have it yet (.cs, .xaml, .py, .ps1).
@@ -29,16 +29,16 @@ LINES = [
     SPDX,
     f"Copyright (C) {YEAR} {AUTHOR}",
     "",
-    "This file is part of MarkPort.",
+    "This file is part of MarkPortO.",
     "",
-    "MarkPort is free software: you can redistribute it and/or modify it under the terms of",
+    "MarkPortO is free software: you can redistribute it and/or modify it under the terms of",
     "the GNU General Public License, version 3 only, as published by the Free Software Foundation.",
     "",
-    "MarkPort is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;",
+    "MarkPortO is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;",
     "without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
     "See the GNU General Public License for more details.",
     "",
-    "You should have received a copy of the GNU General Public License along with MarkPort.",
+    "You should have received a copy of the GNU General Public License along with MarkPortO.",
     "If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.",
 ]
 

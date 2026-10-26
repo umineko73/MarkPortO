@@ -1,10 +1,10 @@
 # Third-party notices
 
-MarkPort itself is licensed under the GNU General Public License, version 3 only (GPL-3.0-only); see [`LICENSE`](LICENSE). The packages below are under MIT or Apache-2.0, which can be combined with GPL-3.0.
+MarkPortO itself is licensed under the GNU General Public License, version 3 only (GPL-3.0-only); see [`LICENSE`](LICENSE). The packages below are under MIT or Apache-2.0, which can be combined with GPL-3.0.
 
-MarkPort uses the packages below. The license of each is the one declared in its NuGet package (checked against the package's `.nuspec`). The versions are the ones pinned in [`Directory.Packages.props`](Directory.Packages.props).
+MarkPortO uses the packages below. The license of each is the one declared in its NuGet package (checked against the package's `.nuspec`). The versions are the ones pinned in [`Directory.Packages.props`](Directory.Packages.props).
 
-## Packages that ship with MarkPort
+## Packages that ship with MarkPortO
 
 | Package | Version | License | Used for |
 |---|---|---|---|
@@ -15,7 +15,7 @@ MarkPort uses the packages below. The license of each is the one declared in its
 | System.Security.Cryptography.ProtectedData | 10.0.13 | MIT | Protecting access keys typed on the screen (DPAPI, current user) |
 | System.CommandLine | 2.0.13 | MIT | The command line |
 
-These packages bring in the following packages, which ship with MarkPort too. All of them are MIT, © Microsoft Corporation (checked against each `.nuspec`): DocumentFormat.OpenXml.Framework 3.5.1, Microsoft.Extensions.DependencyInjection.Abstractions 10.0.13, Microsoft.Win32.SystemEvents 10.0.13, System.IO.Packaging 10.0.2.
+These packages bring in the following packages, which ship with MarkPortO too. All of them are MIT, © Microsoft Corporation (checked against each `.nuspec`): DocumentFormat.OpenXml.Framework 3.5.1, Microsoft.Extensions.DependencyInjection.Abstractions 10.0.13, Microsoft.Win32.SystemEvents 10.0.13, System.IO.Packaging 10.0.2.
 
 Copyright of the Microsoft packages: © Microsoft Corporation. All rights reserved.
 
@@ -28,7 +28,7 @@ Copyright of the Microsoft packages: © Microsoft Corporation. All rights reserv
 
 ## Not bundled
 
-MarkPort does not include or redistribute the following. It starts the copy installed on the computer.
+MarkPortO does not include or redistribute the following. It starts the copy installed on the computer.
 
 - Microsoft Office (Word, Excel, PowerPoint): used through COM to make PDFs. Needs its own license.
 - LibreOffice: used in headless mode to make PDFs ([Mozilla Public License 2.0](https://www.libreoffice.org/about-us/licenses/)).
