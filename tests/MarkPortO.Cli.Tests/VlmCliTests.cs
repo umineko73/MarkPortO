@@ -217,7 +217,8 @@ public class VlmCliTests
         Assert.Contains("1 page(s) could not be processed", run.Output);
     }
 
-    [Fact]
+    [LibreOfficeFact]
+    [Trait("Engine", "LibreOffice")]
     public async Task ConvertWithStep3_ForAServerThatIsDown_ExitsWith3_AndWritesNothing()
     {
         using var dir = new TempDir();

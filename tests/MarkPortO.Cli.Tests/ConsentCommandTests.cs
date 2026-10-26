@@ -180,7 +180,8 @@ public class ConsentCommandTests
         Assert.Contains("fake-vlm 1.0.0", run.Output);
     }
 
-    [Fact]
+    [LibreOfficeFact]
+    [Trait("Engine", "LibreOffice")]
     public async Task Convert_WithoutTheConsent_StopsWithExitCode3_AndNothingIsConverted()
     {
         using var dir = new TempDir();

@@ -62,7 +62,8 @@ public class PreflightTests : JapaneseUiTests
         setup!.Dispose();
     }
 
-    [Fact]
+    [LibreOfficeFact]
+    [Trait("Engine", "LibreOffice")]
     public async Task AConnectionThatFails_StopsBeforeStep1_AndWritesNothing()
     {
         using var dir = new TempDir();
@@ -80,7 +81,8 @@ public class PreflightTests : JapaneseUiTests
         setup!.Dispose();
     }
 
-    [Fact]
+    [LibreOfficeFact]
+    [Trait("Engine", "LibreOffice")]
     public async Task AMissingModel_AndARefusedKey_AreReportedWithTheirReason()
     {
         using var dir = new TempDir();
@@ -121,7 +123,8 @@ public class PreflightTests : JapaneseUiTests
         setup.Dispose();
     }
 
-    [Fact]
+    [LibreOfficeFact]
+    [Trait("Engine", "LibreOffice")]
     public async Task WithStep3OnButNoConnection_TheRunDoesNotStart()
     {
         using var dir = new TempDir();
@@ -158,7 +161,8 @@ public class PreflightTests : JapaneseUiTests
         Assert.Contains("MARKPORTO_TEST_UNSET_KEY", error);
     }
 
-    [Fact]
+    [LibreOfficeFact]
+    [Trait("Engine", "LibreOffice")]
     public async Task AResume_ChecksTheConnectionToo_BeforeAnyStep()
     {
         using var dir = new TempDir();
