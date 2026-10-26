@@ -47,7 +47,7 @@ Word・Excel・PowerPoint の文書（docx・xlsx・pptx）を、Markdownと、�
 ## クイックスタート
 
 ```powershell
-git clone <リポジトリのURL>
+git clone https://github.com/umineko73/MarkPortO.git
 cd MarkPortO
 dotnet build MarkPortO.slnx
 

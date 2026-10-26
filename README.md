@@ -45,7 +45,7 @@ A conversion has three steps, and each step runs on its own thread so that the s
 ## Quick start
 
 ```powershell
-git clone <repository-url>
+git clone https://github.com/umineko73/MarkPortO.git
 cd MarkPortO
 dotnet build MarkPortO.slnx
 

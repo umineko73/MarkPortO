@@ -11,5 +11,8 @@
     <Authors>umineko73</Authors>
     <Copyright>Copyright (C) 2026 umineko73</Copyright>
     <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/umineko73/MarkPortO</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/umineko73/MarkPortO</PackageProjectUrl>
   </PropertyGroup>
 </Project>
