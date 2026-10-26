@@ -18,6 +18,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using MarkPort.Core.Settings;
 using MarkPort.Core.Vlm;
+using MarkPort.Core.Vlm.Command;
 
 namespace MarkPort.App.ViewModels;
 
@@ -71,6 +72,155 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     {
         get => _profile.Model;
         set => Change(value, _profile.Model, v => _profile.Model = v);
+    }
+
+    // ---- the kind of connection: a server, or an external command (FR-043)
+
+    public IReadOnlyList<string> KindItems { get; } = [UiText.Get("Conn_KindOpenAi"), UiText.Get("Conn_KindCommand")];
+
+    public IReadOnlyList<string> CommandItems { get; } = ["claude", "codex", "opencode"];
+
+    public IReadOnlyList<string> EffortItems { get; } = [UiText.Get("Conn_EffortDefault"), "low", "medium", "high"];
+
+    public bool IsCommand => _profile.Kind == ConnectionKind.Command;
+
+    public bool IsOpenAi => !IsCommand;
+
+    public int KindIndex
+    {
+        get => IsCommand ? 1 : 0;
+        set => Change(value == 1 ? ConnectionKind.Command : ConnectionKind.OpenAi, _profile.Kind, kind =>
+        {
+            _profile.Kind = kind;
+            if (kind == ConnectionKind.Command)
+            {
+                // A model name of a server means nothing to a command: start from the usual one.
+                _profile.Command ??= CommandKind.Claude;
+                _profile.Model = CommandDefaults.InitialModel(_profile.Command.Value);
+            }
+        });
+    }
+
+    public int CommandIndex
+    {
+        get => (int)(_profile.Command ?? CommandKind.Claude);
+        set
+        {
+            var command = (CommandKind)Math.Clamp(value, 0, 2);
+            var before = _profile.Command;
+            Change<CommandKind?>(command, before, kind =>
+            {
+                _profile.Command = kind;
+                // The model follows the command while it is still the usual one (or empty).
+                if (string.IsNullOrWhiteSpace(_profile.Model) || (before is { } old && _profile.Model == CommandDefaults.InitialModel(old)))
+                {
+                    _profile.Model = CommandDefaults.InitialModel(kind!.Value);
+                }
+            });
+        }
+    }
+
+    public string Executable
+    {
+        get => _profile.Executable ?? string.Empty;
+        set => Change(string.IsNullOrWhiteSpace(value) ? null : value.Trim(), _profile.Executable, v => _profile.Executable = v);
+    }
+
+    public int EffortIndex
+    {
+        get => _profile.Effort switch { "low" => 1, "medium" => 2, "high" => 3, _ => 0 };
+        set => Change(value switch { 1 => "low", 2 => "medium", 3 => "high", _ => string.Empty }, _profile.Effort, v => _profile.Effort = v);
+    }
+
+    public string ParallelText
+    {
+        get => _profile.Parallel.ToString(CultureInfo.InvariantCulture);
+        set
+        {
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
+            {
+                Change(n, _profile.Parallel, v => _profile.Parallel = v);
+            }
+        }
+    }
+
+    // ---- the limits (FR-057): empty is no limit
+
+    public string MaxPagesText
+    {
+        get => _profile.MaxPages?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                Change<int?>(null, _profile.MaxPages, v => _profile.MaxPages = v);
+            }
+            else if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
+            {
+                Change<int?>(n, _profile.MaxPages, v => _profile.MaxPages = v);
+            }
+        }
+    }
+
+    public string MaxCostText
+    {
+        get => _profile.MaxCostUsd?.ToString("0.####", CultureInfo.InvariantCulture) ?? string.Empty;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                Change<double?>(null, _profile.MaxCostUsd, v => _profile.MaxCostUsd = v);
+            }
+            else if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var n))
+            {
+                Change<double?>(n, _profile.MaxCostUsd, v => _profile.MaxCostUsd = v);
+            }
+        }
+    }
+
+    public string MaxLinesText
+    {
+        get => _profile.MaxLinesPerRead.ToString(CultureInfo.InvariantCulture);
+        set
+        {
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
+            {
+                Change(n, _profile.MaxLinesPerRead, v => _profile.MaxLinesPerRead = v);
+            }
+        }
+    }
+
+    // ---- the consent to send page images outside the local network (FR-046, FR-052)
+
+    public bool ConsentRequired => ExternalConsent.IsRequired(_profile);
+
+    public bool CanAgree => ConsentRequired && ExternalConsent.StateOf(_profile) != ConsentState.Granted;
+
+    public bool CanWithdraw => ConsentRequired && _profile.ExternalConsent is not null;
+
+    public string ConsentText => ExternalConsent.StateOf(_profile) switch
+    {
+        ConsentState.NotRequired => UiText.Get("Conn_ConsentNotNeeded"),
+        ConsentState.Granted => UiText.Get("Conn_ConsentGranted", _profile.ExternalConsent!.At.LocalDateTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)),
+        ConsentState.Outdated => UiText.Get("Conn_ConsentOutdated"),
+        _ => UiText.Get("Conn_ConsentMissing"),
+    };
+
+    /// <summary>What the user is asked to agree to.</summary>
+    public string ConsentNotice => string.Join(Environment.NewLine, ExternalConsent.Notice(_profile));
+
+    public void Agree()
+    {
+        _store.Update(_ => ExternalConsent.Grant(_profile, DateTimeOffset.Now));
+        Raise(string.Empty);
+        _changed();
+    }
+
+    public void Withdraw()
+    {
+        _store.Update(_ => ExternalConsent.Revoke(_profile));
+        Raise(string.Empty);
+        _changed();
     }
 
     public string TimeoutText
@@ -269,23 +419,38 @@ public sealed class ConnectionSettingsViewModel : ObservableObject
             return;
         }
 
-        var key = ApiKeyResolver.Resolve(editor.Profile);
         Busy = true;
         try
         {
             string text;
-            if (key.Error is not null)
+            if (VlmSetupFactory.ConsentMissing(editor.Profile) is { } missing)
             {
-                text = UiText.Get("Conn_Failed") + key.Error;
+                text = UiText.Get("Conn_Failed") + missing.Message;
             }
-            else
+            else if (editor.Profile.Kind == ConnectionKind.Command)
             {
-                using var client = new VlmClient(editor.Profile, key.Key);
-                var checker = new ConnectionChecker(client, editor.Profile);
+                var checker = new CommandConnectionChecker(editor.Profile, new CommandVlmReader(editor.Profile));
                 var result = image
                     ? await checker.CheckImageAsync(CancellationToken.None)
                     : await checker.CheckConnectionAsync(CancellationToken.None);
                 text = (result.Ok ? UiText.Get("Conn_Ok") : UiText.Get("Conn_Failed")) + result.Message;
+            }
+            else
+            {
+                var key = ApiKeyResolver.Resolve(editor.Profile);
+                if (key.Error is not null)
+                {
+                    text = UiText.Get("Conn_Failed") + key.Error;
+                }
+                else
+                {
+                    using var client = new VlmClient(editor.Profile, key.Key);
+                    var checker = new ConnectionChecker(client, editor.Profile);
+                    var result = image
+                        ? await checker.CheckImageAsync(CancellationToken.None)
+                        : await checker.CheckConnectionAsync(CancellationToken.None);
+                    text = (result.Ok ? UiText.Get("Conn_Ok") : UiText.Get("Conn_Failed")) + result.Message;
+                }
             }
 
             // The time of the last run is shown with the result.

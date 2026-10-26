@@ -74,11 +74,11 @@ dotnet run --project src/MarkPort.Cli -- check-connection --settings settings.js
 dotnet run --project src/MarkPort.Cli -- list-connections --settings settings.json   # 登録した接続の一覧（キーは表示しない）
 ```
 
-主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`、`--engine`、`--dpi`、`--step2 on|off`、`--step3 on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`。コマンドラインの指定は `settings.json` より優先されます。
+主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`、`--engine`、`--dpi`、`--step2 on|off`、`--step3 on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。コマンドラインの指定は `settings.json` より優先されます。
 
 アクセスキーは、`settings.json` に環境変数の**名前**（`apiKeyEnv`）として書くのが基本です（値そのものは保存しません）。画面で入力したキーは、現在のWindowsユーザーだけが復号できる形（DPAPI）で保存します。ログ・Markdown・状態ファイルにキーは出ません。
 
-終了コード: `0` すべて成功、`1` 一部が失敗、`2` 引数または設定が不正、`3` 開始前のチェックに失敗、`130` 中断（`Ctrl+C`。`--resume` で再開できます）。
+終了コード: `0` すべて成功、`1` 一部が失敗、`2` 引数または設定が不正、`3` 開始前のチェックに失敗（同意がない場合を含む）、`4` 使用量の上限・ログイン・ページ数や費用の上限で停止（`--resume` で再開できます）、`130` 中断（`Ctrl+C`。`--resume` で再開できます）。
 
 ### 画面
 
@@ -111,6 +111,29 @@ dotnet run --project src/MarkPort.App
 ```
 
 設定ファイルの場所は、環境変数 `MARKPORT_SETTINGS` で変えられます（画面もコマンドラインも、`--settings` を指定しないときに使います）。言語とテーマは `ui.language`（`system` / `ja` / `en`）と `ui.theme`（`system` / `light` / `dark`）です。
+
+### Claude Code、Codex、OpenCode で読み取る（外部コマンド）
+
+Step3は、ログイン済みのコマンド（`claude`、`codex`、`opencode`）でも読み取れます。ページ画像ごとに、コマンドを1回、シェルを介さず、空の一時フォルダで実行します。**お使いの設定・フック・指示ファイル・メモリは読み込ませず、道具も使わせません**（ファイルの書き込みやコマンドの実行はできません）。画像を渡し、文字を受け取ります。
+
+```json
+{ "name": "cloud", "kind": "command", "command": "claude", "model": "haiku", "effort": "low", "parallel": 2,
+  "maxPages": 200, "maxCostUsd": 3.0 }
+```
+
+- `model` はコマンドに渡します。新しい接続の初期値は、`claude` が `haiku`、`codex` が `gpt-6-luna`、`opencode` が空（お使いのOpenCodeの既定のモデル）です。画像を読めるモデルにしてください。
+- `effort` は `low`（既定）、`medium`、`high`、または空（コマンドの既定）です。`parallel` は、同時に読むページ数です（既定は1）。
+- `maxPages` と `maxCostUsd` は、上限に達すると変換を止めます（空は無制限）。費用の上限は、費用を返すコマンド（`claude`）だけで働きます。止まった変換は、「再開」または `--resume` で続けられます。
+- コマンドが使用量の上限やログインが必要なことを返したとき、同じ失敗が3ページ続いたときも、変換を止め、再開できます。
+
+**ページ画像は、コマンドの提供元のサービス（ネットワークの外）に送られ、お使いのアカウントに利用料が発生することがあります。** コマンドは、これに加えて、環境の情報（例: アカウントのメールアドレス）を提供元に送ることがあります。機密の文書には使わないでください。このため、この種類の接続（と、`api.openai.com` のようにローカルネットワークの外にあるOpenAI互換の接続）は、同意したあとにだけ使えます。
+
+```powershell
+dotnet run --project src/MarkPort.Cli -- consent cloud --settings settings.json            # 注意を表示し、同意を記録する
+dotnet run --project src/MarkPort.Cli -- consent cloud --revoke --settings settings.json   # 取り消す
+```
+
+画面では、接続の設定で「同意する…」を押します。変換を始める前にも、確認が出ます。同意がなければ、何も起動せず、何も送りません。`--max-pages`、`--max-cost`、`--parallel` で、その実行だけ、接続の設定を上書きできます。
 
 ## 出力
 

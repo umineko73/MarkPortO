@@ -14,6 +14,7 @@
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
 using System.Windows;
+using MarkPort.App.Services;
 using MarkPort.App.ViewModels;
 using MarkPort.Core.Settings;
 
@@ -48,6 +49,29 @@ public partial class ConnectionSettingsWindow : Window
             NameBox.Focus();
             NameBox.SelectAll();
         }, System.Windows.Threading.DispatcherPriority.Input);
+
+    /// <summary>Shows what the user agrees to, and records the consent only on Yes (FR-046, FR-052).</summary>
+    private void OnAgreeClicked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.Selected is not { } editor)
+        {
+            return;
+        }
+
+        var answer = MessageBox.Show(
+            this,
+            editor.ConsentNotice + Environment.NewLine + Environment.NewLine + UiText.Get("Conn_ConsentQuestion"),
+            UiText.Get("Conn_ConsentTitle"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (answer == MessageBoxResult.Yes)
+        {
+            editor.Agree();
+        }
+    }
+
+    private void OnWithdrawClicked(object sender, RoutedEventArgs e) => _viewModel.Selected?.Withdraw();
 
     private void OnKeyChanged(object sender, RoutedEventArgs e)
     {

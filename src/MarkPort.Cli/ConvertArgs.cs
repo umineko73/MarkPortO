@@ -43,6 +43,15 @@ public sealed record ConvertArgs
 
     public string? Connection { get; init; }
 
+    /// <summary>The most pages Step 3 reads in a job; overrides the connection (FR-057).</summary>
+    public int? MaxPages { get; init; }
+
+    /// <summary>The most Step 3 may cost in US dollars; overrides the connection (FR-057).</summary>
+    public double? MaxCost { get; init; }
+
+    /// <summary>How many external commands run at the same time; overrides the connection (FR-044).</summary>
+    public int? Parallel { get; init; }
+
     public bool Resume { get; init; }
 
     public string? Job { get; init; }
@@ -134,6 +143,24 @@ public static class ConvertArgsResolver
         if (args.Connection is not null)
         {
             settings.Vlm.Selected = args.Connection;
+        }
+
+        if (settings.FindConnection(settings.Vlm.Selected) is { } chosen)
+        {
+            if (args.MaxPages is { } maxPages)
+            {
+                chosen.MaxPages = maxPages;
+            }
+
+            if (args.MaxCost is { } maxCost)
+            {
+                chosen.MaxCostUsd = maxCost;
+            }
+
+            if (args.Parallel is { } parallel)
+            {
+                chosen.Parallel = parallel;
+            }
         }
 
         if (requireInputs && settings.Input.Paths.Count == 0)

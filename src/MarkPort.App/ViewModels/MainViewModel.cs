@@ -462,8 +462,40 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     // ---- running ----
 
+    /// <summary>
+    /// The question before page images are sent outside the local network (FR-051): where they go, that charges may apply,
+    /// and the limits. <c>true</c> when nothing needs to be asked, or the user said yes. Without the consent nothing is asked
+    /// here: the check before the run reports it.
+    /// </summary>
+    private bool ConfirmSending()
+    {
+        var settings = _store.Current;
+        if (!settings.Steps.Step3
+            || settings.FindConnection(settings.Vlm.Selected) is not { } connection
+            || !ExternalConsent.IsRequired(connection)
+            || !ExternalConsent.MayUse(connection)
+            || Confirm is not { } confirm)
+        {
+            return true;
+        }
+
+        var none = UiText.Get("Conn_LimitNone");
+        var limits = connection.MaxPages is null && connection.MaxCostUsd is null
+            ? string.Empty
+            : UiText.Get(
+                "Confirm_StartExternalLimits",
+                connection.MaxPages?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? none,
+                connection.MaxCostUsd?.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) ?? none);
+        return confirm(UiText.Get("Confirm_StartExternal", InputPaths.Count, ExternalConsent.Destination(connection), limits));
+    }
+
     private Task StartAsync()
     {
+        if (!ConfirmSending())
+        {
+            return Task.CompletedTask;
+        }
+
         // An interrupted run is still waiting in the output folder: ask before a new one is started (FR-013g).
         if (_previous is { CanResume: true } previous
             && Confirm is { } confirm
@@ -503,6 +535,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     // The earlier run shown on the screen is the one to resume, whatever the input list holds (FR-013f).
     private Task ResumeAsync(ResumeMode mode)
     {
+        if (!ConfirmSending())
+        {
+            return Task.CompletedTask;
+        }
+
         var jobId = _previous?.Job.JobId;
         return RunAsync((service, snapshot, token) =>
         service.ResumeAsync(
@@ -651,7 +688,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var failed = result.Documents.Count(d => d.IsFailed());
         var rest = result.Documents.Count - done - failed;
         var head = result.WasInterrupted ? UiText.Get("Status_Head_Interrupted") : failed > 0 ? UiText.Get("Status_Head_DoneWithFailures") : UiText.Get("Status_Head_Done");
-        return UiText.Get("Status_Summary", head, done, failed, rest, result.Job.OutputRoot);
+        var summary = UiText.Get("Status_Summary", head, done, failed, rest, result.Job.OutputRoot);
+        return result.WasInterrupted && result.Job.StopReason is { } reason ? summary + " " + reason : summary;
     }
 
     /// <summary>Fills the list with every file of the run (waiting), before the first step starts.</summary>

@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPort.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using MarkPort.Core.Localization;
 using MarkPort.Core.Settings;
 
 namespace MarkPort.Core.Vlm;
@@ -75,4 +76,35 @@ public static class ExternalConsent
     }
 
     public static void Revoke(ConnectionProfile connection) => connection.ExternalConsent = null;
+
+    /// <summary>Where the page images go: the service behind the command, or the host of the address.</summary>
+    public static string Destination(ConnectionProfile connection)
+    {
+        if (connection.Kind == ConnectionKind.Command)
+        {
+            var command = (connection.Command ?? CommandKind.Claude).ToString().ToLowerInvariant();
+            return string.IsNullOrWhiteSpace(connection.Model)
+                ? Loc.T("the service behind the command '{0}'", command)
+                : Loc.T("the service behind the command '{0}' (model {1})", command, connection.Model.Trim());
+        }
+
+        return Uri.TryCreate(connection.BaseUrl, UriKind.Absolute, out var uri) ? uri.Host : connection.BaseUrl;
+    }
+
+    /// <summary>The notice the user agrees to (<see cref="CurrentNoticeVersion"/>): where the images go, the cost, the information a command adds.</summary>
+    public static IReadOnlyList<string> Notice(ConnectionProfile connection)
+    {
+        var lines = new List<string>
+        {
+            Loc.T("The page images of your documents will be sent outside the local network, to: {0}.", Destination(connection)),
+            Loc.T("Usage charges may apply to your account."),
+        };
+        if (connection.Kind == ConnectionKind.Command)
+        {
+            lines.Add(Loc.T("A command may also send information about your environment (for example the email address of your account) to its provider."));
+        }
+
+        lines.Add(Loc.T("Do not use this connection for confidential documents."));
+        return lines;
+    }
 }

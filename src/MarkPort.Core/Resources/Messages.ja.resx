@@ -406,4 +406,22 @@
   <data name="The command could not read the image. {0}" xml:space="preserve">
     <value>コマンドが画像を読み取れませんでした。{0}</value>
   </data>
+  <data name="the service behind the command '{0}'" xml:space="preserve">
+    <value>コマンド '{0}' の提供元のサービス</value>
+  </data>
+  <data name="the service behind the command '{0}' (model {1})" xml:space="preserve">
+    <value>コマンド '{0}' の提供元のサービス（モデル {1}）</value>
+  </data>
+  <data name="The page images of your documents will be sent outside the local network, to: {0}." xml:space="preserve">
+    <value>文書のページ画像が、ローカルネットワークの外の次の送信先に送られます: {0}。</value>
+  </data>
+  <data name="Usage charges may apply to your account." xml:space="preserve">
+    <value>お使いのアカウントに、利用料が発生することがあります。</value>
+  </data>
+  <data name="A command may also send information about your environment (for example the email address of your account) to its provider." xml:space="preserve">
+    <value>コマンドは、これに加えて、環境の情報（例: アカウントのメールアドレス）を提供元に送ることがあります。</value>
+  </data>
+  <data name="Do not use this connection for confidential documents." xml:space="preserve">
+    <value>機密の文書には、この接続を使わないでください。</value>
+  </data>
 </root>

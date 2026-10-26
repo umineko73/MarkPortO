@@ -38,6 +38,9 @@ public static class ExitCodes
     /// <summary>A check before the start failed (the engine cannot be used ...).</summary>
     public const int StartFailed = 3;
 
+    /// <summary>A usage limit, a missing login, repeated failures or a limit of pages or cost stopped the run; it can be resumed (FR-049, FR-057).</summary>
+    public const int StoppedByLimit = 4;
+
     /// <summary>Interrupted (Ctrl+C); can be resumed.</summary>
     public const int Interrupted = 130;
 }
@@ -84,6 +87,9 @@ public static class CliApp
         var step2 = new Option<string?>("--step2") { Description = "on or off: put image references in the Markdown." };
         var step3 = new Option<string?>("--step3") { Description = "on or off: read the page images with the VLM." };
         var connection = new Option<string?>("--connection") { Description = "Name of the VLM connection in settings.json." };
+        var maxPages = new Option<int?>("--max-pages") { Description = "Stop after this many pages have been read by Step 3 (default: the setting of the connection; empty is no limit)." };
+        var maxCost = new Option<double?>("--max-cost") { Description = "Stop after Step 3 has cost this many US dollars, when the command says what it costs." };
+        var parallel = new Option<int?>("--parallel") { Description = "How many external commands run at the same time (default: the setting of the connection)." };
         var resume = new Option<bool>("--resume") { Description = "Resume an interrupted run." };
         var job = new Option<string?>("--job") { Description = "With --resume: the job to resume." };
         var retryFailed = new Option<bool>("--retry-failed") { Description = "With --resume: run the failed files again." };
@@ -95,7 +101,7 @@ public static class CliApp
         foreach (var option in new Option[]
         {
             settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, engine, dpi, step2, step3,
-            connection, resume, job, retryFailed, result, quiet,
+            connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
         })
         {
             convert.Options.Add(option);
@@ -117,6 +123,9 @@ public static class CliApp
                 Step2 = parse.GetValue(step2),
                 Step3 = parse.GetValue(step3),
                 Connection = parse.GetValue(connection),
+                MaxPages = parse.GetValue(maxPages),
+                MaxCost = parse.GetValue(maxCost),
+                Parallel = parse.GetValue(parallel),
                 Resume = parse.GetValue(resume),
                 Job = parse.GetValue(job),
                 RetryFailed = parse.GetValue(retryFailed),
@@ -146,7 +155,17 @@ public static class CliApp
         listConnections.Options.Add(listSettings);
         listConnections.SetAction((parse, _) => ListConnectionsAsync(parse.GetValue(listSettings), stdout, stderr));
 
+        var consent = new Command("consent", "Agree that the page images are sent outside the local network by a connection (an external command, or a server that is not in the local network).");
+        var consentName = new Argument<string>("connection") { Description = "Name of the connection." };
+        var consentRevoke = new Option<bool>("--revoke") { Description = "Withdraw the consent." };
+        var consentSettings = new Option<string?>("--settings") { Description = "Path of settings.json." };
+        consent.Arguments.Add(consentName);
+        consent.Options.Add(consentRevoke);
+        consent.Options.Add(consentSettings);
+        consent.SetAction((parse, _) => ConsentAsync(parse.GetValue(consentName)!, parse.GetValue(consentRevoke), parse.GetValue(consentSettings), stdout, stderr));
+
         root.Subcommands.Add(convert);
+        root.Subcommands.Add(consent);
         root.Subcommands.Add(listJobs);
         root.Subcommands.Add(checkConnection);
         root.Subcommands.Add(listConnections);
@@ -219,6 +238,11 @@ public static class CliApp
             return await ResumeAsync(args, settings, stdout, stderr, cancellationToken);
         }
 
+        if (args.Parallel is not null && settings.FindConnection(settings.Vlm.Selected) is { Kind: ConnectionKind.OpenAi })
+        {
+            await stderr.WriteLineAsync("warning: --parallel is for external commands; it is ignored for this connection.");
+        }
+
         // 3. the documents
         var found = InputEnumerator.Enumerate(settings.Input.Paths, settings.Input.Types, settings.Input.Recurse);
         foreach (var warning in found.Warnings)
@@ -258,6 +282,7 @@ public static class CliApp
         using var vlmLifetime = vlm;
         var engine = EngineFactory.Create(settings.Engine);
         using var engineLifetime = engine as IDisposable;
+        await PrintSendingNoteAsync(vlm, stdout);
         var service = new ConvertService(engine, vlm: vlm);
         var progress = new ConsoleProgress(stdout, args.Quiet);
         service.DocumentChanged += progress.Report;
@@ -323,6 +348,7 @@ public static class CliApp
         using var vlmLifetime = vlm;
         var engine = EngineFactory.Create(settings.Engine);
         using var engineLifetime = engine as IDisposable;
+        await PrintSendingNoteAsync(vlm, stdout);
         var service = new ConvertService(engine, vlm: vlm);
         var progress = new ConsoleProgress(stdout, args.Quiet);
         service.DocumentChanged += progress.Report;
@@ -376,6 +402,12 @@ public static class CliApp
             await stderr.WriteLineAsync($"failed: {document.SourcePath}: {document.Error?.Message}");
         }
 
+        if (result.WasInterrupted && result.Job.StopReason is { } reason)
+        {
+            await stderr.WriteLineAsync("stopped: " + reason);
+            return ExitCodes.StoppedByLimit;
+        }
+
         if (result.WasInterrupted)
         {
             return ExitCodes.Interrupted;
@@ -400,23 +432,46 @@ public static class CliApp
             return ExitCodes.InvalidArguments;
         }
 
-        var key = ApiKeyResolver.Resolve(connection);
-        if (key.Error is not null)
+        // Nothing is started and nothing is sent without the consent (FR-046).
+        if (VlmSetupFactory.ConsentMissing(connection) is { } missing)
         {
-            await stderr.WriteLineAsync("error: " + key.Error);
-            return ExitCodes.InvalidArguments;
+            await stdout.WriteLineAsync("NG  consent: " + missing.Message);
+            return ExitCodes.StartFailed;
         }
 
-        using var client = new VlmClient(connection, key.Key);
-        var checker = new ConnectionChecker(client, connection);
+        Func<CancellationToken, Task<CheckResult>> checkConnection;
+        Func<CancellationToken, Task<CheckResult>> checkImage;
+        IDisposable? owned = null;
+        if (connection.Kind == ConnectionKind.Command)
+        {
+            var commandChecker = new MarkPort.Core.Vlm.Command.CommandConnectionChecker(connection, new MarkPort.Core.Vlm.Command.CommandVlmReader(connection));
+            checkConnection = commandChecker.CheckConnectionAsync;
+            checkImage = commandChecker.CheckImageAsync;
+        }
+        else
+        {
+            var key = ApiKeyResolver.Resolve(connection);
+            if (key.Error is not null)
+            {
+                await stderr.WriteLineAsync("error: " + key.Error);
+                return ExitCodes.InvalidArguments;
+            }
 
-        var connectionResult = await checker.CheckConnectionAsync(cancellationToken);
+            var client = new VlmClient(connection, key.Key);
+            owned = client;
+            var checker = new ConnectionChecker(client, connection);
+            checkConnection = checker.CheckConnectionAsync;
+            checkImage = checker.CheckImageAsync;
+        }
+
+        using var lifetime = owned;
+        var connectionResult = await checkConnection(cancellationToken);
         await stdout.WriteLineAsync((connectionResult.Ok ? "OK  connection: " : "NG  connection: ") + connectionResult.Message);
         var ok = connectionResult.Ok;
 
         if (image)
         {
-            var imageResult = await checker.CheckImageAsync(cancellationToken);
+            var imageResult = await checkImage(cancellationToken);
             await stdout.WriteLineAsync((imageResult.Ok ? "OK  image: " : "NG  image: ") + imageResult.Message);
             ok &= imageResult.Ok;
         }
@@ -442,10 +497,105 @@ public static class CliApp
         foreach (var connection in settings.Vlm.Connections)
         {
             var selected = string.Equals(connection.Name, settings.Vlm.Selected, StringComparison.OrdinalIgnoreCase) ? "*" : " ";
-            await stdout.WriteLineAsync(
-                $"{selected} {connection.Name}  {connection.BaseUrl}  model={connection.Model}  timeout={connection.TimeoutSeconds}s  key={ApiKeyResolver.Describe(connection)}");
+            var consent = ExternalConsent.StateOf(connection) switch
+            {
+                ConsentState.NotRequired => "not-needed",
+                ConsentState.Granted => "yes",
+                ConsentState.Outdated => "outdated",
+                _ => "no",
+            };
+            var limits = string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"max-pages={(connection.MaxPages is { } p ? p.ToString(System.Globalization.CultureInfo.InvariantCulture) : "none")}  max-cost={(connection.MaxCostUsd is { } c ? c.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : "none")}");
+            var line = connection.Kind == ConnectionKind.Command
+                ? $"{selected} {connection.Name}  command={(connection.Command ?? CommandKind.Claude).ToString().ToLowerInvariant()}  model={(string.IsNullOrWhiteSpace(connection.Model) ? "(default)" : connection.Model)}  effort={(connection.Effort.Length == 0 ? "(default)" : connection.Effort)}  parallel={connection.Parallel}  timeout={connection.TimeoutSeconds}s  consent={consent}  {limits}"
+                : $"{selected} {connection.Name}  {connection.BaseUrl}  model={connection.Model}  timeout={connection.TimeoutSeconds}s  key={ApiKeyResolver.Describe(connection)}  consent={consent}  {limits}";
+            await stdout.WriteLineAsync(line);
         }
 
+        return ExitCodes.Success;
+    }
+
+    /// <summary>
+    /// Tells where the page images go before a run that sends them outside the local network (FR-051). The consent is
+    /// already given, or the run does not start; nothing is asked on the command line.
+    /// </summary>
+    private static async Task PrintSendingNoteAsync(VlmSetup? vlm, TextWriter stdout)
+    {
+        if (vlm?.Connection is not { } connection || !ExternalConsent.IsRequired(connection) || !ExternalConsent.MayUse(connection))
+        {
+            return;
+        }
+
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var limits = connection.MaxPages is null && vlm.MaxCostUsd is null && vlm.MaxPages is null
+            ? string.Empty
+            : $" Limits: pages {(vlm.MaxPages ?? connection.MaxPages)?.ToString(inv) ?? "none"}, cost {(vlm.MaxCostUsd ?? connection.MaxCostUsd)?.ToString("0.####", inv) ?? "none"}.";
+        await stdout.WriteLineAsync($"Page images will be sent outside the local network, to: {ExternalConsent.Destination(connection)}. Usage charges may apply.{limits}");
+    }
+
+    /// <summary>The <c>consent</c> command (FR-046, FR-052): writes the consent into settings.json, or withdraws it.</summary>
+    private static async Task<int> ConsentAsync(string name, bool revoke, string? settingsPath, TextWriter stdout, TextWriter stderr)
+    {
+        var path = settingsPath ?? SettingsStore.DefaultPath;
+        if (settingsPath is not null && !File.Exists(path))
+        {
+            await stderr.WriteLineAsync($"settings.json was not found: {path}");
+            return ExitCodes.InvalidArguments;
+        }
+
+        using var store = new SettingsStore(path, TimeSpan.FromMilliseconds(1));
+        var loaded = store.Load();
+        foreach (var warning in loaded.Warnings)
+        {
+            await stderr.WriteLineAsync("warning: " + warning);
+        }
+
+        if (loaded.ValidationErrors.Count > 0)
+        {
+            foreach (var error in loaded.ValidationErrors)
+            {
+                await stderr.WriteLineAsync($"error: settings.json: {error}");
+            }
+
+            return ExitCodes.InvalidArguments;
+        }
+
+        if (store.IsReadOnly)
+        {
+            await stderr.WriteLineAsync("error: settings.json cannot be changed by this version.");
+            return ExitCodes.InvalidArguments;
+        }
+
+        var connection = loaded.Settings.FindConnection(name);
+        if (connection is null)
+        {
+            await stderr.WriteLineAsync($"error: the connection '{name}' was not found in settings.json (see 'markport list-connections').");
+            return ExitCodes.InvalidArguments;
+        }
+
+        if (!ExternalConsent.IsRequired(connection))
+        {
+            await stderr.WriteLineAsync($"error: the connection '{connection.Name}' stays inside the local network and needs no consent.");
+            return ExitCodes.InvalidArguments;
+        }
+
+        if (revoke)
+        {
+            store.Update(settings => ExternalConsent.Revoke(settings.FindConnection(name)!));
+            store.Flush();
+            await stdout.WriteLineAsync($"The consent for '{connection.Name}' was withdrawn.");
+            return ExitCodes.Success;
+        }
+
+        foreach (var line in ExternalConsent.Notice(connection))
+        {
+            await stdout.WriteLineAsync(line);
+        }
+
+        store.Update(settings => ExternalConsent.Grant(settings.FindConnection(name)!, DateTimeOffset.UtcNow));
+        store.Flush();
+        await stdout.WriteLineAsync($"The consent for '{connection.Name}' was recorded in {store.FilePath}.");
         return ExitCodes.Success;
     }
 

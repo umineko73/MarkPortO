@@ -72,9 +72,9 @@ dotnet run --project src/MarkPort.Cli -- check-connection --settings settings.js
 dotnet run --project src/MarkPort.Cli -- list-connections --settings settings.json   # list the connections (keys are not shown)
 ```
 
-Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden`, `--engine`, `--dpi`, `--step2 on|off`, `--step3 on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`. Options on the command line override `settings.json`.
+Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden`, `--engine`, `--dpi`, `--step2 on|off`, `--step3 on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options on the command line override `settings.json`.
 
-Exit codes: `0` everything succeeded, `1` some files failed, `2` invalid arguments or settings, `3` the checks before the run failed, `130` interrupted (`Ctrl+C`; continue with `--resume`).
+Exit codes: `0` everything succeeded, `1` some files failed, `2` invalid arguments or settings, `3` the checks before the run failed (including a missing consent), `4` stopped by a usage limit, a login or a limit of pages or cost (continue with `--resume`), `130` interrupted (`Ctrl+C`; continue with `--resume`).
 
 ### Desktop app
 
@@ -105,6 +105,29 @@ The list shows the state of each file: waiting, Step1 to Step3 running, done, do
 The location of the file can be changed with the environment variable `MARKPORT_SETTINGS`; both the app and the command line use it when `--settings` is not given. `ui.language` is `system`, `ja` or `en`. `ui.theme` is `system`, `light` or `dark`.
 
 **About API keys.** Write the *name* of an environment variable (`apiKeyEnv`) in `settings.json`; the value itself is not stored. A key typed in the app is stored so that only the current Windows user can decrypt it (DPAPI). Keys never appear in logs, Markdown or state files.
+
+### Reading with Claude Code, Codex or OpenCode (external commands)
+
+Step3 can also use a command you have already logged in to: `claude`, `codex` or `opencode`. For each page image the command is run once, without a shell, in an empty temporary folder, **without your own settings, hooks, instruction files or memory, and without tools** (it cannot write files or run commands). The image goes in, the text comes out.
+
+```json
+{ "name": "cloud", "kind": "command", "command": "claude", "model": "haiku", "effort": "low", "parallel": 2,
+  "maxPages": 200, "maxCostUsd": 3.0 }
+```
+
+- `model` is passed to the command. A new connection starts with `haiku` (`claude`), `gpt-6-luna` (`codex`) or an empty model (`opencode`: the default model of your OpenCode). It must be a model that can read images.
+- `effort` is `low` (default), `medium`, `high` or empty (the command's default). `parallel` is how many pages are read at the same time (1 by default).
+- `maxPages` and `maxCostUsd` stop the conversion when a limit is reached (empty: no limit). The cost limit works only for commands that report a cost (`claude`). A stopped conversion can be continued with **Resume** or `--resume`.
+- The conversion also stops, and can be resumed, when the command reports that a usage limit is reached or that it is not logged in, or when three pages in a row fail in the same way.
+
+**The page images are sent to the service behind the command, outside your network, and charges may apply to your account.** The command may also send information about your environment (for example the email address of your account) to its provider. Do not use this for confidential documents. Because of this, such a connection (and an OpenAI-compatible connection whose address is not in the local network, such as `api.openai.com`) is used only after you agree:
+
+```powershell
+dotnet run --project src/MarkPort.Cli -- consent cloud --settings settings.json            # shows the notice and records the consent
+dotnet run --project src/MarkPort.Cli -- consent cloud --revoke --settings settings.json   # withdraw it
+```
+
+In the app, press **Agree...** in the connection settings; the app also asks before a conversion starts. Without the consent nothing is started and nothing is sent. `--max-pages`, `--max-cost` and `--parallel` override the settings of the connection for one run.
 
 ## Output
 
