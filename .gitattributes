@@ -1,0 +1,8 @@
+# Text files are stored with LF; the working copy follows the setting of each computer.
+* text=auto
+
+# The license text is kept exactly as published.
+LICENSE text eol=lf
+
+*.png binary
+*.ico binary

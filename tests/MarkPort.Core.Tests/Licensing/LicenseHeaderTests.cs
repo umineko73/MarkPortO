@@ -40,7 +40,7 @@ public class LicenseHeaderTests
         foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(root, file);
-            if (Path.GetExtension(file) is not (".cs" or ".xaml" or ".py")
+            if (Path.GetExtension(file) is not (".cs" or ".xaml" or ".py" or ".ps1")
                 || relative.Split(Path.DirectorySeparatorChar).Any(part => SkippedFolders.Contains(part)))
             {
                 continue;

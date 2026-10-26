@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 umineko73
+#
+# Continuous integration for GitHub Actions. GitHub reads workflows only from .github/workflows/, and folders that
+# start with a dot are not kept in this repository: to turn this on, copy this file to .github/workflows/ci.yml.
+#
+# Windows is required (WPF, and Windows.Data.Pdf). The runner has no Microsoft Office, so those tests are skipped;
+# the tests of the other engine are skipped too if LibreOffice is not installed on the runner.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Build and test
+        shell: pwsh
+        run: ./build.ps1 -Task Test -Configuration Release -SkipOffice

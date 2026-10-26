@@ -155,12 +155,24 @@ dotnet test MarkPort.slnx                            # 使えるエンジンが�
 dotnet test MarkPort.slnx --filter "Engine!=Office"   # Officeが無い環境（LibreOfficeのみ）
 ```
 
+`build.ps1` は、同じことを1回で行い、配布用のプログラムも作れます。
+
+```powershell
+./build.ps1                          # 復元、ビルド、テスト（Release）
+./build.ps1 -Task Build              # ビルドだけ
+./build.ps1 -SkipOffice              # Microsoft Office が無いコンピューター
+./build.ps1 -Task Publish            # ビルド、テスト、artifacts/MarkPort-win-x64.zip の作成（画面、`cli/` のコマンドライン、ライセンスの文書）
+```
+
+.NET SDK は `global.json` で固定しています（10.0.100、または新しい機能バンド）。GitHub Actions 用のワークフローは `tools/ci/github-actions.yml` にあります。使うときは、`.github/workflows/ci.yml` にコピーしてください。
+
 ```text
 src/MarkPort.Core/   変換処理のすべて（画面に依存しない）
 src/MarkPort.Cli/    コマンドライン
 src/MarkPort.App/    画面（WPF）
 tests/               テスト（検証用の文書は、テストコードが生成します）
-tools/               補助のスクリプト（アイコン、ライセンスヘッダー）
+build.ps1            復元、ビルド、テスト、配布用の作成
+tools/               補助のスクリプト（アイコン、ライセンスヘッダー）、CIのワークフロー
 ```
 
 - `src/MarkPort.App/Assets/MarkPort.ico` は `python tools/make-icon.py`（Pillow が必要）で作り直せます。

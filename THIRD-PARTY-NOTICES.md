@@ -15,6 +15,8 @@ MarkPort uses the packages below. The license of each is the one declared in its
 | System.Security.Cryptography.ProtectedData | 10.0.13 | MIT | Protecting access keys typed on the screen (DPAPI, current user) |
 | System.CommandLine | 2.0.13 | MIT | The command line |
 
+These packages bring in the following packages, which ship with MarkPort too. All of them are MIT, © Microsoft Corporation (checked against each `.nuspec`): DocumentFormat.OpenXml.Framework 3.5.1, Microsoft.Extensions.DependencyInjection.Abstractions 10.0.13, Microsoft.Win32.SystemEvents 10.0.13, System.IO.Packaging 10.0.2.
+
 Copyright of the Microsoft packages: © Microsoft Corporation. All rights reserved.
 
 ## Used only to build and test (not shipped)

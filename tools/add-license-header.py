@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License along with MarkPort.
 # If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
-"""Adds the GPL-3.0-only header to every source file that does not have it yet (.cs, .xaml, .py).
+"""Adds the GPL-3.0-only header to every source file that does not have it yet (.cs, .xaml, .py, .ps1).
 
 Run:  python tools/add-license-header.py          (from anywhere; it works on the repository this script is in)
 The header is written once: a file that already has an SPDX-License-Identifier line is left as it is.
@@ -49,7 +49,7 @@ SKIP = {"bin", "obj", ".git", ".specify", ".claude", ".agents", "node_modules"}
 def header(extension: str, newline: str) -> str:
     if extension == ".cs":
         body = [("// " + line).rstrip() for line in LINES]
-    elif extension == ".py":
+    elif extension in (".py", ".ps1"):
         body = [("# " + line).rstrip() for line in LINES]
     else:  # .xaml: an XML comment before the root element (it must not contain a double hyphen)
         body = ["<!--"] + ["  " + line if line else "" for line in LINES] + ["-->"]
@@ -59,7 +59,7 @@ def header(extension: str, newline: str) -> str:
 def main() -> None:
     changed = 0
     for path in sorted(ROOT.rglob("*")):
-        if path.suffix not in {".cs", ".xaml", ".py"} or any(part in SKIP for part in path.parts):
+        if path.suffix not in {".cs", ".xaml", ".py", ".ps1"} or any(part in SKIP for part in path.parts):
             continue
         raw = path.read_bytes()
         bom = raw.startswith(b"\xef\xbb\xbf")
