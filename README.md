@@ -80,6 +80,14 @@ Exit codes: `0` everything succeeded, `1` some files failed, `2` invalid argumen
 
 The **Settings** menu has the language (follow Windows / Japanese / English), the VLM connections and the prompts. The **Help** menu has the version and the license notices.
 
+**VLM connections** (Settings → VLM connection settings): add an OpenAI-compatible server or an external command (`claude`, `codex`, `opencode`), set the model, the limits and the consent, and check the connection and the image analysis.
+
+![VLM connection settings](docs/images/connections.png)
+
+**Prompts** (Settings → Prompt settings): the instruction sent to the VLM is set for each type of document (docx, xlsx, pptx).
+
+![Prompt settings](docs/images/prompts.png)
+
 The list shows the state of each file: waiting, Step1 to Step3 running, done, done (some pages failed), failed, interrupted. For a folder, a file is shown by its path relative to that folder. If the VLM could not read some pages of a file, **Retry failed** reads only those pages again. Values you set in the app are saved to `settings.json` (`%APPDATA%\MarkPortO\settings.json`) at once and restored on the next start.
 
 ### `settings.json`
