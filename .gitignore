@@ -13,6 +13,9 @@ tests/fixtures/
 Thumbs.db
 .DS_Store
 
-# Tool-managed folders (worktrees, IDE state) are not committed
+# Folders that start with a dot are tool and AI-assistant folders (Spec Kit, Claude Code, agents, IDE state); none is committed or pushed
+/.specify/
+/.claude/
+/.agents/
 /.kilo/
 /.vs/
