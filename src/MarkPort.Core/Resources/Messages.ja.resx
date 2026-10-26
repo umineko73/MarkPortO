@@ -361,4 +361,49 @@
   <data name="{0}.executable: must be the name or the path of the command, without arguments (was '{1}')." xml:space="preserve">
     <value>{0}.executable: 引数を付けずに、コマンドの名前またはパスを指定してください（現在の値: '{1}'）。</value>
   </data>
+  <data name="The conversion was stopped because the usage limit of the command was reached ({0}). Resume it after the limit is lifted." xml:space="preserve">
+    <value>コマンドの使用量の上限に達したため、変換を止めました（{0}）。上限が解除されたあとに、再開してください。</value>
+  </data>
+  <data name="The conversion was stopped because the command is not logged in ({0}). Log in and resume it." xml:space="preserve">
+    <value>コマンドにログインしていないため、変換を止めました（{0}）。ログインしてから、再開してください。</value>
+  </data>
+  <data name="The conversion was stopped because {0} pages in a row failed in the same way ({1})." xml:space="preserve">
+    <value>同じ種類の失敗が {0} ページ続いたため、変換を止めました（{1}）。</value>
+  </data>
+  <data name="The conversion was stopped after {0} pages, the limit of the connection. Raise the limit and resume it." xml:space="preserve">
+    <value>接続のページ数の上限（{0} ページ）に達したため、変換を止めました。上限を上げてから、再開してください。</value>
+  </data>
+  <data name="The conversion was stopped after the cost of {0:0.####} US dollars, the limit of the connection. Raise the limit and resume it." xml:space="preserve">
+    <value>接続の費用の上限（{0:0.####} 米ドル）に達したため、変換を止めました。上限を上げてから、再開してください。</value>
+  </data>
+  <data name="Sending page images outside the local network needs your consent for the connection '{0}'. Agree in the settings, or run: markport consent {0}" xml:space="preserve">
+    <value>ページ画像をローカルネットワークの外へ送るには、接続 '{0}' への同意が必要です。設定で同意するか、次を実行してください: markport consent {0}</value>
+  </data>
+  <data name="The command '{0}' was not found. Install it, or set its path in the connection." xml:space="preserve">
+    <value>コマンド '{0}' が見つかりません。インストールするか、接続でパスを指定してください。</value>
+  </data>
+  <data name="The command '{0}' did not answer to --version." xml:space="preserve">
+    <value>コマンド '{0}' が --version に答えませんでした。</value>
+  </data>
+  <data name="The command '{0}' did not answer to --version in time." xml:space="preserve">
+    <value>コマンド '{0}' が --version に時間内に答えませんでした。</value>
+  </data>
+  <data name="The command is available ({0})." xml:space="preserve">
+    <value>コマンドを使えます（{0}）。</value>
+  </data>
+  <data name="The image was read. The command '{0}' can analyze images." xml:space="preserve">
+    <value>画像を読み取れました。コマンド '{0}' は画像を解析できます。</value>
+  </data>
+  <data name="The command is not logged in. {0}" xml:space="preserve">
+    <value>コマンドにログインしていません。{0}</value>
+  </data>
+  <data name="The usage limit of the command is reached. {0}" xml:space="preserve">
+    <value>コマンドの使用量の上限に達しています。{0}</value>
+  </data>
+  <data name="The command is limited by the rate of requests. {0}" xml:space="preserve">
+    <value>コマンドが要求の頻度で制限されています。{0}</value>
+  </data>
+  <data name="The command could not read the image. {0}" xml:space="preserve">
+    <value>コマンドが画像を読み取れませんでした。{0}</value>
+  </data>
 </root>

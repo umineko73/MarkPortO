@@ -79,4 +79,7 @@
   <data name="- Pages read in bands: `&lt;!-- vlm:begin page=N bands=M --&gt;`. A page with many lines was read in M parts, from the top, and the results were joined." xml:space="preserve">
     <value>- 帯に分けて読んだページ: `&lt;!-- vlm:begin page=N bands=M --&gt;`。行が多いページを、上からM個に分けて読み、結果をつなげています。</value>
   </data>
+  <data name="**VLM cost**: {0} US dollars in total" xml:space="preserve">
+    <value>**VLM費用**: 合計 {0} 米ドル</value>
+  </data>
 </root>

@@ -173,6 +173,14 @@ public sealed class ConvertService
         using var jobLock = store.TryAcquireLock(job.JobId)
             ?? throw new ConvertStartException(Loc.T("This job is already running in another process."));
 
+        // The limits count over the whole job, also over a resume (FR-057).
+        var governor = new Step3Governor(_vlm?.MaxPages, _vlm?.MaxCostUsd, job.Step3Totals.Pages, job.Step3Totals.CostUsd);
+        if (job.Options.Step3 && _vlm is { } used)
+        {
+            job.Step3Connection = DescribeConnection(used);
+        }
+
+        job.StopReason = null;
         var context = new JobContext(job, store, _engine, _logger, _engineTimeout)
         {
             // Every saved change of a document is reported, so a screen or a log can follow each step.
@@ -180,6 +188,8 @@ public sealed class ConvertService
             Vlm = _vlm?.Reader,
             Prompts = _vlm?.Prompts,
             MaxLinesPerRead = _vlm?.MaxLinesPerRead ?? 0,
+            Governor = governor,
+            Step3Parallel = _vlm?.Parallel ?? 1,
         };
         var works = toRun.Select(d => new DocumentWork(d, context)).ToList();
 
@@ -190,10 +200,17 @@ public sealed class ConvertService
         store.SaveJob(job);
         await host.RunAsync(works, cancellationToken).ConfigureAwait(false);
 
-        job.Status = Finish(documents, cancellationToken.IsCancellationRequested);
+        job.Status = Finish(documents, cancellationToken.IsCancellationRequested || governor.Stop != Step3Stop.None);
+        job.StopReason = job.Status == JobStatus.Interrupted && !cancellationToken.IsCancellationRequested ? governor.Reason : null;
         store.SaveJob(job);
         return new ConvertResult(job, documents);
     }
+
+    /// <summary>What the job records about the connection of Step 3 (FR-055): not the key, not the path of the command.</summary>
+    private static Step3ConnectionInfo? DescribeConnection(VlmSetup vlm) =>
+        vlm.Connection is { } c
+            ? new Step3ConnectionInfo(c.Kind.ToString().ToLowerInvariant(), c.Command?.ToString().ToLowerInvariant(), vlm.CommandVersion, string.IsNullOrWhiteSpace(c.Model) ? null : c.Model)
+            : null;
 
     private IReadOnlyList<IPipelineStep<DocumentWork>> BuildSteps(bool step3)
     {

@@ -31,6 +31,16 @@ public sealed record UsageInfo(int? PromptTokens, int? CompletionTokens, int? To
 /// <summary>Where a line of text is on the page: fractions of the page height from the top (FR-041).</summary>
 public sealed record LineSpan(double Top, double Bottom);
 
+public sealed class Step3Totals
+{
+    public int Pages { get; set; }
+
+    public double CostUsd { get; set; }
+}
+
+/// <summary>What Step 3 of a job used: the kind of connection, the command and its version, the model (FR-055).</summary>
+public sealed record Step3ConnectionInfo(string Kind, string? Command, string? CommandVersion, string? Model);
+
 public sealed record Warning(string Code, string Message, int? PageIndex = null);
 
 public sealed record DocumentError(int Step, string Message);
@@ -76,6 +86,9 @@ public sealed class PageRecord
 
     public UsageInfo? Usage { get; set; }
 
+    /// <summary>What reading the page cost in US dollars, when the command says so (FR-054).</summary>
+    public double? CostUsd { get; set; }
+
     public string? Error { get; set; }
 }
 
@@ -111,6 +124,9 @@ public sealed class DocumentRecord
     public List<Warning> Warnings { get; set; } = [];
 
     public UsageInfo? UsageTotal { get; set; }
+
+    /// <summary>The cost of the pages that reported it, in US dollars; <c>null</c> when none did.</summary>
+    public double? CostTotalUsd { get; set; }
 
     public DocumentError? Error { get; set; }
 }
@@ -161,4 +177,13 @@ public sealed class JobState
 
     /// <summary>Document ids in the order they were listed at start.</summary>
     public List<string> Documents { get; set; } = [];
+
+    /// <summary>The pages read and the cost spent by Step 3 in this job, over resumes (FR-057).</summary>
+    public Step3Totals Step3Totals { get; set; } = new();
+
+    /// <summary>What Step 3 used (FR-055). Not the key or the path of the command.</summary>
+    public Step3ConnectionInfo? Step3Connection { get; set; }
+
+    /// <summary>Why the job was stopped by Step 3 (a limit, a login, repeated failures); <c>null</c> otherwise.</summary>
+    public string? StopReason { get; set; }
 }

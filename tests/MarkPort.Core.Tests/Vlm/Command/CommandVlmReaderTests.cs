@@ -25,15 +25,24 @@ public class CommandVlmReaderTests
 {
     private static readonly byte[] Png = [0x89, 0x50, 0x4e, 0x47, 1, 2, 3];
 
-    private static ConnectionProfile Connection(CommandKind kind, int timeoutSeconds = 30, string model = "m") => new()
+    private static ConnectionProfile Connection(CommandKind kind, int timeoutSeconds = 30, string model = "m", bool consent = true)
     {
-        Name = "c",
-        Kind = ConnectionKind.Command,
-        Command = kind,
-        Executable = FakeVlm.Exe,
-        Model = model,
-        TimeoutSeconds = timeoutSeconds,
-    };
+        var connection = new ConnectionProfile
+        {
+            Name = "c",
+            Kind = ConnectionKind.Command,
+            Command = kind,
+            Executable = FakeVlm.Exe,
+            Model = model,
+            TimeoutSeconds = timeoutSeconds,
+        };
+        if (consent)
+        {
+            ExternalConsent.Grant(connection, DateTimeOffset.UtcNow);
+        }
+
+        return connection;
+    }
 
     private static CommandVlmReader Reader(CommandKind kind, string mode, TempDir dir, int timeoutSeconds = 30, string? log = null, IReadOnlyList<TimeSpan>? waits = null, Dictionary<string, string?>? more = null)
     {
@@ -199,6 +208,19 @@ public class CommandVlmReaderTests
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => read);
+    }
+
+    [Fact]
+    public async Task WithoutTheConsent_NoCommandIsStarted_SC023()
+    {
+        using var dir = new TempDir();
+        var log = dir.Combine("log.jsonl");
+        var reader = new CommandVlmReader(Connection(CommandKind.Codex, consent: false), [], dir.Combine("work"), new Dictionary<string, string?> { ["FAKE_VLM_LOG"] = log });
+
+        var ex = await Assert.ThrowsAsync<VlmException>(() => reader.ReadAsync("p", Png, CancellationToken.None));
+
+        Assert.Contains("consent", ex.Message);
+        Assert.Empty(FakeVlm.Calls(log));
     }
 
     [Fact]

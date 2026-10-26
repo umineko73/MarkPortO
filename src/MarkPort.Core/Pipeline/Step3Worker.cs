@@ -24,12 +24,14 @@ namespace MarkPort.Core.Pipeline;
 /// <summary>
 /// Step 3: read every page image with the VLM and add the text to the Markdown, page by page. A page that fails is
 /// recorded and the others go on (FR-029). The state is saved after each page, so a resume continues with the next one.
+/// Several pages may be read at the same time (FR-044); the governor of the job stops the reading when a limit is reached
+/// or the same failure repeats (FR-049, FR-057), and the pages not yet read stay pending for a resume.
 /// </summary>
 public sealed class Step3Worker : IPipelineStep<DocumentWork>
 {
     public string Name => "step3";
 
-    /// <summary>Pages are read one at a time: a local model gets slower when it is asked in parallel.</summary>
+    /// <summary>Documents are taken one at a time. How many pages of a document are read together is the setting of the connection.</summary>
     public int Concurrency => 1;
 
     public async Task ProcessAsync(DocumentWork work, CancellationToken cancellationToken)
@@ -53,31 +55,67 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
         {
             var reader = context.Vlm ?? throw new InvalidOperationException("The VLM connection is not set up.");
             var prompt = (context.Prompts ?? new Settings.PromptSettings()).For(document.Kind);
+            var governor = context.Governor ?? new Step3Governor();
 
-            foreach (var page in document.Pages)
+            foreach (var page in document.Pages.Where(p => p.IsDeleted))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (page.IsDeleted)
-                {
-                    page.Step3 = PageStep3Status.Skipped; // a deleted page is never read
-                    continue;
-                }
-
-                if (page.Step3 == PageStep3Status.Done)
-                {
-                    continue; // read in an earlier run
-                }
-
-                await ReadPageAsync(document, page, reader, prompt, context.MaxLinesPerRead, cancellationToken).ConfigureAwait(false);
-                document.UsageTotal = Total(document);
-                MarkdownRenderer.Write(document);
-                context.Save(document);
+                page.Step3 = PageStep3Status.Skipped; // a deleted page is never read
             }
 
-            document.Step3 = StepStatus.Done;
+            var gate = new object();
+            using var slots = new SemaphoreSlim(Math.Max(1, context.Step3Parallel));
+            var readings = new List<Task>();
+            foreach (var page in document.Pages.Where(p => !p.IsDeleted && p.Step3 != PageStep3Status.Done))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
+                if (!governor.TryBegin())
+                {
+                    slots.Release();
+                    break;
+                }
+
+                readings.Add(ReadAndRecordAsync(page));
+            }
+
+            await Task.WhenAll(readings).ConfigureAwait(false);
+
+            var unfinished = document.Pages.Any(p => !p.IsDeleted && p.Step3 == PageStep3Status.Pending);
+            document.Step3 = unfinished ? StepStatus.Interrupted : StepStatus.Done;
             document.UsageTotal = Total(document);
+            document.CostTotalUsd = CostTotal(document);
             MarkdownRenderer.Write(document);
             context.Save(document);
+
+            async Task ReadAndRecordAsync(PageRecord page)
+            {
+                try
+                {
+                    var outcome = await ReadPageAsync(document, page, reader, prompt, context.MaxLinesPerRead, cancellationToken).ConfigureAwait(false);
+                    lock (gate)
+                    {
+                        if (outcome.Succeeded)
+                        {
+                            governor.Succeeded(page.CostUsd);
+                        }
+                        else
+                        {
+                            governor.Failed(outcome.Kind, outcome.Message);
+                        }
+
+                        context.Job.Step3Totals = new Step3Totals { Pages = governor.PagesRead, CostUsd = governor.CostUsd };
+                        context.Store.SaveJob(context.Job);
+                        document.UsageTotal = Total(document);
+                        document.CostTotalUsd = CostTotal(document);
+                        MarkdownRenderer.Write(document);
+                        context.Save(document);
+                    }
+                }
+                finally
+                {
+                    slots.Release();
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -94,7 +132,10 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
         }
     }
 
-    private static async Task ReadPageAsync(DocumentRecord document, PageRecord page, IVlmReader reader, string prompt, int maxLines, CancellationToken cancellationToken)
+    /// <summary>How a page ended: read, or failed with a kind of failure.</summary>
+    private readonly record struct PageOutcome(bool Succeeded, VlmFailureKind Kind, string Message);
+
+    private static async Task<PageOutcome> ReadPageAsync(DocumentRecord document, PageRecord page, IVlmReader reader, string prompt, int maxLines, CancellationToken cancellationToken)
     {
         try
         {
@@ -109,34 +150,48 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             var bands = BandPlanner.Plan(page.TextLines, maxLines);
             string text;
             UsageInfo usage;
+            double? cost;
             if (bands.Count == 0)
             {
                 var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language), png, cancellationToken).ConfigureAwait(false);
                 text = answer.Text;
                 usage = answer.Usage;
+                cost = answer.CostUsd;
             }
             else
             {
                 // A page with many lines is read in bands, from the top; one band that fails fails the page (FR-041).
                 var texts = new List<string>(bands.Count);
                 var usages = new List<UsageInfo>(bands.Count);
+                var costs = new List<double?>(bands.Count);
                 for (var i = 0; i < bands.Count; i++)
                 {
                     var strip = Crop(png, bands[i]);
                     var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, i + 1, bands.Count), strip, cancellationToken).ConfigureAwait(false);
                     texts.Add(answer.Text);
                     usages.Add(answer.Usage);
+                    costs.Add(answer.CostUsd);
                 }
 
                 text = BandMerger.Merge(texts);
                 usage = Sum(usages);
+                cost = costs.Any(c => c.HasValue) ? costs.Sum(c => c ?? 0) : null;
             }
 
             page.VlmText = text;
             page.Usage = usage;
+            page.CostUsd = cost;
             page.Bands = bands.Count;
             page.Step3 = PageStep3Status.Done;
             page.Error = null;
+            return new PageOutcome(true, VlmFailureKind.Unknown, string.Empty);
+        }
+        catch (VlmException ex) when (ex.Kind.StopsTheRun())
+        {
+            // A login or a limit: every other page would fail the same way. The page stays pending, so a resume reads it.
+            page.Step3 = PageStep3Status.Pending;
+            page.Error = null;
+            return new PageOutcome(false, ex.Kind, ex.Message);
         }
         catch (Exception ex) when (ex is VlmException or IOException)
         {
@@ -144,6 +199,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             page.Step3 = PageStep3Status.Failed;
             page.Error = SecretRedact(ex.Message);
             document.Warnings.Add(new Warning("VlmPageFailed", $"{PageLabel.Text(page.SourceLabel, CultureInfo.CurrentUICulture)}: {page.Error}", page.Index));
+            return new PageOutcome(false, (ex as VlmException)?.Kind ?? VlmFailureKind.Unknown, page.Error);
         }
     }
 
@@ -196,6 +252,13 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
 
         int? Sum(Func<UsageInfo, int?> pick) => known.Any(u => pick(u).HasValue) ? known.Sum(u => pick(u) ?? 0) : null;
         return new UsageInfo(Sum(u => u.PromptTokens), Sum(u => u.CompletionTokens), Sum(u => u.TotalTokens));
+    }
+
+    /// <summary>The cost of the pages that reported it; <c>null</c> when none did.</summary>
+    private static double? CostTotal(DocumentRecord document)
+    {
+        var known = document.Pages.Where(p => !p.IsDeleted && p.CostUsd.HasValue).Select(p => p.CostUsd!.Value).ToList();
+        return known.Count == 0 ? null : known.Sum();
     }
 
     private static string SecretRedact(string text) => Logging.SecretRegistry.Shared.Redact(text);

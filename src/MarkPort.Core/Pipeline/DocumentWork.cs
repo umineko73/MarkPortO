@@ -51,6 +51,12 @@ public sealed class JobContext(
     /// <summary>The most lines read in one request; 0 never splits a page (FR-041).</summary>
     public int MaxLinesPerRead { get; init; }
 
+    /// <summary>Decides whether another page may be started, over the whole job (FR-049, FR-057). <c>null</c>: no limit.</summary>
+    public Step3Governor? Governor { get; init; }
+
+    /// <summary>How many pages are read at the same time (FR-044).</summary>
+    public int Step3Parallel { get; init; } = 1;
+
     /// <summary>The scratch folder of a document (temporary copies and the PDF).</summary>
     public string WorkDirectory(DocumentRecord document) => Store.WorkDirectory(Job.JobId, document.DocId);
 

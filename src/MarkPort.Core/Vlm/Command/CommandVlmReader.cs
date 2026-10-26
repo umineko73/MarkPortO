@@ -65,6 +65,12 @@ public sealed class CommandVlmReader : IVlmReader
 
     private async Task<VlmResponse> ReadOnceAsync(string prompt, byte[] png, CancellationToken cancellationToken)
     {
+        // Without the consent nothing is started (FR-046, SC-023), whoever calls.
+        if (VlmSetupFactory.ConsentMissing(_connection) is { } missing)
+        {
+            throw new VlmException(missing.Message);
+        }
+
         using var folder = CommandWorkFolder.Create(png, _workParent);
         var job = new CommandJob(prompt, folder.ImagePath, folder.Path, _connection.Model?.Trim() ?? string.Empty, _connection.Effort);
         var invocation = _adapter.Build(job);

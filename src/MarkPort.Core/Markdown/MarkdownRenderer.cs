@@ -46,6 +46,10 @@ public static class MarkdownRenderer
         if (includeVlm && TryUsageLine(document.Pages, language) is { } usageLine)
         {
             builder.Append('\n').Append(usageLine).Append('\n');
+            if (document.Pages.Where(p => !p.IsDeleted && p.CostUsd.HasValue).Sum(p => p.CostUsd) is > 0 and var total)
+            {
+                builder.Append("> ").Append(Loc.M("**VLM cost**: {0} US dollars in total", language, total.ToString("0.####", CultureInfo.InvariantCulture))).Append('\n');
+            }
         }
 
         var effectivePages = DocxPageAssigner.EffectivePages(document.Blocks, document.Pages.Count);
@@ -198,7 +202,8 @@ public static class MarkdownRenderer
         }
 
         string Part(string name, int? value) => value.HasValue ? $" {name}={value.Value.ToString(CultureInfo.InvariantCulture)}" : string.Empty;
-        return $"<!-- usage page={number}{Part("prompt", usage.PromptTokens)}{Part("completion", usage.CompletionTokens)}{Part("total", usage.TotalTokens)} -->\n";
+        var cost = page.CostUsd is { } c ? " cost=" + c.ToString("0.####", CultureInfo.InvariantCulture) : string.Empty;
+        return $"<!-- usage page={number}{Part("prompt", usage.PromptTokens)}{Part("completion", usage.CompletionTokens)}{Part("total", usage.TotalTokens)}{cost} -->\n";
     }
 
     /// <summary>Text for inside an HTML comment: no <c>--</c> or line breaks, and no secret.</summary>

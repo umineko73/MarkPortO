@@ -44,6 +44,21 @@ public sealed class VlmSetup : IDisposable
     /// <summary>The most lines read in one request; 0 never splits a page (FR-041).</summary>
     public int MaxLinesPerRead { get; }
 
+    /// <summary>The connection this setup was made from (a copy of the settings; no key).</summary>
+    public Settings.ConnectionProfile? Connection { get; init; }
+
+    /// <summary>How many pages are read at the same time (FR-044).</summary>
+    public int Parallel { get; init; } = 1;
+
+    /// <summary>Stop after this many pages have been read in a job; <c>null</c> is no limit (FR-057).</summary>
+    public int? MaxPages { get; init; }
+
+    /// <summary>Stop after this cost in US dollars; <c>null</c> is no limit (FR-057).</summary>
+    public double? MaxCostUsd { get; init; }
+
+    /// <summary>The version of the command, once the connection check has asked it (FR-055).</summary>
+    public string? CommandVersion { get; set; }
+
     /// <summary>The connection check done before step 1 starts (FR-019c).</summary>
     public Func<CancellationToken, Task<CheckResult>> Preflight { get; }
 
@@ -53,6 +68,15 @@ public sealed class VlmSetup : IDisposable
 /// <summary>Builds a <see cref="VlmSetup"/> from the settings. The screen and the command line both use it.</summary>
 public static class VlmSetupFactory
 {
+    /// <summary>
+    /// The failed check that stands for a missing consent to send page images outside the local network (FR-046): nothing is
+    /// started and nothing is sent before it is given (SC-023). <c>null</c> when the connection may be used.
+    /// </summary>
+    public static CheckResult? ConsentMissing(ConnectionProfile connection) =>
+        ExternalConsent.MayUse(connection)
+            ? null
+            : new CheckResult(false, Loc.T("Sending page images outside the local network needs your consent for the connection '{0}'. Agree in the settings, or run: markport consent {0}", connection.Name));
+
     /// <summary>
     /// Finds the selected connection and its key. Returns the setup, or the reason it cannot be made
     /// (no such connection, the environment variable of the key is not set ...).
@@ -65,6 +89,38 @@ public static class VlmSetupFactory
             return (null, Loc.T("No VLM connection is selected. Choose one in the settings."));
         }
 
+        VlmSetup? created = null;
+
+        if (connection.Kind == ConnectionKind.Command)
+        {
+            var reader = new Command.CommandVlmReader(connection);
+            var commandChecker = new Command.CommandConnectionChecker(connection, reader);
+            async Task<CheckResult> CheckCommand(CancellationToken cancellationToken)
+            {
+                if (ConsentMissing(connection) is { } missing)
+                {
+                    return missing;
+                }
+
+                var result = await commandChecker.CheckConnectionAsync(cancellationToken).ConfigureAwait(false);
+                if (created is not null)
+                {
+                    created.CommandVersion = commandChecker.Version;
+                }
+
+                return result;
+            }
+
+            created = new VlmSetup(reader, settings.Vlm.Prompts, connection.Name, CheckCommand, null, connection.MaxLinesPerRead)
+            {
+                Connection = connection,
+                Parallel = connection.Parallel,
+                MaxPages = connection.MaxPages,
+                MaxCostUsd = connection.MaxCostUsd,
+            };
+            return (created, null);
+        }
+
         var key = ApiKeyResolver.Resolve(connection, readEnvironment);
         if (key.Error is not null)
         {
@@ -73,6 +129,15 @@ public static class VlmSetupFactory
 
         var client = new VlmClient(connection, key.Key, handler);
         var checker = new ConnectionChecker(client, connection);
-        return (new VlmSetup(client, settings.Vlm.Prompts, connection.Name, checker.CheckConnectionAsync, client, connection.MaxLinesPerRead), null);
+        Task<CheckResult> CheckOpenAi(CancellationToken cancellationToken) =>
+            ConsentMissing(connection) is { } missing ? Task.FromResult(missing) : checker.CheckConnectionAsync(cancellationToken);
+
+        created = new VlmSetup(client, settings.Vlm.Prompts, connection.Name, CheckOpenAi, client, connection.MaxLinesPerRead)
+        {
+            Connection = connection,
+            MaxPages = connection.MaxPages,
+            MaxCostUsd = connection.MaxCostUsd,
+        };
+        return (created, null);
     }
 }
