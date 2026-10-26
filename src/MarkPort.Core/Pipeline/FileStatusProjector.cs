@@ -223,24 +223,30 @@ public static class FileStatusProjector
     private static string FileUsageText(DocumentRecord document)
     {
         var total = TotalUsage(document);
-        return total is null && document.Step3 is not (StepStatus.Done or StepStatus.Failed) ? string.Empty : UsageText(total);
+        var cost = document.CostTotalUsd ?? SumCost(document);
+        return total is null && cost is null && document.Step3 is not (StepStatus.Done or StepStatus.Failed) ? string.Empty : UsageText(total, cost);
     }
 
-    private static string UsageText(UsageInfo? usage)
+    /// <summary>The cost of the pages read so far, when the command reported it (FR-054); null when none did.</summary>
+    private static double? SumCost(DocumentRecord document)
     {
-        if (usage is not { IsAvailable: true })
-        {
-            return UnavailableText;
-        }
+        var known = document.Pages.Where(p => !p.IsDeleted && p.CostUsd.HasValue).Select(p => p.CostUsd!.Value).ToList();
+        return known.Count == 0 ? null : known.Sum();
+    }
 
+    private static string UsageText(UsageInfo? usage, double? costUsd = null)
+    {
         string Part(string name, int? value) => value.HasValue ? string.Create(CultureInfo.InvariantCulture, $"{name}={value.Value}") : string.Empty;
-        return string.Join(' ', new[] { Part("prompt", usage.PromptTokens), Part("completion", usage.CompletionTokens), Part("total", usage.TotalTokens) }.Where(t => t.Length > 0));
+        var tokens = usage is { IsAvailable: true }
+            ? string.Join(' ', new[] { Part("prompt", usage.PromptTokens), Part("completion", usage.CompletionTokens), Part("total", usage.TotalTokens) }.Where(t => t.Length > 0))
+            : UnavailableText;
+        return costUsd is { } cost ? string.Create(CultureInfo.InvariantCulture, $"{tokens} cost=${cost:0.####}") : tokens;
     }
 
     /// <summary>The usage of a page once it is read; for a page that failed, the cause (the column is shared); empty before that.</summary>
     private static string PageUsageText(PageRecord page) => page.Step3 switch
     {
-        PageStep3Status.Done => UsageText(page.Usage),
+        PageStep3Status.Done => UsageText(page.Usage, page.CostUsd),
         PageStep3Status.Failed => string.IsNullOrWhiteSpace(page.Error) ? UnavailableText : string.Join(' ', page.Error.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)),
         _ => string.Empty,
     };

@@ -33,9 +33,15 @@ public sealed class CodexAdapter : ICommandAdapter
         var outputFile = Path.Combine(job.WorkDirectory, "last-message.txt");
         var arguments = new List<string>
         {
-            "exec", "-", "--json", "-i", job.ImagePath, "--ephemeral", "--ignore-user-config", "--ignore-rules",
-            "-s", "read-only", "--skip-git-repo-check", "-C", job.WorkDirectory, "-o", outputFile,
+            "exec", "-", "--json",
         };
+        if (job.ImagePath is not null)
+        {
+            arguments.AddRange(["-i", job.ImagePath]);
+        }
+
+        arguments.AddRange(["--ephemeral", "--ignore-user-config", "--ignore-rules", "-s", "read-only", "--skip-git-repo-check", "-C", job.WorkDirectory, "-o", outputFile]);
+
         if (job.Model.Length > 0)
         {
             arguments.AddRange(["-m", job.Model]);

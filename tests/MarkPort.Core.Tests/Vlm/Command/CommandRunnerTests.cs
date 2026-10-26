@@ -149,6 +149,18 @@ public class CommandRunnerTests
         Assert.Equal(dir.Combine("fake-codex-by-name.cmd"), ExecutableResolver.Resolve("fake-codex-by-name", n => n == "PATH" ? path : Environment.GetEnvironmentVariable(n)), ignoreCase: true);
     }
 
+    [Fact]
+    public void ACmdFile_IsPreferredToTheShellScriptWithoutAnExtensionBesideIt()
+    {
+        using var dir = new TempDir();
+        File.WriteAllText(dir.Combine("fake-npm-tool"), "#!/bin/sh\n");
+        File.WriteAllText(dir.Combine("fake-npm-tool.cmd"), "@echo off\r\n");
+        var path = dir.Path + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
+
+        Assert.Equal(dir.Combine("fake-npm-tool.cmd"), ExecutableResolver.Resolve("fake-npm-tool", n => n == "PATH" ? path : Environment.GetEnvironmentVariable(n)), ignoreCase: true);
+        Assert.Equal(dir.Combine("fake-npm-tool.cmd"), ExecutableResolver.Resolve(dir.Combine("fake-npm-tool")), ignoreCase: true);
+    }
+
     [Theory]
     [InlineData("a&b")]
     [InlineData("a|b")]

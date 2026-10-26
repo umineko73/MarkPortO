@@ -60,15 +60,44 @@ public class CommandConnectionCheckerTests
     }
 
     [Fact]
-    public async Task TheConnectionCheck_DoesNotCallTheModel()
+    public async Task TheCommandCheck_DoesNotCallTheModel()
     {
         using var dir = new TempDir();
         var log = dir.Combine("log.jsonl");
         var checker = Checker(Connection(), dir, log: log);
 
-        await checker.CheckConnectionAsync(CancellationToken.None);
+        var result = await checker.CheckCommandAsync(CancellationToken.None);
 
+        Assert.True(result.Ok, result.Message);
         Assert.Empty(FakeVlm.Calls(log)); // --version only; no image, no cost
+    }
+
+    [Fact]
+    public async Task TheConnectionCheck_AsksOneShortQuestionWithoutAnImage()
+    {
+        using var dir = new TempDir();
+        var log = dir.Combine("log.jsonl");
+        var checker = Checker(Connection(), dir, log: log);
+
+        var result = await checker.CheckConnectionAsync(CancellationToken.None);
+
+        Assert.True(result.Ok, result.Message);
+        var call = Assert.Single(FakeVlm.Calls(log));
+        Assert.DoesNotContain("-i", call["args"]!.AsArray().Select(a => a!.GetValue<string>()));
+    }
+
+    [Theory]
+    [InlineData("notloggedin", "logged in")]
+    [InlineData("usagelimit", "usage limit")]
+    [InlineData("badoutput", "")]
+    public async Task TheConnectionCheck_FailsWhenTheCommandCannotAnswer(string mode, string expected)
+    {
+        using var dir = new TempDir();
+
+        var result = await Checker(Connection(), dir, mode).CheckConnectionAsync(CancellationToken.None);
+
+        Assert.False(result.Ok);
+        Assert.Contains(expected, result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

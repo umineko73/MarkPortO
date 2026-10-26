@@ -27,14 +27,20 @@ public sealed class CommandWorkFolder : IDisposable
 
     public string Path { get; }
 
-    public string ImagePath => System.IO.Path.Combine(Path, "page.png");
+    /// <summary>The copy of the image; null when the folder was made without one (the prompt only).</summary>
+    public string? ImagePath { get; private set; }
 
     public static CommandWorkFolder Create(byte[] png, string? parent = null)
     {
         var path = System.IO.Path.Combine(parent ?? System.IO.Path.GetTempPath(), Prefix + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         var folder = new CommandWorkFolder(path);
-        File.WriteAllBytes(folder.ImagePath, png);
+        if (png.Length > 0)
+        {
+            folder.ImagePath = System.IO.Path.Combine(path, "page.png");
+            File.WriteAllBytes(folder.ImagePath, png);
+        }
+
         return folder;
     }
 

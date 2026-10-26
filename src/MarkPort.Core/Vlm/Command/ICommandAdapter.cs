@@ -18,8 +18,8 @@ using MarkPort.Core.Settings;
 
 namespace MarkPort.Core.Vlm.Command;
 
-/// <summary>One page (or band) to read: the prompt, the image file and the folder the command runs in.</summary>
-public sealed record CommandJob(string Prompt, string ImagePath, string WorkDirectory, string Model, string Effort);
+/// <summary>One page (or band) to read: the prompt, the image file and the folder the command runs in. No image file: the prompt only (the connection check).</summary>
+public sealed record CommandJob(string Prompt, string? ImagePath, string WorkDirectory, string Model, string Effort);
 
 /// <summary>How to call the command for a job (FR-044).</summary>
 /// <param name="OutputFile">A file the command writes its last message to, if the form has one.</param>

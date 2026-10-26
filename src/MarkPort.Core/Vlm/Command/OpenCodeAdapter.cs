@@ -36,8 +36,13 @@ public sealed class OpenCodeAdapter : ICommandAdapter
     {
         var arguments = new List<string>
         {
-            "run", "--pure", "--agent", "markport", "--format", "json", "--dir", job.WorkDirectory, "-f", job.ImagePath,
+            "run", "--pure", "--agent", "markport", "--format", "json", "--dir", job.WorkDirectory,
         };
+        if (job.ImagePath is not null)
+        {
+            arguments.AddRange(["-f", job.ImagePath]);
+        }
+
         if (job.Model.Length > 0)
         {
             arguments.AddRange(["-m", job.Model]);

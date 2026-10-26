@@ -115,6 +115,7 @@
   <sys:String x:Key="Conn_Failed">失敗: </sys:String>
   <sys:String x:Key="Conn_Ok">成功: </sys:String>
   <sys:String x:Key="Conn_LastRun">（最後に実行: {0}）</sys:String>
+  <sys:String x:Key="Conn_Waiting">応答を待っています…（{0} 秒経過。ローカルのモデルは時間がかかることがあります）</sys:String>
   <sys:String x:Key="Prompts_Title">VLMへの指示（プロンプト）の設定</sys:String>
   <sys:String x:Key="Prompts_Note">Step3で、画像からテキストを読み取るときにVLMへ送る指示です。文書の種類ごとに設定します。入力欄から移ると保存されます。空にすると既定の文に戻ります。</sys:String>
   <sys:String x:Key="Prompts_Reset">表示中の種類を既定に戻す</sys:String>

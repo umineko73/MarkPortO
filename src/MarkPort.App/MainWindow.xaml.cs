@@ -85,9 +85,18 @@ public partial class MainWindow : Window
 
     private void ShowPrompts() => new PromptsWindow(_store) { Owner = this }.ShowDialog();
 
-    private string? PickFolder()
+    // A dialog with its own ClientGuid keeps its own last folder, so the inputs and the output do not share one.
+    private static readonly Guid InputFolderDialogId = new("6f1c2a54-3b7e-4d0a-9c35-5a1e0f7b2d11");
+    private static readonly Guid OutputFolderDialogId = new("c3e8b9a7-14d2-4f6b-8a90-2e5d7c4b1f22");
+    private static readonly Guid FilesDialogId = new("a92d5e03-7c18-4b4f-b6e1-0d3f8a6c9e33");
+
+    private string? PickFolder(FolderPurpose purpose)
     {
-        var dialog = new OpenFolderDialog { Title = UiText.Get("Dialog_SelectFolder") };
+        var dialog = new OpenFolderDialog
+        {
+            Title = UiText.Get("Dialog_SelectFolder"),
+            ClientGuid = purpose == FolderPurpose.Output ? OutputFolderDialogId : InputFolderDialogId,
+        };
         return dialog.ShowDialog(this) == true ? dialog.FolderName : null;
     }
 
@@ -98,6 +107,7 @@ public partial class MainWindow : Window
             Title = UiText.Get("Dialog_SelectFiles"),
             Multiselect = true,
             Filter = UiText.Get("Dialog_Filter"),
+            ClientGuid = FilesDialogId,
         };
         return dialog.ShowDialog(this) == true ? dialog.FileNames : [];
     }

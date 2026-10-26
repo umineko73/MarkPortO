@@ -115,6 +115,7 @@
   <sys:String x:Key="Conn_Failed">Failed: </sys:String>
   <sys:String x:Key="Conn_Ok">OK: </sys:String>
   <sys:String x:Key="Conn_LastRun"> (last run: {0})</sys:String>
+  <sys:String x:Key="Conn_Waiting">Waiting for a response... ({0} s elapsed. A local model can take a while)</sys:String>
   <sys:String x:Key="Prompts_Title">VLM prompt settings</sys:String>
   <sys:String x:Key="Prompts_Note">The instruction sent to the VLM in Step3 to read the text from an image. It is set for each type of document. It is saved when you leave the box. If you empty it, the default text comes back.</sys:String>
   <sys:String x:Key="Prompts_Reset">Reset the shown type to the default</sys:String>

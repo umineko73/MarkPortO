@@ -102,7 +102,8 @@ public static class VlmSetupFactory
                     return missing;
                 }
 
-                var result = await commandChecker.CheckConnectionAsync(cancellationToken).ConfigureAwait(false);
+                // Before every run only the command is checked (no model call, no cost); the full check is the user's own request.
+                var result = await commandChecker.CheckCommandAsync(cancellationToken).ConfigureAwait(false);
                 if (created is not null)
                 {
                     created.CommandVersion = commandChecker.Version;

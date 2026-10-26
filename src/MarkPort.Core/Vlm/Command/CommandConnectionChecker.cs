@@ -19,13 +19,15 @@ using MarkPort.Core.Settings;
 namespace MarkPort.Core.Vlm.Command;
 
 /// <summary>
-/// The two checks of a connection to an external command (FR-045): the command can be found and started (this does not
-/// call the model and costs nothing), and the command can read a picture (this calls the model and may cost money, so
-/// the user asks for it). The consent (FR-046) is checked before, by the caller.
+/// The two checks of a connection to an external command (FR-045): the command answers a short question (it is found,
+/// logged in and the model exists), and the command can read a picture. Both call the model and may cost money, so the
+/// user asks for them. The consent (FR-046) is checked before, by the caller.
 /// </summary>
 public sealed class CommandConnectionChecker(ConnectionProfile connection, IVlmReader reader, Func<string>? codeFactory = null)
 {
     private const string ImagePrompt = "画像に書かれている文字だけを、そのまま答えてください。";
+
+    private const string TextPrompt = "Reply with the single word OK.";
 
     private static readonly TimeSpan VersionTimeout = TimeSpan.FromSeconds(30);
 
@@ -39,7 +41,31 @@ public sealed class CommandConnectionChecker(ConnectionProfile connection, IVlmR
             ? CommandAdapters.For(connection.Command ?? CommandKind.Claude).DefaultExecutable
             : connection.Executable.Trim();
 
+    /// <summary>
+    /// The command is found and started, and it answers a short question without an image: the login, the model and the
+    /// network work. This calls the model (a few tokens), and a local model can take a while.
+    /// </summary>
     public async Task<CheckResult> CheckConnectionAsync(CancellationToken cancellationToken)
+    {
+        var started = await CheckCommandAsync(cancellationToken).ConfigureAwait(false);
+        if (!started.Ok)
+        {
+            return started;
+        }
+
+        try
+        {
+            await reader.ReadAsync(TextPrompt, [], cancellationToken).ConfigureAwait(false);
+            return new CheckResult(true, Loc.T("The command answered ({0}). The login and the model work.", Version));
+        }
+        catch (VlmException ex)
+        {
+            return new CheckResult(false, Describe(ex, image: false));
+        }
+    }
+
+    /// <summary>The command is found and started; this does not call the model and costs nothing.</summary>
+    public async Task<CheckResult> CheckCommandAsync(CancellationToken cancellationToken)
     {
         var path = ExecutableResolver.Resolve(Executable);
         if (path is null)
@@ -84,16 +110,16 @@ public sealed class CommandConnectionChecker(ConnectionProfile connection, IVlmR
         }
         catch (VlmException ex)
         {
-            return new CheckResult(false, Describe(ex));
+            return new CheckResult(false, Describe(ex, image: true));
         }
     }
 
-    private static string Describe(VlmException ex) => ex.Kind switch
+    private static string Describe(VlmException ex, bool image) => ex.Kind switch
     {
         VlmFailureKind.NotLoggedIn => Loc.T("The command is not logged in. {0}", ex.Message),
         VlmFailureKind.UsageLimit => Loc.T("The usage limit of the command is reached. {0}", ex.Message),
         VlmFailureKind.RateLimit => Loc.T("The command is limited by the rate of requests. {0}", ex.Message),
         VlmFailureKind.Timeout => Loc.T("Timed out. {0}", ex.Message),
-        _ => Loc.T("The command could not read the image. {0}", ex.Message),
+        _ => image ? Loc.T("The command could not read the image. {0}", ex.Message) : Loc.T("The command did not answer. {0}", ex.Message),
     };
 }

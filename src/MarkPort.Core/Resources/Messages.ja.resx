@@ -406,6 +406,12 @@
   <data name="The command could not read the image. {0}" xml:space="preserve">
     <value>コマンドが画像を読み取れませんでした。{0}</value>
   </data>
+  <data name="The command did not answer. {0}" xml:space="preserve">
+    <value>コマンドが応答しませんでした。{0}</value>
+  </data>
+  <data name="The command answered ({0}). The login and the model work." xml:space="preserve">
+    <value>コマンドが応答しました（{0}）。ログインとモデルは使えます。</value>
+  </data>
   <data name="the service behind the command '{0}'" xml:space="preserve">
     <value>コマンド '{0}' の提供元のサービス</value>
   </data>

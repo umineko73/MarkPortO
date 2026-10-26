@@ -50,17 +50,25 @@ public static class ExecutableResolver
         foreach (var folder in folders)
         {
             var candidate = hasDirectory ? name : Path.Combine(folder.Trim('"'), name);
-            if (File.Exists(candidate))
+            var runnable = extensions.Contains(Path.GetExtension(candidate).ToLowerInvariant());
+            if (runnable && File.Exists(candidate))
             {
                 return Path.GetFullPath(candidate);
             }
 
+            // A file without an extension next to "name.cmd" is the script for a Unix shell (npm installs both); Windows
+            // cannot start it, so the one with an extension is looked up first.
             foreach (var extension in extensions)
             {
                 if (File.Exists(candidate + extension))
                 {
                     return Path.GetFullPath(candidate + extension);
                 }
+            }
+
+            if (hasDirectory && File.Exists(candidate))
+            {
+                return Path.GetFullPath(candidate);
             }
         }
 

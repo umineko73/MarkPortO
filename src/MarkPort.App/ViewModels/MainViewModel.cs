@@ -28,6 +28,13 @@ using MarkPort.Core.Vlm;
 
 namespace MarkPort.App.ViewModels;
 
+/// <summary>What a folder dialog is for; each purpose remembers the folder it was last opened in on its own.</summary>
+public enum FolderPurpose
+{
+    Input,
+    Output,
+}
+
 /// <summary>
 /// The main window: what to convert, where to put it, and the list of files with the state of each. It only
 /// collects the user's choices and calls <see cref="ConvertService"/>, like the command line does (constitution II).
@@ -89,7 +96,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     // ---- what the view needs to show dialogs (set by the window) ----
 
-    public Func<string?>? PickFolder { get; set; }
+    public Func<FolderPurpose, string?>? PickFolder { get; set; }
 
     public Func<IReadOnlyList<string>>? PickFiles { get; set; }
 
@@ -393,7 +400,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private Task AddFolderAsync()
     {
-        if (PickFolder?.Invoke() is { } folder)
+        if (PickFolder?.Invoke(FolderPurpose.Input) is { } folder)
         {
             AddInput(folder);
         }
@@ -423,7 +430,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private Task BrowseOutputAsync()
     {
-        if (PickFolder?.Invoke() is { } folder)
+        if (PickFolder?.Invoke(FolderPurpose.Output) is { } folder)
         {
             OutputFolder = folder;
         }

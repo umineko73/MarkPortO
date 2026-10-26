@@ -182,6 +182,23 @@ public class FileStatusProjectorTests : JapaneseUiTests
     }
 
     [Fact]
+    public void TheCostOfACommand_IsShownPerPageAndAsAFileTotal_WhenItWasReported()
+    {
+        var document = Doc(StepStatus.Done, StepStatus.Done, StepStatus.Done);
+        document.Pages =
+        [
+            new PageRecord { Index = 1, Step3 = PageStep3Status.Done, Usage = new UsageInfo(100, 10, 110), CostUsd = 0.0044 },
+            new PageRecord { Index = 2, Step3 = PageStep3Status.Done, Usage = new UsageInfo(200, 20, 220), CostUsd = 0.03 },
+            new PageRecord { Index = 3, Step3 = PageStep3Status.Done, Usage = new UsageInfo(1, 1, 2) },
+        ];
+
+        var row = FileStatusProjector.Project(document);
+
+        Assert.Equal("prompt=301 completion=31 total=332 cost=$0.0344", row.UsageText);
+        Assert.Equal(["prompt=100 completion=10 total=110 cost=$0.0044", "prompt=200 completion=20 total=220 cost=$0.03", "prompt=1 completion=1 total=2"], row.Pages.Select(p => p.UsageText));
+    }
+
+    [Fact]
     public void TheSavedTotal_IsUsedWhenThereIsOne()
     {
         var document = Doc(StepStatus.Done, StepStatus.Done, StepStatus.Done);

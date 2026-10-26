@@ -45,25 +45,25 @@ public sealed class ClaudeAdapter : ICommandAdapter
             arguments.AddRange(["--effort", job.Effort]);
         }
 
+        var content = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = job.Prompt });
+        if (job.ImagePath is not null)
+        {
+            content.Add(new JsonObject
+            {
+                ["type"] = "image",
+                ["source"] = new JsonObject
+                {
+                    ["type"] = "base64",
+                    ["media_type"] = "image/png",
+                    ["data"] = System.Convert.ToBase64String(File.ReadAllBytes(job.ImagePath)),
+                },
+            });
+        }
+
         var message = new JsonObject
         {
             ["type"] = "user",
-            ["message"] = new JsonObject
-            {
-                ["role"] = "user",
-                ["content"] = new JsonArray(
-                    new JsonObject { ["type"] = "text", ["text"] = job.Prompt },
-                    new JsonObject
-                    {
-                        ["type"] = "image",
-                        ["source"] = new JsonObject
-                        {
-                            ["type"] = "base64",
-                            ["media_type"] = "image/png",
-                            ["data"] = System.Convert.ToBase64String(File.ReadAllBytes(job.ImagePath)),
-                        },
-                    }),
-            },
+            ["message"] = new JsonObject { ["role"] = "user", ["content"] = content },
         };
 
         var line = message.ToJsonString(new System.Text.Json.JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });

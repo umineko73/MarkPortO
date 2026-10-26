@@ -420,6 +420,8 @@ public sealed class ConnectionSettingsViewModel : ObservableObject
         }
 
         Busy = true;
+        using var ticker = new CancellationTokenSource();
+        var waiting = ShowWaitingAsync(image, ticker.Token);
         try
         {
             string text;
@@ -453,8 +455,11 @@ public sealed class ConnectionSettingsViewModel : ObservableObject
                 }
             }
 
+            await ticker.CancelAsync();
+            await waiting;
+
             // The time of the last run is shown with the result.
-            text += UiText.Get("Conn_LastRun", DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
+            text +=UiText.Get("Conn_LastRun", DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
             if (image)
             {
                 ImageResult = text;
@@ -466,7 +471,34 @@ public sealed class ConnectionSettingsViewModel : ObservableObject
         }
         finally
         {
+            await ticker.CancelAsync();
             Busy = false;
+        }
+    }
+
+    /// <summary>Shows the seconds waited in the place of the result, because a local model can take a minute or more to answer.</summary>
+    private async Task ShowWaitingAsync(bool image, CancellationToken token)
+    {
+        var started = DateTime.UtcNow;
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                var text = UiText.Get("Conn_Waiting", (int)(DateTime.UtcNow - started).TotalSeconds);
+                if (image)
+                {
+                    ImageResult = text;
+                }
+                else
+                {
+                    ConnectionResult = text;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(1), token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
         }
     }
 
