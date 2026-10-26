@@ -20,3 +20,6 @@ Thumbs.db
 /.agents/
 /.kilo/
 /.vs/
+
+# The specifications are private: they stay on disk and are not committed or pushed
+/specs/
