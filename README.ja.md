@@ -169,7 +169,7 @@ dotnet test MarkPortO.slnx --filter "Engine!=Office"   # Officeが無い環境�
 ./scripts/build.ps1                          # 復元、ビルド、テスト（Release）
 ./scripts/build.ps1 -Task Build              # ビルドだけ
 ./scripts/build.ps1 -SkipOffice              # Microsoft Office が無いコンピューター
-./scripts/build.ps1 -Task Publish            # ビルド、テスト、artifacts/MarkPortO-win-x64.zip の作成（画面、`cli/` のコマンドライン、ライセンスの文書）
+./scripts/build.ps1 -Task Publish            # ビルド、テスト、artifacts/MarkPortO-<バージョン>-win-x64.zip の作成（画面、`cli/` のコマンドライン、ライセンスの文書）
 ```
 
 .NET SDK は `global.json` で固定しています（10.0.100、または新しい機能バンド）。GitHub Actions 用のワークフローは `.github/workflows/ci.yml` です（Microsoft Office が無い Windows で、ビルドとテストを行います）。

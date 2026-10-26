@@ -163,7 +163,7 @@ dotnet test MarkPortO.slnx --filter "Engine!=Office"   # no Microsoft Office (Li
 ./scripts/build.ps1                          # restore, build and test (Release)
 ./scripts/build.ps1 -Task Build              # build only
 ./scripts/build.ps1 -SkipOffice              # a computer without Microsoft Office
-./scripts/build.ps1 -Task Publish            # build, test, and write artifacts/MarkPortO-win-x64.zip (the app, the command line in `cli/`, the license files)
+./scripts/build.ps1 -Task Publish            # build, test, and write artifacts/MarkPortO-<version>-win-x64.zip (the app, the command line in `cli/`, the license files)
 ```
 
 The .NET SDK is pinned by `global.json` (10.0.100 or a later feature band). The workflow for GitHub Actions is `.github/workflows/ci.yml` (it builds and tests on Windows without Microsoft Office).

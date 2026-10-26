@@ -31,8 +31,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 # The script is in scripts/; everything is relative to the repository root.
-$root = Split-Path $PSScriptRoot -Parent
-Set-Location $root
+$repository = Split-Path $PSScriptRoot -Parent
+Set-Location $repository
 
 function Invoke-Step([string] $Name, [scriptblock] $Body) {
     Write-Host "== $Name"
@@ -59,7 +59,7 @@ if ($Task -in 'Test', 'Publish') {
 }
 
 if ($Task -eq 'Publish') {
-    $out = Join-Path $root 'artifacts'
+    $out = Join-Path $repository 'artifacts'
     if (Test-Path $out) {
         Remove-Item $out -Recurse -Force
     }
@@ -67,12 +67,14 @@ if ($Task -eq 'Publish') {
     # Framework-dependent: the .NET 10 Desktop Runtime must be installed on the computer that runs it.
     # The names MarkPortO.exe (app) and markporto.exe (command line) differ only in case, which is the same name on
     # Windows, so the command line goes to its own folder. The app also copies LICENSE.txt and THIRD-PARTY-NOTICES.md.
-    $root = Join-Path $out 'MarkPortO'
-    Invoke-Step 'publish app' { dotnet publish src/MarkPortO.App -c $Configuration --no-build -o $root }
-    Invoke-Step 'publish cli' { dotnet publish src/MarkPortO.Cli -c $Configuration --no-build -o (Join-Path $root 'cli') }
-    Copy-Item README.md, README.ja.md -Destination $root
+    $package = Join-Path $out 'MarkPortO'
+    Invoke-Step 'publish app' { dotnet publish src/MarkPortO.App -c $Configuration --no-build -o $package }
+    Invoke-Step 'publish cli' { dotnet publish src/MarkPortO.Cli -c $Configuration --no-build -o (Join-Path $package 'cli') }
+    Copy-Item README.md, README.ja.md -Destination $package
 
-    $zip = Join-Path $out 'MarkPortO-win-x64.zip'
+    # The version is the one in Directory.Build.props, the single place where it is set.
+    $version = ([xml](Get-Content (Join-Path $repository 'Directory.Build.props') -Raw)).SelectSingleNode('//Version').InnerText
+    $zip = Join-Path $out "MarkPortO-$version-win-x64.zip"
     Compress-Archive -Path (Join-Path $out 'MarkPortO\*') -DestinationPath $zip
     Write-Host "Wrote $zip"
 }
