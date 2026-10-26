@@ -196,6 +196,24 @@
   <data name="{0}.model: must not be empty." xml:space="preserve">
     <value>{0}.model: 空にできません。</value>
   </data>
+  <data name="{0}.command: choose claude, codex or opencode." xml:space="preserve">
+    <value>{0}.command: claude、codex、opencode のいずれかを選んでください。</value>
+  </data>
+  <data name="{0}.effort: must be empty, low, medium or high (was '{1}')." xml:space="preserve">
+    <value>{0}.effort: 空、low、medium、high のいずれかを指定してください（現在の値: '{1}'）。</value>
+  </data>
+  <data name="{0}.parallel: must be between 1 and {1} (was {2})." xml:space="preserve">
+    <value>{0}.parallel: 1〜{1} の範囲で指定してください（現在の値: {2}）。</value>
+  </data>
+  <data name="{0}.maxPages: must be empty or at least 1 (was {1})." xml:space="preserve">
+    <value>{0}.maxPages: 空、または1以上で指定してください（現在の値: {1}）。</value>
+  </data>
+  <data name="{0}.maxCostUsd: must be empty or more than 0 (was {1})." xml:space="preserve">
+    <value>{0}.maxCostUsd: 空、または0より大きい値で指定してください（現在の値: {1}）。</value>
+  </data>
+  <data name="{0}.maxLinesPerRead: must be 0 or more (was {1})." xml:space="preserve">
+    <value>{0}.maxLinesPerRead: 0以上で指定してください（現在の値: {1}）。</value>
+  </data>
   <data name="{0}.timeoutSeconds: must be between {1} and {2} (was {3})." xml:space="preserve">
     <value>{0}.timeoutSeconds: {1}〜{2} の範囲で指定してください（現在の値: {3}）。</value>
   </data>

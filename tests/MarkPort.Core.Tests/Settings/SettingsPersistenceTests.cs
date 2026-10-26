@@ -75,6 +75,28 @@ public class SettingsPersistenceTests
                 connection.BaseUrl = "https://example.test/v1"; // must stay a valid URL
                 property.SetValue(target, new List<ConnectionProfile> { connection });
             }
+            else if (type == typeof(int?))
+            {
+                property.SetValue(target, counter);
+            }
+            else if (type == typeof(double?))
+            {
+                property.SetValue(target, counter + 0.5);
+            }
+            else if (type == typeof(CommandKind?))
+            {
+                property.SetValue(target, CommandKind.Codex);
+            }
+            else if (type == typeof(DateTimeOffset))
+            {
+                property.SetValue(target, new DateTimeOffset(2026, 10, 26, 1, 2, 3, TimeSpan.Zero));
+            }
+            else if (type == typeof(ConsentRecord))
+            {
+                var record = new ConsentRecord();
+                FillWithNonDefaults(record, ref counter);
+                property.SetValue(target, record);
+            }
             else if (property.PropertyType.IsClass && property.GetValue(target) is { } child)
             {
                 FillWithNonDefaults(child, ref counter);

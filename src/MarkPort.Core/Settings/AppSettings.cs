@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPort.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using System.Text.Json.Serialization;
 using MarkPort.Core.Localization;
 using MarkPort.Core.Jobs.Models;
 
@@ -89,15 +90,37 @@ public sealed class AppSettings
                 errors.Add(Loc.T("{0}.name: '{1}' is used more than once.", prefix, connection.Name));
             }
 
-            if (!Uri.TryCreate(connection.BaseUrl, UriKind.Absolute, out var uri)
-                || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            if (connection.Kind == ConnectionKind.OpenAi)
             {
-                errors.Add(Loc.T("{0}.baseUrl: must be an http or https URL (was '{1}').", prefix, connection.BaseUrl));
+                if (!Uri.TryCreate(connection.BaseUrl, UriKind.Absolute, out var uri)
+                    || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                {
+                    errors.Add(Loc.T("{0}.baseUrl: must be an http or https URL (was '{1}').", prefix, connection.BaseUrl));
+                }
+
+                if (string.IsNullOrWhiteSpace(connection.Model))
+                {
+                    errors.Add(Loc.T("{0}.model: must not be empty.", prefix));
+                }
+            }
+            else
+            {
+                ValidateCommand(connection, prefix, errors);
             }
 
-            if (string.IsNullOrWhiteSpace(connection.Model))
+            if (connection.MaxPages is < 1)
             {
-                errors.Add(Loc.T("{0}.model: must not be empty.", prefix));
+                errors.Add(Loc.T("{0}.maxPages: must be empty or at least 1 (was {1}).", prefix, connection.MaxPages));
+            }
+
+            if (connection.MaxCostUsd is { } cost && !(cost > 0 && double.IsFinite(cost)))
+            {
+                errors.Add(Loc.T("{0}.maxCostUsd: must be empty or more than 0 (was {1}).", prefix, cost));
+            }
+
+            if (connection.MaxLinesPerRead < 0)
+            {
+                errors.Add(Loc.T("{0}.maxLinesPerRead: must be 0 or more (was {1}).", prefix, connection.MaxLinesPerRead));
             }
 
             if (connection.TimeoutSeconds is < SettingsLimits.MinTimeoutSeconds or > SettingsLimits.MaxTimeoutSeconds)
@@ -115,6 +138,24 @@ public sealed class AppSettings
         }
 
         return errors;
+    }
+
+    private static void ValidateCommand(ConnectionProfile connection, string prefix, List<string> errors)
+    {
+        if (connection.Command is null)
+        {
+            errors.Add(Loc.T("{0}.command: choose claude, codex or opencode.", prefix));
+        }
+
+        if (connection.Effort is not ("" or "low" or "medium" or "high"))
+        {
+            errors.Add(Loc.T("{0}.effort: must be empty, low, medium or high (was '{1}').", prefix, connection.Effort));
+        }
+
+        if (connection.Parallel is < 1 or > SettingsLimits.MaxParallel)
+        {
+            errors.Add(Loc.T("{0}.parallel: must be between 1 and {1} (was {2}).", prefix, SettingsLimits.MaxParallel, connection.Parallel));
+        }
     }
 
     /// <summary>Extra rules checked when a run starts.</summary>
@@ -153,6 +194,9 @@ public static class SettingsLimits
     public const int MinTimeoutSeconds = 1;
     public const int MaxTimeoutSeconds = 3600;
     public const int DefaultTimeoutSeconds = 120;
+
+    /// <summary>The most external commands that may run at the same time (FR-044).</summary>
+    public const int MaxParallel = 8;
 }
 
 public sealed class InputSettings
@@ -216,9 +260,75 @@ public sealed class VlmSettings
     public PromptSettings Prompts { get; set; } = new();
 }
 
+/// <summary>What a connection talks to (FR-043).</summary>
+[JsonConverter(typeof(LowercaseEnumConverter<ConnectionKind>))]
+public enum ConnectionKind
+{
+    /// <summary>An OpenAI-compatible server (<c>chat/completions</c>).</summary>
+    OpenAi,
+
+    /// <summary>An external command: <c>claude</c>, <c>codex</c> or <c>opencode</c>.</summary>
+    Command,
+}
+
+[JsonConverter(typeof(LowercaseEnumConverter<CommandKind>))]
+public enum CommandKind
+{
+    Claude,
+    Codex,
+    OpenCode,
+}
+
+/// <summary>The consent to send page images outside the local network (FR-046, FR-052).</summary>
+public sealed class ConsentRecord
+{
+    public DateTimeOffset At { get; set; }
+
+    /// <summary>The version of the notice the user agreed to. A newer notice asks again.</summary>
+    public int NoticeVersion { get; set; }
+}
+
+/// <summary>The initial values of a new connection of the kind "command" (FR-043).</summary>
+public static class CommandDefaults
+{
+    public static string InitialModel(CommandKind kind) => kind switch
+    {
+        CommandKind.Claude => "haiku",
+        CommandKind.Codex => "gpt-6-luna",
+        CommandKind.OpenCode => string.Empty,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+    };
+}
+
 public sealed class ConnectionProfile
 {
     public string Name { get; set; } = string.Empty;
+
+    public ConnectionKind Kind { get; set; } = ConnectionKind.OpenAi;
+
+    /// <summary>The command, when <see cref="Kind"/> is <see cref="ConnectionKind.Command"/>.</summary>
+    public CommandKind? Command { get; set; }
+
+    /// <summary>Name or path of the executable. Empty means: the usual name, looked up in the PATH. No arguments (FR-043).</summary>
+    public string? Executable { get; set; }
+
+    /// <summary>How hard the command thinks: empty (the command's default), low, medium or high (FR-053).</summary>
+    public string Effort { get; set; } = "low";
+
+    /// <summary>The most commands that run at the same time (FR-044).</summary>
+    public int Parallel { get; set; } = 1;
+
+    /// <summary>Stop after this many pages have been read in a job. Empty means no limit (FR-057).</summary>
+    public int? MaxPages { get; set; }
+
+    /// <summary>Stop after this cost (US dollars) has been spent in a job. Empty means no limit (FR-057).</summary>
+    public double? MaxCostUsd { get; set; }
+
+    /// <summary>The consent to send images outside the local network. Null: not given (FR-046).</summary>
+    public ConsentRecord? ExternalConsent { get; set; }
+
+    /// <summary>The most lines read in one request; 0 never splits a page (FR-041).</summary>
+    public int MaxLinesPerRead { get; set; }
 
     /// <summary>For example <c>http://localhost:1234/v1</c>.</summary>
     public string BaseUrl { get; set; } = string.Empty;
