@@ -11,6 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\MarkPort.Core\MarkPort.Core.csproj" />
+    <ProjectReference Include="..\MarkPort.FakeVlmCommand\MarkPort.FakeVlmCommand.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

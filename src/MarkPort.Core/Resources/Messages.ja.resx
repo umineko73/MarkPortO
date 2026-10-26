@@ -340,4 +340,25 @@
   <data name="The page image could not be cut into bands." xml:space="preserve">
     <value>ページの画像を帯に分けられませんでした。</value>
   </data>
+  <data name="The command '{0}' was not found." xml:space="preserve">
+    <value>コマンド '{0}' が見つかりません。</value>
+  </data>
+  <data name="An argument of the command contains a character that is not safe to pass: {0}" xml:space="preserve">
+    <value>コマンドの引数に、安全に渡せない文字が含まれています: {0}</value>
+  </data>
+  <data name="The command '{0}' could not be started: {1}" xml:space="preserve">
+    <value>コマンド '{0}' を起動できませんでした: {1}</value>
+  </data>
+  <data name="The command did not finish within {0} seconds." xml:space="preserve">
+    <value>コマンドが {0} 秒以内に終わりませんでした。</value>
+  </data>
+  <data name="The output of the command could not be read." xml:space="preserve">
+    <value>コマンドの出力を読み取れませんでした。</value>
+  </data>
+  <data name="{0}.model: may contain only letters, digits and . _ : / @ + - (was '{1}')." xml:space="preserve">
+    <value>{0}.model: 英数字と . _ : / @ + - だけが使えます（現在の値: '{1}'）。</value>
+  </data>
+  <data name="{0}.executable: must be the name or the path of the command, without arguments (was '{1}')." xml:space="preserve">
+    <value>{0}.executable: 引数を付けずに、コマンドの名前またはパスを指定してください（現在の値: '{1}'）。</value>
+  </data>
 </root>

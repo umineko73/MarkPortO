@@ -27,13 +27,17 @@ namespace MarkPort.Core.Vlm;
 /// <summary>An VLM call failed. The message never contains the API key.</summary>
 public sealed class VlmException : Exception
 {
-    public VlmException(string message, HttpStatusCode? status = null, bool timedOut = false, bool unreachable = false)
+    public VlmException(string message, HttpStatusCode? status = null, bool timedOut = false, bool unreachable = false, VlmFailureKind kind = VlmFailureKind.Unknown)
         : base(SecretRegistry.Shared.Redact(message))
     {
         Status = status;
         TimedOut = timedOut;
         Unreachable = unreachable;
+        Kind = timedOut ? VlmFailureKind.Timeout : kind;
     }
+
+    /// <summary>What went wrong with an external command (FR-049). <see cref="VlmFailureKind.Unknown"/> for everything else.</summary>
+    public VlmFailureKind Kind { get; }
 
     public HttpStatusCode? Status { get; }
 
@@ -46,7 +50,8 @@ public sealed class VlmException : Exception
 
 /// <summary>The answer of the VLM to one page, and what it cost.</summary>
 /// <param name="Truncated">The server stopped because of the token limit (<c>finish_reason</c> is <c>length</c>).</param>
-public sealed record VlmResponse(string Text, UsageInfo Usage, bool Truncated = false);
+/// <param name="CostUsd">What the call cost in US dollars, when the command says so (FR-054).</param>
+public sealed record VlmResponse(string Text, UsageInfo Usage, bool Truncated = false, double? CostUsd = null);
 
 /// <summary>Reads the text of one page image. A fake is used in tests.</summary>
 public interface IVlmReader

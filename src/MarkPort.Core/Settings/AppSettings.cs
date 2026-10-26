@@ -147,6 +147,16 @@ public sealed class AppSettings
             errors.Add(Loc.T("{0}.command: choose claude, codex or opencode.", prefix));
         }
 
+        if (!IsPlainWord(connection.Model))
+        {
+            errors.Add(Loc.T("{0}.model: may contain only letters, digits and . _ : / @ + - (was '{1}').", prefix, connection.Model));
+        }
+
+        if (!IsPlainExecutable(connection.Executable))
+        {
+            errors.Add(Loc.T("{0}.executable: must be the name or the path of the command, without arguments (was '{1}').", prefix, connection.Executable));
+        }
+
         if (connection.Effort is not ("" or "low" or "medium" or "high"))
         {
             errors.Add(Loc.T("{0}.effort: must be empty, low, medium or high (was '{1}').", prefix, connection.Effort));
@@ -156,6 +166,28 @@ public sealed class AppSettings
         {
             errors.Add(Loc.T("{0}.parallel: must be between 1 and {1} (was {2}).", prefix, SettingsLimits.MaxParallel, connection.Parallel));
         }
+    }
+
+    /// <summary>The model is passed to the command as an argument: a word, never an option or a piece of a command line.</summary>
+    private static bool IsPlainWord(string? text) =>
+        string.IsNullOrEmpty(text)
+        || (!text.StartsWith('-') && text.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or ':' or '/' or '@' or '+' or '-'));
+
+    /// <summary>A name or a path. A path with spaces must be a full path of a program, so that arguments cannot be hidden in it.</summary>
+    private static bool IsPlainExecutable(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        if (text.Any(c => char.IsControl(c) || c is '"' or '%' or '^' or '&' or '|' or '<' or '>'))
+        {
+            return false;
+        }
+
+        return !text.Any(char.IsWhiteSpace)
+            || (Path.IsPathRooted(text) && new[] { ".exe", ".cmd", ".bat", ".com" }.Any(e => text.EndsWith(e, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>Extra rules checked when a run starts.</summary>

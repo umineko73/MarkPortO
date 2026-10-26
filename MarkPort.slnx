@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MarkPort.Cli.Tests/MarkPort.Cli.Tests.csproj" />
+    <Project Path="tests/MarkPort.FakeVlmCommand/MarkPort.FakeVlmCommand.csproj" />
     <Project Path="tests/MarkPort.Core.Tests/MarkPort.Core.Tests.csproj" />
   </Folder>
 </Solution>
