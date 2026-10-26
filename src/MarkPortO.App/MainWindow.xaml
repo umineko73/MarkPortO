@@ -18,7 +18,7 @@
 <Window x:Class="MarkPortO.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Icon="Assets/MarkPortO.ico" Title="MarkPortO" Height="880" Width="1120" MinHeight="640" MinWidth="780">
+        Icon="Assets/MarkPortO.ico" Title="MarkPortO" Height="880" Width="1280" MinHeight="640" MinWidth="780">
   <DockPanel>
     <!-- Menu bar (FR-032) -->
     <Menu DockPanel.Dock="Top">
@@ -172,7 +172,7 @@
           </Style>
         </DataGrid.RowStyle>
         <DataGrid.Columns>
-          <DataGridTextColumn Binding="{Binding FileName}" Width="2*">
+          <DataGridTextColumn Binding="{Binding FileName}" Width="3*">
             <DataGridTextColumn.Header>
               <TextBlock Text="{DynamicResource Main_Col_File}" />
             </DataGridTextColumn.Header>
@@ -205,12 +205,12 @@
               <TextBlock Text="{DynamicResource Main_Col_Deleted}" />
             </DataGridTextColumn.Header>
           </DataGridTextColumn>
-          <DataGridTextColumn Binding="{Binding UsageText}" Width="*">
+          <DataGridTextColumn Binding="{Binding UsageText}" Width="300">
             <DataGridTextColumn.Header>
               <TextBlock Text="{DynamicResource Main_Col_Usage}" />
             </DataGridTextColumn.Header>
           </DataGridTextColumn>
-          <DataGridTextColumn Binding="{Binding Message}" Width="2*">
+          <DataGridTextColumn Binding="{Binding Message}" Width="*">
             <DataGridTextColumn.Header>
               <TextBlock Text="{DynamicResource Main_Col_Message}" />
             </DataGridTextColumn.Header>
