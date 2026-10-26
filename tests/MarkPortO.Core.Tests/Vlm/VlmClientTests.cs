@@ -129,7 +129,7 @@ public class VlmClientTests
     [Fact]
     public async Task AnUnreachableServer_IsReportedAsUnreachable()
     {
-        var profile = new ConnectionProfile { Name = "x", BaseUrl = "http://localhost:1/v1", Model = "m", TimeoutSeconds = 5 };
+        var profile = new ConnectionProfile { Name = "x", BaseUrl = ClosedPort.Url, Model = "m", TimeoutSeconds = 5 };
         using var client = new VlmClient(profile, null);
 
         var error = await Assert.ThrowsAsync<VlmException>(() => client.ReadAsync("p", Png, CancellationToken.None));

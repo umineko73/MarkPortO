@@ -23,4 +23,4 @@ jobs:
           global-json-file: global.json
       - name: Build and test
         shell: pwsh
-        run: ./build.ps1 -Task Test -Configuration Release -SkipOffice
+        run: ./scripts/build.ps1 -Task Test -Configuration Release -SkipOffice

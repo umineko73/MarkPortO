@@ -68,7 +68,7 @@ public class PreflightTests : JapaneseUiTests
         using var dir = new TempDir();
         var source = MakeDocx(dir);
         var outFolder = dir.Combine("out");
-        var (setup, _) = VlmSetupFactory.Create(Settings("http://localhost:1/v1")); // nothing listens there
+        var (setup, _) = VlmSetupFactory.Create(Settings(ClosedPort.Url)); // nothing listens there
         using var engine = Engine(dir);
 
         var error = await Assert.ThrowsAsync<ConvertStartException>(() =>
@@ -170,7 +170,7 @@ public class PreflightTests : JapaneseUiTests
         documents[0].Step1 = StepStatus.Interrupted;
         store.SaveJob(job);
         store.SaveDocument(job.JobId, documents[0]);
-        var (setup, _) = VlmSetupFactory.Create(Settings("http://localhost:1/v1"));
+        var (setup, _) = VlmSetupFactory.Create(Settings(ClosedPort.Url));
         using var engine = Engine(dir);
 
         var error = await Assert.ThrowsAsync<ConvertStartException>(() =>

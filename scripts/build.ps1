@@ -30,7 +30,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-Set-Location $PSScriptRoot
+# The script is in scripts/; everything is relative to the repository root.
+$root = Split-Path $PSScriptRoot -Parent
+Set-Location $root
 
 function Invoke-Step([string] $Name, [scriptblock] $Body) {
     Write-Host "== $Name"
@@ -57,7 +59,7 @@ if ($Task -in 'Test', 'Publish') {
 }
 
 if ($Task -eq 'Publish') {
-    $out = Join-Path $PSScriptRoot 'artifacts'
+    $out = Join-Path $root 'artifacts'
     if (Test-Path $out) {
         Remove-Item $out -Recurse -Force
     }

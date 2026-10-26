@@ -127,7 +127,7 @@ public class VlmCliTests
     {
         using var dir = new TempDir();
 
-        var run = await Cli.RunAsync("check-connection", "--settings", Settings(dir, "http://localhost:1/v1"));
+        var run = await Cli.RunAsync("check-connection", "--settings", Settings(dir, ClosedPort.Url));
 
         Assert.Equal(ExitCodes.StartFailed, run.ExitCode);
         Assert.Contains("NG  connection:", run.Output);
@@ -225,7 +225,7 @@ public class VlmCliTests
         DocxFactory.CreatePaged(source, ["one"]);
         var outFolder = dir.Combine("out");
 
-        var run = await Cli.RunAsync("convert", source, "--settings", Settings(dir, "http://localhost:1/v1"), "--out", outFolder, "--step3", "on");
+        var run = await Cli.RunAsync("convert", source, "--settings", Settings(dir, ClosedPort.Url), "--out", outFolder, "--step3", "on");
 
         Assert.Equal(ExitCodes.StartFailed, run.ExitCode);
         Assert.Contains("The VLM connection check failed", run.Error);

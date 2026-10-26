@@ -75,7 +75,7 @@ public class ConnectionCheckerTests : JapaneseUiTests
     [Fact]
     public async Task Connection_Fails_WhenTheServerCannotBeReached()
     {
-        var profile = new ConnectionProfile { Name = "x", BaseUrl = "http://localhost:1/v1", Model = "m", TimeoutSeconds = 5 };
+        var profile = new ConnectionProfile { Name = "x", BaseUrl = ClosedPort.Url, Model = "m", TimeoutSeconds = 5 };
         var checker = new ConnectionChecker(new VlmClient(profile, null), profile);
 
         var result = await checker.CheckConnectionAsync(CancellationToken.None);
