@@ -70,6 +70,22 @@ public partial class PromptsWindow : Window
         });
     }
 
+    // Puts {pagetext} at the caret of the box that is shown (in place of the selected text), and keeps the focus in the box.
+    private void OnInsertPageText(object sender, RoutedEventArgs e)
+    {
+        var (kind, box) = Tabs.SelectedIndex switch
+        {
+            0 => (DocumentKind.Docx, DocxBox),
+            1 => (DocumentKind.Xlsx, XlsxBox),
+            _ => (DocumentKind.Pptx, PptxBox),
+        };
+        var at = box.SelectionStart;
+        box.SelectedText = MarkPortO.Core.Vlm.PromptSupplement.PageTextPlaceholder;
+        box.CaretIndex = at + MarkPortO.Core.Vlm.PromptSupplement.PageTextPlaceholder.Length;
+        box.Focus();
+        Save(kind, box);
+    }
+
     private void OnResetCurrent(object sender, RoutedEventArgs e)
     {
         var (kind, box) = Tabs.SelectedIndex switch

@@ -72,7 +72,7 @@ dotnet run --project src/MarkPortO.Cli -- check-connection --settings settings.j
 dotnet run --project src/MarkPortO.Cli -- list-connections --settings settings.json   # list the connections (keys are not shown)
 ```
 
-Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden`, `--engine`, `--dpi`, `--step2 on|off`, `--step3 on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options on the command line override `settings.json`.
+Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden`, `--engine`, `--dpi`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options on the command line override `settings.json`.
 
 Exit codes: `0` everything succeeded, `1` some files failed, `2` invalid arguments or settings, `3` the checks before the run failed (including a missing consent), `4` stopped by a usage limit, a login or a limit of pages or cost (continue with `--resume`), `130` interrupted (`Ctrl+C`; continue with `--resume`).
 
@@ -115,6 +115,11 @@ The location of the file can be changed with the environment variable `MARKPORTO
 **About API keys.** Write the *name* of an environment variable (`apiKeyEnv`) in `settings.json`; the value itself is not stored. A key typed in the app is stored so that only the current Windows user can decrypt it (DPAPI). Keys never appear in logs, Markdown or state files.
 
 ### Reading with Claude Code, Codex or OpenCode (external commands)
+
+**Notes on the Markdown.**
+- A Markdown table cannot merge cells, so a cell that is hidden by a merged cell is written as `[merged]` (`[結合]` in Japanese output). An empty cell stays empty. A table with no header row gets an empty header row, so that its first row stays data.
+- Check **Write the results to a separate file** (`--vlm-separate on`) to keep the VLM results out of the Markdown of the document: they go to `name_vlm.md` in the same folder, with the page separators, the usage and the failed or deleted pages. The document's own Markdown then has no VLM text.
+- A prompt can contain `{pagetext}`. It is replaced by the text that Step1 took from the document for that page (at most 20,000 characters), and sent with the image. If a prompt has no `{pagetext}`, no text is sent. When the page images go outside your network, this text goes too.
 
 Step3 can also use a command you have already logged in to: `claude`, `codex` or `opencode`. For each page image the command is run once, without a shell, in an empty temporary folder, **without your own settings, hooks, instruction files or memory, and without tools** (it cannot write files or run commands). The image goes in, the text comes out.
 

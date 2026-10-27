@@ -52,6 +52,7 @@
   <sys:String x:Key="Main_Cond_Step1">Convert the text to Markdown and save an image of every page</sys:String>
   <sys:String x:Key="Main_Cond_Step1Always">(always)</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Put the images into the Markdown</sys:String>
+  <sys:String x:Key="Main_Cond_VlmSeparate">Write the results to a separate file (name_vlm.md)</sys:String>
   <sys:String x:Key="Main_Cond_Step3">Read the text from the images with the VLM</sys:String>
   <sys:String x:Key="Main_Cond_Connection">Connection:</sys:String>
   <sys:String x:Key="Main_Start">Start</sys:String>
@@ -119,6 +120,7 @@
   <sys:String x:Key="Prompts_Title">VLM prompt settings</sys:String>
   <sys:String x:Key="Prompts_Note">The instruction sent to the VLM in Step3 to read the text from an image. It is set for each type of document. It is saved when you leave the box. If you empty it, the default text comes back.</sys:String>
   <sys:String x:Key="Prompts_PageText">{pagetext} in a prompt is replaced by the text taken from the page of the document (it is sent to the VLM with the image; without it, no text is sent).</sys:String>
+  <sys:String x:Key="Prompts_InsertPageText">Insert {pagetext}</sys:String>
   <sys:String x:Key="Prompts_Reset">Reset the shown type to the default</sys:String>
   <sys:String x:Key="Prompts_Close">Close</sys:String>
   <sys:String x:Key="About_Title">About MarkPortO</sys:String>

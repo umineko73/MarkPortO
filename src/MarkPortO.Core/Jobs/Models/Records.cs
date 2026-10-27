@@ -117,6 +117,9 @@ public sealed class DocumentRecord
 
     public StepStatus Step3 { get; set; } = StepStatus.Pending;
 
+    /// <summary>The VLM results are written to <c>name_vlm.md</c>, not into the Markdown of the document (FR-058).</summary>
+    public bool VlmSeparate { get; set; }
+
     public List<PageRecord> Pages { get; set; } = [];
 
     public List<Block> Blocks { get; set; } = [];
@@ -147,6 +150,8 @@ public sealed class OptionsSnapshot
     public bool Step2 { get; set; }
 
     public bool Step3 { get; set; }
+
+    public bool VlmSeparate { get; set; }
 
     public string? Connection { get; set; }
 

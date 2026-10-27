@@ -32,17 +32,26 @@ public static class MarkdownRenderer
     /// <summary>Digits of the page number in image names: at least three (<c>page-001.png</c>).</summary>
     public const int MinimumImageDigits = 3;
 
-    public static string Render(DocumentRecord document)
+    /// <summary>The Markdown of the document. The VLM results are in it unless they are written to a separate file (FR-058).</summary>
+    public static string Render(DocumentRecord document) => Render(document, vlmFile: false);
+
+    /// <summary>The separate file of the VLM results (FR-058): the page separators, the results, the usage, the failed and deleted pages.</summary>
+    public static string RenderVlm(DocumentRecord document) => Render(document, vlmFile: true);
+
+    private static string Render(DocumentRecord document, bool vlmFile)
     {
-        var includeImages = document.Step2 == StepStatus.Done;
-        var includeVlm = document.Step3 != StepStatus.NotApplicable;
+        var includeImages = document.Step2 == StepStatus.Done && !vlmFile;
+        var hasVlm = document.Step3 != StepStatus.NotApplicable;
+        var includeVlm = hasVlm && (vlmFile || !document.VlmSeparate);
         var fileName = Path.GetFileName(document.SourcePath);
         var language = document.MarkdownLanguage;
+        var name = Path.GetFileNameWithoutExtension(document.SourcePath);
 
         var builder = new StringBuilder();
         builder.Append("# ").Append(MarkdownText.Escape(fileName).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
         AppendStructureNote(builder, fileName, document.Kind, includeImages, includeVlm, document.Pages.Any(p => p.Bands > 1),
-            document.Blocks.Any(b => b.Markdown.Contains(MarkdownText.MergedCell, StringComparison.Ordinal)), language);
+            document.Blocks.Any(b => b.Markdown.Contains(MarkdownText.MergedCell, StringComparison.Ordinal)), language,
+            vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmSeparate ? VlmFileName(name) : null);
 
         if (includeVlm && TryUsageLine(document.Pages, language) is { } usageLine)
         {
@@ -57,7 +66,7 @@ public static class MarkdownRenderer
         foreach (var page in document.Pages.OrderBy(p => p.Index))
         {
             builder.Append('\n');
-            AppendPage(builder, document, page, effectivePages, includeImages, includeVlm, language);
+            AppendPage(builder, document, page, effectivePages, includeImages, includeVlm, vlmFile, language);
         }
 
         return builder.ToString().TrimEnd('\n') + "\n";
@@ -70,7 +79,7 @@ public static class MarkdownRenderer
         return "images/page-" + pageIndex.ToString("D" + digits, CultureInfo.InvariantCulture) + ".png";
     }
 
-    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, bool hasBands, bool hasMergedCells, string language)
+    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, bool hasBands, bool hasMergedCells, string language, string? mainFile, string? vlmFile)
     {
         void Line(string text) => builder.Append("> ").Append(text).Append('\n');
 
@@ -83,7 +92,14 @@ public static class MarkdownRenderer
             : Loc.M("- Page images (Step2): not included in this Markdown. The image files are saved in `images/`.", language));
         Line(includeVlm
             ? Loc.M("- VLM results (Step3): between `<!-- vlm:begin page=N -->` and `<!-- vlm:end -->`. The text read from the image. The usage is written in `<!-- usage page=N prompt=… completion=… total=… -->`.", language)
-            : Loc.M("- VLM results (Step3): not included in this Markdown.", language));
+            : vlmFile is not null
+                ? Loc.M("- VLM results (Step3): not included in this Markdown. They are in `{0}`.", language, vlmFile)
+                : Loc.M("- VLM results (Step3): not included in this Markdown.", language));
+        if (mainFile is not null)
+        {
+            Line(Loc.M("- The text of the document is in `{0}`. This file has only the results of Step3.", language, mainFile));
+        }
+
         if (includeVlm && hasBands)
         {
             Line(Loc.M("- Pages read in bands: `<!-- vlm:begin page=N bands=M -->`. A page with many lines was read in M parts, from the top, and the results were joined.", language));
@@ -137,6 +153,7 @@ public static class MarkdownRenderer
         IReadOnlyList<int> effectivePages,
         bool includeImages,
         bool includeVlm,
+        bool vlmOnly,
         string language)
     {
         builder.Append("<!-- page: ").Append(page.Index.ToString(CultureInfo.InvariantCulture)).Append(" -->\n");
@@ -164,7 +181,7 @@ public static class MarkdownRenderer
             builder.Append("\n![").Append(Loc.M("alt|Page {0}", language, page.Index)).Append("](").Append(page.ImageFile).Append(")\n");
         }
 
-        for (var i = 0; i < document.Blocks.Count; i++)
+        for (var i = 0; i < document.Blocks.Count && !vlmOnly; i++)
         {
             if (effectivePages[i] == page.Index && document.Blocks[i].Markdown.Length > 0)
             {
@@ -228,7 +245,28 @@ public static class MarkdownRenderer
         var name = Path.GetFileNameWithoutExtension(document.SourcePath);
         var path = Path.Combine(document.OutputFolder, MarkdownFileName(name));
         AtomicFile.WriteAllText(path, Render(document));
+
+        var vlmPath = Path.Combine(document.OutputFolder, VlmFileName(name));
+        if (document.VlmSeparate && document.Step3 != StepStatus.NotApplicable)
+        {
+            AtomicFile.WriteAllText(vlmPath, RenderVlm(document));
+        }
+        else if (File.Exists(vlmPath))
+        {
+            // The results went back into the Markdown of the document (or Step3 was switched off): the file of an earlier run is of no use.
+            try
+            {
+                File.Delete(vlmPath);
+            }
+            catch (IOException)
+            {
+            }
+        }
     }
+
+    /// <summary>The file of the VLM results of a document (FR-058): the document name plus <c>_vlm.md</c>.</summary>
+    public static string VlmFileName(string nameWithoutExtension) =>
+        Jobs.OutputNamer.Sanitize(nameWithoutExtension) + "_vlm.md";
 
     /// <summary>The Markdown file name of a document: the document name without extension plus <c>.md</c>.</summary>
     public static string MarkdownFileName(string nameWithoutExtension) =>

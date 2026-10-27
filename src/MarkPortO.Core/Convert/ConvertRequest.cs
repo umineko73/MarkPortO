@@ -64,6 +64,7 @@ public sealed class ConvertRequest
         Engine = settings.Engine.Kind,
         Step2 = settings.Steps.Step2,
         Step3 = settings.Steps.Step3,
+        VlmSeparate = settings.Steps.VlmSeparate,
         Connection = settings.Steps.Step3 ? settings.Vlm.Selected : null,
         MarkdownLanguage = LanguageResolver.Resolve(settings.Ui.Language),
     };

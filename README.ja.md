@@ -74,7 +74,7 @@ dotnet run --project src/MarkPortO.Cli -- check-connection --settings settings.j
 dotnet run --project src/MarkPortO.Cli -- list-connections --settings settings.json   # 登録した接続の一覧（キーは表示しない）
 ```
 
-主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`、`--engine`、`--dpi`、`--step2 on|off`、`--step3 on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。コマンドラインの指定は `settings.json` より優先されます。
+主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`、`--engine`、`--dpi`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。コマンドラインの指定は `settings.json` より優先されます。
 
 アクセスキーは、`settings.json` に環境変数の**名前**（`apiKeyEnv`）として書くのが基本です（値そのものは保存しません）。画面で入力したキーは、現在のWindowsユーザーだけが復号できる形（DPAPI）で保存します。ログ・Markdown・状態ファイルにキーは出ません。
 
@@ -121,6 +121,11 @@ dotnet run --project src/MarkPortO.App
 設定ファイルの場所は、環境変数 `MARKPORTO_SETTINGS` で変えられます（画面もコマンドラインも、`--settings` を指定しないときに使います）。言語とテーマは `ui.language`（`system` / `ja` / `en`）と `ui.theme`（`system` / `light` / `dark`）です。
 
 ### Claude Code、Codex、OpenCode で読み取る（外部コマンド）
+
+**Markdownについて**
+- Markdownの表はセルを結合できないため、結合セルに隠れたセルは `[結合]`（English の出力では `[merged]`）と書きます。値のない通常のセルは空のままです。見出し行のない表には空の見出し行を付け、1行目をデータ行のままにします。
+- 「結果を別ファイルに書く」（`--vlm-separate on`）にすると、VLMの結果は文書のMarkdownに入れず、同じフォルダの `名前_vlm.md` に書きます（ページの区切り、使用量、失敗・削除ページの印つき）。文書のMarkdownには、VLMの文字は入りません。
+- 指示（プロンプト）に `{pagetext}` を書くと、Step1が文書から取り出したそのページのテキスト（20,000文字まで）に置き換わり、画像と一緒に送られます。`{pagetext}` がなければ、テキストは送りません。ページ画像がネットワークの外に出るときは、このテキストも出ます。
 
 Step3は、ログイン済みのコマンド（`claude`、`codex`、`opencode`）でも読み取れます。ページ画像ごとに、コマンドを1回、シェルを介さず、空の一時フォルダで実行します。**お使いの設定・フック・指示ファイル・メモリは読み込ませず、道具も使わせません**（ファイルの書き込みやコマンドの実行はできません）。画像を渡し、文字を受け取ります。
 

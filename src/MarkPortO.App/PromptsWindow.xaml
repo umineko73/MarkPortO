@@ -42,6 +42,7 @@
       </TabItem>
     </TabControl>
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+      <Button Content="{DynamicResource Prompts_InsertPageText}" Click="OnInsertPageText" Padding="10,3" Margin="0,0,8,0" />
       <Button Content="{DynamicResource Prompts_Reset}" Click="OnResetCurrent" Padding="10,3" Margin="0,0,8,0" />
       <Button Content="{DynamicResource Prompts_Close}" IsDefault="True" IsCancel="True" Padding="16,3" Click="OnClose" />
     </StackPanel>

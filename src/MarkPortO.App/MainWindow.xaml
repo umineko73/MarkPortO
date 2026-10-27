@@ -137,13 +137,14 @@
           <CheckBox Grid.Row="4" Grid.Column="1" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" VerticalAlignment="Center" Margin="0,0,0,6" />
 
           <TextBlock Grid.Row="5" Text="Step3" VerticalAlignment="Center" />
-          <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal">
+          <WrapPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal">
             <CheckBox Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <CheckBox Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Connection}" VerticalAlignment="Center" Margin="0,0,4,0" />
             <TextBlock Text="{Binding ConnectionInUse, Mode=OneWay}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,8,0" />
             <Button Content="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" Padding="8,2" />
             <Button Content="{DynamicResource Menu_Prompts}" Command="{Binding PromptsCommand}" Padding="8,2" Margin="6,0,0,0" />
-          </StackPanel>
+          </WrapPanel>
         </Grid>
       </GroupBox>
 

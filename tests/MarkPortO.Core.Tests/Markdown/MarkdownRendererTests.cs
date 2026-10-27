@@ -98,6 +98,73 @@ public class MarkdownRendererTests
         Assert.DoesNotContain("VLM使用量", markdown);
     }
 
+    private static DocumentRecord WithVlm(bool separate)
+    {
+        var doc = Docx(step3: StepStatus.Done);
+        doc.VlmSeparate = separate;
+        doc.Pages[0].Step3 = PageStep3Status.Done;
+        doc.Pages[0].VlmText = "READ-ONE";
+        doc.Pages[0].Usage = new UsageInfo(10, 5, 15);
+        doc.Pages[1].IsDeleted = true;
+        return doc;
+    }
+
+    [Fact]
+    public void Render_WithAnotherFile_HasNoVlmTextAndNamesTheFile_AndTheVlmFileHasOnlyTheResults()
+    {
+        var doc = WithVlm(separate: true);
+
+        var main = MarkdownRenderer.Render(doc);
+        var vlm = MarkdownRenderer.RenderVlm(doc);
+
+        Assert.DoesNotContain("READ-ONE", main, StringComparison.Ordinal);
+        Assert.DoesNotContain("<!-- vlm:", main, StringComparison.Ordinal);
+        Assert.DoesNotContain("<!-- usage", main, StringComparison.Ordinal);
+        Assert.Contains("報告書_vlm.md", main, StringComparison.Ordinal);
+        Assert.Contains("<!-- page: 1 -->", main, StringComparison.Ordinal);
+        Assert.Contains("First page text.", main, StringComparison.Ordinal);
+
+        Assert.Contains("<!-- page: 1 -->", vlm, StringComparison.Ordinal);
+        Assert.Contains("<!-- vlm:begin page=1 -->\nREAD-ONE\n<!-- vlm:end -->", vlm, StringComparison.Ordinal);
+        Assert.Contains("<!-- usage page=1 prompt=10 completion=5 total=15 -->", vlm, StringComparison.Ordinal);
+        Assert.Contains("<!-- deleted page=2 -->", vlm, StringComparison.Ordinal);
+        Assert.Contains("報告書.md", vlm, StringComparison.Ordinal);
+        Assert.DoesNotContain("First page text.", vlm, StringComparison.Ordinal);
+        Assert.DoesNotContain("![", vlm, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_WithoutAnotherFile_KeepsTheResultsInTheMarkdown()
+    {
+        var main = MarkdownRenderer.Render(WithVlm(separate: false));
+
+        Assert.Contains("READ-ONE", main, StringComparison.Ordinal);
+        Assert.DoesNotContain("_vlm.md", main, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Write_MakesTheVlmFileOnlyWhenAsked_AndRemovesItWhenNotAnymore()
+    {
+        using var dir = new TempDir();
+        var doc = WithVlm(separate: true);
+        doc.OutputFolder = dir.Combine("out");
+        Directory.CreateDirectory(doc.OutputFolder);
+        var vlmPath = Path.Combine(doc.OutputFolder, "報告書_vlm.md");
+
+        MarkdownRenderer.Write(doc);
+        Assert.True(File.Exists(Path.Combine(doc.OutputFolder, "報告書.md")));
+        Assert.True(File.Exists(vlmPath));
+
+        doc.VlmSeparate = false;
+        MarkdownRenderer.Write(doc);
+        Assert.False(File.Exists(vlmPath));
+
+        doc.VlmSeparate = true;
+        doc.Step3 = StepStatus.NotApplicable;
+        MarkdownRenderer.Write(doc);
+        Assert.False(File.Exists(vlmPath));
+    }
+
     [Fact]
     public void Render_AMergedCellMark_IsWrittenInTheLanguageOfTheJob_AndExplainedInTheNote()
     {

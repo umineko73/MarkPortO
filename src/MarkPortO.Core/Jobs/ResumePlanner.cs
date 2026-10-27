@@ -250,6 +250,14 @@ public static class ResumePlanner
                 File.Delete(markdown);
             }
 
+            var vlmMarkdown = Path.Combine(
+                document.OutputFolder,
+                Markdown.MarkdownRenderer.VlmFileName(Path.GetFileNameWithoutExtension(document.SourcePath)));
+            if (File.Exists(vlmMarkdown))
+            {
+                File.Delete(vlmMarkdown);
+            }
+
             var images = Path.Combine(document.OutputFolder, "images");
             if (Directory.Exists(images))
             {

@@ -127,8 +127,15 @@ public sealed class ConvertService
         // The step selection may differ from the earlier run; the other options stay as they were.
         var step2Before = job.Options.Step2;
         var step3Before = job.Options.Step3;
+        var separateBefore = job.Options.VlmSeparate;
         job.Options.Step2 = request.Step2 ?? job.Options.Step2;
         job.Options.Step3 = request.Step3 ?? job.Options.Step3;
+        job.Options.VlmSeparate = request.VlmSeparate ?? job.Options.VlmSeparate;
+        foreach (var document in documents)
+        {
+            document.VlmSeparate = job.Options.VlmSeparate;
+        }
+
         job.Options.Connection = request.Connection ?? job.Options.Connection;
 
         // Step 3 needs a working VLM connection; it is checked before any step starts, also on a resume (FR-019c).
@@ -151,7 +158,7 @@ public sealed class ConvertService
         }
 
         // A step switched off or on changes the Markdown of finished files (image references, VLM results).
-        if (step2Before != job.Options.Step2 || step3Before != job.Options.Step3)
+        if (step2Before != job.Options.Step2 || step3Before != job.Options.Step3 || separateBefore != job.Options.VlmSeparate)
         {
             foreach (var document in documents.Where(d => d.Step1 == StepStatus.Done && !toRun.Contains(d)))
             {
@@ -338,6 +345,7 @@ public sealed class ConvertService
                 OutputFolder = allocator.Allocate(parent, Path.GetFileNameWithoutExtension(input.Path)),
                 Step2 = options.Step2 ? StepStatus.Pending : StepStatus.NotApplicable,
                 Step3 = options.Step3 ? StepStatus.Pending : StepStatus.NotApplicable,
+                VlmSeparate = options.VlmSeparate,
             };
 
             try

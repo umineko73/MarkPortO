@@ -51,6 +51,10 @@ public static class ConvertResultJson
     {
         Source = document.SourcePath,
         OutputFolder = document.OutputFolder,
+        Markdown = Markdown.MarkdownRenderer.MarkdownFileName(Path.GetFileNameWithoutExtension(document.SourcePath)),
+        VlmMarkdown = document.VlmSeparate && document.Step3 != StepStatus.NotApplicable
+            ? Markdown.MarkdownRenderer.VlmFileName(Path.GetFileNameWithoutExtension(document.SourcePath))
+            : null,
         State = StateOf(document),
         Pages = document.Pages.Count,
         DeletedPages = [.. document.Pages.Where(p => p.IsDeleted).Select(p => p.Index)],
@@ -75,6 +79,12 @@ public static class ConvertResultJson
         public string Source { get; set; } = string.Empty;
 
         public string OutputFolder { get; set; } = string.Empty;
+
+        /// <summary>The file name of the Markdown, in <see cref="OutputFolder"/>.</summary>
+        public string Markdown { get; set; } = string.Empty;
+
+        /// <summary>The file name of the VLM results when they are in a separate file (FR-058); otherwise null.</summary>
+        public string? VlmMarkdown { get; set; }
 
         public string State { get; set; } = string.Empty;
 

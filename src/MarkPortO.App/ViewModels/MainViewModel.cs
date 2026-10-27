@@ -359,6 +359,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public RelayCommand PromptsCommand { get; }
 
+    /// <summary>Write the VLM results to a separate file (FR-058).</summary>
+    public bool VlmSeparate
+    {
+        get => _store.Current.Steps.VlmSeparate;
+        set
+        {
+            _store.Update(s => s.Steps.VlmSeparate = value);
+            Raise();
+        }
+    }
+
     /// <summary>Step 3: read the page images with the VLM.</summary>
     public bool Step3
     {
@@ -563,6 +574,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Mode = mode,
                 Step2 = snapshot.Steps.Step2,
                 Step3 = snapshot.Steps.Step3,
+                VlmSeparate = snapshot.Steps.VlmSeparate,
             },
             token));
     }

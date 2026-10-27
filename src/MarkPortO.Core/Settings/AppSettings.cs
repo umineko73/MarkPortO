@@ -281,6 +281,9 @@ public sealed class StepSettings
     public bool Step2 { get; set; } = true;
 
     public bool Step3 { get; set; }
+
+    /// <summary>Write the VLM results to a separate file, <c>name_vlm.md</c>, not into the Markdown of the document (FR-058).</summary>
+    public bool VlmSeparate { get; set; }
 }
 
 public sealed class VlmSettings

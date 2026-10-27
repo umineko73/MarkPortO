@@ -36,5 +36,7 @@ public sealed class ResumeRequest
 
     public bool? Step3 { get; init; }
 
+    public bool? VlmSeparate { get; init; }
+
     public string? Connection { get; init; }
 }

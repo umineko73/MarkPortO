@@ -86,6 +86,7 @@ public static class CliApp
         var dpi = new Option<int?>("--dpi") { Description = "Resolution of the page images (72-600)." };
         var step2 = new Option<string?>("--step2") { Description = "on or off: put image references in the Markdown." };
         var step3 = new Option<string?>("--step3") { Description = "on or off: read the page images with the VLM." };
+        var vlmSeparate = new Option<string?>("--vlm-separate") { Description = "on or off: write the results of Step 3 to a separate file, name_vlm.md." };
         var connection = new Option<string?>("--connection") { Description = "Name of the VLM connection in settings.json." };
         var maxPages = new Option<int?>("--max-pages") { Description = "Stop after this many pages have been read by Step 3 (default: the setting of the connection; empty is no limit)." };
         var maxCost = new Option<double?>("--max-cost") { Description = "Stop after Step 3 has cost this many US dollars, when the command says what it costs." };
@@ -100,7 +101,7 @@ public static class CliApp
         convert.Arguments.Add(inputs);
         foreach (var option in new Option[]
         {
-            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, engine, dpi, step2, step3,
+            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, engine, dpi, step2, step3, vlmSeparate,
             connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
         })
         {
@@ -122,6 +123,7 @@ public static class CliApp
                 Dpi = parse.GetValue(dpi),
                 Step2 = parse.GetValue(step2),
                 Step3 = parse.GetValue(step3),
+                VlmSeparate = parse.GetValue(vlmSeparate),
                 Connection = parse.GetValue(connection),
                 MaxPages = parse.GetValue(maxPages),
                 MaxCost = parse.GetValue(maxCost),
@@ -327,6 +329,7 @@ public static class CliApp
             Mode = args.RetryFailed ? ResumeMode.RetryFailed : ResumeMode.Unfinished,
             Step2 = Step(args.Step2),
             Step3 = Step(args.Step3),
+            VlmSeparate = Step(args.VlmSeparate),
             Connection = args.Connection,
         };
 
