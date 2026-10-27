@@ -26,8 +26,10 @@
       <RowDefinition Height="*" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
-    <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,8"
-               Text="{DynamicResource Prompts_Note}" />
+    <StackPanel Grid.Row="0">
+      <TextBlock TextWrapping="Wrap" Margin="0,0,0,4" Text="{DynamicResource Prompts_Note}" />
+      <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Text="{DynamicResource Prompts_PageText}" />
+    </StackPanel>
     <TabControl Grid.Row="1" x:Name="Tabs">
       <TabItem Header="Word (docx)">
         <TextBox x:Name="DocxBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="6" />

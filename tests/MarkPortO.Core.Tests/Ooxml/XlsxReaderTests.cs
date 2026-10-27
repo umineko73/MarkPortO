@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using MarkPortO.Core.Markdown;
 using MarkPortO.Core.Ooxml;
 using MarkPortO.Core.Tests.Fixtures;
 
@@ -36,7 +37,19 @@ public class XlsxReaderTests
     }
 
     [Fact]
-    public void Read_Markdown_IsAPipeTableWithTheFirstRowAsHeader()
+    public void Read_Markdown_OfAnExcelTable_HasTheFirstRowAsHeader()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("b.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [["Name", "Note"], ["Apple", "a|b"]], ExcelTable: "A1:B2"));
+
+        var sheet = XlsxReader.Read(path, false).Single();
+
+        Assert.Equal("| Name | Note |\n|---|---|\n| Apple | a\\|b |", sheet.ToMarkdown());
+    }
+
+    [Fact]
+    public void Read_Markdown_OfASheetWithoutAnExcelTable_HasAnEmptyHeaderAndTheFirstRowAsData()
     {
         using var dir = new TempDir();
         var path = dir.Combine("b.xlsx");
@@ -44,7 +57,21 @@ public class XlsxReaderTests
 
         var sheet = XlsxReader.Read(path, false).Single();
 
-        Assert.Equal("| Name | Note |\n|---|---|\n| Apple | a\\|b |", sheet.ToMarkdown());
+        Assert.Equal("|  |  |\n|---|---|\n| Name | Note |\n| Apple | a\\|b |", sheet.ToMarkdown());
+    }
+
+    [Fact]
+    public void Read_Markdown_MarksTheCellsHiddenByAMergedCell_AndLeavesAnEmptyCellEmpty()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("m.xlsx");
+        // A1:B1 spans two columns, C1 is empty (not merged); A2:A3 spans two rows.
+        XlsxFactory.Create(path, new SheetSpec("Data", [["Title", "", ""], ["A", "b", "c"], ["", "d", ""]], Merges: ["A1:B1", "A2:A3"]));
+
+        var markdown = MarkdownText.ResolveMarks(XlsxReader.Read(path, false).Single().ToMarkdown(), "en");
+
+        Assert.Equal("|  |  |  |\n|---|---|---|\n| Title | [merged] |  |\n| A | b | c |\n| [merged] | d |  |", markdown);
+        Assert.Equal("| Title | [結合] |  |", MarkdownText.ResolveMarks("| Title | " + MarkdownText.MergedCell + " |  |", "ja"));
     }
 
     [Fact]

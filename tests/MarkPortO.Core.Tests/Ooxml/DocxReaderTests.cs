@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using MarkPortO.Core.Markdown;
 using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Ooxml;
 using MarkPortO.Core.Tests.Fixtures;
@@ -54,6 +55,32 @@ public class DocxReaderTests
             "| Name | Value |\n|---|---|\n| Alpha | 1 |\n| Beta \\| Gamma | 2 |",
             table.Block.Markdown);
         Assert.Equal("Name", table.SearchText); // a table is searched for by its first cell
+    }
+
+    [Fact]
+    public void Read_Table_WithMergedCells_IsExpandedToAGrid()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("m.docx");
+        DocxFactory.CreateMergedTable(path, header: true);
+
+        var table = DocxReader.Read(path).Single(b => b.Block.Kind == BlockKind.Table);
+
+        Assert.Equal(
+            "| Title | [merged] | X |\n|---|---|---|\n| A | b | c |\n| [merged] | d |  |",
+            MarkdownText.ResolveMarks(table.Block.Markdown, "en"));
+    }
+
+    [Fact]
+    public void Read_Table_WithoutAHeaderRow_KeepsTheFirstRowAsData()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("n.docx");
+        DocxFactory.CreateMergedTable(path, header: false);
+
+        var table = DocxReader.Read(path).Single(b => b.Block.Kind == BlockKind.Table);
+
+        Assert.StartsWith("|  |  |  |\n|---|---|---|\n| Title |", MarkdownText.ResolveMarks(table.Block.Markdown, "en"), StringComparison.Ordinal);
     }
 
     [Fact]

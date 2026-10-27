@@ -99,6 +99,24 @@ public class MarkdownRendererTests
     }
 
     [Fact]
+    public void Render_AMergedCellMark_IsWrittenInTheLanguageOfTheJob_AndExplainedInTheNote()
+    {
+        var doc = Docx();
+        doc.Blocks[1] = new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table([["a", "b"], ["c", MarkdownText.MergedCell]]), PageIndex = 1 };
+
+        var ja = MarkdownRenderer.Render(doc);
+        doc.MarkdownLanguage = "en";
+        var en = MarkdownRenderer.Render(doc);
+
+        Assert.Contains("| c | [結合] |", ja);
+        Assert.Contains("> - 表の結合セル: `[結合]`", ja);
+        Assert.Contains("| c | [merged] |", en);
+        Assert.Contains("> - Merged table cells: `[merged]`", en);
+        Assert.DoesNotContain(MarkdownText.MergedCell, ja + en, StringComparison.Ordinal);
+        Assert.DoesNotContain("表の結合セル", MarkdownRenderer.Render(Docx()), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Render_DeletedPage_HasOnlyTheNotice_WithNoTextNoImageReferenceAndNoVlmResult()
     {
         var doc = Docx(step3: StepStatus.Done);

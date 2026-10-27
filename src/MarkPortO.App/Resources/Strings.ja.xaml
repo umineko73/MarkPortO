@@ -118,6 +118,7 @@
   <sys:String x:Key="Conn_Waiting">応答を待っています…（{0} 秒経過。ローカルのモデルは時間がかかることがあります）</sys:String>
   <sys:String x:Key="Prompts_Title">VLMへの指示（プロンプト）の設定</sys:String>
   <sys:String x:Key="Prompts_Note">Step3で、画像からテキストを読み取るときにVLMへ送る指示です。文書の種類ごとに設定します。入力欄から移ると保存されます。空にすると既定の文に戻ります。</sys:String>
+  <sys:String x:Key="Prompts_PageText">指示に {pagetext} を書くと、文書から取り出したそのページのテキストに置き換わります（画像と一緒にVLMへ送ります。書かなければ送りません）。</sys:String>
   <sys:String x:Key="Prompts_Reset">表示中の種類を既定に戻す</sys:String>
   <sys:String x:Key="Prompts_Close">閉じる</sys:String>
   <sys:String x:Key="About_Title">バージョン情報</sys:String>
@@ -147,5 +148,6 @@
   <sys:String x:Key="Conn_ConsentQuestion">同意しますか？</sys:String>
   <sys:String x:Key="Conn_LimitNone">なし</sys:String>
   <sys:String x:Key="Confirm_StartExternal">{0} 件の入力を変換します。ページ画像は、ローカルネットワークの外の次の送信先に送られます: {1}。&#10;&#10;利用料が発生することがあります。{2}&#10;&#10;開始しますか？</sys:String>
+  <sys:String x:Key="Confirm_StartExternalText">&#10;指示に {pagetext} があるため、文書から取り出したページのテキストも送られます。</sys:String>
   <sys:String x:Key="Confirm_StartExternalLimits">&#10;上限: ページ数 {0}、費用 {1}。</sys:String>
 </ResourceDictionary>

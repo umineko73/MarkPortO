@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using MarkPortO.Core.Markdown;
 using MarkPortO.Core.Ooxml;
 using MarkPortO.Core.Tests.Fixtures;
 
@@ -44,6 +45,30 @@ public class PptxReaderTests
         var slide = PptxReader.Read(path, false).Single();
 
         Assert.Contains("| A | B |\n|---|---|\n| 1 | 2 |", slide.Markdown);
+    }
+
+    [Fact]
+    public void Read_Table_WithMergedCells_MarksTheHiddenCells()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("m.pptx");
+        PptxFactory.Create(path, new SlideSpec("Merged", Table: [["Title", "<h>", "X"], ["A", "b", "c"], ["<v>", "d", ""]]));
+
+        var slide = PptxReader.Read(path, false).Single();
+
+        Assert.Contains("| Title | [merged] | X |\n|---|---|---|\n| A | b | c |\n| [merged] | d |  |", MarkdownText.ResolveMarks(slide.Markdown, "en"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Read_Table_WithoutAHeaderRowOption_KeepsTheFirstRowAsData()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("n.pptx");
+        PptxFactory.Create(path, new SlideSpec("NoHeader", Table: [["A", "B"], ["1", "2"]], TableHeader: false));
+
+        var slide = PptxReader.Read(path, false).Single();
+
+        Assert.Contains("|  |  |\n|---|---|\n| A | B |\n| 1 | 2 |", slide.Markdown, StringComparison.Ordinal);
     }
 
     [Fact]

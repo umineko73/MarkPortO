@@ -421,6 +421,12 @@
   <data name="The page images of your documents will be sent outside the local network, to: {0}." xml:space="preserve">
     <value>文書のページ画像が、ローカルネットワークの外の次の送信先に送られます: {0}。</value>
   </data>
+  <data name="If a prompt contains {pagetext}, the text of the page that was taken from the document is sent with the image." xml:space="preserve">
+    <value>指示（プロンプト）に {pagetext} があると、文書から取り出したそのページのテキストも、画像と一緒に送られます。</value>
+  </data>
+  <data name="{0}: the text of the page was cut at {1} characters for the prompt." xml:space="preserve">
+    <value>{0}: ページのテキストが、指示に入れるときに {1} 文字で切られました。</value>
+  </data>
   <data name="Usage charges may apply to your account." xml:space="preserve">
     <value>お使いのアカウントに、利用料が発生することがあります。</value>
   </data>

@@ -41,7 +41,7 @@ public enum ConsentState
 public static class ExternalConsent
 {
     /// <summary>The version of the notice text. Raise it when the notice changes, so everyone is asked again.</summary>
-    public const int CurrentNoticeVersion = 1;
+    public const int CurrentNoticeVersion = 2;
 
     public static bool IsRequired(ConnectionProfile connection) =>
         connection.Kind == ConnectionKind.Command || !DestinationClassifier.IsLocal(connection.BaseUrl);
@@ -91,12 +91,13 @@ public static class ExternalConsent
         return Uri.TryCreate(connection.BaseUrl, UriKind.Absolute, out var uri) ? uri.Host : connection.BaseUrl;
     }
 
-    /// <summary>The notice the user agrees to (<see cref="CurrentNoticeVersion"/>): where the images go, the cost, the information a command adds.</summary>
+    /// <summary>The notice the user agrees to (<see cref="CurrentNoticeVersion"/>): where the images and the text of a page go, the cost, the information a command adds.</summary>
     public static IReadOnlyList<string> Notice(ConnectionProfile connection)
     {
         var lines = new List<string>
         {
             Loc.T("The page images of your documents will be sent outside the local network, to: {0}.", Destination(connection)),
+            Loc.T("If a prompt contains {pagetext}, the text of the page that was taken from the document is sent with the image."),
             Loc.T("Usage charges may apply to your account."),
         };
         if (connection.Kind == ConnectionKind.Command)

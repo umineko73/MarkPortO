@@ -256,6 +256,46 @@ public static class DocxFactory
                 new NumberingProperties(new NumberingLevelReference { Val = 0 }, new NumberingId { Val = 1 })),
             new Run(new Text(text) { Space = SpaceProcessingModeValues.Preserve }));
 
+    /// <summary>
+    /// A table with a cell that spans two columns (row 1) and a cell merged over two rows (rows 2 and 3).
+    /// <paramref name="header"/> sets the "header row" look of the table.
+    /// </summary>
+    public static void CreateMergedTable(string path, bool header)
+    {
+        using var document = NewDocument(path, out var body);
+        var table = new Table(new TableProperties(new TableLook { Val = header ? "0420" : "0400" }));
+        var grid = new TableGrid();
+        for (var i = 0; i < 3; i++)
+        {
+            grid.AppendChild(new GridColumn { Width = "3000" });
+        }
+
+        table.AppendChild(grid);
+
+        TableCell Cell(string text, int span = 1, MergedCellValues? vertical = null)
+        {
+            var properties = new TableCellProperties();
+            if (span > 1)
+            {
+                properties.AppendChild(new GridSpan { Val = span });
+            }
+
+            if (vertical is { } v)
+            {
+                properties.AppendChild(v == MergedCellValues.Restart ? new VerticalMerge { Val = MergedCellValues.Restart } : new VerticalMerge());
+            }
+
+            return new TableCell(properties, Plain(text));
+        }
+
+        table.AppendChild(new TableRow(Cell("Title", span: 2), Cell("X")));
+        table.AppendChild(new TableRow(Cell("A", vertical: MergedCellValues.Restart), Cell("b"), Cell("c")));
+        table.AppendChild(new TableRow(Cell(string.Empty, vertical: MergedCellValues.Continue), Cell("d"), Cell(string.Empty)));
+        body.AppendChild(table);
+        body.AppendChild(Plain("After the table."));
+        Finish(body);
+    }
+
     private static Table NewTable(string[][] rows)
     {
         var table = new Table(new TableProperties(
@@ -265,7 +305,8 @@ public static class DocxFactory
                 new BottomBorder { Val = BorderValues.Single, Size = 4 },
                 new RightBorder { Val = BorderValues.Single, Size = 4 },
                 new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 })));
+                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }),
+            new TableLook { Val = "0420" }));
 
         // The grid (one column definition per column) is required before the rows.
         var grid = new TableGrid();

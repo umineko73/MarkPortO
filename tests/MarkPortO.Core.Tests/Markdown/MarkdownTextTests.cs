@@ -51,6 +51,23 @@ public class MarkdownTextTests
     }
 
     [Fact]
+    public void Table_WithoutAHeader_PutsAnEmptyHeaderBeforeTheFirstRow()
+    {
+        var table = MarkdownText.Table([["a", "b"], ["c", "d"]], hasHeader: false);
+
+        Assert.Equal("|  |  |\n|---|---|\n| a | b |\n| c | d |", table);
+    }
+
+    [Fact]
+    public void Table_KeepsTheMergedMark_AndDropsTheCharacterFromTextOfTheDocument()
+    {
+        var table = MarkdownText.Table([["a" + MarkdownText.MergedCell, MarkdownText.MergedCell]]);
+
+        Assert.Equal("| a | " + MarkdownText.MergedCell + " |\n|---|---|", table);
+        Assert.Equal("| a | [merged] |\n|---|---|", MarkdownText.ResolveMarks(table, "en"));
+    }
+
+    [Fact]
     public void Table_WithNoRows_IsEmpty()
     {
         Assert.Equal(string.Empty, MarkdownText.Table([]));

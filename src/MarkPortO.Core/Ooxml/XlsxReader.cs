@@ -43,6 +43,12 @@ public sealed class SheetContent
     /// <summary>Cell texts of the used range: <c>Rows[r][c]</c> is row <c>FirstRow + r</c>, column <c>FirstColumn + c</c>.</summary>
     public required string[][] Rows { get; init; }
 
+    /// <summary>The cells (0-based row and column in <see cref="Rows"/>) hidden by a merged cell: written as a mark in Markdown (FR-059).</summary>
+    public IReadOnlySet<(int Row, int Column)> HiddenByMerge { get; init; } = new HashSet<(int Row, int Column)>();
+
+    /// <summary>The first row is the header row of an Excel table (FR-060). A sheet has no header otherwise.</summary>
+    public bool HasHeaderRow { get; init; }
+
     /// <summary>Width in points of each column of the used range (0 for a hidden column). Index 0 is <see cref="FirstColumn"/>.</summary>
     public required double[] ColumnWidthsPoints { get; init; }
 
@@ -56,13 +62,15 @@ public sealed class SheetContent
     public string ColumnRange(int fromIndex, int toIndex) =>
         $"{ExcelColumn.Name(FirstColumn + fromIndex)}:{ExcelColumn.Name(FirstColumn + toIndex)}";
 
-    /// <summary>The cells of the given used-range columns (0-based, inclusive) as a Markdown table; the first row is the header.</summary>
+    /// <summary>The cells of the given used-range columns (0-based, inclusive) as a Markdown table.</summary>
     public string ToMarkdown(int fromIndex, int toIndex)
     {
         var rows = Rows
-            .Select(row => (IReadOnlyList<string>)row.Skip(fromIndex).Take(toIndex - fromIndex + 1).ToArray())
+            .Select((row, r) => (IReadOnlyList<string>)row
+                .Select((text, c) => HiddenByMerge.Contains((r, c)) ? MarkdownText.MergedCell : text)
+                .Skip(fromIndex).Take(toIndex - fromIndex + 1).ToArray())
             .ToList();
-        return MarkdownText.Table(rows);
+        return MarkdownText.Table(rows, HasHeaderRow);
     }
 
     public string ToMarkdown() => ToMarkdown(0, Math.Max(0, ColumnCount - 1));
@@ -196,6 +204,34 @@ public static partial class XlsxReader
             };
         }
 
+        // The cells under a merged range, except its top-left cell, inside the used range.
+        var coveredByMerge = new HashSet<(int Row, int Column)>();
+        foreach (var merge in worksheet.Descendants<MergeCell>())
+        {
+            if (merge.Reference?.Value is { } range && range.Split(':') is { Length: 2 } ends)
+            {
+                var (c1, r1) = ExcelColumn.ParseReference(ends[0]);
+                var (c2, r2) = ExcelColumn.ParseReference(ends[1]);
+                for (var r = Math.Max(r1, minRow); r <= Math.Min(r2, maxRow); r++)
+                {
+                    for (var c = Math.Max(c1, minColumn); c <= Math.Min(c2, maxColumn); c++)
+                    {
+                        if (r != r1 || c != c1)
+                        {
+                            coveredByMerge.Add((r - minRow, c - minColumn));
+                        }
+                    }
+                }
+            }
+        }
+
+        // The first row is a header when an Excel table starts there with a header row.
+        var hasHeaderRow = part.TableDefinitionParts.Any(tablePart =>
+            tablePart.Table is { } definition
+            && definition.HeaderRowCount?.Value != 0
+            && definition.Reference?.Value?.Split(':') is { Length: 2 } corners
+            && ExcelColumn.ParseReference(corners[0]).Row == minRow);
+
         var rows = new string[maxRow - minRow + 1][];
         for (var r = minRow; r <= maxRow; r++)
         {
@@ -217,6 +253,8 @@ public static partial class XlsxReader
             FirstRow = minRow,
             LastRow = maxRow,
             Rows = rows,
+            HiddenByMerge = coveredByMerge,
+            HasHeaderRow = hasHeaderRow,
             ColumnWidthsPoints = ColumnWidths(worksheet, minColumn, maxColumn),
         };
     }

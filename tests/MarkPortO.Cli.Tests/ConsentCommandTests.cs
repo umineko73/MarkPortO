@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using MarkPortO.Core.Vlm;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MarkPortO.Cli;
@@ -47,7 +48,7 @@ public class ConsentCommandTests
         ["executable"] = FakeVlm.Exe,
         ["model"] = "gpt-6-luna",
         ["timeoutSeconds"] = 30,
-        ["externalConsent"] = consent ? new { at = "2026-10-26T01:00:00+00:00", noticeVersion = 1 } : null,
+        ["externalConsent"] = consent ? new { at = "2026-10-26T01:00:00+00:00", noticeVersion = ExternalConsent.CurrentNoticeVersion } : null,
     };
 
     private static object LocalConnection() => new { name = "local", baseUrl = "http://192.168.11.220:1234/v1", model = "m" };
@@ -67,7 +68,7 @@ public class ConsentCommandTests
         Assert.Contains("codex", run.Output);
         Assert.Contains("Usage charges", run.Output);
         var consent = Read(path)["vlm"]!["connections"]![0]!["externalConsent"]!;
-        Assert.Equal(1, consent["noticeVersion"]!.GetValue<int>());
+        Assert.Equal(ExternalConsent.CurrentNoticeVersion, consent["noticeVersion"]!.GetValue<int>());
         Assert.NotNull(consent["at"]);
     }
 

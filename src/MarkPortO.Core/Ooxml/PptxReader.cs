@@ -195,11 +195,15 @@ public static class PptxReader
         var rows = new List<IReadOnlyList<string>>();
         foreach (var row in table.Elements<A.TableRow>())
         {
+            // The cells hidden by a merged cell are in the file; they are marked (FR-059).
             rows.Add([.. row.Elements<A.TableCell>().Select(cell =>
-                string.Join('\n', cell.TextBody?.Elements<A.Paragraph>().Select(p => ParagraphText(p).Trim()).Where(t => t.Length > 0) ?? []))]);
+                cell.HorizontalMerge?.Value == true || cell.VerticalMerge?.Value == true
+                    ? MarkdownText.MergedCell
+                    : string.Join('\n', cell.TextBody?.Elements<A.Paragraph>().Select(p => ParagraphText(p).Trim()).Where(t => t.Length > 0) ?? []))]);
         }
 
-        var markdown = MarkdownText.Table(rows);
+        // FR-060: the first row is a header when the table has the "header row" option.
+        var markdown = MarkdownText.Table(rows, table.TableProperties?.FirstRow?.Value == true);
         if (markdown.Length > 0)
         {
             body.Add(markdown);

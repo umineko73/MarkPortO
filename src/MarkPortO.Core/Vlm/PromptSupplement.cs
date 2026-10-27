@@ -23,9 +23,25 @@ namespace MarkPortO.Core.Vlm;
 /// </summary>
 public static class PromptSupplement
 {
-    /// <summary>The prompt of the user and the supplement. <paramref name="bands"/> above 1 tells which part of the page the image is.</summary>
-    public static string Build(string prompt, string language, int band = 1, int bands = 1)
+    /// <summary>In the prompt of the user, this is replaced by the text of the page that Step1 took from the document (FR-061).</summary>
+    public const string PageTextPlaceholder = "{pagetext}";
+
+    /// <summary>The longest text of a page that is put into a prompt, in characters (FR-061).</summary>
+    public const int MaxPageTextCharacters = 20000;
+
+    public static bool UsesPageText(string prompt) => prompt.Contains(PageTextPlaceholder, StringComparison.Ordinal);
+
+    /// <summary>
+    /// The prompt of the user and the supplement. <paramref name="bands"/> above 1 tells which part of the page the image is.
+    /// <paramref name="pageText"/> is put in place of <see cref="PageTextPlaceholder"/>; without it the placeholder is left as it is.
+    /// </summary>
+    public static string Build(string prompt, string language, int band = 1, int bands = 1, string? pageText = null)
     {
+        if (pageText is not null)
+        {
+            prompt = prompt.Replace(PageTextPlaceholder, pageText, StringComparison.Ordinal);
+        }
+
         var text = prompt + " " + Loc.M("If a table in the image has no header row, do not make one; write only the rows that are in the image.", language);
         if (bands > 1)
         {

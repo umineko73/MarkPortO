@@ -19,6 +19,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using MarkPortO.Core.Engines;
 using MarkPortO.Core.Jobs;
 using MarkPortO.Core.Jobs.Models;
+using MarkPortO.Core.Markdown;
 using MarkPortO.Core.Pipeline;
 using MarkPortO.Core.Settings;
 using MarkPortO.Core.Tests.Fixtures;
@@ -82,23 +83,90 @@ public class Step3BandTests
         return new DocumentWork(document, Context(dir, document));
     }
 
-    private static JobContext Context(TempDir dir, DocumentRecord document, int maxLines = 0, IVlmReader? reader = null)
+    private static JobContext Context(TempDir dir, DocumentRecord document, int maxLines = 0, IVlmReader? reader = null, string docxPrompt = "DOCX-PROMPT")
     {
         var store = new StateStore(dir.Combine("out"));
         var job = new JobState { JobId = Guid.NewGuid(), Documents = [document.DocId] };
         return new JobContext(job, store, new NoEngine(), NullLogger.Instance, TimeSpan.FromSeconds(1))
         {
             Vlm = reader,
-            Prompts = new PromptSettings { Docx = "DOCX-PROMPT" },
+            Prompts = new PromptSettings { Docx = docxPrompt },
             MaxLinesPerRead = maxLines,
         };
     }
 
-    private static DocumentWork WithContext(DocumentWork work, TempDir dir, int maxLines, IVlmReader reader) =>
-        new(work.Document, Context(dir, work.Document, maxLines, reader));
+    private static DocumentWork WithContext(DocumentWork work, TempDir dir, int maxLines, IVlmReader reader, string docxPrompt = "DOCX-PROMPT") =>
+        new(work.Document, Context(dir, work.Document, maxLines, reader, docxPrompt));
 
     private static string Table(int from, int to) =>
         string.Join("\n", Enumerable.Range(from, to - from + 1).Select(i => $"| {i:000} | item {i} |"));
+
+    [Fact]
+    public async Task PageText_IsPutInPlaceOfThePlaceholder_WithTheMarksOfTheLanguage()
+    {
+        using var dir = new TempDir();
+        var reader = new FakeReader((_, _, _) => new VlmResponse("whole", new UsageInfo(1, 1, 2)));
+        var work = Work(dir, lines: 3, language: "ja");
+        work.Document.Blocks =
+        [
+            new Block { Kind = BlockKind.Paragraph, Markdown = "TEXT-ONE", PageIndex = 1 },
+            new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table([["a", MarkdownText.MergedCell]]), PageIndex = 1 },
+        ];
+        work = WithContext(work, dir, maxLines: 0, reader, "BEFORE {pagetext} AFTER {other}");
+
+        await new Step3Worker().ProcessAsync(work, CancellationToken.None);
+
+        var prompt = Assert.Single(reader.Calls).Prompt;
+        Assert.StartsWith("BEFORE TEXT-ONE", prompt, StringComparison.Ordinal);
+        Assert.Contains("| a | [結合] |", prompt, StringComparison.Ordinal);
+        Assert.Contains("AFTER {other}", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("{pagetext}", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WithoutThePlaceholder_NoTextOfThePageIsSent()
+    {
+        using var dir = new TempDir();
+        var reader = new FakeReader((_, _, _) => new VlmResponse("whole", new UsageInfo(1, 1, 2)));
+        var work = Work(dir, lines: 3);
+        work.Document.Blocks = [new Block { Kind = BlockKind.Paragraph, Markdown = "SECRET-TEXT", PageIndex = 1 }];
+        work = WithContext(work, dir, maxLines: 0, reader);
+
+        await new Step3Worker().ProcessAsync(work, CancellationToken.None);
+
+        Assert.DoesNotContain("SECRET-TEXT", Assert.Single(reader.Calls).Prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PageText_IsCutAtTheLimit_AndAWarningIsRecorded()
+    {
+        using var dir = new TempDir();
+        var reader = new FakeReader((_, _, _) => new VlmResponse("whole", new UsageInfo(1, 1, 2)));
+        var work = Work(dir, lines: 3);
+        work.Document.Blocks = [new Block { Kind = BlockKind.Paragraph, Markdown = new string('x', PromptSupplement.MaxPageTextCharacters + 500), PageIndex = 1 }];
+        work = WithContext(work, dir, maxLines: 0, reader, "{pagetext}");
+
+        await new Step3Worker().ProcessAsync(work, CancellationToken.None);
+
+        var prompt = Assert.Single(reader.Calls).Prompt;
+        Assert.StartsWith(new string('x', PromptSupplement.MaxPageTextCharacters) + " ", prompt, StringComparison.Ordinal);
+        Assert.Contains(work.Document.Warnings, w => w.Code == "PageTextCut" && w.PageIndex == 1);
+    }
+
+    [Fact]
+    public async Task EveryBand_GetsTheTextOfTheWholePage()
+    {
+        using var dir = new TempDir();
+        var reader = new FakeReader((n, _, _) => new VlmResponse(Table(n * 10, (n * 10) + 1), new UsageInfo(1, 1, 2)));
+        var work = Work(dir, lines: 30);
+        work.Document.Blocks = [new Block { Kind = BlockKind.Paragraph, Markdown = "WHOLE-PAGE", PageIndex = 1 }];
+        work = WithContext(work, dir, maxLines: 15, reader, "{pagetext}");
+
+        await new Step3Worker().ProcessAsync(work, CancellationToken.None);
+
+        Assert.True(reader.Calls.Count > 1);
+        Assert.All(reader.Calls, call => Assert.StartsWith("WHOLE-PAGE", call.Prompt, StringComparison.Ordinal));
+    }
 
     [Fact]
     public async Task AFewLines_AreReadInOneRequest_WithTheSupplement()

@@ -213,22 +213,52 @@ public static partial class DocxReader
             foreach (var cell in row.Elements<TableCell>())
             {
                 var text = string.Join('\n', cell.Elements<Paragraph>().Select(ParagraphText).Select(t => t.Trim()).Where(t => t.Length > 0));
-                cells.Add(text);
                 if (firstCell is null && text.Length > 0)
                 {
                     firstCell = text;
+                }
+
+                // The rest of a vertical merge has no text of its own; a cell that spans columns is followed by the columns it covers (FR-059).
+                var properties = cell.TableCellProperties;
+                var continues = properties?.VerticalMerge is { } vertical && (vertical.Val is null || vertical.Val.Value == MergedCellValues.Continue);
+                cells.Add(continues ? MarkdownText.MergedCell : text);
+                var span = Math.Clamp(properties?.GridSpan?.Val?.Value ?? 1, 1, 1000);
+                for (var i = 1; i < span; i++)
+                {
+                    cells.Add(MarkdownText.MergedCell);
                 }
             }
 
             rows.Add(cells);
         }
 
-        var markdown = MarkdownText.Table(rows);
+        var markdown = MarkdownText.Table(rows, HasHeaderRow(table));
         if (markdown.Length > 0)
         {
             // The page of a table is the page of its first cell: the order in which a PDF lists the other cells varies.
             blocks.Add(New(BlockKind.Table, markdown, firstCell ?? string.Empty));
         }
+    }
+
+    // FR-060: the first row is a header when the table says so (a repeated header row, or the "header row" of its style).
+    private static bool HasHeaderRow(Table table)
+    {
+        if (table.Elements<TableRow>().FirstOrDefault()?.TableRowProperties?.Elements<TableHeader>().FirstOrDefault() is { } repeated
+            && (repeated.Val is null || repeated.Val.Value != OnOffOnlyValues.Off))
+        {
+            return true;
+        }
+
+        var look = table.GetFirstChild<TableProperties>()?.TableLook;
+        if (look?.FirstRow is { } firstRow)
+        {
+            return firstRow.Value;
+        }
+
+        // The old form: a bit mask in w:val (0x0020 is the first row).
+        return look?.Val?.Value is { } mask
+            && int.TryParse(mask, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var bits)
+            && (bits & 0x0020) != 0;
     }
 
     private static DocxBlock New(BlockKind kind, string markdown, string searchText) =>

@@ -17,6 +17,7 @@ using System.Globalization;
 using MarkPortO.Core.Localization;
 using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Markdown;
+using MarkPortO.Core.Ooxml;
 using MarkPortO.Core.Vlm;
 
 namespace MarkPortO.Core.Pipeline;
@@ -148,12 +149,13 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             var png = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
             var language = document.MarkdownLanguage;
             var bands = BandPlanner.Plan(page.TextLines, maxLines);
+            var pageText = PromptSupplement.UsesPageText(prompt) ? PageTextOf(document, page) : null;
             string text;
             UsageInfo usage;
             double? cost;
             if (bands.Count == 0)
             {
-                var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language), png, cancellationToken).ConfigureAwait(false);
+                var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, pageText: pageText), png, cancellationToken).ConfigureAwait(false);
                 text = answer.Text;
                 usage = answer.Usage;
                 cost = answer.CostUsd;
@@ -167,7 +169,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
                 for (var i = 0; i < bands.Count; i++)
                 {
                     var strip = Crop(png, bands[i]);
-                    var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, i + 1, bands.Count), strip, cancellationToken).ConfigureAwait(false);
+                    var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, i + 1, bands.Count, pageText), strip, cancellationToken).ConfigureAwait(false);
                     texts.Add(answer.Text);
                     usages.Add(answer.Usage);
                     costs.Add(answer.CostUsd);
@@ -201,6 +203,32 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             document.Warnings.Add(new Warning("VlmPageFailed", $"{PageLabel.Text(page.SourceLabel, CultureInfo.CurrentUICulture)}: {page.Error}", page.Index));
             return new PageOutcome(false, (ex as VlmException)?.Kind ?? VlmFailureKind.Unknown, page.Error);
         }
+    }
+
+    /// <summary>
+    /// The text that Step1 took from the document for this page (FR-061): the blocks of the page, in the language of the
+    /// job, cut at <see cref="PromptSupplement.MaxPageTextCharacters"/> (a warning tells when).
+    /// </summary>
+    private static string PageTextOf(DocumentRecord document, PageRecord page)
+    {
+        var effective = DocxPageAssigner.EffectivePages(document.Blocks, document.Pages.Count);
+        var text = string.Join(
+            "\n\n",
+            document.Blocks
+                .Where((block, i) => effective[i] == page.Index && block.Markdown.Length > 0)
+                .Select(block => MarkdownText.ResolveMarks(block.Markdown, document.MarkdownLanguage)));
+        var limit = PromptSupplement.MaxPageTextCharacters;
+        if (text.Length <= limit)
+        {
+            return text;
+        }
+
+        var cut = char.IsHighSurrogate(text[limit - 1]) ? limit - 1 : limit;
+        document.Warnings.Add(new Warning(
+            "PageTextCut",
+            Loc.T("{0}: the text of the page was cut at {1} characters for the prompt.", PageLabel.Text(page.SourceLabel, CultureInfo.CurrentUICulture), limit),
+            page.Index));
+        return text[..cut];
     }
 
     private static async Task<VlmResponse> ReadOnceAsync(IVlmReader reader, string prompt, byte[] png, CancellationToken cancellationToken)

@@ -57,8 +57,23 @@ public static partial class MarkdownText
             .Replace("\n", "<br>", StringComparison.Ordinal)
             .Trim();
 
-    /// <summary>Builds a Markdown pipe table; the first row is the header. Rows may differ in length.</summary>
-    public static string Table(IReadOnlyList<IReadOnlyList<string>> rows)
+    /// <summary>
+    /// The cell of a table that is hidden by a merged cell (FR-059). A Markdown table cannot be merged, so the readers
+    /// put this one character in such a cell; the renderer writes it as <c>[merged]</c> in the language of the job.
+    /// </summary>
+    public const string MergedCell = "\uE000";
+
+    /// <summary>Writes <see cref="MergedCell"/> as the mark of the language (<c>[結合]</c>, <c>[merged]</c>).</summary>
+    public static string ResolveMarks(string markdown, string language) =>
+        markdown.Contains(MergedCell, StringComparison.Ordinal)
+            ? markdown.Replace(MergedCell, Localization.Loc.M("[merged]", language), StringComparison.Ordinal)
+            : markdown;
+
+    /// <summary>
+    /// Builds a Markdown pipe table. A Markdown table needs a header row: with <paramref name="hasHeader"/> false the
+    /// header is empty and the first row stays a row of data (FR-060). Rows may differ in length.
+    /// </summary>
+    public static string Table(IReadOnlyList<IReadOnlyList<string>> rows, bool hasHeader = true)
     {
         if (rows.Count == 0)
         {
@@ -72,25 +87,45 @@ public static partial class MarkdownText
         }
 
         var builder = new StringBuilder();
+
+        void Separator()
+        {
+            builder.Append('|');
+            for (var c = 0; c < columns; c++)
+            {
+                builder.Append("---|");
+            }
+
+            builder.Append('\n');
+        }
+
+        if (!hasHeader)
+        {
+            builder.Append('|');
+            for (var c = 0; c < columns; c++)
+            {
+                builder.Append("  |");
+            }
+
+            builder.Append('\n');
+            Separator();
+        }
+
         for (var r = 0; r < rows.Count; r++)
         {
             builder.Append('|');
             for (var c = 0; c < columns; c++)
             {
-                var cell = c < rows[r].Count ? EscapeCell(rows[r][c]) : string.Empty;
+                var cell = c >= rows[r].Count ? string.Empty
+                    : rows[r][c] == MergedCell ? MergedCell
+                    : EscapeCell(rows[r][c].Replace(MergedCell, string.Empty, StringComparison.Ordinal));
                 builder.Append(' ').Append(cell).Append(" |");
             }
 
             builder.Append('\n');
-            if (r == 0)
+            if (r == 0 && hasHeader)
             {
-                builder.Append('|');
-                for (var c = 0; c < columns; c++)
-                {
-                    builder.Append("---|");
-                }
-
-                builder.Append('\n');
+                Separator();
             }
         }
 

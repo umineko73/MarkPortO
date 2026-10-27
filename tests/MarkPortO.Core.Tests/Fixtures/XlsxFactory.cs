@@ -26,6 +26,7 @@ namespace MarkPortO.Core.Tests.Fixtures;
 /// <param name="PrintArea">An A1-style range such as <c>A1:C5</c>; set as the sheet's print area.</param>
 /// <param name="ColumnWidthChars">Width of every column in characters (Excel's default is about 8.43).</param>
 /// <param name="Merges">Merged ranges such as <c>A1:B1</c>.</param>
+/// <param name="ExcelTable">An A1-style range such as <c>A1:B3</c> that is an Excel table whose first row is its header row.</param>
 public sealed record SheetSpec(
     string Name,
     string[][] Rows,
@@ -33,7 +34,8 @@ public sealed record SheetSpec(
     string? PrintArea = null,
     double? ColumnWidthChars = null,
     string[]? Merges = null,
-    CellShapeSpec[]? Shapes = null);
+    CellShapeSpec[]? Shapes = null,
+    string? ExcelTable = null);
 
 /// <summary>A drawn shape anchored to cells (0-based, as in the file): from the top left of (FromColumn, FromRow) to the top left of (ToColumn, ToRow).</summary>
 public sealed record CellShapeSpec(string Geometry, int FromColumn, int FromRow, int ToColumn, int ToRow, bool FlipH = false, bool FlipV = false);
@@ -55,6 +57,22 @@ public static class XlsxFactory
             var spec = sheets[i];
             var sheetPart = workbookPart.AddNewPart<WorksheetPart>();
             sheetPart.Worksheet = BuildWorksheet(spec);
+            if (spec.ExcelTable is { } tableRange)
+            {
+                var tablePart = sheetPart.AddNewPart<TableDefinitionPart>();
+                var columnCount = spec.Rows.Max(r => r.Length);
+                tablePart.Table = new Table
+                {
+                    Id = 1,
+                    Name = "Table1",
+                    DisplayName = "Table1",
+                    Reference = tableRange,
+                    TotalsRowShown = false,
+                    TableColumns = new TableColumns(Enumerable.Range(1, columnCount).Select(c => new TableColumn { Id = (uint)c, Name = "C" + c })) { Count = (uint)columnCount },
+                };
+                sheetPart.Worksheet.AppendChild(new TableParts(new TablePart { Id = sheetPart.GetIdOfPart(tablePart) }) { Count = 1 });
+            }
+
             if (spec.Shapes is { Length: > 0 })
             {
                 AddShapes(sheetPart, spec.Shapes);

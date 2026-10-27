@@ -493,6 +493,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 "Confirm_StartExternalLimits",
                 connection.MaxPages?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? none,
                 connection.MaxCostUsd?.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) ?? none);
+        var prompts = settings.Vlm.Prompts;
+        if (new[] { prompts.Docx, prompts.Xlsx, prompts.Pptx }.Any(PromptSupplement.UsesPageText))
+        {
+            limits = UiText.Get("Confirm_StartExternalText") + limits;
+        }
+
         return confirm(UiText.Get("Confirm_StartExternal", InputPaths.Count, ExternalConsent.Destination(connection), limits));
     }
 

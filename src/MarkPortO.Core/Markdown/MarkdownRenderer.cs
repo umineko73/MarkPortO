@@ -41,7 +41,8 @@ public static class MarkdownRenderer
 
         var builder = new StringBuilder();
         builder.Append("# ").Append(MarkdownText.Escape(fileName).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
-        AppendStructureNote(builder, fileName, document.Kind, includeImages, includeVlm, document.Pages.Any(p => p.Bands > 1), language);
+        AppendStructureNote(builder, fileName, document.Kind, includeImages, includeVlm, document.Pages.Any(p => p.Bands > 1),
+            document.Blocks.Any(b => b.Markdown.Contains(MarkdownText.MergedCell, StringComparison.Ordinal)), language);
 
         if (includeVlm && TryUsageLine(document.Pages, language) is { } usageLine)
         {
@@ -69,7 +70,7 @@ public static class MarkdownRenderer
         return "images/page-" + pageIndex.ToString("D" + digits, CultureInfo.InvariantCulture) + ".png";
     }
 
-    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, bool hasBands, string language)
+    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, bool hasBands, bool hasMergedCells, string language)
     {
         void Line(string text) => builder.Append("> ").Append(text).Append('\n');
 
@@ -89,6 +90,11 @@ public static class MarkdownRenderer
         }
 
         Line(Loc.M("- Deleted pages: a quote that starts with `> **{0}**`, after the marker `<!-- deleted page=N -->`. A page that was marked with an X in the original document. The text and the image reference of the page are not included.", language, Loc.M("[Deleted page]", language)));
+        if (hasMergedCells)
+        {
+            Line(Loc.M("- Merged table cells: `{0}`. A Markdown table cannot merge cells, so a cell that is hidden by a merged cell is written as `{0}`. An empty cell is left empty.", language, Loc.M("[merged]", language)));
+        }
+
         if (kind == DocumentKind.Xlsx)
         {
             Line(Loc.M("- Sheets (xlsx): `<!-- sheet: name part=2/3 columns=I:P -->`. Written on every page; it shows which sheet and which columns. When a sheet with many columns is split into several images, the part is 2/3 and so on.", language));
@@ -162,7 +168,7 @@ public static class MarkdownRenderer
         {
             if (effectivePages[i] == page.Index && document.Blocks[i].Markdown.Length > 0)
             {
-                builder.Append('\n').Append(document.Blocks[i].Markdown).Append('\n');
+                builder.Append('\n').Append(MarkdownText.ResolveMarks(document.Blocks[i].Markdown, language)).Append('\n');
             }
         }
 

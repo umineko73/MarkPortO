@@ -32,7 +32,8 @@ public sealed record SlideSpec(
     bool Hidden = false,
     string[][]? Table = null,
     ShapeSpec[]? Shapes = null,
-    ShapeGroupSpec? Group = null);
+    ShapeGroupSpec? Group = null,
+    bool TableHeader = true);
 
 /// <summary>A drawn shape. Position and size are fractions of the slide (or of the group, inside a group).</summary>
 /// <param name="Geometry">A preset name such as <c>mathMultiply</c>, <c>line</c>, <c>rect</c>; <c>custGeom</c> for a freehand shape.</param>
@@ -133,7 +134,7 @@ public static class PptxFactory
         var body = spec.Body is { Length: > 0 }
             ? Placeholder(3, "Content 2", "idx=\"1\"", 457200, 1600200, 8229600, 1300000, string.Concat(spec.Body.Select(Paragraph)))
             : string.Empty;
-        var table = spec.Table is { Length: > 0 } ? Table(spec.Table) : string.Empty;
+        var table = spec.Table is { Length: > 0 } ? Table(spec.Table, spec.TableHeader) : string.Empty;
         var shapes = spec.Shapes is { Length: > 0 }
             ? string.Concat(spec.Shapes.Select((shape, i) => ShapeXml(shape, 20 + i, SlideWidth, SlideHeight)))
             : string.Empty;
@@ -186,22 +187,28 @@ public static class PptxFactory
             """);
     }
 
-    private static string Table(string[][] rows)
+    private static string Table(string[][] rows, bool header)
     {
         var columns = rows.Max(r => r.Length);
         const int totalWidth = 8229600;
         var columnWidth = totalWidth / columns;
         var grid = string.Concat(Enumerable.Repeat(CultureInvariant($"<a:gridCol w=\"{columnWidth}\"/>"), columns));
+        var tableProperties = header ? "<a:tblPr firstRow=\"1\"/>" : "<a:tblPr/>";
         var rowXml = string.Concat(rows.Select(row =>
             "<a:tr h=\"370840\">"
             + string.Concat(row.Select(cell =>
-                $"<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>{Paragraph(cell)}</a:txBody><a:tcPr/></a:tc>"))
+                cell switch
+                {
+                    "<h>" => "<a:tc hMerge=\"1\"><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang=\"en-US\"/></a:p></a:txBody><a:tcPr/></a:tc>",
+                    "<v>" => "<a:tc vMerge=\"1\"><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang=\"en-US\"/></a:p></a:txBody><a:tcPr/></a:tc>",
+                    _ => $"<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>{Paragraph(cell)}</a:txBody><a:tcPr/></a:tc>",
+                }))
             + "</a:tr>"));
 
         return CultureInvariant($"""
             <p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 3"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr>
             <p:xfrm><a:off x="457200" y="3200000"/><a:ext cx="{totalWidth}" cy="{370840 * rows.Length}"/></p:xfrm>
-            <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="1"/><a:tblGrid>{grid}</a:tblGrid>{rowXml}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>
+            <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl>{tableProperties}<a:tblGrid>{grid}</a:tblGrid>{rowXml}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>
             """);
     }
 

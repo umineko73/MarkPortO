@@ -49,6 +49,12 @@
   <data name="- Sheets (xlsx): `&lt;!-- sheet: name part=2/3 columns=I:P --&gt;`. Written on every page; it shows which sheet and which columns. When a sheet with many columns is split into several images, the part is 2/3 and so on." xml:space="preserve">
     <value>- シート（xlsx）: `&lt;!-- sheet: 名前 part=2/3 columns=I:P --&gt;`。すべてのページに書き、どのシートのどの列の範囲かを示します。列が多いシートを複数の画像に分けた場合は、part が 2/3 のように分かれます。</value>
   </data>
+  <data name="[merged]" xml:space="preserve">
+    <value>[結合]</value>
+  </data>
+  <data name="- Merged table cells: `{0}`. A Markdown table cannot merge cells, so a cell that is hidden by a merged cell is written as `{0}`. An empty cell is left empty." xml:space="preserve">
+    <value>- 表の結合セル: `{0}`。Markdownの表はセルを結合できないため、結合セルに隠れたセルは `{0}` と書く。値のない通常のセルは空のまま。</value>
+  </data>
   <data name="[Deleted page]" xml:space="preserve">
     <value>[削除ページ]</value>
   </data>
