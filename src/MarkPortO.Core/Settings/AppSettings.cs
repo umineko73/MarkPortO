@@ -118,6 +118,11 @@ public sealed class AppSettings
                 errors.Add(Loc.T("{0}.maxCostUsd: must be empty or more than 0 (was {1}).", prefix, cost));
             }
 
+            if (connection.MaxImageSide != 0 && connection.MaxImageSide < SettingsLimits.MinImageSide)
+            {
+                errors.Add(Loc.T("{0}.maxImageSide: must be 0 or at least {1} (was {2}).", prefix, SettingsLimits.MinImageSide, connection.MaxImageSide));
+            }
+
             if (connection.MaxLinesPerRead < 0)
             {
                 errors.Add(Loc.T("{0}.maxLinesPerRead: must be 0 or more (was {1}).", prefix, connection.MaxLinesPerRead));
@@ -220,6 +225,8 @@ public sealed class AppSettings
 
 public static class SettingsLimits
 {
+    public const int MinImageSide = 256;
+
     public const int MinDpi = 72;
     public const int MaxDpi = 600;
     public const int DefaultDpi = 150;
@@ -365,6 +372,9 @@ public sealed class ConnectionProfile
     /// <summary>The most lines read in one request; 0 never splits a page (FR-041).</summary>
     public int MaxLinesPerRead { get; set; }
 
+    /// <summary>The longer side, in pixels, that a page image is scaled down to before it is sent to the VLM; 0 sends it as it is (FR-064).</summary>
+    public int MaxImageSide { get; set; }
+
     /// <summary>For example <c>http://localhost:1234/v1</c>.</summary>
     public string BaseUrl { get; set; } = string.Empty;
 
@@ -381,14 +391,42 @@ public sealed class ConnectionProfile
 
 public sealed class PromptSettings
 {
+    // Each default takes in the text that Step1 got from the document ({pagetext}, FR-061): the image tells the layout and
+    // what the text cannot (figures, pictures), the text gives the exact characters.
     public const string DefaultDocx =
-        "この画像は Word 文書の1ページです。ページに書かれているテキストを、見出し・段落・表の構造を保ってMarkdownで書き起こしてください。図や画像に含まれる文字も読み取ってください。説明や前置きは書かないでください。";
+        "この画像は Word 文書の1ページです。次の「抽出テキスト」は、同じページから文書ファイルを直接読んで取り出した文字列です。画像のレイアウトを見ながら、抽出テキストの文字を正確に使って、見出し・段落・表の構造を保ったMarkdownで書き起こしてください。抽出テキストにない文字（図や画像に含まれる文字）は、画像から読み取って補ってください。抽出テキストと画像が食い違うときは、画像を優先してください。図（フローチャート、構成図、シーケンス図など）は、構造が読み取れるなら Mermaid 記法（```mermaid のコードブロック）で書いて構いません。説明や前置きは書かないでください。\n\n抽出テキスト:\n{pagetext}";
 
     public const string DefaultXlsx =
-        "この画像は Excel シートの一部です。表のセルの内容を、行と列の構造を保ってMarkdownの表で書き起こしてください。グラフや図形に含まれる文字も読み取ってください。説明や前置きは書かないでください。";
+        "この画像は Excel シートの一部です。次の「抽出テキスト」は、同じシートから文書ファイルを直接読んで取り出した内容です（画像に写っていない列や行も含みます）。画像のレイアウトを見ながら、抽出テキストの文字と数値を正確に使って、この画像に写っている範囲を、行と列の構造を保ったMarkdownの表で書き起こしてください。グラフや図形に含まれる文字は、画像から読み取ってください。抽出テキストと画像が食い違うときは、画像を優先してください。図（フローチャート、構成図、シーケンス図など）は、構造が読み取れるなら Mermaid 記法（```mermaid のコードブロック）で書いて構いません。説明や前置きは書かないでください。\n\n抽出テキスト:\n{pagetext}";
 
     public const string DefaultPptx =
-        "この画像は PowerPoint のスライド1枚です。スライドに書かれているテキストを、タイトルと本文の構造を保ってMarkdownで書き起こしてください。図や画像に含まれる文字も読み取ってください。説明や前置きは書かないでください。";
+        "この画像は PowerPoint のスライド1枚です。次の「抽出テキスト」は、同じスライドから文書ファイルを直接読んで取り出した文字列です。画像のレイアウトを見ながら、抽出テキストの文字を正確に使って、タイトルと本文の構造を保ったMarkdownで書き起こしてください。抽出テキストにない文字（図や画像に含まれる文字）は、画像から読み取って補ってください。抽出テキストと画像が食い違うときは、画像を優先してください。図（フローチャート、構成図、シーケンス図など）は、構造が読み取れるなら Mermaid 記法（```mermaid のコードブロック）で書いて構いません。説明や前置きは書かないでください。\n\n抽出テキスト:\n{pagetext}";
+
+    public const string DefaultDocxEn =
+        "This image is one page of a Word document. The \"Extracted text\" below is the text that was read directly from the document file for the same page. Looking at the layout in the image, transcribe the page as Markdown that keeps the structure of headings, paragraphs and tables, using the characters of the extracted text exactly. Read the text that is not in the extracted text (text inside figures and pictures) from the image and add it. If the extracted text and the image disagree, trust the image. You may write a diagram (flowchart, architecture diagram, sequence diagram, etc.) in Mermaid syntax (a ```mermaid code block) when its structure can be read. Do not write explanations or a preamble.\n\nExtracted text:\n{pagetext}";
+
+    public const string DefaultXlsxEn =
+        "This image is part of an Excel sheet. The \"Extracted text\" below is the content that was read directly from the document file for the same sheet (it also includes columns and rows that are not in the image). Looking at the layout in the image, transcribe only the range shown in this image as a Markdown table that keeps the structure of rows and columns, using the characters and numbers of the extracted text exactly. Read the text inside charts and shapes from the image. If the extracted text and the image disagree, trust the image. You may write a diagram (flowchart, architecture diagram, sequence diagram, etc.) in Mermaid syntax (a ```mermaid code block) when its structure can be read. Do not write explanations or a preamble.\n\nExtracted text:\n{pagetext}";
+
+    public const string DefaultPptxEn =
+        "This image is one slide of a PowerPoint presentation. The \"Extracted text\" below is the text that was read directly from the document file for the same slide. Looking at the layout in the image, transcribe the slide as Markdown that keeps the structure of the title and the body, using the characters of the extracted text exactly. Read the text that is not in the extracted text (text inside figures and pictures) from the image and add it. If the extracted text and the image disagree, trust the image. You may write a diagram (flowchart, architecture diagram, sequence diagram, etc.) in Mermaid syntax (a ```mermaid code block) when its structure can be read. Do not write explanations or a preamble.\n\nExtracted text:\n{pagetext}";
+
+    /// <summary>The built-in prompt of the kind, in the language ("ja", or English for anything else).</summary>
+    public static string DefaultFor(DocumentKind kind, string language)
+    {
+        var ja = language == "ja";
+        return kind switch
+        {
+            DocumentKind.Docx => ja ? DefaultDocx : DefaultDocxEn,
+            DocumentKind.Xlsx => ja ? DefaultXlsx : DefaultXlsxEn,
+            DocumentKind.Pptx => ja ? DefaultPptx : DefaultPptxEn,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+    }
+
+    /// <summary>True if the text is the built-in prompt of the kind in either language, that is, it was never edited.</summary>
+    public static bool IsDefault(DocumentKind kind, string text) =>
+        text == DefaultFor(kind, "ja") || text == DefaultFor(kind, "en");
 
     public string Docx { get; set; } = DefaultDocx;
 
@@ -403,4 +441,11 @@ public sealed class PromptSettings
         DocumentKind.Pptx => Pptx,
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
+
+    /// <summary>The prompt to send. A prompt that was never edited (the built-in one, in either language) follows the language.</summary>
+    public string For(DocumentKind kind, string language)
+    {
+        var text = For(kind);
+        return IsDefault(kind, text) ? DefaultFor(kind, language) : text;
+    }
 }

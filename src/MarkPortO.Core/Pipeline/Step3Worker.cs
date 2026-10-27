@@ -55,7 +55,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
         try
         {
             var reader = context.Vlm ?? throw new InvalidOperationException("The VLM connection is not set up.");
-            var prompt = (context.Prompts ?? new Settings.PromptSettings()).For(document.Kind);
+            var prompt = (context.Prompts ?? new Settings.PromptSettings()).For(document.Kind, document.MarkdownLanguage);
             var governor = context.Governor ?? new Step3Governor();
 
             foreach (var page in document.Pages.Where(p => p.IsDeleted))
@@ -92,7 +92,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             {
                 try
                 {
-                    var outcome = await ReadPageAsync(document, page, reader, prompt, context.MaxLinesPerRead, cancellationToken).ConfigureAwait(false);
+                    var outcome = await ReadPageAsync(document, page, reader, prompt, context.MaxLinesPerRead, context.MaxImageSide, cancellationToken).ConfigureAwait(false);
                     lock (gate)
                     {
                         if (outcome.Succeeded)
@@ -136,7 +136,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
     /// <summary>How a page ended: read, or failed with a kind of failure.</summary>
     private readonly record struct PageOutcome(bool Succeeded, VlmFailureKind Kind, string Message);
 
-    private static async Task<PageOutcome> ReadPageAsync(DocumentRecord document, PageRecord page, IVlmReader reader, string prompt, int maxLines, CancellationToken cancellationToken)
+    private static async Task<PageOutcome> ReadPageAsync(DocumentRecord document, PageRecord page, IVlmReader reader, string prompt, int maxLines, int maxImageSide, CancellationToken cancellationToken)
     {
         try
         {
@@ -155,7 +155,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             double? cost;
             if (bands.Count == 0)
             {
-                var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, pageText: pageText), png, cancellationToken).ConfigureAwait(false);
+                var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, pageText: pageText), Shrink(png, maxImageSide), cancellationToken).ConfigureAwait(false);
                 text = answer.Text;
                 usage = answer.Usage;
                 cost = answer.CostUsd;
@@ -168,7 +168,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
                 var costs = new List<double?>(bands.Count);
                 for (var i = 0; i < bands.Count; i++)
                 {
-                    var strip = Crop(png, bands[i]);
+                    var strip = Shrink(Crop(png, bands[i]), maxImageSide);
                     var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, i + 1, bands.Count, pageText), strip, cancellationToken).ConfigureAwait(false);
                     texts.Add(answer.Text);
                     usages.Add(answer.Usage);
@@ -241,6 +241,18 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
         {
             // A local model sometimes stalls on one request and answers the next at once: try once more (FR-013c).
             return await reader.ReadAsync(prompt, png, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static byte[] Shrink(byte[] png, int maxSide)
+    {
+        try
+        {
+            return BandImage.Shrink(png, maxSide);
+        }
+        catch (Exception ex) when (ex is ArgumentException or System.Runtime.InteropServices.ExternalException)
+        {
+            throw new VlmException(Loc.T("The page image could not be made smaller."));
         }
     }
 

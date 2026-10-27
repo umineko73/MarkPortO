@@ -16,6 +16,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using MarkPortO.Core.Jobs.Models;
+using MarkPortO.Core.Localization;
 using MarkPortO.Core.Settings;
 
 namespace MarkPortO.App;
@@ -24,14 +25,17 @@ namespace MarkPortO.App;
 public partial class PromptsWindow : Window
 {
     private readonly SettingsStore _store;
+    private readonly string _language;
 
     public PromptsWindow(SettingsStore store)
     {
         InitializeComponent();
         _store = store;
-        DocxBox.Text = store.Current.Vlm.Prompts.Docx;
-        XlsxBox.Text = store.Current.Vlm.Prompts.Xlsx;
-        PptxBox.Text = store.Current.Vlm.Prompts.Pptx;
+        // A prompt that was never edited is shown in the display language.
+        _language = LanguageResolver.Resolve(store.Current.Ui.Language);
+        DocxBox.Text = store.Current.Vlm.Prompts.For(DocumentKind.Docx, _language);
+        XlsxBox.Text = store.Current.Vlm.Prompts.For(DocumentKind.Xlsx, _language);
+        PptxBox.Text = store.Current.Vlm.Prompts.For(DocumentKind.Pptx, _language);
         DocxBox.LostFocus += (_, _) => Save(DocumentKind.Docx, DocxBox);
         XlsxBox.LostFocus += (_, _) => Save(DocumentKind.Xlsx, XlsxBox);
         PptxBox.LostFocus += (_, _) => Save(DocumentKind.Pptx, PptxBox);
@@ -43,12 +47,7 @@ public partial class PromptsWindow : Window
         };
     }
 
-    private static string DefaultFor(DocumentKind kind) => kind switch
-    {
-        DocumentKind.Docx => PromptSettings.DefaultDocx,
-        DocumentKind.Xlsx => PromptSettings.DefaultXlsx,
-        _ => PromptSettings.DefaultPptx,
-    };
+    private string DefaultFor(DocumentKind kind) => PromptSettings.DefaultFor(kind, _language);
 
     private void Save(DocumentKind kind, TextBox box)
     {

@@ -197,6 +197,18 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         }
     }
 
+    public string MaxImageSideText
+    {
+        get => _profile.MaxImageSide.ToString(CultureInfo.InvariantCulture);
+        set
+        {
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
+            {
+                Change(n, _profile.MaxImageSide, v => _profile.MaxImageSide = v);
+            }
+        }
+    }
+
     // ---- the consent to send page images outside the local network (FR-046, FR-052)
 
     public bool ConsentRequired => ExternalConsent.IsRequired(_profile);

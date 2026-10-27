@@ -40,6 +40,28 @@ public class BandImageTests
     private static Bitmap Load(byte[] png) => new(new MemoryStream(png));
 
     [Fact]
+    public void AnImage_IsScaledDownByItsLongerSide_KeepingTheRatio()
+    {
+        var page = Png(400, 800, _ => Color.White);
+
+        using var small = Load(BandImage.Shrink(page, 200));
+
+        Assert.Equal(100, small.Width);
+        Assert.Equal(200, small.Height);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(800)]
+    [InlineData(5000)]
+    public void AnImage_IsNotChanged_WhenItIsSmallEnoughOrTheLimitIsOff(int maxSide)
+    {
+        var page = Png(400, 800, _ => Color.White);
+
+        Assert.Same(page, BandImage.Shrink(page, maxSide));
+    }
+
+    [Fact]
     public void ABand_IsCutOutOfThePageByItsFractions()
     {
         var page = Png(100, 200, y => y < 100 ? Color.Red : Color.Blue);

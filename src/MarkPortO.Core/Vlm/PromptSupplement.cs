@@ -37,17 +37,26 @@ public static class PromptSupplement
     /// </summary>
     public static string Build(string prompt, string language, int band = 1, int bands = 1, string? pageText = null)
     {
-        if (pageText is not null)
-        {
-            prompt = prompt.Replace(PageTextPlaceholder, pageText, StringComparison.Ordinal);
-        }
-
-        var text = prompt + " " + Loc.M("If a table in the image has no header row, do not make one; write only the rows that are in the image.", language);
+        var supplement = Loc.M("If a table in the image has no header row, do not make one; write only the rows that are in the image.", language);
         if (bands > 1)
         {
-            text += " " + Loc.M("This image is part {0} of {1} of one page, cut from the top. Write only what is in this image.", language, band, bands);
+            supplement += " " + Loc.M("This image is part {0} of {1} of one page, cut from the top. Write only what is in this image.", language, band, bands);
         }
 
-        return text;
+        // The words that never change come first and the text of the page last, so that a server that caches the start
+        // of a prompt can reuse it for every page. The supplement goes in front of the paragraph that holds {pagetext}.
+        var at = prompt.IndexOf(PageTextPlaceholder, StringComparison.Ordinal);
+        // A text box writes line breaks as CR LF, so a blank line is any two line breaks.
+        var cut = -1;
+        if (at >= 0)
+        {
+            var breaks = System.Text.RegularExpressions.Regex.Matches(prompt[..at], @"\r?\n[ \t]*\r?\n");
+            cut = breaks.Count == 0 ? -1 : breaks[^1].Index;
+        }
+
+        var text = cut < 0
+            ? prompt + " " + supplement
+            : prompt[..cut] + " " + supplement + prompt[cut..];
+        return pageText is null ? text : text.Replace(PageTextPlaceholder, pageText, StringComparison.Ordinal);
     }
 }

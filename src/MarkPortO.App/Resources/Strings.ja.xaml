@@ -121,7 +121,7 @@
   <sys:String x:Key="Prompts_Note">Step3で、画像からテキストを読み取るときにVLMへ送る指示です。文書の種類ごとに設定します。入力欄から移ると保存されます。空にすると既定の文に戻ります。</sys:String>
   <sys:String x:Key="Prompts_PageText">指示に {pagetext} を書くと、文書から取り出したそのページのテキストに置き換わります（画像と一緒にVLMへ送ります。書かなければ送りません）。</sys:String>
   <sys:String x:Key="Prompts_InsertPageText">{pagetext} を挿入</sys:String>
-  <sys:String x:Key="Prompts_Reset">表示中の種類を既定に戻す</sys:String>
+  <sys:String x:Key="Prompts_Reset">表示中のプロンプトを既定に戻す</sys:String>
   <sys:String x:Key="Prompts_Close">閉じる</sys:String>
   <sys:String x:Key="About_Title">バージョン情報</sys:String>
   <sys:String x:Key="About_Body">MarkPortO {0}&#10;&#10;Word・Excel・PowerPoint の文書を、Markdown とページごとの画像に変換します。&#10;&#10;著作者: umineko73&#10;ライセンス: GPL-3.0-only</sys:String>
@@ -137,6 +137,8 @@
   <sys:String x:Key="Conn_Parallel">同時に読む数</sys:String>
   <sys:String x:Key="Conn_MaxPages">ページ数の上限（空: なし）</sys:String>
   <sys:String x:Key="Conn_MaxCost">費用の上限（米ドル。空: なし）</sys:String>
+  <sys:String x:Key="Conn_MaxImageSide">送る画像の長辺（px。0: そのまま）</sys:String>
+  <sys:String x:Key="Conn_MaxImageSideTip">ページ画像を、送る前にこの大きさまで縮小します。トークンが減ります。保存される画像は変わりません。小さくしすぎると、小さい文字が読めなくなります。</sys:String>
   <sys:String x:Key="Conn_MaxLines">1回に読む行数（0: ページ全体）</sys:String>
   <sys:String x:Key="Conn_LimitsTip">上限に達すると変換を中断し、「再開」で続けられます。費用の上限は、費用を返すコマンドだけで働きます。</sys:String>
   <sys:String x:Key="Conn_Consent">外部への送信</sys:String>

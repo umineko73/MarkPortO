@@ -25,9 +25,10 @@ public sealed class VlmSetup : IDisposable
 {
     private readonly IDisposable? _owned;
 
-    public VlmSetup(IVlmReader reader, PromptSettings prompts, string connectionName, Func<CancellationToken, Task<CheckResult>> preflight, IDisposable? owned = null, int maxLinesPerRead = 0)
+    public VlmSetup(IVlmReader reader, PromptSettings prompts, string connectionName, Func<CancellationToken, Task<CheckResult>> preflight, IDisposable? owned = null, int maxLinesPerRead = 0, int maxImageSide = 0)
     {
         MaxLinesPerRead = maxLinesPerRead;
+        MaxImageSide = maxImageSide;
         Reader = reader;
         Prompts = prompts;
         ConnectionName = connectionName;
@@ -43,6 +44,9 @@ public sealed class VlmSetup : IDisposable
 
     /// <summary>The most lines read in one request; 0 never splits a page (FR-041).</summary>
     public int MaxLinesPerRead { get; }
+
+    /// <summary>The longer side, in pixels, that a page image is scaled down to before it is sent; 0 sends it as it is (FR-064).</summary>
+    public int MaxImageSide { get; }
 
     /// <summary>The connection this setup was made from (a copy of the settings; no key).</summary>
     public Settings.ConnectionProfile? Connection { get; init; }
@@ -112,7 +116,7 @@ public static class VlmSetupFactory
                 return result;
             }
 
-            created = new VlmSetup(reader, settings.Vlm.Prompts, connection.Name, CheckCommand, null, connection.MaxLinesPerRead)
+            created = new VlmSetup(reader, settings.Vlm.Prompts, connection.Name, CheckCommand, null, connection.MaxLinesPerRead, connection.MaxImageSide)
             {
                 Connection = connection,
                 Parallel = connection.Parallel,
@@ -133,7 +137,7 @@ public static class VlmSetupFactory
         Task<CheckResult> CheckOpenAi(CancellationToken cancellationToken) =>
             ConsentMissing(connection) is { } missing ? Task.FromResult(missing) : checker.CheckConnectionAsync(cancellationToken);
 
-        created = new VlmSetup(client, settings.Vlm.Prompts, connection.Name, CheckOpenAi, client, connection.MaxLinesPerRead)
+        created = new VlmSetup(client, settings.Vlm.Prompts, connection.Name, CheckOpenAi, client, connection.MaxLinesPerRead, connection.MaxImageSide)
         {
             Connection = connection,
             MaxPages = connection.MaxPages,

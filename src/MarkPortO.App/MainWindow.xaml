@@ -61,7 +61,8 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <ListBox Grid.Column="0" ItemsSource="{Binding InputPaths}" MinHeight="84" SelectionMode="Extended" SelectionChanged="OnInputSelectionChanged">
+          <ListBox Grid.Column="0" ItemsSource="{Binding InputPaths}" MinHeight="84" SelectionMode="Extended" SelectionChanged="OnInputSelectionChanged"
+                   AllowDrop="True" DragOver="OnDragOver" Drop="OnDropInputs">
             <ListBox.InputBindings>
               <KeyBinding Key="Delete" Command="{Binding RemoveSelectedInputsCommand}" />
             </ListBox.InputBindings>
@@ -82,7 +83,8 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <TextBox Grid.Column="0" Text="{Binding OutputFolder, UpdateSourceTrigger=LostFocus}" VerticalContentAlignment="Center" />
+          <TextBox Grid.Column="0" Text="{Binding OutputFolder, UpdateSourceTrigger=LostFocus}" VerticalContentAlignment="Center"
+                   AllowDrop="True" PreviewDragOver="OnDragOver" PreviewDrop="OnDropOutput" />
           <Button Grid.Column="1" Content="{DynamicResource Main_Browse}" Command="{Binding BrowseOutputCommand}" Margin="8,0,0,0" Padding="12,4" />
         </Grid>
       </GroupBox>

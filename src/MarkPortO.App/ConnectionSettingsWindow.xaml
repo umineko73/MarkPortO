@@ -77,6 +77,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
           <TextBlock Grid.Row="0" Text="{DynamicResource Conn_Kind}" VerticalAlignment="Center" Margin="0,0,10,8" />
@@ -129,8 +130,11 @@
           <TextBlock Grid.Row="13" Text="{DynamicResource Conn_MaxLines}" VerticalAlignment="Center" Margin="0,0,10,8" />
           <TextBox Grid.Row="13" Grid.Column="1" Text="{Binding MaxLinesText, UpdateSourceTrigger=LostFocus}" Width="90" HorizontalAlignment="Left" Margin="0,0,0,8" />
 
-          <TextBlock Grid.Row="14" Text="{DynamicResource Conn_Consent}" VerticalAlignment="Top" Margin="0,4,10,0" />
-          <StackPanel Grid.Row="14" Grid.Column="1">
+          <TextBlock Grid.Row="14" Text="{DynamicResource Conn_MaxImageSide}" VerticalAlignment="Center" Margin="0,0,10,8" />
+          <TextBox Grid.Row="14" Grid.Column="1" Text="{Binding MaxImageSideText, UpdateSourceTrigger=LostFocus}" Width="90" HorizontalAlignment="Left" Margin="0,0,0,8" ToolTip="{DynamicResource Conn_MaxImageSideTip}" />
+
+          <TextBlock Grid.Row="15" Text="{DynamicResource Conn_Consent}" VerticalAlignment="Top" Margin="0,4,10,0" />
+          <StackPanel Grid.Row="15" Grid.Column="1">
             <TextBlock Text="{Binding ConsentText}" TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" Margin="0,4,0,0" Visibility="{Binding ConsentRequired, Converter={StaticResource ShowWhen}}">
               <Button Content="{DynamicResource Conn_Agree}" Click="OnAgreeClicked" IsEnabled="{Binding CanAgree}" Padding="12,3" Margin="0,0,8,0" />

@@ -439,6 +439,42 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return Task.CompletedTask;
     }
 
+    /// <summary>Adds what was dropped on the list of inputs: folders, and the files of the supported kinds. Ignored while a conversion runs.</summary>
+    public void DropInputs(IEnumerable<string> paths)
+    {
+        if (IsRunning)
+        {
+            return;
+        }
+
+        foreach (var path in paths)
+        {
+            if (System.IO.Directory.Exists(path) || (System.IO.File.Exists(path) && IsSupportedFile(path)))
+            {
+                AddInput(path);
+            }
+        }
+    }
+
+    /// <summary>Sets the output folder to the folder that was dropped (for a file, the folder it is in). Ignored while a conversion runs.</summary>
+    public void DropOutput(IEnumerable<string> paths)
+    {
+        if (IsRunning)
+        {
+            return;
+        }
+
+        var path = paths.FirstOrDefault();
+        var folder = path is null ? null : System.IO.Directory.Exists(path) ? path : System.IO.File.Exists(path) ? System.IO.Path.GetDirectoryName(path) : null;
+        if (!string.IsNullOrEmpty(folder))
+        {
+            OutputFolder = folder;
+        }
+    }
+
+    private static bool IsSupportedFile(string path) =>
+        System.IO.Path.GetExtension(path).ToLowerInvariant() is ".docx" or ".xlsx" or ".pptx";
+
     private Task BrowseOutputAsync()
     {
         if (PickFolder?.Invoke(FolderPurpose.Output) is { } folder)

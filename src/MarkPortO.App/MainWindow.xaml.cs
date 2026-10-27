@@ -53,6 +53,32 @@ public partial class MainWindow : Window
     private void OnInputSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) =>
         _viewModel.SetSelectedInputs(((System.Windows.Controls.ListBox)sender).SelectedItems.Cast<string>());
 
+    private void OnDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = !_viewModel.IsRunning && e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnDropInputs(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths)
+        {
+            _viewModel.DropInputs(paths);
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnDropOutput(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths)
+        {
+            _viewModel.DropOutput(paths);
+        }
+
+        e.Handled = true;
+    }
+
     private void OnThemeClick(object sender, RoutedEventArgs e) => _viewModel.SetTheme((string)((System.Windows.Controls.MenuItem)sender).Tag);
 
     private void OnAboutClick(object sender, RoutedEventArgs e)

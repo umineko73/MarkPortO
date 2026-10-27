@@ -195,6 +195,7 @@ public sealed class ConvertService
             Vlm = _vlm?.Reader,
             Prompts = _vlm?.Prompts,
             MaxLinesPerRead = _vlm?.MaxLinesPerRead ?? 0,
+            MaxImageSide = _vlm?.MaxImageSide ?? 0,
             Governor = governor,
             Step3Parallel = _vlm?.Parallel ?? 1,
         };

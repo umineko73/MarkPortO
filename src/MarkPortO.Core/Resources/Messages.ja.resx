@@ -214,6 +214,9 @@
   <data name="{0}.maxLinesPerRead: must be 0 or more (was {1})." xml:space="preserve">
     <value>{0}.maxLinesPerRead: 0以上で指定してください（現在の値: {1}）。</value>
   </data>
+  <data name="{0}.maxImageSide: must be 0 or at least {1} (was {2})." xml:space="preserve">
+    <value>{0}.maxImageSide: 0、または{1}以上で指定してください（現在の値: {2}）。</value>
+  </data>
   <data name="{0}.timeoutSeconds: must be between {1} and {2} (was {3})." xml:space="preserve">
     <value>{0}.timeoutSeconds: {1}〜{2} の範囲で指定してください（現在の値: {3}）。</value>
   </data>
@@ -336,6 +339,9 @@
   </data>
   <data name="{0} page(s) could not be read ({1}: {2}). Use &quot;Retry failed only&quot; to read only the failed pages." xml:space="preserve">
     <value>{0}ページの読み取りに失敗しました（{1}: {2}）。「失敗のみ再試行」で、失敗したページだけをやり直せます。</value>
+  </data>
+  <data name="The page image could not be made smaller." xml:space="preserve">
+    <value>ページの画像を縮小できませんでした。</value>
   </data>
   <data name="The page image could not be cut into bands." xml:space="preserve">
     <value>ページの画像を帯に分けられませんでした。</value>

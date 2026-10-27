@@ -121,7 +121,7 @@
   <sys:String x:Key="Prompts_Note">The instruction sent to the VLM in Step3 to read the text from an image. It is set for each type of document. It is saved when you leave the box. If you empty it, the default text comes back.</sys:String>
   <sys:String x:Key="Prompts_PageText">{pagetext} in a prompt is replaced by the text taken from the page of the document (it is sent to the VLM with the image; without it, no text is sent).</sys:String>
   <sys:String x:Key="Prompts_InsertPageText">Insert {pagetext}</sys:String>
-  <sys:String x:Key="Prompts_Reset">Reset the shown type to the default</sys:String>
+  <sys:String x:Key="Prompts_Reset">Reset the shown prompt to the default</sys:String>
   <sys:String x:Key="Prompts_Close">Close</sys:String>
   <sys:String x:Key="About_Title">About MarkPortO</sys:String>
   <sys:String x:Key="About_Body">MarkPortO {0}&#10;&#10;Converts Word, Excel and PowerPoint documents to Markdown and an image of each page.&#10;&#10;Author: umineko73&#10;License: GPL-3.0-only</sys:String>
@@ -137,6 +137,8 @@
   <sys:String x:Key="Conn_Parallel">Read at the same time</sys:String>
   <sys:String x:Key="Conn_MaxPages">Page limit (empty: none)</sys:String>
   <sys:String x:Key="Conn_MaxCost">Cost limit in US dollars (empty: none)</sys:String>
+  <sys:String x:Key="Conn_MaxImageSide">Longer side of the image sent, px (0: as it is)</sys:String>
+  <sys:String x:Key="Conn_MaxImageSideTip">The page image is scaled down to this size before it is sent, which lowers the tokens. The saved image does not change. A small value can make small text unreadable.</sys:String>
   <sys:String x:Key="Conn_MaxLines">Lines read at a time (0: the whole page)</sys:String>
   <sys:String x:Key="Conn_LimitsTip">A conversion stops when a limit is reached, and Resume goes on. The cost limit works only for commands that tell their cost.</sys:String>
   <sys:String x:Key="Conn_Consent">Sending images outside</sys:String>

@@ -56,7 +56,7 @@ dotnet run --project src/MarkPortO.Cli -- convert D:\docs\report.docx --out D:\o
 dotnet run --project src/MarkPortO.App
 ```
 
-In the app, add files or a folder, choose an output folder, and press **Start**.
+In the app, add files or a folder (or drop them on the list), choose an output folder (or drop a folder on its box), and press **Start**.
 
 ## Usage
 
