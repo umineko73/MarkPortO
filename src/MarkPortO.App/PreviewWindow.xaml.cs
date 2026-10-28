@@ -336,7 +336,7 @@ public partial class PreviewWindow : Window
                     PageStep3Status.Running => "  ▶",
                     _ => "  …",
                 };
-            return $"{page.Index}  {page.Label}{mark}";
+            return $"{page.Index}  {MarkPortO.Core.Localization.PageLabel.Text(page.Label, System.Globalization.CultureInfo.CurrentUICulture)}{mark}";
         }
     }
 }

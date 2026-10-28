@@ -52,7 +52,7 @@
   <sys:String x:Key="Main_Cond_Step1">テキストをMarkdownにし、全ページの画像を保存する</sys:String>
   <sys:String x:Key="Main_Cond_Step1Always">（常に実行）</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Markdownに画像を入れる</sys:String>
-  <sys:String x:Key="Main_Cond_VlmSeparate">結果を別ファイル（名前_vlm.md）に書く</sys:String>
+  <sys:String x:Key="Main_Cond_VlmSeparate">結果を別ファイル（名前__vlm.md）に書く</sys:String>
   <sys:String x:Key="Main_Cond_Step3">VLMで画像から文字を読み取る</sys:String>
   <sys:String x:Key="Main_Cond_Connection">接続:</sys:String>
   <sys:String x:Key="Main_Start">開始</sys:String>

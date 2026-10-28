@@ -12,14 +12,16 @@ MarkPortO converts Word, Excel and PowerPoint documents (docx, xlsx, pptx) into 
 
 ![The main window of MarkPortO](docs/images/main-window.png)
 
-*The main window, drawn with sample data.*
+*The main window after three sample documents (docx, xlsx, pptx) were converted with a VLM.*
 
 ## Features
 
 - **Markdown and page images.** The text of a document becomes Markdown, and every page is saved as a PNG. Each page's place in the Markdown refers to its image.
-- **Excel sheets in one image.** All columns of a sheet fit in a single image. A sheet with an extreme number of columns is split at column boundaries into several images.
+- **Excel sheets as one page.** By default all columns of a sheet fit in a single image (a sheet with an extreme number of columns is split at column boundaries). You can also fit all rows on one page, or follow the print setup of the sheet (**Excel range**, `--excel-range`).
+- **Sheets drawn as tables.** A sheet that is laid out like a page (several tables side by side or one below the other, labels running over empty cells) is written as one Markdown table for each block of content, cut at empty rows and columns, instead of one huge table.
 - **Deleted pages.** A page that is crossed out with a full-page "X" shape is treated as deleted: its image is kept, and the Markdown only marks the place with a notice.
 - **Folders and filters.** Convert a single file or a whole folder, optionally including sub-folders, and choose which of docx / xlsx / pptx to convert. If the output folder already exists, a number is added (`name (2)`); existing output is never overwritten.
+- **Preview.** Look at the page image, the text taken from the file and the VLM result side by side, while the conversion is still running.
 - **Interrupt and resume.** A run can be interrupted and continued later. Files that are already done are not converted again.
 - **Optional VLM reading (Step3).** A VLM (a model that can read images) behind an OpenAI-compatible server reads the text from each page image and adds it to the Markdown. You can register several connections and switch between them. Token usage is recorded per page and per file.
 - **Two engines.** Microsoft Office (COM) or LibreOffice (headless) turns documents into PDF. The app lists only the engines that are installed.
@@ -88,9 +90,13 @@ The **Settings** menu has the language (follow Windows / Japanese / English), th
 
 ![Prompt settings](docs/images/prompts.png)
 
-**Preview**: double-click a file in the list (or use the right-click menu or the **Preview** button) to see its pages: the list of pages, the image of the page, and its Markdown (drawn, or as written; the VLM result can be shown on its own). While a file is converted the preview follows the work: **Follow** selects the page being read.
+**Preview**: double-click a file in the list (or use the right-click menu or the **Preview** button, which is enabled when the selected file has pages) to see its pages. The left list shows the pages with the state of the VLM reading (✓ done, ! failed, ▶ running, … waiting). On the right, choose which of the **page image**, the **extracted text** (the text Step1 took from the file) and the **VLM result** to show, lay them out **side by side** or **stacked**, and draw the Markdown as a **preview** or show its **source**. **Follow** shows the page that was read last while a conversion runs. Where a scroll bar appears, you can also scroll by dragging with the right mouse button.
+
+![The preview window](docs/images/preview.png)
 
 While a conversion runs, the conditions and the inputs cannot be changed. When the previous conversion in the output folder can be resumed, the items that a resume does not use (types, range, engine, DPI) are locked too; **Clear the previous conversion** gives it up and unlocks them.
+
+**Excel range** (xlsx): *All columns on one page* (default), *All rows on one page*, or *Follow the print setup* (the print area and page setup of each sheet).
 
 The list shows the state of each file: waiting, Step1 to Step3 running, done, done (some pages failed), failed, interrupted. For a folder, a file is shown by its path relative to that folder. If the VLM could not read some pages of a file, **Retry failed** reads only those pages again. Values you set in the app are saved to `settings.json` (`%APPDATA%\MarkPortO\settings.json`) at once and restored on the next start.
 
@@ -118,14 +124,15 @@ The location of the file can be changed with the environment variable `MARKPORTO
 
 **About API keys.** Write the *name* of an environment variable (`apiKeyEnv`) in `settings.json`; the value itself is not stored. A key typed in the app is stored so that only the current Windows user can decrypt it (DPAPI). Keys never appear in logs, Markdown or state files.
 
-### Reading with Claude Code, Codex or OpenCode (external commands)
+### Notes on the Markdown
 
-**Notes on the Markdown.**
-- A Markdown table cannot merge cells, so merged cells are marked in the notePM style: `<` is merged with the cell on its left, `^` with the cell above. The header row cannot be merged, so its value is repeated. An empty cell stays empty. A table with no header row gets an empty header row, so that its first row stays data.
+- A Markdown table cannot merge cells, so merged cells are marked in the notePM style: `<` is merged with the cell on its left, `^` with the cell above. The header row cannot be merged, so its value is repeated. An empty cell stays empty. A table with no header row gets an empty header row, so that its first row stays data. A sheet without Excel tables is cut into blocks (at empty rows and columns), and each block is its own table.
 - The structure of a document is read from the XML inside the file (Office is used only to make the page images). Excel numbers are written as the cells show them (`25.6%`, `¥1,234,567`); hidden rows and columns are left out; the tables of a sheet are written one by one; links, comments and charts (the values saved in the file) are written. Word footnotes, links, the alternative text of pictures and tables inside tables are written; so are PowerPoint speaker notes, links, alternative text, charts and SmartArt text.
 - If the VLM wraps its answer in a code block such as ```` ```markdown ````, the block is taken off (a `mermaid` block stays).
 - Check **Write the results to a separate file** (`--vlm-separate on`) to keep the VLM results out of the Markdown of the document: they go to `name_vlm.md` in the same folder, with the page separators, the usage and the failed or deleted pages. The document's own Markdown then has no VLM text.
 - A prompt can contain `{pagetext}`. It is replaced by the text that Step1 took from the document for that page (at most 20,000 characters), and sent with the image. If a prompt has no `{pagetext}`, no text is sent. When the page images go outside your network, this text goes too.
+
+### Reading with Claude Code, Codex or OpenCode (external commands)
 
 Step3 can also use a command you have already logged in to: `claude`, `codex` or `opencode`. For each page image the command is run once, without a shell, in an empty temporary folder, **without your own settings, hooks, instruction files or memory, and without tools** (it cannot write files or run commands). The image goes in, the text comes out.
 

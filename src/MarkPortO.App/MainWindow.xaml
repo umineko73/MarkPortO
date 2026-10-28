@@ -235,7 +235,7 @@
               <TextBlock Text="{DynamicResource Main_Col_Deleted}" />
             </DataGridTextColumn.Header>
           </DataGridTextColumn>
-          <DataGridTextColumn Binding="{Binding UsageText}" Width="300">
+          <DataGridTextColumn Binding="{Binding UsageText}" Width="360">
             <DataGridTextColumn.Header>
               <TextBlock Text="{DynamicResource Main_Col_Usage}" />
             </DataGridTextColumn.Header>

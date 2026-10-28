@@ -37,7 +37,7 @@ public static partial class MarkdownText
         var lines = neutral.Split('\n');
         for (var i = 0; i < lines.Length; i++)
         {
-            lines[i] = BlockStart().Replace(lines[i], "\\$1");
+            lines[i] = OrderedStart().Replace(BlockStart().Replace(lines[i], "$1\\$2"), "$1\\$2");
         }
 
         return string.Join('\n', lines);
@@ -168,7 +168,11 @@ public static partial class MarkdownText
         return builder.ToString().TrimEnd('\n');
     }
 
-    // A line that starts a block in Markdown: #, >, -, +, *, or "1." / "1)" after optional spaces.
-    [GeneratedRegex(@"^(\s{0,3}(?:#{1,6}(?=\s|$)|>|[-+*](?=\s)|\d{1,9}[.)](?=\s)|\|))")]
+    // A line that starts a block in Markdown: #, >, -, +, *, or a table bar, after up to three spaces. The marker itself gets the backslash.
+    [GeneratedRegex(@"^(\s{0,3})(#{1,6}(?=\s|$)|>|[-+*](?=\s)|\|)")]
     private static partial Regex BlockStart();
+
+    // "1." or "1)" after up to three spaces: the backslash goes before the dot (a backslash before a digit is not an escape).
+    [GeneratedRegex(@"^(\s{0,3}\d{1,9})([.)])(?=\s)")]
+    private static partial Regex OrderedStart();
 }
