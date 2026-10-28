@@ -50,23 +50,35 @@ public static partial class MarkdownText
     public static string NeutraliseMarkers(string text) => text.Replace("<!--", "&lt;!--", StringComparison.Ordinal);
 
     /// <summary>Text of one table cell: no pipe, no line break (<c>|</c> becomes <c>\|</c>, a line break becomes <c>&lt;br&gt;</c>).</summary>
-    public static string EscapeCell(string text) =>
-        Escape(text)
+    public static string EscapeCell(string text)
+    {
+        var cell = Escape(text)
             .Replace("\r", string.Empty, StringComparison.Ordinal)
             .Replace("|", "\\|", StringComparison.Ordinal)
             .Replace("\n", "<br>", StringComparison.Ordinal)
             .Trim();
 
-    /// <summary>
-    /// The cell of a table that is hidden by a merged cell (FR-059). A Markdown table cannot be merged, so the readers
-    /// put this one character in such a cell; the renderer writes it as <c>[merged]</c> in the language of the job.
-    /// </summary>
-    public const string MergedCell = "\uE000";
+        // A cell that is only "<" or "^" would be read as a mark of a merged cell (FR-059).
+        return cell is "<" or "^" ? "\\" + cell : cell;
+    }
 
-    /// <summary>Writes <see cref="MergedCell"/> as the mark of the language (<c>[結合]</c>, <c>[merged]</c>).</summary>
-    public static string ResolveMarks(string markdown, string language) =>
-        markdown.Contains(MergedCell, StringComparison.Ordinal)
-            ? markdown.Replace(MergedCell, Localization.Loc.M("[merged]", language), StringComparison.Ordinal)
+    /// <summary>
+    /// The cell of a table that is hidden by a merged cell, in the first row of the merged range (FR-059): it is merged
+    /// with the cell on its left. A Markdown table cannot be merged, so the readers put this one character in such a
+    /// cell; <see cref="ResolveMarks"/> writes it as <c>&lt;</c> (the notePM style).
+    /// </summary>
+    public const string MergedLeft = "\uE000";
+
+    /// <summary>The cell hidden by a merged cell, in the second row or below of the merged range: merged with the cell above (<c>^</c>).</summary>
+    public const string MergedUp = "\uE001";
+
+    public static bool HasMarks(string markdown) =>
+        markdown.Contains(MergedLeft, StringComparison.Ordinal) || markdown.Contains(MergedUp, StringComparison.Ordinal);
+
+    /// <summary>Writes the marks of merged cells as <c>&lt;</c> and <c>^</c>. The marks do not depend on the language.</summary>
+    public static string ResolveMarks(string markdown) =>
+        HasMarks(markdown)
+            ? markdown.Replace(MergedLeft, "<", StringComparison.Ordinal).Replace(MergedUp, "^", StringComparison.Ordinal)
             : markdown;
 
     /// <summary>
@@ -111,17 +123,41 @@ public static partial class MarkdownText
             Separator();
         }
 
+        string[]? previous = null;
         for (var r = 0; r < rows.Count; r++)
         {
-            builder.Append('|');
+            var cells = new string[columns];
             for (var c = 0; c < columns; c++)
             {
-                var cell = c >= rows[r].Count ? string.Empty
-                    : rows[r][c] == MergedCell ? MergedCell
-                    : EscapeCell(rows[r][c].Replace(MergedCell, string.Empty, StringComparison.Ordinal));
+                var raw = c >= rows[r].Count ? string.Empty : rows[r][c];
+                cells[c] = raw is MergedLeft or MergedUp
+                    ? raw
+                    : EscapeCell(raw.Replace(MergedLeft, string.Empty, StringComparison.Ordinal).Replace(MergedUp, string.Empty, StringComparison.Ordinal));
+            }
+
+            // The header row of a notePM table cannot be merged: the value is repeated where a merge touches it (FR-059).
+            if (hasHeader && r <= 1)
+            {
+                for (var c = 0; c < columns; c++)
+                {
+                    if (r == 0 && cells[c] == MergedLeft && c > 0)
+                    {
+                        cells[c] = cells[c - 1];
+                    }
+                    else if (r == 1 && cells[c] == MergedUp && previous is not null)
+                    {
+                        cells[c] = previous[c];
+                    }
+                }
+            }
+
+            builder.Append('|');
+            foreach (var cell in cells)
+            {
                 builder.Append(' ').Append(cell).Append(" |");
             }
 
+            previous = cells;
             builder.Append('\n');
             if (r == 0 && hasHeader)
             {

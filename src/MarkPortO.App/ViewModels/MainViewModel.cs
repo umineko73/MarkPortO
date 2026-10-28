@@ -77,6 +77,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         InterruptCommand = new RelayCommand(InterruptAsync, () => IsRunning);
         ResumeCommand = new RelayCommand(() => ResumeAsync(ResumeMode.Unfinished), () => !IsRunning && _previous is { CanResume: true });
         RetryFailedCommand = new RelayCommand(() => ResumeAsync(ResumeMode.RetryFailed), () => !IsRunning && _previous is { CanRetryFailed: true });
+        ClearPreviousCommand = new RelayCommand(ClearPreviousAsync, () => !IsRunning && HasPrevious);
         AddFilesCommand = new RelayCommand(AddFilesAsync, () => !IsRunning);
         AddFolderCommand = new RelayCommand(AddFolderAsync, () => !IsRunning);
         ClearInputsCommand = new RelayCommand(ClearInputsAsync, () => !IsRunning);
@@ -131,6 +132,33 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Status = source();
     }
 
+    // ---- what can be changed (FR-066) ----
+
+    /// <summary>Nothing of the settings or the inputs can be changed while a conversion runs.</summary>
+    public bool CanEdit => !IsRunning;
+
+    /// <summary>A conversion of the output folder that can be resumed or retried is shown (FR-013e): its settings are used again.</summary>
+    public bool HasPrevious => _previous is { CanResume: true } or { CanRetryFailed: true };
+
+    /// <summary>The types, the range and the conversion (engine, DPI) are not used by a resume, so they are locked while it can be done.</summary>
+    public bool CanEditNewRun => !IsRunning && !HasPrevious;
+
+    /// <summary>"Write the results to a separate file" has a meaning only when Step 3 is on.</summary>
+    public bool CanEditVlmSeparate => !IsRunning && Step3;
+
+    /// <summary>Why the locked items are locked (null when they are not).</summary>
+    public string? LockedTip => HasPrevious && !IsRunning ? UiText.Get("Main_Cond_LockedTip") : null;
+
+    private void RaiseEditState()
+    {
+        Raise(nameof(CanEdit));
+        Raise(nameof(HasPrevious));
+        Raise(nameof(CanEditNewRun));
+        Raise(nameof(CanEditVlmSeparate));
+        Raise(nameof(LockedTip));
+        ClearPreviousCommand.RaiseCanExecuteChanged();
+    }
+
     public bool IsRunning
     {
         get => _running;
@@ -138,7 +166,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             if (Set(ref _running, value))
             {
-                foreach (var command in new[] { StartCommand, InterruptCommand, ResumeCommand, RetryFailedCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, PromptsCommand })
+                RaiseEditState();
+                foreach (var command in new[] { StartCommand, InterruptCommand, ResumeCommand, RetryFailedCommand, ClearPreviousCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, PromptsCommand })
                 {
                     command.RaiseCanExecuteChanged();
                 }
@@ -301,6 +330,36 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    // The three choices of how the pages of an Excel sheet are cut (FR-073) are radio buttons: each one is true when it is chosen.
+    public bool ExcelColumns
+    {
+        get => _store.Current.Images.ExcelRange == ExcelRange.Columns;
+        set => ChooseExcelRange(value, ExcelRange.Columns);
+    }
+
+    public bool ExcelRows
+    {
+        get => _store.Current.Images.ExcelRange == ExcelRange.Rows;
+        set => ChooseExcelRange(value, ExcelRange.Rows);
+    }
+
+    public bool ExcelPrintArea
+    {
+        get => _store.Current.Images.ExcelRange == ExcelRange.PrintArea;
+        set => ChooseExcelRange(value, ExcelRange.PrintArea);
+    }
+
+    private void ChooseExcelRange(bool chosen, ExcelRange range)
+    {
+        if (chosen && _store.Current.Images.ExcelRange != range)
+        {
+            _store.Update(s => s.Images.ExcelRange = range);
+            Raise(nameof(ExcelColumns));
+            Raise(nameof(ExcelRows));
+            Raise(nameof(ExcelPrintArea));
+        }
+    }
+
     /// <summary>Changes the theme at once and saves it (<c>system</c>, <c>light</c> or <c>dark</c>).</summary>
     public string DpiText
     {
@@ -335,6 +394,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public RelayCommand ResumeCommand { get; }
 
     public RelayCommand RetryFailedCommand { get; }
+
+    public RelayCommand ClearPreviousCommand { get; }
 
     public RelayCommand AddFilesCommand { get; }
 
@@ -377,6 +438,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             _store.Update(s => s.Steps.Step3 = value);
+            Raise(nameof(CanEditVlmSeparate));
             Raise();
         }
     }
@@ -615,6 +677,28 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             token));
     }
 
+    // FR-069: gives up the conversions that could be resumed or retried, so that the settings can be changed. The files stay.
+    private Task ClearPreviousAsync()
+    {
+        if (_previous is not { } previous)
+        {
+            return Task.CompletedTask;
+        }
+
+        if (Confirm is { } confirm && !confirm(UiText.Get("Confirm_ClearPrevious", previous.DoneCount, previous.FailedCount, previous.UnfinishedCount)))
+        {
+            return Task.CompletedTask;
+        }
+
+        var store = new StateStore(_store.Current.Output.Folder);
+        store.Abandon(store.FindResumableJobs(null, includeFinishedWithErrors: true).Select(j => j.JobId).ToList());
+        _previous = null;
+        Files.Clear();
+        SetStatus(() => UiText.Get("Status_Ready"));
+        UpdateRunCommands();
+        return Task.CompletedTask;
+    }
+
     private Task InterruptAsync()
     {
         SetStatus(() => UiText.Get("Status_Interrupting"));
@@ -701,6 +785,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void UpdateRunCommands()
     {
+        RaiseEditState();
         StartCommand.RaiseCanExecuteChanged();
         ResumeCommand.RaiseCanExecuteChanged();
         RetryFailedCommand.RaiseCanExecuteChanged();

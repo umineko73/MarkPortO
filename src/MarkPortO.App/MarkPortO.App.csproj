@@ -16,6 +16,9 @@
     <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\MarkPortO.Core\MarkPortO.Core.csproj" />
   </ItemGroup>
 </Project>

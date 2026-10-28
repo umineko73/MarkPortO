@@ -22,6 +22,155 @@ namespace MarkPortO.Core.Tests.Ooxml;
 public class XlsxReaderTests
 {
     [Fact]
+    public void Read_Numbers_AreWrittenAsTheCellsShowThem()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("f.xlsx");
+        XlsxFactory.Create(path, new SheetSpec(
+            "Data",
+            [["0.256", "1234567", "3.14159", "-1234.5", "0.5"]],
+            NumberFormats: new Dictionary<string, string>
+            {
+                ["A1"] = "0.0%",
+                ["B1"] = "\"¥\"#,##0",
+                ["C1"] = "0.00",
+                ["D1"] = "#,##0.00;[Red]-#,##0.00",
+                ["E1"] = "General",
+            }));
+
+        var sheet = XlsxReader.Read(path, false).Single();
+
+        Assert.Equal(["25.6%", "¥1,234,567", "3.14", "-1,234.50", "0.5"], sheet.Rows[0]);
+    }
+
+    [Theory]
+    [InlineData(1234.5, "#,##0", "1,235")]
+    [InlineData(0.5, "0%", "50%")]
+    [InlineData(1234567, "#,##0,", "1,235")]
+    [InlineData(7, "000", "007")]
+    [InlineData(-3.5, "0.0", "-3.5")]
+    [InlineData(-3.5, "0.0;(0.0)", "(3.5)")]
+    [InlineData(0, "0;-0;\"zero\"", "zero")]
+    [InlineData(1234.5, "[$$-409]#,##0.00", "$1,234.50")]
+    [InlineData(12, "0\" pcs\"", "12 pcs")]
+    [InlineData(0.075, ".00", ".08")]
+    public void NumberFormat_WritesTheNumberLikeExcel(double value, string code, string expected)
+    {
+        Assert.Equal(expected, XlsxNumberFormat.Format(value, code));
+    }
+
+    [Theory]
+    [InlineData("0.00E+00")]
+    [InlineData("# ?/?")]
+    [InlineData("@")]
+    [InlineData("General")]
+    public void NumberFormat_KeepsTheStoredValue_WhenTheFormatIsNotAPlainNumber(string code)
+    {
+        Assert.Null(XlsxNumberFormat.Format(1.5, code));
+    }
+
+    [Fact]
+    public void Read_HiddenRowsAndColumns_AreNotInTheMarkdown()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("h.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"]], HiddenRows: [2], HiddenColumns: [2]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal("|  |  |\n|---|---|\n| a | c |\n| g | i |", markdown);
+    }
+
+    [Fact]
+    public void Read_ALineBreakInACell_IsWrittenAsBr()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("b.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [["one\ntwo", "x"]]));
+
+        Assert.Contains("| one<br>two | x |", XlsxReader.Read(path, false).Single().ToMarkdown());
+    }
+
+    [Fact]
+    public void Read_StackedTables_AreWrittenOneByOne_WithTheirNames()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("t.xlsx");
+        XlsxFactory.Create(path, new SheetSpec(
+            "Data",
+            [["h1", "h2"], ["a", "b"], ["", ""], ["g1", "g2"], ["c", "d"], ["", ""], ["note", ""]],
+            ExcelTable: "A1:B2",
+            MoreTables: ["A4:B5"]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal("### Table1\n\n| h1 | h2 |\n|---|---|\n| a | b |\n\n### Table2\n\n| g1 | g2 |\n|---|---|\n| c | d |\n\n|  |  |\n|---|---|\n| note |  |", markdown);
+    }
+
+    [Fact]
+    public void Read_ATableWithContentBesideIt_FallsBackToOneTable()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("s.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [["h1", "h2", "side"], ["a", "b", "x"]], ExcelTable: "A1:B2"));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.DoesNotContain("###", markdown);
+        Assert.Contains("| h1 | h2 | side |", markdown);
+    }
+
+    [Fact]
+    public void Read_HyperlinksAndComments_AreWritten()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("l.xlsx");
+        XlsxFactory.Create(path, new SheetSpec(
+            "Data",
+            [["site", "x"], ["a", "b"]],
+            Hyperlinks: new Dictionary<string, string> { ["A1"] = "https://example.com/a b" },
+            Comments: new Dictionary<string, string> { ["B2"] = "check this" }));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Contains("| [site](https://example.com/a%20b) | x |", markdown);
+        Assert.EndsWith("> **B2**: check this", markdown);
+    }
+
+    // The XML of a bar chart as Excel saves it: the titles and the values are kept in caches.
+    internal const string BarChartXml =
+        "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">"
+        + "<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>Sales by year</a:t></a:r></a:p></c:rich></c:tx></c:title>"
+        + "<c:plotArea><c:barChart><c:barDir val=\"col\"/>"
+        + "<c:ser><c:idx val=\"0\"/><c:tx><c:strRef><c:f>S!$B$1</c:f><c:strCache><c:ptCount val=\"1\"/><c:pt idx=\"0\"><c:v>Tokyo</c:v></c:pt></c:strCache></c:strRef></c:tx>"
+        + "<c:cat><c:strRef><c:f>S!$A$2:$A$3</c:f><c:strCache><c:ptCount val=\"2\"/><c:pt idx=\"0\"><c:v>2024</c:v></c:pt><c:pt idx=\"1\"><c:v>2025</c:v></c:pt></c:strCache></c:strRef></c:cat>"
+        + "<c:val><c:numRef><c:f>S!$B$2:$B$3</c:f><c:numCache><c:formatCode>#,##0</c:formatCode><c:ptCount val=\"2\"/><c:pt idx=\"0\"><c:v>1200</c:v></c:pt><c:pt idx=\"1\"><c:v>1800</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser>"
+        + "</c:barChart></c:plotArea></c:chart></c:chartSpace>";
+
+    internal static void AddChart(string path, string chartXml)
+    {
+        using var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(path, isEditable: true);
+        var sheetPart = document.WorkbookPart!.WorksheetParts.First();
+        var drawings = sheetPart.AddNewPart<DocumentFormat.OpenXml.Packaging.DrawingsPart>();
+        drawings.WorksheetDrawing = new DocumentFormat.OpenXml.Drawing.Spreadsheet.WorksheetDrawing();
+        var chart = drawings.AddNewPart<DocumentFormat.OpenXml.Packaging.ChartPart>();
+        chart.ChartSpace = new DocumentFormat.OpenXml.Drawing.Charts.ChartSpace(chartXml);
+    }
+
+    [Fact]
+    public void Read_AChart_IsWrittenWithItsTitleSeriesAndSavedValues()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("c.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("S", [["", "Tokyo"], ["2024", "1200"], ["2025", "1800"]]));
+        AddChart(path, BarChartXml);
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.EndsWith("#### Chart: Sales by year (bar)\n\n|  | Tokyo |\n|---|---|\n| 2024 | 1,200 |\n| 2025 | 1,800 |", markdown);
+    }
+
+    [Fact]
     public void Read_UsedRange_StartsAtTheFirstCellWithContent()
     {
         using var dir = new TempDir();
@@ -68,10 +217,9 @@ public class XlsxReaderTests
         // A1:B1 spans two columns, C1 is empty (not merged); A2:A3 spans two rows.
         XlsxFactory.Create(path, new SheetSpec("Data", [["Title", "", ""], ["A", "b", "c"], ["", "d", ""]], Merges: ["A1:B1", "A2:A3"]));
 
-        var markdown = MarkdownText.ResolveMarks(XlsxReader.Read(path, false).Single().ToMarkdown(), "en");
+        var markdown = MarkdownText.ResolveMarks(XlsxReader.Read(path, false).Single().ToMarkdown());
 
-        Assert.Equal("|  |  |  |\n|---|---|---|\n| Title | [merged] |  |\n| A | b | c |\n| [merged] | d |  |", markdown);
-        Assert.Equal("| Title | [結合] |  |", MarkdownText.ResolveMarks("| Title | " + MarkdownText.MergedCell + " |  |", "ja"));
+        Assert.Equal("|  |  |  |\n|---|---|---|\n| Title | < |  |\n| A | b | c |\n| ^ | d |  |", markdown);
     }
 
     [Fact]

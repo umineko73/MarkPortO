@@ -10,6 +10,8 @@ MarkPortO uses the packages below. The license of each is the one declared in it
 |---|---|---|---|
 | DocumentFormat.OpenXml | 3.5.1 | MIT | Reading docx / xlsx / pptx, and making the temporary copies used for printing |
 | PdfPig | 0.1.16 | Apache-2.0 | Reading the text of each PDF page (page assignment for docx) |
+| Markdig | 1.4.2 | BSD-2-Clause (© Alexandre Mutel) | Drawing the Markdown of a page in the preview |
+| Microsoft.Web.WebView2 | 1.0.4258.31 | Microsoft WebView2 SDK license (see the package; the runtime is the Microsoft Edge WebView2 Runtime of Windows) | Showing the drawn Markdown in the preview |
 | System.Drawing.Common | 10.0.13 | MIT | Making and saving images |
 | Microsoft.Extensions.Logging.Abstractions | 10.0.13 | MIT | Logging interfaces |
 | System.Security.Cryptography.ProtectedData | 10.0.13 | MIT | Protecting access keys typed on the screen (DPAPI, current user) |

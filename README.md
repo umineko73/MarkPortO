@@ -72,7 +72,7 @@ dotnet run --project src/MarkPortO.Cli -- check-connection --settings settings.j
 dotnet run --project src/MarkPortO.Cli -- list-connections --settings settings.json   # list the connections (keys are not shown)
 ```
 
-Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden`, `--engine`, `--dpi`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options on the command line override `settings.json`.
+Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden`, `--engine`, `--dpi`, `--excel-range columns|rows|print-area`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options on the command line override `settings.json`.
 
 Exit codes: `0` everything succeeded, `1` some files failed, `2` invalid arguments or settings, `3` the checks before the run failed (including a missing consent), `4` stopped by a usage limit, a login or a limit of pages or cost (continue with `--resume`), `130` interrupted (`Ctrl+C`; continue with `--resume`).
 
@@ -87,6 +87,10 @@ The **Settings** menu has the language (follow Windows / Japanese / English), th
 **Prompts** (Settings → Prompt settings): the instruction sent to the VLM is set for each type of document (docx, xlsx, pptx).
 
 ![Prompt settings](docs/images/prompts.png)
+
+**Preview**: double-click a file in the list (or use the right-click menu or the **Preview** button) to see its pages: the list of pages, the image of the page, and its Markdown (drawn, or as written; the VLM result can be shown on its own). While a file is converted the preview follows the work: **Follow** selects the page being read.
+
+While a conversion runs, the conditions and the inputs cannot be changed. When the previous conversion in the output folder can be resumed, the items that a resume does not use (types, range, engine, DPI) are locked too; **Clear the previous conversion** gives it up and unlocks them.
 
 The list shows the state of each file: waiting, Step1 to Step3 running, done, done (some pages failed), failed, interrupted. For a folder, a file is shown by its path relative to that folder. If the VLM could not read some pages of a file, **Retry failed** reads only those pages again. Values you set in the app are saved to `settings.json` (`%APPDATA%\MarkPortO\settings.json`) at once and restored on the next start.
 
@@ -117,7 +121,9 @@ The location of the file can be changed with the environment variable `MARKPORTO
 ### Reading with Claude Code, Codex or OpenCode (external commands)
 
 **Notes on the Markdown.**
-- A Markdown table cannot merge cells, so a cell that is hidden by a merged cell is written as `[merged]` (`[結合]` in Japanese output). An empty cell stays empty. A table with no header row gets an empty header row, so that its first row stays data.
+- A Markdown table cannot merge cells, so merged cells are marked in the notePM style: `<` is merged with the cell on its left, `^` with the cell above. The header row cannot be merged, so its value is repeated. An empty cell stays empty. A table with no header row gets an empty header row, so that its first row stays data.
+- The structure of a document is read from the XML inside the file (Office is used only to make the page images). Excel numbers are written as the cells show them (`25.6%`, `¥1,234,567`); hidden rows and columns are left out; the tables of a sheet are written one by one; links, comments and charts (the values saved in the file) are written. Word footnotes, links, the alternative text of pictures and tables inside tables are written; so are PowerPoint speaker notes, links, alternative text, charts and SmartArt text.
+- If the VLM wraps its answer in a code block such as ```` ```markdown ````, the block is taken off (a `mermaid` block stays).
 - Check **Write the results to a separate file** (`--vlm-separate on`) to keep the VLM results out of the Markdown of the document: they go to `name_vlm.md` in the same folder, with the page separators, the usage and the failed or deleted pages. The document's own Markdown then has no VLM text.
 - A prompt can contain `{pagetext}`. It is replaced by the text that Step1 took from the document for that page (at most 20,000 characters), and sent with the image. If a prompt has no `{pagetext}`, no text is sent. When the page images go outside your network, this text goes too.
 

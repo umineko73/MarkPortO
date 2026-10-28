@@ -62,7 +62,7 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <ListBox Grid.Column="0" ItemsSource="{Binding InputPaths}" MinHeight="84" SelectionMode="Extended" SelectionChanged="OnInputSelectionChanged"
-                   AllowDrop="True" DragOver="OnDragOver" Drop="OnDropInputs">
+                   AllowDrop="True" DragOver="OnDragOver" Drop="OnDropInputs" IsEnabled="{Binding CanEdit}">
             <ListBox.InputBindings>
               <KeyBinding Key="Delete" Command="{Binding RemoveSelectedInputsCommand}" />
             </ListBox.InputBindings>
@@ -84,13 +84,23 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <TextBox Grid.Column="0" Text="{Binding OutputFolder, UpdateSourceTrigger=LostFocus}" VerticalContentAlignment="Center"
-                   AllowDrop="True" PreviewDragOver="OnDragOver" PreviewDrop="OnDropOutput" />
+                   AllowDrop="True" PreviewDragOver="OnDragOver" PreviewDrop="OnDropOutput" IsEnabled="{Binding CanEdit}" />
           <Button Grid.Column="1" Content="{DynamicResource Main_Browse}" Command="{Binding BrowseOutputCommand}" Margin="8,0,0,0" Padding="12,4" />
         </Grid>
       </GroupBox>
 
       <!-- Conditions: one row for each kind of setting -->
       <GroupBox Grid.Row="2" Header="{DynamicResource Main_Conditions}" Padding="6" Margin="0,6,0,0">
+        <GroupBox.Resources>
+          <!-- A text has no disabled look of its own: the labels of a locked item are shown dimmed too (FR-066). -->
+          <Style TargetType="TextBlock">
+            <Style.Triggers>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.5" />
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </GroupBox.Resources>
         <Grid>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="120" />
@@ -103,24 +113,25 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
-          <TextBlock Grid.Row="0" Text="{DynamicResource Main_Cond_Types}" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+          <TextBlock Grid.Row="0" Text="{DynamicResource Main_Cond_Types}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
+          <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
             <CheckBox Content="docx" IsChecked="{Binding TypeDocx}" VerticalAlignment="Center" Margin="0,0,12,0" />
             <CheckBox Content="xlsx" IsChecked="{Binding TypeXlsx}" VerticalAlignment="Center" Margin="0,0,12,0" />
             <CheckBox Content="pptx" IsChecked="{Binding TypePptx}" VerticalAlignment="Center" Margin="0,0,12,0" />
             <TextBlock Text="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Foreground="{DynamicResource SubtleTextBrush}" />
           </StackPanel>
 
-          <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_Range}" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+          <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_Range}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
+          <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
             <CheckBox Content="{DynamicResource Main_Cond_Recurse}" IsChecked="{Binding Recurse}" VerticalAlignment="Center" Margin="0,0,20,0" />
             <CheckBox Content="{DynamicResource Main_Cond_Hidden}" IsChecked="{Binding IncludeHidden}" VerticalAlignment="Center" />
           </StackPanel>
 
-          <TextBlock Grid.Row="2" Text="{DynamicResource Main_Cond_Convert}" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+          <TextBlock Grid.Row="2" Text="{DynamicResource Main_Cond_Convert}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
+          <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
             <TextBlock Text="{DynamicResource Main_Cond_Engine}" VerticalAlignment="Center" Margin="0,0,6,0" />
             <ComboBox ItemsSource="{Binding EngineChoices}" DisplayMemberPath="Name" SelectedValuePath="Kind"
                       SelectedValue="{Binding SelectedEngine}" Width="170" Margin="0,0,20,0" />
@@ -129,19 +140,26 @@
           </StackPanel>
 
           <!-- Step1 always runs: it is shown, and it cannot be changed (FR-039) -->
-          <TextBlock Grid.Row="3" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+          <TextBlock Grid.Row="3" Text="{DynamicResource Main_Cond_Excel}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
+          <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
+            <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelColumns}" IsChecked="{Binding ExcelColumns}" ToolTip="{DynamicResource Main_Cond_ExcelColumnsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelRows}" IsChecked="{Binding ExcelRows}" ToolTip="{DynamicResource Main_Cond_ExcelRowsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelPrintArea}" IsChecked="{Binding ExcelPrintArea}" ToolTip="{DynamicResource Main_Cond_ExcelPrintAreaTip}" VerticalAlignment="Center" />
+          </StackPanel>
+
+          <TextBlock Grid.Row="4" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
             <CheckBox Content="{DynamicResource Main_Cond_Step1}" IsChecked="True" IsEnabled="False" VerticalAlignment="Center" Margin="0,0,10,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Step1Always}" VerticalAlignment="Center" Foreground="{DynamicResource SubtleTextBrush}" />
           </StackPanel>
 
-          <TextBlock Grid.Row="4" Text="Step2" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <CheckBox Grid.Row="4" Grid.Column="1" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <TextBlock Grid.Row="5" Text="Step2" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <CheckBox Grid.Row="5" Grid.Column="1" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,0,6" />
 
-          <TextBlock Grid.Row="5" Text="Step3" VerticalAlignment="Center" />
-          <WrapPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal">
-            <CheckBox Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <CheckBox Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" />
+          <TextBlock Grid.Row="6" Text="Step3" VerticalAlignment="Center" />
+          <WrapPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal">
+            <CheckBox Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <CheckBox Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Connection}" VerticalAlignment="Center" Margin="0,0,4,0" />
             <TextBlock Text="{Binding ConnectionInUse, Mode=OneWay}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,8,0" />
             <Button Content="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" Padding="8,2" />
@@ -155,13 +173,22 @@
         <Button Content="{DynamicResource Main_Start}" Command="{Binding StartCommand}" Width="100" Padding="6" Margin="0,0,8,0" FontWeight="SemiBold" />
         <Button Content="{DynamicResource Main_Interrupt}" Command="{Binding InterruptCommand}" Width="100" Padding="6" Margin="0,0,8,0" />
         <Button Content="{DynamicResource Main_Resume}" Command="{Binding ResumeCommand}" Width="100" Padding="6" Margin="0,0,8,0" />
-        <Button Content="{DynamicResource Main_RetryFailed}" Command="{Binding RetryFailedCommand}" MinWidth="130" Padding="6" />
+        <Button Content="{DynamicResource Main_RetryFailed}" Command="{Binding RetryFailedCommand}" MinWidth="130" Padding="6" Margin="0,0,8,0" />
+        <Button Content="{DynamicResource Main_ClearPrevious}" Command="{Binding ClearPreviousCommand}" MinWidth="170" Padding="6" Margin="0,0,8,0" />
+        <Button x:Name="PreviewButton" Content="{DynamicResource Main_Preview}" Click="OnPreviewClick" MinWidth="100" Padding="6"
+                IsEnabled="{Binding Selected.CanPreview, FallbackValue=False, TargetNullValue=False}"
+                ToolTip="{DynamicResource Main_PreviewTip}" ToolTipService.ShowOnDisabled="True" />
       </StackPanel>
 
       <!-- File list -->
       <DataGrid Grid.Row="4" ItemsSource="{Binding Files}" SelectedItem="{Binding Selected}"
-                AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MouseDoubleClick="OnFileDoubleClick"
                 CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+        <DataGrid.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="{DynamicResource Main_Preview}" Click="OnPreviewClick" IsEnabled="{Binding Selected.CanPreview, FallbackValue=False, TargetNullValue=False}" />
+          </ContextMenu>
+        </DataGrid.ContextMenu>
         <DataGrid.RowStyle>
           <Style TargetType="DataGridRow">
             <Style.Triggers>

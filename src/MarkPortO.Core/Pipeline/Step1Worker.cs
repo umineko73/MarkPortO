@@ -228,12 +228,12 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var unitNumber = 0;
         foreach (var sheet in sheets)
         {
-            foreach (var unit in ExcelUnitPlanner.Plan(sheet))
+            foreach (var unit in ExcelUnitPlanner.Plan(sheet, work.Context.Options.ExcelRange))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 unitNumber++;
                 var copy = Path.Combine(workDirectory, $"unit{unitNumber}.xlsx");
-                ExcelTempCopy.Create(document.SourcePath, copy, sheet, unit);
+                ExcelTempCopy.Create(document.SourcePath, copy, sheet, unit, work.Context.Options.ExcelRange);
                 var pdf = Path.Combine(workDirectory, $"unit{unitNumber}.pdf");
                 await ExportAsync(work, copy, pdf, cancellationToken).ConfigureAwait(false);
 

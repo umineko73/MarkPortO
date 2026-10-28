@@ -169,6 +169,9 @@ public sealed class OfficeEngine : IDocumentEngine, IDisposable
         try
         {
             var app = GetApp(kind);
+
+            // Excel shows "Publishing..." while it writes a PDF, however it is set up: hide it, in the Excel that this program started (FR-062).
+            using var hider = kind == DocumentKind.Xlsx && app.StartedByUs ? new ProgressDialogHider(app.OwnedProcessIds) : null;
             switch (kind)
             {
                 case DocumentKind.Docx:

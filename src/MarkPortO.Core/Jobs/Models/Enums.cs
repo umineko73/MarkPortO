@@ -32,6 +32,20 @@ public enum EngineKind
     LibreOffice,
 }
 
+/// <summary>How the pages of an Excel sheet are cut (FR-073).</summary>
+[JsonConverter(typeof(LowercaseEnumConverter<ExcelRange>))]
+public enum ExcelRange
+{
+    /// <summary>All columns of the used range on the width of a page; the rows go on to more pages. A very wide sheet is still split (FR-011).</summary>
+    Columns,
+
+    /// <summary>All rows of the used range on the height of a page; the columns go on to more pages.</summary>
+    Rows,
+
+    /// <summary>The print area and the page setup of the sheet, as they are saved in the workbook.</summary>
+    PrintArea,
+}
+
 /// <summary>State of one step (1 to 3) of one document.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<StepStatus>))]
 public enum StepStatus
@@ -62,6 +76,7 @@ public enum JobStatus
 public enum PageStep3Status
 {
     Pending,
+    Running,
     Done,
     Failed,
     Skipped,

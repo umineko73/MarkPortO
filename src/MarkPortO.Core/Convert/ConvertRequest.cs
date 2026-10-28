@@ -60,6 +60,7 @@ public sealed class ConvertRequest
         Types = [.. settings.Input.Types],
         Recurse = settings.Input.Recurse,
         Dpi = settings.Images.Dpi,
+        ExcelRange = settings.Images.ExcelRange,
         IncludeHidden = settings.Input.IncludeHidden,
         Engine = settings.Engine.Kind,
         Step2 = settings.Steps.Step2,

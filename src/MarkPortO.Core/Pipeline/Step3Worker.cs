@@ -81,7 +81,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
 
             await Task.WhenAll(readings).ConfigureAwait(false);
 
-            var unfinished = document.Pages.Any(p => !p.IsDeleted && p.Step3 == PageStep3Status.Pending);
+            var unfinished = document.Pages.Any(p => !p.IsDeleted && p.Step3 is PageStep3Status.Pending or PageStep3Status.Running);
             document.Step3 = unfinished ? StepStatus.Interrupted : StepStatus.Done;
             document.UsageTotal = Total(document);
             document.CostTotalUsd = CostTotal(document);
@@ -92,6 +92,12 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             {
                 try
                 {
+                    lock (gate)
+                    {
+                        page.Step3 = PageStep3Status.Running;
+                        context.Save(document);
+                    }
+
                     var outcome = await ReadPageAsync(document, page, reader, prompt, context.MaxLinesPerRead, context.MaxImageSide, cancellationToken).ConfigureAwait(false);
                     lock (gate)
                     {
@@ -114,6 +120,11 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
                 }
                 finally
                 {
+                    if (page.Step3 == PageStep3Status.Running)
+                    {
+                        page.Step3 = PageStep3Status.Pending; // interrupted while reading: a resume reads it again
+                    }
+
                     slots.Release();
                 }
             }
@@ -156,7 +167,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             if (bands.Count == 0)
             {
                 var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, pageText: pageText), Shrink(png, maxImageSide), cancellationToken).ConfigureAwait(false);
-                text = answer.Text;
+                text = AnswerFences.Strip(answer.Text);
                 usage = answer.Usage;
                 cost = answer.CostUsd;
             }
@@ -170,7 +181,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
                 {
                     var strip = Shrink(Crop(png, bands[i]), maxImageSide);
                     var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, i + 1, bands.Count, pageText), strip, cancellationToken).ConfigureAwait(false);
-                    texts.Add(answer.Text);
+                    texts.Add(AnswerFences.Strip(answer.Text));
                     usages.Add(answer.Usage);
                     costs.Add(answer.CostUsd);
                 }
@@ -216,7 +227,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             "\n\n",
             document.Blocks
                 .Where((block, i) => effective[i] == page.Index && block.Markdown.Length > 0)
-                .Select(block => MarkdownText.ResolveMarks(block.Markdown, document.MarkdownLanguage)));
+                .Select(block => MarkdownText.ResolveMarks(block.Markdown)));
         var limit = PromptSupplement.MaxPageTextCharacters;
         if (text.Length <= limit)
         {

@@ -238,4 +238,25 @@ public class CliParsingTests
             Assert.Contains(option, run.Output);
         }
     }
+
+    [Theory]
+    [InlineData("columns", MarkPortO.Core.Jobs.Models.ExcelRange.Columns)]
+    [InlineData("rows", MarkPortO.Core.Jobs.Models.ExcelRange.Rows)]
+    [InlineData("print-area", MarkPortO.Core.Jobs.Models.ExcelRange.PrintArea)]
+    [InlineData("PrintArea", MarkPortO.Core.Jobs.Models.ExcelRange.PrintArea)]
+    public void TheExcelRangeIsTakenFromTheCommandLine(string text, MarkPortO.Core.Jobs.Models.ExcelRange expected)
+    {
+        var settings = Resolved(new ConvertArgs { ExcelRange = text }, FromFile());
+
+        Assert.Equal(expected, settings.Images.ExcelRange);
+    }
+
+    [Fact]
+    public void AnUnknownExcelRange_IsAnError()
+    {
+        var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { ExcelRange = "everything" }, FromFile());
+
+        Assert.Null(settings);
+        Assert.Contains(errors, e => e.Contains("--excel-range", StringComparison.Ordinal));
+    }
 }

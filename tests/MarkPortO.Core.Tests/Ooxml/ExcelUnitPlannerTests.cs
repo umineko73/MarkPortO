@@ -128,4 +128,17 @@ public class ExcelUnitPlannerTests
 
         Assert.Equal("C:E", Assert.Single(ExcelUnitPlanner.Plan(sheet)).ColumnRange);
     }
+
+    [Theory]
+    [InlineData(MarkPortO.Core.Jobs.Models.ExcelRange.Rows)]
+    [InlineData(MarkPortO.Core.Jobs.Models.ExcelRange.PrintArea)]
+    public void WhenTheRangeIsNotTheColumns_AWideSheetIsOneUnit(MarkPortO.Core.Jobs.Models.ExcelRange range)
+    {
+        var half = (ExcelUnitPlanner.MaxGroupWidthPoints / 2) + 1;
+
+        var unit = Assert.Single(ExcelUnitPlanner.Plan(Sheet("Data", half, half, half), range));
+
+        Assert.Equal(1, unit.PartCount);
+        Assert.Equal((0, 2), (unit.FromColumnIndex, unit.ToColumnIndex));
+    }
 }

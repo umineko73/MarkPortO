@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Localization;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -36,7 +37,8 @@ public static class ExcelTempCopy
     /// <param name="copyPath">Where the copy is written.</param>
     /// <param name="sheet">The sheet to print.</param>
     /// <param name="unit">The columns of the sheet to print.</param>
-    public static void Create(string sourcePath, string copyPath, SheetContent sheet, ExcelUnit unit)
+    /// <param name="range">How the sheet is cut into pages (FR-073).</param>
+    public static void Create(string sourcePath, string copyPath, SheetContent sheet, ExcelUnit unit, ExcelRange range = ExcelRange.Columns)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(copyPath))!);
         File.Copy(sourcePath, copyPath, overwrite: true);
@@ -108,16 +110,20 @@ public static class ExcelTempCopy
             view.FirstSheet = 0;
         }
 
-        SetPrintArea(workbook, sheet, unit, targetIndex);
+        SetPrintArea(workbook, sheet, unit, targetIndex, range);
 
         var worksheetPart = (WorksheetPart)workbookPart.GetPartById(target.Id!.Value!);
-        FitToOnePageWide(worksheetPart.Worksheet ?? throw new InvalidDocumentException(Loc.T("The sheet has no content.")));
+        var worksheet = worksheetPart.Worksheet ?? throw new InvalidDocumentException(Loc.T("The sheet has no content."));
+        if (range != ExcelRange.PrintArea)
+        {
+            FitToPages(worksheet, range);
+        }
 
         workbook.Save();
         worksheetPart.Worksheet.Save();
     }
 
-    private static void SetPrintArea(Workbook workbook, SheetContent sheet, ExcelUnit unit, int sheetIndex)
+    private static void SetPrintArea(Workbook workbook, SheetContent sheet, ExcelUnit unit, int sheetIndex, ExcelRange pageRange)
     {
         var names = workbook.DefinedNames;
         if (names is null)
@@ -129,12 +135,19 @@ public static class ExcelTempCopy
         // Replace the existing print area (ignored: FR-010b) and the repeated title rows (they would change the layout).
         // The print areas of the OTHER sheets are removed too: LibreOffice prints a hidden sheet that has a print
         // area, which would put pages of other sheets into this sheet's PDF (found by the xlsx end-to-end test).
+        // When the print area of the sheet is to be followed, its own area and titles stay; only those of the other sheets go.
+        var keepOwn = pageRange == ExcelRange.PrintArea;
         foreach (var existing in names.Elements<DefinedName>().ToList())
         {
-            if (existing.Name?.Value is "_xlnm.Print_Area" or "_xlnm.Print_Titles")
+            if (existing.Name?.Value is "_xlnm.Print_Area" or "_xlnm.Print_Titles" && !(keepOwn && existing.LocalSheetId?.Value == (uint)sheetIndex))
             {
                 existing.Remove();
             }
+        }
+
+        if (keepOwn)
+        {
+            return;
         }
 
         var firstColumn = sheet.FirstColumn + unit.FromColumnIndex;
@@ -147,9 +160,10 @@ public static class ExcelTempCopy
         });
     }
 
-    private static void FitToOnePageWide(Worksheet worksheet)
+    private static void FitToPages(Worksheet worksheet, ExcelRange range)
     {
-        // "Fit to page" with one page wide and any number of pages tall; the page is only shrunk, never enlarged.
+        // "Fit to page": one page wide and any number of pages tall (columns), or one page tall and any number wide (rows).
+        // The page is only shrunk, never enlarged.
         var properties = worksheet.SheetProperties ??= new SheetProperties();
         properties.PageSetupProperties = new PageSetupProperties { FitToPage = true };
 
@@ -172,9 +186,9 @@ public static class ExcelTempCopy
         worksheet.AddChild(new PageSetup
         {
             PaperSize = PaperSizeA3,
-            Orientation = OrientationValues.Landscape,
-            FitToWidth = 1,
-            FitToHeight = 0,
+            Orientation = range == ExcelRange.Rows ? OrientationValues.Portrait : OrientationValues.Landscape,
+            FitToWidth = range == ExcelRange.Rows ? 0u : 1u,
+            FitToHeight = range == ExcelRange.Rows ? 1u : 0u,
         });
     }
 }

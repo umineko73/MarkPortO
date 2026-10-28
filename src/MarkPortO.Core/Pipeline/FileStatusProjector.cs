@@ -257,6 +257,7 @@ public static class FileStatusProjector
             ? Loc.T("Not applicable")
             : page.Step3 switch
             {
+                PageStep3Status.Running => Loc.T("Running"),
                 PageStep3Status.Done => Loc.T("Done"),
                 PageStep3Status.Failed => Loc.T("Failed"),
                 PageStep3Status.Skipped => Loc.T("Not applicable"),

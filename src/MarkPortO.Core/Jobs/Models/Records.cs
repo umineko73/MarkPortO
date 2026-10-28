@@ -143,6 +143,9 @@ public sealed class OptionsSnapshot
 
     public int Dpi { get; set; }
 
+    /// <summary>How the pages of an Excel sheet are cut (FR-073).</summary>
+    public ExcelRange ExcelRange { get; set; }
+
     public bool IncludeHidden { get; set; }
 
     public EngineKind Engine { get; set; }

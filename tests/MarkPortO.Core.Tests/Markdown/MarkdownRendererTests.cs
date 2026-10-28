@@ -166,20 +166,21 @@ public class MarkdownRendererTests
     }
 
     [Fact]
-    public void Render_AMergedCellMark_IsWrittenInTheLanguageOfTheJob_AndExplainedInTheNote()
+    public void Render_TheMarksOfMergedCells_AreTheSameInEveryLanguage_AndExplainedInTheNote()
     {
         var doc = Docx();
-        doc.Blocks[1] = new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table([["a", "b"], ["c", MarkdownText.MergedCell]]), PageIndex = 1 };
+        doc.Blocks[1] = new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table([["a", "b"], ["c", MarkdownText.MergedLeft], [MarkdownText.MergedUp, "d"]]), PageIndex = 1 };
 
         var ja = MarkdownRenderer.Render(doc);
         doc.MarkdownLanguage = "en";
         var en = MarkdownRenderer.Render(doc);
 
-        Assert.Contains("| c | [結合] |", ja);
-        Assert.Contains("> - 表の結合セル: `[結合]`", ja);
-        Assert.Contains("| c | [merged] |", en);
-        Assert.Contains("> - Merged table cells: `[merged]`", en);
-        Assert.DoesNotContain(MarkdownText.MergedCell, ja + en, StringComparison.Ordinal);
+        Assert.Contains("| c | < |\n| ^ | d |", ja);
+        Assert.Contains("> - 表の結合セル: `<` は左のセルと、`^` は上のセルと結合している", ja);
+        Assert.Contains("| c | < |\n| ^ | d |", en);
+        Assert.Contains("> - Merged table cells: `<` is merged with the cell on its left, `^` with the cell above", en);
+        Assert.DoesNotContain(MarkdownText.MergedLeft, ja + en, StringComparison.Ordinal);
+        Assert.DoesNotContain(MarkdownText.MergedUp, ja + en, StringComparison.Ordinal);
         Assert.DoesNotContain("表の結合セル", MarkdownRenderer.Render(Docx()), StringComparison.Ordinal);
     }
 

@@ -37,6 +37,8 @@ public sealed record ConvertArgs
 
     public int? Dpi { get; init; }
 
+    public string? ExcelRange { get; init; }
+
     public string? Step2 { get; init; }
 
     public string? Step3 { get; init; }
@@ -137,6 +139,18 @@ public static class ConvertArgsResolver
         if (args.Dpi is { } dpi)
         {
             settings.Images.Dpi = dpi;
+        }
+
+        if (args.ExcelRange is not null)
+        {
+            if (Enum.TryParse<ExcelRange>(args.ExcelRange.Replace("-", string.Empty, StringComparison.Ordinal), ignoreCase: true, out var excelRange) && Enum.IsDefined(excelRange))
+            {
+                settings.Images.ExcelRange = excelRange;
+            }
+            else
+            {
+                errors.Add($"--excel-range: '{args.ExcelRange}' is not one of columns, rows, print-area.");
+            }
         }
 
         ApplyOnOff("--step2", args.Step2, value => settings.Steps.Step2 = value, errors);

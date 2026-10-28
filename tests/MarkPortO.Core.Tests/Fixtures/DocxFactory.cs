@@ -260,6 +260,37 @@ public static class DocxFactory
     /// A table with a cell that spans two columns (row 1) and a cell merged over two rows (rows 2 and 3).
     /// <paramref name="header"/> sets the "header row" look of the table.
     /// </summary>
+    /// <summary>A link, a footnote, a picture with an alternative text, and a table with a table in a cell.</summary>
+    public static void CreateRich(string path)
+    {
+        using var document = NewDocument(path, out var body);
+        var main = document.MainDocumentPart!;
+        var relationship = main.AddHyperlinkRelationship(new Uri("https://example.com/a b"), isExternal: true);
+        body.AppendChild(new Paragraph(
+            new Run(new Text("See ") { Space = SpaceProcessingModeValues.Preserve }),
+            new Hyperlink(new Run(new Text("the site"))) { Id = relationship.Id },
+            new Run(new Text("."))));
+
+        var footnotes = main.AddNewPart<FootnotesPart>();
+        footnotes.Footnotes = new Footnotes(
+            new Footnote(new Paragraph(new Run(new Text("Separator")))) { Type = FootnoteEndnoteValues.Separator, Id = -1 },
+            new Footnote(new Paragraph(new Run(new FootnoteReferenceMark()), new Run(new Text(" Source: a report")))) { Id = 1 });
+        body.AppendChild(new Paragraph(new Run(new Text("A fact")), new Run(new FootnoteReference { Id = 1 })));
+
+        var picture = new Drawing(new DocumentFormat.OpenXml.Drawing.Wordprocessing.Inline(
+            new DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties { Id = 1, Name = "Picture 1", Description = "A bar chart" },
+            new DocumentFormat.OpenXml.Drawing.Graphic(new DocumentFormat.OpenXml.Drawing.GraphicData(new DocumentFormat.OpenXml.Drawing.Blip()))));
+        body.AppendChild(new Paragraph(new Run(picture)));
+
+        var inner = new Table(new TableRow(new TableCell(Plain("x")), new TableCell(Plain("y"))), new TableRow(new TableCell(Plain("z")), new TableCell(Plain("w"))));
+        var outer = new Table(
+            new TableProperties(new TableLook { Val = "0420" }),
+            new TableRow(new TableCell(Plain("Head")), new TableCell(Plain("Other"))),
+            new TableRow(new TableCell(Plain("Cell"), inner, Plain("tail")), new TableCell(Plain("k"))));
+        body.AppendChild(outer);
+        Finish(body);
+    }
+
     public static void CreateMergedTable(string path, bool header)
     {
         using var document = NewDocument(path, out var body);

@@ -74,7 +74,7 @@ dotnet run --project src/MarkPortO.Cli -- check-connection --settings settings.j
 dotnet run --project src/MarkPortO.Cli -- list-connections --settings settings.json   # 登録した接続の一覧（キーは表示しない）
 ```
 
-主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`、`--engine`、`--dpi`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。コマンドラインの指定は `settings.json` より優先されます。
+主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`、`--engine`、`--dpi`、`--excel-range columns|rows|print-area`、`--excel-range columns|rows|print-area`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。コマンドラインの指定は `settings.json` より優先されます。
 
 アクセスキーは、`settings.json` に環境変数の**名前**（`apiKeyEnv`）として書くのが基本です（値そのものは保存しません）。画面で入力したキーは、現在のWindowsユーザーだけが復号できる形（DPAPI）で保存します。ログ・Markdown・状態ファイルにキーは出ません。
 
@@ -123,9 +123,13 @@ dotnet run --project src/MarkPortO.App
 ### Claude Code、Codex、OpenCode で読み取る（外部コマンド）
 
 **Markdownについて**
-- Markdownの表はセルを結合できないため、結合セルに隠れたセルは `[結合]`（English の出力では `[merged]`）と書きます。値のない通常のセルは空のままです。見出し行のない表には空の見出し行を付け、1行目をデータ行のままにします。
+- Markdownの表はセルを結合できないため、結合セルは notePM 方式の目印で表します。`<` は左のセルと、`^` は上のセルと結合しています。見出し行は結合できないため、値を繰り返します。値のない通常のセルは空のままです。見出し行のない表には空の見出し行を付け、1行目をデータ行のままにします。
 - 「結果を別ファイルに書く」（`--vlm-separate on`）にすると、VLMの結果は文書のMarkdownに入れず、同じフォルダの `名前_vlm.md` に書きます（ページの区切り、使用量、失敗・削除ページの印つき）。文書のMarkdownには、VLMの文字は入りません。
 - 指示（プロンプト）に `{pagetext}` を書くと、Step1が文書から取り出したそのページのテキスト（20,000文字まで）に置き換わり、画像と一緒に送られます。`{pagetext}` がなければ、テキストは送りません。ページ画像がネットワークの外に出るときは、このテキストも出ます。
+- 文書の構造は、ファイルの中のXMLから読みます（Officeはページ画像を作るときだけ使います）。Excelの数値はセルに見える形（`25.6%`、`¥1,234,567`）で書き、非表示の行・列は出さず、シートの表は1つずつ分けて書き、リンク・コメント・グラフ（ファイルに保存された値）も書きます。Wordの脚注・リンク・画像の代替テキスト・入れ子の表、PowerPointの発表者ノート・リンク・代替テキスト・グラフ・SmartArtの文字も書きます。
+- VLMが答えを ```` ```markdown ```` などのコードブロックで囲んで返したときは、その囲みを取り除きます（`mermaid` の囲みは残します）。
+- **プレビュー**: 一覧のファイルをダブルクリック（右クリックのメニューや「プレビュー」ボタンでも）すると、ページの一覧、ページの画像、そのページのMarkdown（描画、または文字のまま。VLMの結果だけも見られます）を見られます。変換中に開くと、進み方に合わせて更新し、「追従」で読み取り中のページを選びます。
+- 変換の実行中は、条件と入力を変えられません。出力先に再開できる前回の変換があるときは、再開で使わない項目（種類・範囲・エンジン・DPI）も変えられません。「前回の変換をクリア」で前回を破棄すると、変えられるようになります。
 
 Step3は、ログイン済みのコマンド（`claude`、`codex`、`opencode`）でも読み取れます。ページ画像ごとに、コマンドを1回、シェルを介さず、空の一時フォルダで実行します。**お使いの設定・フック・指示ファイル・メモリは読み込ませず、道具も使わせません**（ファイルの書き込みやコマンドの実行はできません）。画像を渡し、文字を受け取ります。
 

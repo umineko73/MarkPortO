@@ -27,6 +27,12 @@ namespace MarkPortO.Core.Tests.Fixtures;
 /// <param name="ColumnWidthChars">Width of every column in characters (Excel's default is about 8.43).</param>
 /// <param name="Merges">Merged ranges such as <c>A1:B1</c>.</param>
 /// <param name="ExcelTable">An A1-style range such as <c>A1:B3</c> that is an Excel table whose first row is its header row.</param>
+/// <param name="NumberFormats">The number format code of cells, by reference (<c>B2</c> to <c>0.0%</c>).</param>
+/// <param name="MoreTables">More Excel tables (A1-style ranges); each has a header row.</param>
+/// <param name="Hyperlinks">Outside links by cell reference (<c>A1</c> to a URL).</param>
+/// <param name="Comments">Comments by cell reference (<c>B2</c> to its text).</param>
+/// <param name="HiddenRows">Rows that are hidden (1-based).</param>
+/// <param name="HiddenColumns">Columns that are hidden (1-based).</param>
 public sealed record SheetSpec(
     string Name,
     string[][] Rows,
@@ -35,7 +41,13 @@ public sealed record SheetSpec(
     double? ColumnWidthChars = null,
     string[]? Merges = null,
     CellShapeSpec[]? Shapes = null,
-    string? ExcelTable = null);
+    string? ExcelTable = null,
+    Dictionary<string, string>? NumberFormats = null,
+    string[]? MoreTables = null,
+    Dictionary<string, string>? Hyperlinks = null,
+    Dictionary<string, string>? Comments = null,
+    int[]? HiddenRows = null,
+    int[]? HiddenColumns = null);
 
 /// <summary>A drawn shape anchored to cells (0-based, as in the file): from the top left of (FromColumn, FromRow) to the top left of (ToColumn, ToRow).</summary>
 public sealed record CellShapeSpec(string Geometry, int FromColumn, int FromRow, int ToColumn, int ToRow, bool FlipH = false, bool FlipV = false);
@@ -51,26 +63,59 @@ public static class XlsxFactory
         workbookPart.Workbook = new Workbook();
         var sheetsElement = workbookPart.Workbook.AppendChild(new Sheets());
         var definedNames = new DefinedNames();
+        var styleOfCode = AddStyles(workbookPart, sheets);
 
         for (var i = 0; i < sheets.Length; i++)
         {
             var spec = sheets[i];
             var sheetPart = workbookPart.AddNewPart<WorksheetPart>();
-            sheetPart.Worksheet = BuildWorksheet(spec);
-            if (spec.ExcelTable is { } tableRange)
+            sheetPart.Worksheet = BuildWorksheet(spec, styleOfCode);
+            var tableRanges = (spec.ExcelTable is { } first ? new[] { first } : []).Concat(spec.MoreTables ?? []).ToList();
+            if (tableRanges.Count > 0)
             {
-                var tablePart = sheetPart.AddNewPart<TableDefinitionPart>();
-                var columnCount = spec.Rows.Max(r => r.Length);
-                tablePart.Table = new Table
+                var tableParts = new TableParts { Count = (uint)tableRanges.Count };
+                for (var t = 0; t < tableRanges.Count; t++)
                 {
-                    Id = 1,
-                    Name = "Table1",
-                    DisplayName = "Table1",
-                    Reference = tableRange,
-                    TotalsRowShown = false,
-                    TableColumns = new TableColumns(Enumerable.Range(1, columnCount).Select(c => new TableColumn { Id = (uint)c, Name = "C" + c })) { Count = (uint)columnCount },
-                };
-                sheetPart.Worksheet.AppendChild(new TableParts(new TablePart { Id = sheetPart.GetIdOfPart(tablePart) }) { Count = 1 });
+                    var tablePart = sheetPart.AddNewPart<TableDefinitionPart>();
+                    var corners = tableRanges[t].Split(':');
+                    var columnCount = ColumnIndex(corners[1]) - ColumnIndex(corners[0]) + 1;
+                    tablePart.Table = new Table
+                    {
+                        Id = (uint)(t + 1),
+                        Name = "Table" + (t + 1),
+                        DisplayName = "Table" + (t + 1),
+                        Reference = tableRanges[t],
+                        TotalsRowShown = false,
+                        TableColumns = new TableColumns(Enumerable.Range(1, columnCount).Select(c => new TableColumn { Id = (uint)c, Name = "C" + c })) { Count = (uint)columnCount },
+                    };
+                    tableParts.AppendChild(new TablePart { Id = sheetPart.GetIdOfPart(tablePart) });
+                }
+
+                sheetPart.Worksheet.AppendChild(tableParts);
+            }
+
+            if (spec.Hyperlinks is { Count: > 0 })
+            {
+                var links = new Hyperlinks();
+                foreach (var (reference, url) in spec.Hyperlinks)
+                {
+                    var relationship = sheetPart.AddHyperlinkRelationship(new Uri(url), isExternal: true);
+                    links.AppendChild(new Hyperlink { Reference = reference, Id = relationship.Id });
+                }
+
+                sheetPart.Worksheet.AppendChild(links);
+            }
+
+            if (spec.Comments is { Count: > 0 })
+            {
+                var commentsPart = sheetPart.AddNewPart<WorksheetCommentsPart>();
+                var list = new CommentList();
+                foreach (var (reference, text) in spec.Comments)
+                {
+                    list.AppendChild(new Comment(new CommentText(new Run(new Text(text)))) { Reference = reference, AuthorId = 0 });
+                }
+
+                commentsPart.Comments = new Comments(new Authors(new Author("tester")), list);
             }
 
             if (spec.Shapes is { Length: > 0 })
@@ -162,12 +207,50 @@ public static class XlsxFactory
         sheetPart.Worksheet!.AddChild(new Drawing { Id = sheetPart.GetIdOfPart(drawingsPart) });
     }
 
-    private static Worksheet BuildWorksheet(SheetSpec spec)
+    // One cell format for each number format code that the sheets use (index 0 is the default one).
+    private static Dictionary<string, uint> AddStyles(WorkbookPart workbookPart, SheetSpec[] sheets)
+    {
+        var codes = sheets.SelectMany(s => s.NumberFormats?.Values.AsEnumerable() ?? Enumerable.Empty<string>()).Distinct().ToList();
+        var result = new Dictionary<string, uint>();
+        if (codes.Count == 0)
+        {
+            return result;
+        }
+
+        var stylesPart = workbookPart.AddNewPart<WorkbookStylesPart>();
+        var numbering = new NumberingFormats();
+        var formats = new CellFormats(new CellFormat());
+        for (var i = 0; i < codes.Count; i++)
+        {
+            var id = (uint)(164 + i);
+            numbering.AppendChild(new NumberingFormat { NumberFormatId = id, FormatCode = codes[i] });
+            formats.AppendChild(new CellFormat { NumberFormatId = id, ApplyNumberFormat = true });
+            result[codes[i]] = (uint)(i + 1);
+        }
+
+        numbering.Count = (uint)codes.Count;
+        formats.Count = (uint)(codes.Count + 1);
+        stylesPart.Stylesheet = new Stylesheet(
+            numbering,
+            new Fonts(new Font()) { Count = 1 },
+            new Fills(new Fill(new PatternFill { PatternType = PatternValues.None })) { Count = 1 },
+            new Borders(new Border()) { Count = 1 },
+            new CellStyleFormats(new CellFormat()) { Count = 1 },
+            formats);
+        return result;
+    }
+
+    private static Worksheet BuildWorksheet(SheetSpec spec, IReadOnlyDictionary<string, uint> styleOfCode)
     {
         var worksheet = new Worksheet();
         var columnCount = spec.Rows.Length == 0 ? 0 : spec.Rows.Max(r => r.Length);
 
-        if (spec.ColumnWidthChars is { } width && columnCount > 0)
+        if (spec.HiddenColumns is { Length: > 0 })
+        {
+            worksheet.AppendChild(new Columns(spec.HiddenColumns.OrderBy(c => c).Select(c => new Column { Min = (uint)c, Max = (uint)c, Width = 9, Hidden = true })));
+        }
+
+        if (spec.ColumnWidthChars is { } width && columnCount > 0 && spec.HiddenColumns is null)
         {
             worksheet.AppendChild(new Columns(new Column
             {
@@ -182,6 +265,11 @@ public static class XlsxFactory
         for (var r = 0; r < spec.Rows.Length; r++)
         {
             var row = new Row { RowIndex = (uint)(r + 1) };
+            if (spec.HiddenRows?.Contains(r + 1) == true)
+            {
+                row.Hidden = true;
+            }
+
             for (var c = 0; c < spec.Rows[r].Length; c++)
             {
                 var text = spec.Rows[r][c];
@@ -190,7 +278,13 @@ public static class XlsxFactory
                     continue;
                 }
 
-                row.AppendChild(BuildCell($"{ColumnName(c + 1)}{r + 1}", text));
+                var built = BuildCell($"{ColumnName(c + 1)}{r + 1}", text);
+                if (spec.NumberFormats?.TryGetValue($"{ColumnName(c + 1)}{r + 1}", out var code) == true)
+                {
+                    built.StyleIndex = styleOfCode[code];
+                }
+
+                row.AppendChild(built);
             }
 
             data.AppendChild(row);
@@ -235,6 +329,18 @@ public static class XlsxFactory
             CellReference = reference,
             DataType = CellValues.InlineString,
         };
+    }
+
+    /// <summary>The 1-based column of a reference such as <c>C5</c>.</summary>
+    private static int ColumnIndex(string reference)
+    {
+        var index = 0;
+        foreach (var ch in reference.TakeWhile(char.IsLetter))
+        {
+            index = (index * 26) + (char.ToUpperInvariant(ch) - 'A' + 1);
+        }
+
+        return index;
     }
 
     /// <summary>"A1:C5" becomes "$A$1:$C$5".</summary>

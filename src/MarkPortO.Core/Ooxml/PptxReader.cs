@@ -90,7 +90,26 @@ public static class PptxReader
 
         if (tree is not null)
         {
-            Walk(tree, ref title, body);
+            Walk(tree, ref title, body, part);
+        }
+
+        // Charts and SmartArt of the slide, then the speaker notes (FR-072).
+        foreach (var chart in part.ChartParts.Select(ChartReader.Read).OfType<ChartInfo>())
+        {
+            body.Add(chart.ToMarkdown());
+        }
+
+        foreach (var diagram in part.DiagramDataParts)
+        {
+            if (DiagramText(diagram) is { Length: > 0 } diagramText)
+            {
+                body.Add(diagramText);
+            }
+        }
+
+        if (NotesText(part) is { Length: > 0 } notes)
+        {
+            body.Add(notes);
         }
 
         var markdown = new StringBuilder();
@@ -112,26 +131,69 @@ public static class PptxReader
         return new SlideContent(number, hidden, title, markdown.ToString());
     }
 
-    private static void Walk(OpenXmlElement container, ref string title, List<string> body)
+    private static void Walk(OpenXmlElement container, ref string title, List<string> body, SlidePart part)
     {
         foreach (var element in container.ChildElements)
         {
             switch (element)
             {
                 case Shape shape:
-                    ReadShape(shape, ref title, body);
+                    ReadShape(shape, ref title, body, part);
                     break;
                 case GraphicFrame frame:
-                    ReadTable(frame, body);
+                    ReadTable(frame, body, part);
                     break;
                 case GroupShape group:
-                    Walk(group, ref title, body);
+                    Walk(group, ref title, body, part);
+                    break;
+                case Picture picture:
+                    // A picture is written by its alternative text, without the image file (FR-072).
+                    if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Description?.Value?.Trim() is { Length: > 0 } description)
+                    {
+                        body.Add("![" + description.Replace("]", "\\]", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal) + "]");
+                    }
+
                     break;
             }
         }
     }
 
-    private static void ReadShape(Shape shape, ref string title, List<string> body)
+    // The speaker notes of a slide, as a quote. The slide number and other placeholders of the notes page are left out.
+    private static string NotesText(SlidePart part)
+    {
+        var tree = part.NotesSlidePart?.NotesSlide?.CommonSlideData?.ShapeTree;
+        if (tree is null)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>();
+        foreach (var shape in tree.Elements<Shape>())
+        {
+            var type = shape.NonVisualShapeProperties?.ApplicationNonVisualDrawingProperties?.PlaceholderShape?.Type?.Value;
+            if (type != PlaceholderValues.Body || shape.TextBody is null)
+            {
+                continue;
+            }
+
+            lines.AddRange(shape.TextBody.Elements<A.Paragraph>().Select(p => ParagraphText(p).Trim().Replace("\n", " ", StringComparison.Ordinal)).Where(t => t.Length > 0));
+        }
+
+        return lines.Count == 0 ? string.Empty : string.Join("\n>\n", lines.Select(l => "> **Notes**: " + MarkdownText.Escape(l)));
+    }
+
+    // The text of the nodes of a SmartArt diagram, one line each (the shapes of a diagram are drawn from this data).
+    private static string DiagramText(DiagramDataPart part)
+    {
+        var lines = (part.DataModelRoot?.Descendants<OpenXmlElement>() ?? [])
+            .Where(e => e.LocalName == "pt" && e.GetAttributes().FirstOrDefault(a => a.LocalName == "type").Value is null or "node")
+            .Select(point => string.Concat(point.Descendants<OpenXmlElement>().Where(e => e.LocalName == "t" && e.NamespaceUri.EndsWith("drawingml/2006/main", StringComparison.Ordinal)).Select(e => e.InnerText)).Trim())
+            .Where(t => t.Length > 0)
+            .ToList();
+        return lines.Count == 0 ? string.Empty : string.Join("\n", lines.Select(l => "- " + MarkdownText.Escape(l).Replace("\n", " ", StringComparison.Ordinal)));
+    }
+
+    private static void ReadShape(Shape shape, ref string title, List<string> body, SlidePart part)
     {
         var textBody = shape.TextBody;
         if (textBody is null)
@@ -148,7 +210,7 @@ public static class PptxReader
         var lines = new List<string>();
         foreach (var paragraph in textBody.Elements<A.Paragraph>())
         {
-            var text = ParagraphText(paragraph).Trim();
+            var text = ParagraphText(paragraph, part).Trim();
             if (text.Length == 0)
             {
                 continue;
@@ -184,7 +246,7 @@ public static class PptxReader
         }
     }
 
-    private static void ReadTable(GraphicFrame frame, List<string> body)
+    private static void ReadTable(GraphicFrame frame, List<string> body, SlidePart part)
     {
         var table = frame.Descendants<A.Table>().FirstOrDefault();
         if (table is null)
@@ -197,9 +259,9 @@ public static class PptxReader
         {
             // The cells hidden by a merged cell are in the file; they are marked (FR-059).
             rows.Add([.. row.Elements<A.TableCell>().Select(cell =>
-                cell.HorizontalMerge?.Value == true || cell.VerticalMerge?.Value == true
-                    ? MarkdownText.MergedCell
-                    : string.Join('\n', cell.TextBody?.Elements<A.Paragraph>().Select(p => ParagraphText(p).Trim()).Where(t => t.Length > 0) ?? []))]);
+                cell.VerticalMerge?.Value == true ? MarkdownText.MergedUp
+                : cell.HorizontalMerge?.Value == true ? MarkdownText.MergedLeft
+                    : string.Join('\n', cell.TextBody?.Elements<A.Paragraph>().Select(p => ParagraphText(p, part).Trim()).Where(t => t.Length > 0) ?? []))]);
         }
 
         // FR-060: the first row is a header when the table has the "header row" option.
@@ -210,13 +272,24 @@ public static class PptxReader
         }
     }
 
-    private static string ParagraphText(A.Paragraph paragraph)
+    private static string? LinkOf(A.Run run, SlidePart part)
+    {
+        var id = run.RunProperties?.GetFirstChild<A.HyperlinkOnClick>()?.Id?.Value;
+        var uri = id is null ? null : part.HyperlinkRelationships.FirstOrDefault(r => r.Id == id)?.Uri;
+        return uri?.OriginalString.Replace(" ", "%20", StringComparison.Ordinal).Replace(")", "%29", StringComparison.Ordinal);
+    }
+
+    // With the slide part, a run that has a link to the outside is written as a Markdown link (FR-072).
+    private static string ParagraphText(A.Paragraph paragraph, SlidePart? part = null)
     {
         var builder = new StringBuilder();
         foreach (var child in paragraph.ChildElements)
         {
             switch (child)
             {
+                case A.Run run when part is not null && LinkOf(run, part) is { } address && run.Text?.Text is { Length: > 0 } label:
+                    builder.Append('[').Append(label.Replace("]", "\\]", StringComparison.Ordinal)).Append("](").Append(address).Append(')');
+                    break;
                 case A.Run run:
                     builder.Append(run.Text?.Text);
                     break;

@@ -50,7 +50,7 @@ public static class MarkdownRenderer
         var builder = new StringBuilder();
         builder.Append("# ").Append(MarkdownText.Escape(fileName).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
         AppendStructureNote(builder, fileName, document.Kind, includeImages, includeVlm, document.Pages.Any(p => p.Bands > 1),
-            document.Blocks.Any(b => b.Markdown.Contains(MarkdownText.MergedCell, StringComparison.Ordinal)), language,
+            document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), language,
             vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmSeparate ? VlmFileName(name) : null);
 
         if (includeVlm && TryUsageLine(document.Pages, language) is { } usageLine)
@@ -108,7 +108,7 @@ public static class MarkdownRenderer
         Line(Loc.M("- Deleted pages: a quote that starts with `> **{0}**`, after the marker `<!-- deleted page=N -->`. A page that was marked with an X in the original document. The text and the image reference of the page are not included.", language, Loc.M("[Deleted page]", language)));
         if (hasMergedCells)
         {
-            Line(Loc.M("- Merged table cells: `{0}`. A Markdown table cannot merge cells, so a cell that is hidden by a merged cell is written as `{0}`. An empty cell is left empty.", language, Loc.M("[merged]", language)));
+            Line(Loc.M("- Merged table cells: `<` is merged with the cell on its left, `^` with the cell above (the notePM style). A Markdown table cannot merge cells, so a cell that is hidden by a merged cell is written as `<` or `^`. The header row cannot be merged: its value is repeated. An empty cell is left empty.", language));
         }
 
         if (kind == DocumentKind.Xlsx)
@@ -185,7 +185,7 @@ public static class MarkdownRenderer
         {
             if (effectivePages[i] == page.Index && document.Blocks[i].Markdown.Length > 0)
             {
-                builder.Append('\n').Append(MarkdownText.ResolveMarks(document.Blocks[i].Markdown, language)).Append('\n');
+                builder.Append('\n').Append(MarkdownText.ResolveMarks(document.Blocks[i].Markdown)).Append('\n');
             }
         }
 

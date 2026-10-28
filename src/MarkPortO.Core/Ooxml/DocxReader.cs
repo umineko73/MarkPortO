@@ -68,7 +68,8 @@ public static partial class DocxReader
                         AddParagraph(paragraph, context, blocks, shapes, pageWidth, pageHeight);
                         break;
                     case Table table:
-                        AddTable(table, blocks);
+                        AddTable(table, context, blocks);
+                        AddNotes(context, blocks);
                         break;
                 }
             }
@@ -84,6 +85,40 @@ public static partial class DocxReader
     private sealed class Context(MainDocumentPart main)
     {
         private readonly Dictionary<string, (int? HeadingLevel, bool IsTitle)> _styles = BuildStyleMap(main);
+        private int _footnoteNumber;
+        private int _endnoteNumber;
+
+        /// <summary>The notes that the paragraph being read refers to: written after it as <c>[^1]: text</c> (FR-071).</summary>
+        public List<(string Label, string Text)> PendingNotes { get; } = [];
+
+        /// <summary>The address of an outside link of the body, or null (a link inside the document has no address to write).</summary>
+        public string? LinkTarget(string relationshipId)
+        {
+            var uri = main.HyperlinkRelationships.FirstOrDefault(r => r.Id == relationshipId)?.Uri;
+            return uri?.OriginalString.Replace(" ", "%20", StringComparison.Ordinal).Replace(")", "%29", StringComparison.Ordinal);
+        }
+
+        /// <summary>The mark <c>[^1]</c> for a reference to a footnote or an endnote; its text is kept for <see cref="PendingNotes"/>.</summary>
+        public string NoteReference(long? id, bool endnote)
+        {
+            if (id is null)
+            {
+                return string.Empty;
+            }
+
+            IEnumerable<OpenXmlElement>? paragraphs = endnote
+                ? main.EndnotesPart?.Endnotes?.Elements<Endnote>().FirstOrDefault(n => n.Id?.Value == id)?.Elements<Paragraph>()
+                : main.FootnotesPart?.Footnotes?.Elements<Footnote>().FirstOrDefault(n => n.Id?.Value == id)?.Elements<Paragraph>();
+            if (paragraphs is null)
+            {
+                return string.Empty;
+            }
+
+            var text = string.Join(" ", paragraphs.Select(p => ParagraphText(p, this).Trim()).Where(t => t.Length > 0));
+            var label = endnote ? "e" + (++_endnoteNumber).ToString(System.Globalization.CultureInfo.InvariantCulture) : (++_footnoteNumber).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            PendingNotes.Add((label, text));
+            return "[^" + label + "]";
+        }
 
         public (int? HeadingLevel, bool IsTitle) StyleOf(string? styleId) =>
             styleId is not null && _styles.TryGetValue(styleId, out var style) ? style : (null, false);
@@ -158,12 +193,14 @@ public static partial class DocxReader
         double pageWidth,
         double pageHeight)
     {
+        // The plain text finds the page of the block; the Markdown text also has links, note marks and the alternative text of pictures.
         var text = ParagraphText(paragraph).Trim();
-        if (text.Length > 0)
+        var markdown = ParagraphText(paragraph, context).Trim();
+        if (text.Length > 0 || markdown.Length > 0)
         {
             var properties = paragraph.ParagraphProperties;
             var (headingLevel, isTitle) = context.StyleOf(properties?.ParagraphStyleId?.Val?.Value);
-            var escaped = MarkdownText.Escape(text).Replace("\n", "  \n", StringComparison.Ordinal);
+            var escaped = MarkdownText.Escape(markdown).Replace("\n", "  \n", StringComparison.Ordinal);
 
             if (headingLevel is not null || isTitle)
             {
@@ -181,6 +218,8 @@ public static partial class DocxReader
                 blocks.Add(New(BlockKind.Paragraph, escaped, text));
             }
         }
+
+        AddNotes(context, blocks);
 
         // Shapes (for the "×" check) belong to the block of this paragraph, or to the one before it if it has no text.
         var boxes = ShapeExtractor.Extract(paragraph, pageWidth, pageHeight);
@@ -203,7 +242,42 @@ public static partial class DocxReader
         }
     }
 
-    private static void AddTable(Table table, List<DocxBlock> blocks)
+    // The notes that the last paragraph or table referred to, as blocks of their own: [^1]: text. Their page is the page before them.
+    private static void AddNotes(Context context, List<DocxBlock> blocks)
+    {
+        foreach (var (label, text) in context.PendingNotes)
+        {
+            if (text.Length > 0)
+            {
+                blocks.Add(New(BlockKind.Paragraph, "[^" + label + "]: " + MarkdownText.Escape(text).Replace("\n", " ", StringComparison.Ordinal), string.Empty));
+            }
+        }
+
+        context.PendingNotes.Clear();
+    }
+
+    // The text of a table cell: its paragraphs, and a table inside it written as lines of cells (FR-071).
+    private static string CellText(TableCell cell, Context context)
+    {
+        var parts = new List<string>();
+        foreach (var child in cell.ChildElements)
+        {
+            switch (child)
+            {
+                case Paragraph paragraph:
+                    parts.Add(ParagraphText(paragraph, context).Trim());
+                    break;
+                case Table inner:
+                    parts.AddRange(inner.Elements<TableRow>().Select(row =>
+                        string.Join(" / ", row.Elements<TableCell>().Select(c => CellText(c, context).Replace("\n", " ", StringComparison.Ordinal)))));
+                    break;
+            }
+        }
+
+        return string.Join('\n', parts.Where(t => t.Length > 0));
+    }
+
+    private static void AddTable(Table table, Context context, List<DocxBlock> blocks)
     {
         var rows = new List<IReadOnlyList<string>>();
         string? firstCell = null;
@@ -212,20 +286,26 @@ public static partial class DocxReader
             var cells = new List<string>();
             foreach (var cell in row.Elements<TableCell>())
             {
-                var text = string.Join('\n', cell.Elements<Paragraph>().Select(ParagraphText).Select(t => t.Trim()).Where(t => t.Length > 0));
+                var text = CellText(cell, context);
                 if (firstCell is null && text.Length > 0)
                 {
-                    firstCell = text;
+                    // The page of the table is found by plain text, not by the Markdown (links, note marks).
+                    firstCell = string.Join('\n', cell.Elements<Paragraph>().Select(p => ParagraphText(p).Trim()).Where(t => t.Length > 0));
+                    if (firstCell.Length == 0)
+                    {
+                        firstCell = null;
+                    }
                 }
 
                 // The rest of a vertical merge has no text of its own; a cell that spans columns is followed by the columns it covers (FR-059).
                 var properties = cell.TableCellProperties;
                 var continues = properties?.VerticalMerge is { } vertical && (vertical.Val is null || vertical.Val.Value == MergedCellValues.Continue);
-                cells.Add(continues ? MarkdownText.MergedCell : text);
+                // The rest of a vertical merge is in the second row or below of its range (^); the columns that a cell spans are "<" in the first row.
+                cells.Add(continues ? MarkdownText.MergedUp : text);
                 var span = Math.Clamp(properties?.GridSpan?.Val?.Value ?? 1, 1, 1000);
                 for (var i = 1; i < span; i++)
                 {
-                    cells.Add(MarkdownText.MergedCell);
+                    cells.Add(continues ? MarkdownText.MergedUp : MarkdownText.MergedLeft);
                 }
             }
 
@@ -265,19 +345,45 @@ public static partial class DocxReader
         new(new Block { Kind = kind, Markdown = markdown }, searchText);
 
     /// <summary>The text of a paragraph. A line break is a newline; the text of a text box is not included.</summary>
-    private static string ParagraphText(OpenXmlElement paragraph)
+    private static string ParagraphText(OpenXmlElement paragraph, Context? markdown = null)
     {
         var builder = new StringBuilder();
-        Append(paragraph, builder);
+        Append(paragraph, builder, markdown);
         return builder.ToString();
     }
 
-    private static void Append(OpenXmlElement element, StringBuilder builder)
+    // With a context the text is Markdown (links, note marks, the alternative text of pictures); without it, plain text.
+    private static void Append(OpenXmlElement element, StringBuilder builder, Context? markdown = null)
     {
         foreach (var child in element.ChildElements)
         {
             switch (child)
             {
+                case Hyperlink link when markdown is not null && link.Id?.Value is { } relationshipId && markdown.LinkTarget(relationshipId) is { } address:
+                    var label = new StringBuilder();
+                    Append(link, label, markdown);
+                    if (label.ToString().Trim().Length > 0)
+                    {
+                        builder.Append('[').Append(label.ToString().Trim().Replace("]", "\\]", StringComparison.Ordinal)).Append("](").Append(address).Append(')');
+                    }
+
+                    break;
+                case FootnoteReference note when markdown is not null:
+                    builder.Append(markdown.NoteReference(note.Id?.Value, endnote: false));
+                    break;
+                case EndnoteReference note when markdown is not null:
+                    builder.Append(markdown.NoteReference(note.Id?.Value, endnote: true));
+                    break;
+                case Drawing drawing when markdown is not null:
+                    // A picture is written by its alternative text, without the image file (FR-071).
+                    var description = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties>().FirstOrDefault()?.Description?.Value?.Trim();
+                    if (!string.IsNullOrEmpty(description) && drawing.Descendants<OpenXmlElement>().Any(e => e.LocalName == "blip"))
+                    {
+                        builder.Append("![").Append(description.Replace("]", "\\]", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal)).Append(']');
+                    }
+
+                    Append(child, builder, markdown);
+                    break;
                 case Text text:
                     builder.Append(text.Text);
                     break;
@@ -293,7 +399,7 @@ public static partial class DocxReader
                     // Choice and Fallback hold the same text twice: use the first.
                     if (alternate.Elements<AlternateContentChoice>().FirstOrDefault() is { } choice)
                     {
-                        Append(choice, builder);
+                        Append(choice, builder, markdown);
                     }
 
                     break;
@@ -301,7 +407,7 @@ public static partial class DocxReader
                 case DeletedText:
                     break; // text removed by a tracked change
                 default:
-                    Append(child, builder);
+                    Append(child, builder, markdown);
                     break;
             }
         }

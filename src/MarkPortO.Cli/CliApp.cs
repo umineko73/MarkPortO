@@ -84,6 +84,7 @@ public static class CliApp
         var noIncludeHidden = new Option<bool>("--no-include-hidden") { Description = "Leave out hidden sheets and slides." };
         var engine = new Option<string?>("--engine") { Description = "office or libreoffice." };
         var dpi = new Option<int?>("--dpi") { Description = "Resolution of the page images (72-600)." };
+        var excelRange = new Option<string?>("--excel-range") { Description = "How the pages of an Excel sheet are cut: columns (all columns on the width of a page), rows (all rows on the height of a page) or print-area (follow the print setup of the sheet)." };
         var step2 = new Option<string?>("--step2") { Description = "on or off: put image references in the Markdown." };
         var step3 = new Option<string?>("--step3") { Description = "on or off: read the page images with the VLM." };
         var vlmSeparate = new Option<string?>("--vlm-separate") { Description = "on or off: write the results of Step 3 to a separate file, name_vlm.md." };
@@ -101,7 +102,7 @@ public static class CliApp
         convert.Arguments.Add(inputs);
         foreach (var option in new Option[]
         {
-            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, engine, dpi, step2, step3, vlmSeparate,
+            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, engine, dpi, excelRange, step2, step3, vlmSeparate,
             connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
         })
         {
@@ -121,6 +122,7 @@ public static class CliApp
                 IncludeHidden = Flag(parse.GetValue(includeHidden), parse.GetValue(noIncludeHidden)),
                 Engine = parse.GetValue(engine),
                 Dpi = parse.GetValue(dpi),
+                ExcelRange = parse.GetValue(excelRange),
                 Step2 = parse.GetValue(step2),
                 Step3 = parse.GetValue(step3),
                 VlmSeparate = parse.GetValue(vlmSeparate),

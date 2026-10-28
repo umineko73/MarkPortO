@@ -13,6 +13,8 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using MarkPortO.Core.Jobs.Models;
+
 namespace MarkPortO.Core.Ooxml;
 
 /// <summary>One image of a sheet: some columns of the used range, all rows (rows may continue on more pages).</summary>
@@ -48,11 +50,18 @@ public static class ExcelUnitPlanner
     /// The images of a sheet. An empty sheet has none. Columns are grouped from the left, as many as fit;
     /// a single column wider than the limit gets a group of its own (it is shrunk more than the minimum).
     /// </summary>
-    public static IReadOnlyList<ExcelUnit> Plan(SheetContent sheet)
+    public static IReadOnlyList<ExcelUnit> Plan(SheetContent sheet, ExcelRange range = ExcelRange.Columns)
     {
         if (sheet.IsEmpty)
         {
             return [];
+        }
+
+        // Only the columns mode cuts the sheet by its columns; the others print the sheet as one unit and let the page setup cut it.
+        if (range != ExcelRange.Columns)
+        {
+            var last = sheet.ColumnWidthsPoints.Length - 1;
+            return [new ExcelUnit(sheet.Name, 1, 1, 0, last, sheet.ColumnRange(0, last))];
         }
 
         var groups = new List<(int From, int To)>();

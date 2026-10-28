@@ -58,6 +58,26 @@ public class DocxReaderTests
     }
 
     [Fact]
+    public void Read_LinksNotesPicturesAndNestedTables_AreWritten()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("r.docx");
+        DocxFactory.CreateRich(path);
+
+        var blocks = DocxReader.Read(path);
+        var markdown = string.Join("\n\n", blocks.Select(b => b.Block.Markdown));
+
+        Assert.Contains("See [the site](https://example.com/a%20b).", markdown);
+        Assert.Contains("A fact[^1]\n\n[^1]: Source: a report", markdown);
+        Assert.Contains("![A bar chart]", markdown);
+        Assert.Contains("| Cell<br>x / y<br>z / w<br>tail | k |", markdown);
+        // The plain text, which finds the page, has none of the marks.
+        Assert.Equal("See the site.", blocks[0].SearchText);
+        Assert.Equal("A fact", blocks[1].SearchText);
+        Assert.Equal(string.Empty, blocks[2].SearchText);
+    }
+
+    [Fact]
     public void Read_Table_WithMergedCells_IsExpandedToAGrid()
     {
         using var dir = new TempDir();
@@ -67,8 +87,8 @@ public class DocxReaderTests
         var table = DocxReader.Read(path).Single(b => b.Block.Kind == BlockKind.Table);
 
         Assert.Equal(
-            "| Title | [merged] | X |\n|---|---|---|\n| A | b | c |\n| [merged] | d |  |",
-            MarkdownText.ResolveMarks(table.Block.Markdown, "en"));
+            "| Title | Title | X |\n|---|---|---|\n| A | b | c |\n| ^ | d |  |",
+            MarkdownText.ResolveMarks(table.Block.Markdown));
     }
 
     [Fact]
@@ -80,7 +100,7 @@ public class DocxReaderTests
 
         var table = DocxReader.Read(path).Single(b => b.Block.Kind == BlockKind.Table);
 
-        Assert.StartsWith("|  |  |  |\n|---|---|---|\n| Title |", MarkdownText.ResolveMarks(table.Block.Markdown, "en"), StringComparison.Ordinal);
+        Assert.StartsWith("|  |  |  |\n|---|---|---|\n| Title |", MarkdownText.ResolveMarks(table.Block.Markdown), StringComparison.Ordinal);
     }
 
     [Fact]

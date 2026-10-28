@@ -23,6 +23,15 @@ using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Markdown;
 
 namespace MarkPortO.Core.Ooxml;
+/// <summary>A cell hidden by a merged range: it is in the first row of the range, and where the top-left cell of the range is (0-based in <see cref="SheetContent.Rows"/>).</summary>
+public readonly record struct MergeMark(bool FirstRow, int OriginRow, int OriginColumn);
+
+
+/// <summary>An Excel table (<c>xl/tables</c>) of a sheet: its name, and its cells (0-based in <see cref="SheetContent.Rows"/>).</summary>
+public sealed record SheetTable(string Name, int FirstRow, int LastRow, int FirstColumn, int LastColumn, bool HasHeader);
+
+/// <summary>A comment (note) of a cell (0-based in <see cref="SheetContent.Rows"/>).</summary>
+public sealed record SheetNote(int Row, int Column, string Text);
 
 /// <summary>The contents of one worksheet, limited to its used range.</summary>
 public sealed class SheetContent
@@ -44,7 +53,22 @@ public sealed class SheetContent
     public required string[][] Rows { get; init; }
 
     /// <summary>The cells (0-based row and column in <see cref="Rows"/>) hidden by a merged cell: written as a mark in Markdown (FR-059).</summary>
-    public IReadOnlySet<(int Row, int Column)> HiddenByMerge { get; init; } = new HashSet<(int Row, int Column)>();
+    public IReadOnlyDictionary<(int Row, int Column), MergeMark> HiddenByMerge { get; init; } = new Dictionary<(int Row, int Column), MergeMark>();
+
+    /// <summary>The Excel tables of the sheet (FR-070). When they are stacked and cover the content beside them, each is written as a table of its own.</summary>
+    public IReadOnlyList<SheetTable> Tables { get; init; } = [];
+
+    /// <summary>The charts of the sheet (FR-070): written after the tables, in the first part of a sheet that is cut into parts.</summary>
+    public IReadOnlyList<ChartInfo> Charts { get; init; } = [];
+
+    /// <summary>The comments of the cells (FR-070): written after the tables.</summary>
+    public IReadOnlyList<SheetNote> Notes { get; init; } = [];
+
+    /// <summary>The rows (0-based in <see cref="Rows"/>) that are hidden: they are not in the image, so they are not in the Markdown either (FR-070).</summary>
+    public IReadOnlySet<int> HiddenRows { get; init; } = new HashSet<int>();
+
+    /// <summary>The columns (0-based in <see cref="Rows"/>) that are hidden (FR-070).</summary>
+    public IReadOnlySet<int> HiddenColumns { get; init; } = new HashSet<int>();
 
     /// <summary>The first row is the header row of an Excel table (FR-060). A sheet has no header otherwise.</summary>
     public bool HasHeaderRow { get; init; }
@@ -65,15 +89,145 @@ public sealed class SheetContent
     /// <summary>The cells of the given used-range columns (0-based, inclusive) as a Markdown table.</summary>
     public string ToMarkdown(int fromIndex, int toIndex)
     {
-        var rows = Rows
-            .Select((row, r) => (IReadOnlyList<string>)row
-                .Select((text, c) => HiddenByMerge.Contains((r, c)) ? MarkdownText.MergedCell : text)
-                .Skip(fromIndex).Take(toIndex - fromIndex + 1).ToArray())
+        var sections = new List<string>();
+        if (StackedBlocks() is { } blocks)
+        {
+            foreach (var (first, last, table) in blocks)
+            {
+                if (table is null)
+                {
+                    // The rows between the tables, without the empty rows at their top and bottom.
+                    var filled = Enumerable.Range(first, last - first + 1).Where(r => !HiddenRows.Contains(r) && HasContent(r, fromIndex, toIndex)).ToList();
+                    if (filled.Count > 0)
+                    {
+                        sections.Add(Block(filled[0], filled[^1], fromIndex, toIndex, hasHeader: false));
+                    }
+
+                    continue;
+                }
+
+                var from = Math.Max(fromIndex, table.FirstColumn);
+                var to = Math.Min(toIndex, table.LastColumn);
+                if (from <= to)
+                {
+                    sections.Add("### " + MarkdownText.EscapeCell(table.Name) + "\n\n" + Block(table.FirstRow, table.LastRow, from, to, table.HasHeader));
+                }
+            }
+        }
+        else
+        {
+            sections.Add(Block(0, Rows.Length - 1, fromIndex, toIndex, HasHeaderRow));
+        }
+
+        var notes = Notes
+            .Where(n => n.Column >= fromIndex && n.Column <= toIndex && !HiddenRows.Contains(n.Row) && !HiddenColumns.Contains(n.Column))
+            .Select(n => "> **" + ExcelColumn.Name(FirstColumn + n.Column) + (FirstRow + n.Row).ToString(CultureInfo.InvariantCulture) + "**: " + MarkdownText.EscapeCell(n.Text))
             .ToList();
-        return MarkdownText.Table(rows, HasHeaderRow);
+        if (notes.Count > 0)
+        {
+            sections.Add(string.Join("\n>\n", notes));
+        }
+
+        if (fromIndex == 0)
+        {
+            sections.AddRange(Charts.Select(chart => chart.ToMarkdown()));
+        }
+
+        return string.Join("\n\n", sections.Where(s => s.Length > 0));
+    }
+
+    private bool HasContent(int row, int fromIndex, int toIndex) =>
+        Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Any(c => c < Rows[row].Length && (Rows[row][c].Length > 0 || HiddenByMerge.ContainsKey((row, c))));
+
+    // The tables and the rows between them, from the top, when the tables are one above the other and nothing is beside them; otherwise null.
+    private List<(int First, int Last, SheetTable? Table)>? StackedBlocks()
+    {
+        if (Tables.Count == 0)
+        {
+            return null;
+        }
+
+        var ordered = Tables.OrderBy(t => t.FirstRow).ToList();
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var table = ordered[i];
+            if (i > 0 && table.FirstRow <= ordered[i - 1].LastRow)
+            {
+                return null; // two tables share a row
+            }
+
+            for (var r = table.FirstRow; r <= table.LastRow; r++)
+            {
+                for (var c = 0; c < Rows[r].Length; c++)
+                {
+                    if ((c < table.FirstColumn || c > table.LastColumn) && (Rows[r][c].Length > 0 || HiddenByMerge.ContainsKey((r, c))))
+                    {
+                        return null; // content beside the table
+                    }
+                }
+            }
+        }
+
+        var blocks = new List<(int, int, SheetTable?)>();
+        var cursor = 0;
+        foreach (var table in ordered)
+        {
+            if (table.FirstRow > cursor)
+            {
+                blocks.Add((cursor, table.FirstRow - 1, null));
+            }
+
+            blocks.Add((table.FirstRow, table.LastRow, table));
+            cursor = table.LastRow + 1;
+        }
+
+        if (cursor < Rows.Length)
+        {
+            blocks.Add((cursor, Rows.Length - 1, null));
+        }
+
+        // One table that is all of the sheet needs no heading: it is the sheet's table.
+        return blocks.Count == 1 ? null : blocks;
+    }
+
+    // The cells of rows firstRow..lastRow and columns fromIndex..toIndex as a Markdown table (hidden rows and columns left out).
+    private string Block(int firstRow, int lastRow, int fromIndex, int toIndex, bool hasHeader)
+    {
+        var rows = new List<IReadOnlyList<string>>();
+        for (var r = firstRow; r <= lastRow && r < Rows.Length; r++)
+        {
+            if (HiddenRows.Contains(r))
+            {
+                continue;
+            }
+
+            var row = Rows[r];
+            rows.Add([.. Enumerable.Range(fromIndex, toIndex - fromIndex + 1)
+                .Where(c => c < row.Length && !HiddenColumns.Contains(c))
+                .Select(c => CellOrMark(r, c, row[c], fromIndex))]);
+        }
+
+        return MarkdownText.Table(rows, hasHeader);
     }
 
     public string ToMarkdown() => ToMarkdown(0, Math.Max(0, ColumnCount - 1));
+
+    // A cell hidden by a merged cell is "<" (first row of the range) or "^" (below). When a merged range begins left of
+    // the columns that are shown (a sheet cut into parts), its first shown cell gets the value of the top-left cell.
+    private string CellOrMark(int row, int column, string text, int firstShownColumn)
+    {
+        if (!HiddenByMerge.TryGetValue((row, column), out var mark))
+        {
+            return text;
+        }
+
+        if (mark.FirstRow && column == firstShownColumn && mark.OriginColumn < firstShownColumn)
+        {
+            return Rows[mark.OriginRow][mark.OriginColumn];
+        }
+
+        return mark.FirstRow ? MarkdownText.MergedLeft : MarkdownText.MergedUp;
+    }
 }
 
 /// <summary>Reads the worksheets of an .xlsx file (research R2, R4).</summary>
@@ -97,6 +251,7 @@ public static partial class XlsxReader
 
             var sharedStrings = ReadSharedStrings(workbookPart);
             var dateStyles = ReadDateStyles(workbookPart);
+            var numberFormats = ReadNumberFormats(workbookPart, dateStyles);
 
             var result = new List<SheetContent>();
             foreach (var sheet in sheets.Elements<Sheet>())
@@ -112,7 +267,7 @@ public static partial class XlsxReader
                     continue; // a chart sheet
                 }
 
-                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles));
+                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats));
             }
 
             return result;
@@ -142,7 +297,8 @@ public static partial class XlsxReader
         bool hidden,
         WorksheetPart part,
         IReadOnlyList<string> sharedStrings,
-        IReadOnlySet<uint> dateStyles)
+        IReadOnlySet<uint> dateStyles,
+        IReadOnlyDictionary<uint, string> numberFormats)
     {
         var worksheet = part.Worksheet ?? throw new InvalidDocumentException(Loc.T("The sheet '{0}' has no content.", name));
         var cells = new Dictionary<(int Row, int Column), string>();
@@ -164,7 +320,7 @@ public static partial class XlsxReader
             }
 
             var (column, row) = ExcelColumn.ParseReference(reference);
-            var text = CellText(cell, sharedStrings, dateStyles);
+            var text = CellText(cell, sharedStrings, dateStyles, numberFormats);
             var hasFormat = cell.StyleIndex?.Value is > 0;
             if (text.Length == 0 && !hasFormat)
             {
@@ -175,6 +331,29 @@ public static partial class XlsxReader
             if (text.Length > 0)
             {
                 cells[(row, column)] = text;
+            }
+        }
+
+        // A cell with an outside link is written as a Markdown link (FR-070). A link inside the workbook has no address to write.
+        foreach (var link in worksheet.Descendants<Hyperlink>())
+        {
+            if (link.Id?.Value is { } relationshipId && link.Reference?.Value is { } linkRange
+                && part.HyperlinkRelationships.FirstOrDefault(h => h.Id == relationshipId)?.Uri is { } uri)
+            {
+                var ends = linkRange.Split(':');
+                var (lc1, lr1) = ExcelColumn.ParseReference(ends[0]);
+                var (lc2, lr2) = ends.Length == 2 ? ExcelColumn.ParseReference(ends[1]) : (lc1, lr1);
+                var address = uri.OriginalString.Replace(" ", "%20", StringComparison.Ordinal).Replace(")", "%29", StringComparison.Ordinal);
+                for (var lr = lr1; lr <= lr2; lr++)
+                {
+                    for (var lc = lc1; lc <= lc2; lc++)
+                    {
+                        if (cells.TryGetValue((lr, lc), out var linkText) && linkText.Length > 0)
+                        {
+                            cells[(lr, lc)] = "[" + linkText.Replace("]", "\\]", StringComparison.Ordinal) + "](" + address + ")";
+                        }
+                    }
+                }
             }
         }
 
@@ -201,11 +380,12 @@ public static partial class XlsxReader
                 Hidden = hidden,
                 Rows = [],
                 ColumnWidthsPoints = [],
+                Charts = [.. (part.DrawingsPart?.ChartParts ?? []).Select(ChartReader.Read).OfType<ChartInfo>()],
             };
         }
 
         // The cells under a merged range, except its top-left cell, inside the used range.
-        var coveredByMerge = new HashSet<(int Row, int Column)>();
+        var coveredByMerge = new Dictionary<(int Row, int Column), MergeMark>();
         foreach (var merge in worksheet.Descendants<MergeCell>())
         {
             if (merge.Reference?.Value is { } range && range.Split(':') is { Length: 2 } ends)
@@ -218,7 +398,7 @@ public static partial class XlsxReader
                     {
                         if (r != r1 || c != c1)
                         {
-                            coveredByMerge.Add((r - minRow, c - minColumn));
+                            coveredByMerge[(r - minRow, c - minColumn)] = new MergeMark(r == r1, r1 - minRow, c1 - minColumn);
                         }
                     }
                 }
@@ -254,6 +434,11 @@ public static partial class XlsxReader
             LastRow = maxRow,
             Rows = rows,
             HiddenByMerge = coveredByMerge,
+            Tables = ReadTables(part, minRow, maxRow, minColumn, maxColumn),
+            Notes = ReadNotes(part, minRow, maxRow, minColumn, maxColumn),
+            Charts = [.. (part.DrawingsPart?.ChartParts ?? []).Select(ChartReader.Read).OfType<ChartInfo>()],
+            HiddenRows = HiddenRowSet(worksheet, minRow, maxRow),
+            HiddenColumns = HiddenColumnSet(worksheet, minColumn, maxColumn),
             HasHeaderRow = hasHeaderRow,
             ColumnWidthsPoints = ColumnWidths(worksheet, minColumn, maxColumn),
         };
@@ -287,6 +472,88 @@ public static partial class XlsxReader
         return widths;
     }
 
+    private static List<SheetTable> ReadTables(WorksheetPart part, int minRow, int maxRow, int minColumn, int maxColumn)
+    {
+        var result = new List<SheetTable>();
+        foreach (var tablePart in part.TableDefinitionParts)
+        {
+            if (tablePart.Table is not { } definition || definition.Reference?.Value?.Split(':') is not { Length: 2 } corners)
+            {
+                continue;
+            }
+
+            var (c1, r1) = ExcelColumn.ParseReference(corners[0]);
+            var (c2, r2) = ExcelColumn.ParseReference(corners[1]);
+            var firstRow = Math.Max(r1, minRow);
+            var lastRow = Math.Min(r2, maxRow);
+            var firstColumn = Math.Max(c1, minColumn);
+            var lastColumn = Math.Min(c2, maxColumn);
+            if (firstRow > lastRow || firstColumn > lastColumn)
+            {
+                continue;
+            }
+
+            var name = definition.DisplayName?.Value ?? definition.Name?.Value ?? "Table";
+            result.Add(new SheetTable(name, firstRow - minRow, lastRow - minRow, firstColumn - minColumn, lastColumn - minColumn, definition.HeaderRowCount?.Value != 0 && r1 >= minRow));
+        }
+
+        return result;
+    }
+
+    private static List<SheetNote> ReadNotes(WorksheetPart part, int minRow, int maxRow, int minColumn, int maxColumn)
+    {
+        var result = new List<SheetNote>();
+        foreach (var comment in part.WorksheetCommentsPart?.Comments?.CommentList?.Elements<Comment>() ?? [])
+        {
+            if (comment.Reference?.Value is not { } reference)
+            {
+                continue;
+            }
+
+            var (column, row) = ExcelColumn.ParseReference(reference);
+            var text = string.Concat(comment.Descendants<Text>().Select(t => t.Text)).Trim();
+            if (text.Length > 0 && row >= minRow && row <= maxRow && column >= minColumn && column <= maxColumn)
+            {
+                result.Add(new SheetNote(row - minRow, column - minColumn, text));
+            }
+        }
+
+        return result.OrderBy(n => n.Row).ThenBy(n => n.Column).ToList();
+    }
+
+    private static HashSet<int> HiddenRowSet(Worksheet worksheet, int firstRow, int lastRow)
+    {
+        var result = new HashSet<int>();
+        foreach (var row in worksheet.Descendants<Row>())
+        {
+            if (row.Hidden?.Value == true && row.RowIndex?.Value is { } index && index >= firstRow && index <= lastRow)
+            {
+                result.Add((int)index - firstRow);
+            }
+        }
+
+        return result;
+    }
+
+    private static HashSet<int> HiddenColumnSet(Worksheet worksheet, int firstColumn, int lastColumn)
+    {
+        var result = new HashSet<int>();
+        foreach (var column in worksheet.Descendants<Column>())
+        {
+            if (column.Hidden?.Value != true || column.Min is null || column.Max is null)
+            {
+                continue;
+            }
+
+            for (var c = Math.Max((int)column.Min.Value, firstColumn); c <= Math.Min((int)column.Max.Value, lastColumn); c++)
+            {
+                result.Add(c - firstColumn);
+            }
+        }
+
+        return result;
+    }
+
     /// <summary>Excel's width (in characters of the default font) to points. 7 pixels per character, 0.75 points per pixel.</summary>
     private static double CharactersToPoints(double characters)
     {
@@ -294,7 +561,7 @@ public static partial class XlsxReader
         return pixels * 0.75;
     }
 
-    private static string CellText(Cell cell, IReadOnlyList<string> sharedStrings, IReadOnlySet<uint> dateStyles)
+    private static string CellText(Cell cell, IReadOnlyList<string> sharedStrings, IReadOnlySet<uint> dateStyles, IReadOnlyDictionary<uint, string> numberFormats)
     {
         var raw = cell.CellValue?.Text;
         var type = cell.DataType?.Value;
@@ -330,6 +597,13 @@ public static partial class XlsxReader
             && double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var serial))
         {
             return FormatDate(serial) ?? raw;
+        }
+
+        // A number is written as the cell shows it: digits after the point, a thousands separator, a percent, a currency (FR-070).
+        if (cell.StyleIndex?.Value is { } numberStyle && numberFormats.TryGetValue(numberStyle, out var code)
+            && double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+        {
+            return XlsxNumberFormat.Format(number, code) ?? raw;
         }
 
         return raw;
@@ -404,6 +678,36 @@ public static partial class XlsxReader
             if (isDate)
             {
                 result.Add(index);
+            }
+
+            index++;
+        }
+
+        return result;
+    }
+
+    /// <summary>Style indexes whose number format is a plain number (not General, not a date), with the format code.</summary>
+    private static IReadOnlyDictionary<uint, string> ReadNumberFormats(WorkbookPart workbookPart, IReadOnlySet<uint> dateStyles)
+    {
+        var result = new Dictionary<uint, string>();
+        var stylesheet = workbookPart.WorkbookStylesPart?.Stylesheet;
+        if (stylesheet?.CellFormats is not { } formats)
+        {
+            return result;
+        }
+
+        var custom = (stylesheet.NumberingFormats?.Elements<NumberingFormat>() ?? [])
+            .Where(f => f.NumberFormatId is not null && f.FormatCode?.Value is not null)
+            .ToDictionary(f => f.NumberFormatId!.Value, f => f.FormatCode!.Value!);
+
+        uint index = 0;
+        foreach (var format in formats.Elements<CellFormat>())
+        {
+            var id = format.NumberFormatId?.Value ?? 0;
+            var code = custom.TryGetValue(id, out var own) ? own : XlsxNumberFormat.BuiltInCode(id);
+            if (code is not null && !XlsxNumberFormat.IsGeneral(code) && !dateStyles.Contains(index))
+            {
+                result[index] = code;
             }
 
             index++;

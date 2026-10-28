@@ -55,11 +55,8 @@
   <data name="- The text of the document is in `{0}`. This file has only the results of Step3." xml:space="preserve">
     <value>- 文書のテキストは `{0}` にある。このファイルには、Step3の結果だけを書く。</value>
   </data>
-  <data name="[merged]" xml:space="preserve">
-    <value>[結合]</value>
-  </data>
-  <data name="- Merged table cells: `{0}`. A Markdown table cannot merge cells, so a cell that is hidden by a merged cell is written as `{0}`. An empty cell is left empty." xml:space="preserve">
-    <value>- 表の結合セル: `{0}`。Markdownの表はセルを結合できないため、結合セルに隠れたセルは `{0}` と書く。値のない通常のセルは空のまま。</value>
+  <data name="- Merged table cells: `&lt;` is merged with the cell on its left, `^` with the cell above (the notePM style). A Markdown table cannot merge cells, so a cell that is hidden by a merged cell is written as `&lt;` or `^`. The header row cannot be merged: its value is repeated. An empty cell is left empty." xml:space="preserve">
+    <value>- 表の結合セル: `&lt;` は左のセルと、`^` は上のセルと結合している（notePM方式）。Markdownの表はセルを結合できないため、結合セルに隠れたセルは `&lt;` または `^` と書く。見出し行は結合できないため、値を繰り返す。値のない通常のセルは空のまま。</value>
   </data>
   <data name="[Deleted page]" xml:space="preserve">
     <value>[削除ページ]</value>

@@ -55,6 +55,12 @@ public sealed class FileItemViewModel : ObservableObject
     /// <summary>The reason of a failure.</summary>
     public string Message => _row.Message;
 
+    /// <summary>The state of the document that the row was made from, for the preview (FR-068). Null for a row of the file list that has no record yet.</summary>
+    public MarkPortO.Core.Jobs.Models.DocumentRecord? Source => _row.Source;
+
+    /// <summary>The preview can be opened when the document has pages (Step 1 has made them).</summary>
+    public bool CanPreview => _row.Source is { Pages.Count: > 0 };
+
     /// <summary>The pages, for the detail view.</summary>
     public IReadOnlyList<PageRow> Pages => _row.Pages;
 

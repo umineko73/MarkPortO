@@ -102,7 +102,22 @@ public class Step3BandTests
         string.Join("\n", Enumerable.Range(from, to - from + 1).Select(i => $"| {i:000} | item {i} |"));
 
     [Fact]
-    public async Task PageText_IsPutInPlaceOfThePlaceholder_WithTheMarksOfTheLanguage()
+    public async Task ACodeBlockAroundTheTable_IsTakenOff_ButAMermaidBlockStays()
+    {
+        using var dir = new TempDir();
+        const string Fence = "```";
+        var mermaid = Fence + "mermaid\nA-->B\n" + Fence;
+        var answer = Fence + "markdown\n| a | b |\n|---|---|\n| 1 | 2 |\n" + Fence + "\n" + mermaid;
+        var reader = new FakeReader((_, _, _) => new VlmResponse(answer, new UsageInfo(1, 1, 2)));
+        var work = WithContext(Work(dir, lines: 3), dir, maxLines: 0, reader);
+
+        await new Step3Worker().ProcessAsync(work, CancellationToken.None);
+
+        Assert.Equal("| a | b |\n|---|---|\n| 1 | 2 |\n" + mermaid, work.Document.Pages[0].VlmText);
+    }
+
+    [Fact]
+    public async Task PageText_IsPutInPlaceOfThePlaceholder_WithTheMarksOfMergedCells()
     {
         using var dir = new TempDir();
         var reader = new FakeReader((_, _, _) => new VlmResponse("whole", new UsageInfo(1, 1, 2)));
@@ -110,7 +125,7 @@ public class Step3BandTests
         work.Document.Blocks =
         [
             new Block { Kind = BlockKind.Paragraph, Markdown = "TEXT-ONE", PageIndex = 1 },
-            new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table([["a", MarkdownText.MergedCell]]), PageIndex = 1 },
+            new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table([["x", "y"], ["a", MarkdownText.MergedLeft]]), PageIndex = 1 },
         ];
         work = WithContext(work, dir, maxLines: 0, reader, "BEFORE {pagetext} AFTER {other}");
 
@@ -118,7 +133,7 @@ public class Step3BandTests
 
         var prompt = Assert.Single(reader.Calls).Prompt;
         Assert.StartsWith("BEFORE TEXT-ONE", prompt, StringComparison.Ordinal);
-        Assert.Contains("| a | [結合] |", prompt, StringComparison.Ordinal);
+        Assert.Contains("| a | < |", prompt, StringComparison.Ordinal);
         Assert.Contains("AFTER {other}", prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("{pagetext}", prompt, StringComparison.Ordinal);
     }

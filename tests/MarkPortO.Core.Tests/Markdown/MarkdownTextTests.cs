@@ -61,10 +61,26 @@ public class MarkdownTextTests
     [Fact]
     public void Table_KeepsTheMergedMark_AndDropsTheCharacterFromTextOfTheDocument()
     {
-        var table = MarkdownText.Table([["a" + MarkdownText.MergedCell, MarkdownText.MergedCell]]);
+        var table = MarkdownText.Table([["a" + MarkdownText.MergedLeft, MarkdownText.MergedLeft], ["b", MarkdownText.MergedUp]], hasHeader: false);
 
-        Assert.Equal("| a | " + MarkdownText.MergedCell + " |\n|---|---|", table);
-        Assert.Equal("| a | [merged] |\n|---|---|", MarkdownText.ResolveMarks(table, "en"));
+        Assert.Equal("|  |  |\n|---|---|\n| a | " + MarkdownText.MergedLeft + " |\n| b | " + MarkdownText.MergedUp + " |", table);
+        Assert.Equal("|  |  |\n|---|---|\n| a | < |\n| b | ^ |", MarkdownText.ResolveMarks(table));
+    }
+
+    [Fact]
+    public void Table_RepeatsTheValue_WhereAMergeTouchesTheHeaderRow()
+    {
+        var table = MarkdownText.Table([["H", MarkdownText.MergedLeft, "X"], ["V", MarkdownText.MergedUp, MarkdownText.MergedUp], ["a", "b", "c"]]);
+
+        Assert.Equal("| H | H | X |\n|---|---|---|\n| V | H | X |\n| a | b | c |", MarkdownText.ResolveMarks(table));
+    }
+
+    [Fact]
+    public void Table_WritesACellThatIsOnlyAMark_WithABackslash()
+    {
+        var table = MarkdownText.Table([["a", "<"], ["^", "b"]], hasHeader: false);
+
+        Assert.Equal("|  |  |\n|---|---|\n| a | \\< |\n| \\^ | b |", table);
     }
 
     [Fact]

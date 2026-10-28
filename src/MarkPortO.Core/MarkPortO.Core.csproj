@@ -6,6 +6,7 @@
   <ItemGroup>
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="PdfPig" />
+    <PackageReference Include="Markdig" />
     <PackageReference Include="System.Drawing.Common" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />

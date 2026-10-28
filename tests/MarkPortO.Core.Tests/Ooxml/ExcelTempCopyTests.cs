@@ -275,4 +275,48 @@ public class ExcelTempCopyTests
         await engine.ExportPdfAsync(new PdfExportRequest(workbook, DocumentKind.Xlsx, pdf, PdfExportRequest.DefaultTimeout), CancellationToken.None);
         return PdfTextExtractor.GetPageTexts(pdf);
     }
+
+    [Fact]
+    public void Create_ForTheRows_FitsOnePageTallAndAnyNumberWide()
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("book.xlsx");
+        XlsxFactory.Create(source, new SheetSpec("Data", [["a", "b"], ["c", "d"]]));
+        var sheet = XlsxReader.Read(source, includeHidden: true).Single();
+        var copy = dir.Combine("copy.xlsx");
+
+        ExcelTempCopy.Create(source, copy, sheet, ExcelUnitPlanner.Plan(sheet, ExcelRange.Rows).Single(), ExcelRange.Rows);
+
+        using var document = SpreadsheetDocument.Open(copy, false);
+        var worksheet = ((WorksheetPart)document.WorkbookPart!.GetPartById(
+            document.WorkbookPart.Workbook!.Sheets!.Elements<Sheet>().Single().Id!.Value!)).Worksheet!;
+        var setup = worksheet.GetFirstChild<PageSetup>()!;
+        Assert.Equal(0u, setup.FitToWidth!.Value);
+        Assert.Equal(1u, setup.FitToHeight!.Value);
+        Assert.Equal(OrientationValues.Portrait, setup.Orientation!.Value);
+    }
+
+    [Fact]
+    public void Create_ForThePrintArea_KeepsTheAreaAndThePageSetupOfTheSheet_AndRemovesThoseOfTheOthers()
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("book.xlsx");
+        XlsxFactory.Create(
+            source,
+            new SheetSpec("Other", [["o"]], PrintArea: "A1:A1"),
+            new SheetSpec("Data", [["a", "b", "c"], ["d", "e", "f"]], PrintArea: "A1:B1"));
+        var sheet = XlsxReader.Read(source, includeHidden: true).Single(s => s.Name == "Data");
+        var copy = dir.Combine("copy.xlsx");
+
+        ExcelTempCopy.Create(source, copy, sheet, ExcelUnitPlanner.Plan(sheet, ExcelRange.PrintArea).Single(), ExcelRange.PrintArea);
+
+        using var document = SpreadsheetDocument.Open(copy, false);
+        var workbook = document.WorkbookPart!.Workbook!;
+        var area = Assert.Single(workbook.DefinedNames!.Elements<DefinedName>(), n => n.Name!.Value == "_xlnm.Print_Area");
+        Assert.Equal("'Data'!$A$1:$B$1", area.Text);
+        var worksheet = ((WorksheetPart)document.WorkbookPart!.GetPartById(
+            workbook.Sheets!.Elements<Sheet>().First().Id!.Value!)).Worksheet!;
+        Assert.Null(worksheet.SheetProperties?.PageSetupProperties?.FitToPage);
+        Assert.Null(worksheet.GetFirstChild<PageSetup>()?.FitToWidth);
+    }
 }

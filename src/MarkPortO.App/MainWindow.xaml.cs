@@ -53,6 +53,36 @@ public partial class MainWindow : Window
     private void OnInputSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) =>
         _viewModel.SetSelectedInputs(((System.Windows.Controls.ListBox)sender).SelectedItems.Cast<string>());
 
+    // FR-068: the preview of the file that is chosen in the list. Each file has its own window.
+    private readonly Dictionary<string, PreviewWindow> _previews = new(StringComparer.OrdinalIgnoreCase);
+
+    private void OnFileDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject source && System.Windows.Controls.ItemsControl.ContainerFromElement((System.Windows.Controls.DataGrid)sender, source) is System.Windows.Controls.DataGridRow)
+        {
+            OnPreviewClick(sender, e);
+        }
+    }
+
+    private void OnPreviewClick(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.Selected is not { CanPreview: true } item)
+        {
+            return;
+        }
+
+        if (_previews.TryGetValue(item.FullPath, out var open) && open.IsLoaded)
+        {
+            open.Activate();
+            return;
+        }
+
+        var window = new PreviewWindow(item) { Owner = this };
+        _previews[item.FullPath] = window;
+        window.Closed += (_, _) => _previews.Remove(item.FullPath);
+        window.Show();
+    }
+
     private void OnDragOver(object sender, DragEventArgs e)
     {
         e.Effects = !_viewModel.IsRunning && e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
