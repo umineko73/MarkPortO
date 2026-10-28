@@ -114,6 +114,11 @@ public sealed class SheetContent
                 }
             }
         }
+        else if (!HasHeaderRow && Regions(0, Rows.Length - 1, fromIndex, toIndex) is { Count: > 1 } regions)
+        {
+            // Tables drawn on the sheet without the Excel table feature: each is written as a table of its own.
+            sections.AddRange(JoinThinBlocks(regions).Select(r => Block(r.FirstRow, r.LastRow, r.From, r.To, hasHeader: false, skipEmptyRows: r.Joined)));
+        }
         else
         {
             sections.Add(Block(0, Rows.Length - 1, fromIndex, toIndex, HasHeaderRow));
@@ -138,6 +143,137 @@ public sealed class SheetContent
 
     private bool HasContent(int row, int fromIndex, int toIndex) =>
         Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Any(c => c < Rows[row].Length && (Rows[row][c].Length > 0 || HiddenByMerge.ContainsKey((row, c))));
+
+    private bool IsFilled(int row, int column) =>
+        !HiddenRows.Contains(row) && !HiddenColumns.Contains(column)
+        && column < Rows[row].Length && (Rows[row][column].Length > 0 || HiddenByMerge.ContainsKey((row, column)) || Overflow.Contains((row, column)));
+
+    private HashSet<(int Row, int Column)>? overflow;
+
+    // The empty cells that the text of the cell on their left runs over: on the sheet the text is drawn across them, so they do not cut a block.
+    private HashSet<(int Row, int Column)> Overflow => overflow ??= BuildOverflow();
+
+    private HashSet<(int Row, int Column)> BuildOverflow()
+    {
+        var covered = new HashSet<(int, int)>();
+        for (var r = 0; r < Rows.Length; r++)
+        {
+            for (var c = 0; c < Rows[r].Length && c < ColumnWidthsPoints.Length; c++)
+            {
+                var text = Rows[r][c];
+                if (text.Length == 0 || text.Contains('\n', StringComparison.Ordinal) || text.All(ch => "0123456789.,-+$%()¥ ".Contains(ch, StringComparison.Ordinal)))
+                {
+                    continue; // a number does not run over the cells beside it
+                }
+
+                var need = text.Sum(ch => ch < 256 ? 5.5 : 11.0);
+                var have = ColumnWidthsPoints[c];
+                for (var k = c + 1; have < need && k < Rows[r].Length && k < ColumnWidthsPoints.Length && Rows[r][k].Length == 0 && !HiddenByMerge.ContainsKey((r, k)); k++)
+                {
+                    covered.Add((r, k));
+                    have += ColumnWidthsPoints[k];
+                }
+            }
+        }
+
+        return covered;
+    }
+
+    // The blocks of content, cut at the rows and then the columns that are empty all across (and again inside each block),
+    // from the top and the left. A block is the smallest rectangle around its cells.
+    private List<(int FirstRow, int LastRow, int From, int To)> Regions(int firstRow, int lastRow, int from, int to)
+    {
+        var result = new List<(int, int, int, int)>();
+        Cut(firstRow, lastRow, from, to, byRows: true, otherDidNotSplit: false);
+        return result;
+
+        void Cut(int r0, int r1, int c0, int c1, bool byRows, bool otherDidNotSplit)
+        {
+            var spans = Spans(r0, r1, c0, c1, byRows);
+            if (spans.Count == 1)
+            {
+                var (s, e) = spans[0];
+                var (nr0, nr1, nc0, nc1) = byRows ? (s, e, c0, c1) : (r0, r1, s, e);
+                if (otherDidNotSplit)
+                {
+                    result.Add((nr0, nr1, nc0, nc1));
+                }
+                else
+                {
+                    Cut(nr0, nr1, nc0, nc1, !byRows, otherDidNotSplit: true);
+                }
+
+                return;
+            }
+
+            foreach (var (s, e) in spans)
+            {
+                if (byRows)
+                {
+                    Cut(s, e, c0, c1, byRows: false, otherDidNotSplit: false);
+                }
+                else
+                {
+                    Cut(r0, r1, s, e, byRows: true, otherDidNotSplit: false);
+                }
+            }
+        }
+    }
+
+    // Blocks of one row each, one below the other with their columns overlapping (the rows of a table that has an empty row between them),
+    // are one table: a table of its own for every row only adds noise. Blocks of more than one row are kept as they are.
+    private static List<(int FirstRow, int LastRow, int From, int To, bool Joined)> JoinThinBlocks(List<(int FirstRow, int LastRow, int From, int To)> regions)
+    {
+        var result = new List<(int FirstRow, int LastRow, int From, int To, bool Joined)>();
+        foreach (var (first, last, from, to) in regions)
+        {
+            if (result.Count > 0 && first == last)
+            {
+                var previous = result[^1];
+                var previousIsThin = previous.Joined || previous.FirstRow == previous.LastRow;
+                if (previousIsThin && first > previous.LastRow && from <= previous.To && to >= previous.From)
+                {
+                    result[^1] = (previous.FirstRow, last, Math.Min(previous.From, from), Math.Max(previous.To, to), true);
+                    continue;
+                }
+            }
+
+            result.Add((first, last, from, to, false));
+        }
+
+        return result;
+    }
+
+    // The runs of rows (or columns) that are not empty all across, in the given block.
+    private List<(int Start, int End)> Spans(int r0, int r1, int c0, int c1, bool byRows)
+    {
+        var spans = new List<(int, int)>();
+        var start = -1;
+        var (lo, hi) = byRows ? (r0, r1) : (c0, c1);
+        for (var i = lo; i <= hi + 1; i++)
+        {
+            // A hidden row or column is not in the output: it neither joins nor cuts.
+            if (i <= hi && (byRows ? HiddenRows.Contains(i) : HiddenColumns.Contains(i)))
+            {
+                continue;
+            }
+
+            var filled = i <= hi && (byRows
+                ? Enumerable.Range(c0, c1 - c0 + 1).Any(c => r0 <= i && i < Rows.Length && IsFilled(i, c))
+                : Enumerable.Range(r0, r1 - r0 + 1).Any(r => r < Rows.Length && IsFilled(r, i)));
+            if (filled && start < 0)
+            {
+                start = i;
+            }
+            else if (!filled && start >= 0)
+            {
+                spans.Add((start, i - 1));
+                start = -1;
+            }
+        }
+
+        return spans;
+    }
 
     // The tables and the rows between them, from the top, when the tables are one above the other and nothing is beside them; otherwise null.
     private List<(int First, int Last, SheetTable? Table)>? StackedBlocks()
@@ -191,12 +327,12 @@ public sealed class SheetContent
     }
 
     // The cells of rows firstRow..lastRow and columns fromIndex..toIndex as a Markdown table (hidden rows and columns left out).
-    private string Block(int firstRow, int lastRow, int fromIndex, int toIndex, bool hasHeader)
+    private string Block(int firstRow, int lastRow, int fromIndex, int toIndex, bool hasHeader, bool skipEmptyRows = false)
     {
         var rows = new List<IReadOnlyList<string>>();
         for (var r = firstRow; r <= lastRow && r < Rows.Length; r++)
         {
-            if (HiddenRows.Contains(r))
+            if (HiddenRows.Contains(r) || (skipEmptyRows && !HasContent(r, fromIndex, toIndex)))
             {
                 continue;
             }

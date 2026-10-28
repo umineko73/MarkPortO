@@ -198,6 +198,65 @@ public class XlsxReaderTests
     }
 
     [Fact]
+    public void Read_Markdown_CutsTheBlocksAtEmptyRowsAndColumns_IntoTablesOfTheirOwn()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("blocks.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [
+            ["A1", "B1", "", "C1", "D1"],
+            ["A2", "B2", "", "C2", "D2"],
+            ["", "", "", "", ""],
+            ["E1", "F1", "G1", "", ""],
+            ["E2", "F2", "G2", "", ""]]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal(
+            "|  |  |\n|---|---|\n| A1 | B1 |\n| A2 | B2 |\n\n" +
+            "|  |  |\n|---|---|\n| C1 | D1 |\n| C2 | D2 |\n\n" +
+            "|  |  |  |\n|---|---|---|\n| E1 | F1 | G1 |\n| E2 | F2 | G2 |",
+            markdown);
+    }
+
+    [Fact]
+    public void Read_Markdown_RowsOfOneRowEach_WithEmptyRowsBetween_AreOneTable_AndATableOfSeveralRowsStaysApart()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("thin.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [
+            ["Mon", "Tue"],
+            ["", ""],
+            ["1", "2"],
+            ["", ""],
+            ["3", "4"],
+            ["", ""],
+            ["x", "y"],
+            ["z", "w"]]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal(
+            "|  |  |\n|---|---|\n| Mon | Tue |\n| 1 | 2 |\n| 3 | 4 |\n\n" +
+            "|  |  |\n|---|---|\n| x | y |\n| z | w |",
+            markdown);
+    }
+
+    [Fact]
+    public void Read_Markdown_ALabelThatRunsOverEmptyCells_IsNotCutFromTheValueBesideIt()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("overflow.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [
+            ["Opportunity cost (if any) of the project=", "", "", "", "$7,484"],
+            ["Lifetime of the investment overall=", "", "", "", "10"]]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.DoesNotContain("\n\n", markdown);
+        Assert.Contains("$7,484", markdown);
+    }
+
+    [Fact]
     public void Read_Markdown_OfASheetWithoutAnExcelTable_HasAnEmptyHeaderAndTheFirstRowAsData()
     {
         using var dir = new TempDir();
