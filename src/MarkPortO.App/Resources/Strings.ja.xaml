@@ -166,7 +166,7 @@
   <sys:String x:Key="Prompts_Reset">表示中のプロンプトを既定に戻す</sys:String>
   <sys:String x:Key="Prompts_Close">閉じる</sys:String>
   <sys:String x:Key="About_Title">バージョン情報</sys:String>
-  <sys:String x:Key="About_Body">MarkPortO {0}&#10;&#10;Word・Excel・PowerPoint の文書を、Markdown とページごとの画像に変換し、VLM で画像から文字を読み取ることもできます。&#10;&#10;著作者: umineko73&#10;ライセンス: GPL-3.0-only&#10;URL: https://github.com/umineko73/MarkPortO</sys:String>
+  <sys:String x:Key="About_Body">MarkPortO {0}&#10;&#10;Word・Excel・PowerPoint・PDF の文書を、Markdown とページごとの画像に変換し、VLM で画像から文字を読み取ることもできます。&#10;&#10;著作者: umineko73&#10;ライセンス: GPL-3.0-only&#10;URL: https://github.com/umineko73/MarkPortO</sys:String>
   <sys:String x:Key="Licenses_NotFound">ライセンスのファイルが見つかりません: {0}</sys:String>
   <sys:String x:Key="Conn_Kind">種類</sys:String>
   <sys:String x:Key="Conn_KindOpenAi">OpenAI互換のサーバー</sys:String>

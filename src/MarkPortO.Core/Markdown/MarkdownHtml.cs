@@ -39,6 +39,7 @@ public static partial class MarkdownHtml
 
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        .UseSoftlineBreakAsHardlineBreak() // a line break inside a paragraph is shown as a line break (the Markdown itself is not changed)
         .DisableHtml()
         .Build();
 
@@ -60,8 +61,6 @@ public static partial class MarkdownHtml
             text = ImageLine().Replace(text, string.Empty);
         }
 
-        // A line break inside a paragraph is only a space in Markdown: in the page it is shown as a line break (the Markdown itself is not changed).
-        text = LineBreaks.Mark(text);
         text = text.Replace("<br>", BreakToken, StringComparison.OrdinalIgnoreCase);
         var body = Markdig.Markdown.ToHtml(text, Pipeline).Replace(BreakToken, "<br>", StringComparison.Ordinal);
         return "<!doctype html><html><head><meta charset=\"utf-8\">"

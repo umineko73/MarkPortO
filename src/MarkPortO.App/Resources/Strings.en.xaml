@@ -166,7 +166,7 @@
   <sys:String x:Key="Prompts_Reset">Reset the shown prompt to the default</sys:String>
   <sys:String x:Key="Prompts_Close">Close</sys:String>
   <sys:String x:Key="About_Title">About MarkPortO</sys:String>
-  <sys:String x:Key="About_Body">MarkPortO {0}&#10;&#10;Converts Word, Excel and PowerPoint documents to Markdown and an image of each page, and can read the images with a VLM.&#10;&#10;Author: umineko73&#10;License: GPL-3.0-only&#10;URL: https://github.com/umineko73/MarkPortO</sys:String>
+  <sys:String x:Key="About_Body">MarkPortO {0}&#10;&#10;Converts Word, Excel, PowerPoint and PDF documents to Markdown and an image of each page, and can read the images with a VLM.&#10;&#10;Author: umineko73&#10;License: GPL-3.0-only&#10;URL: https://github.com/umineko73/MarkPortO</sys:String>
   <sys:String x:Key="Licenses_NotFound">The license file was not found: {0}</sys:String>
   <sys:String x:Key="Conn_Kind">Type</sys:String>
   <sys:String x:Key="Conn_KindOpenAi">OpenAI-compatible server</sys:String>
