@@ -15,7 +15,7 @@ MarkPortO converts Word, Excel, PowerPoint and PDF documents (docx, xlsx, pptx, 
 ## Features
 
 - **Markdown and page images.** The text becomes Markdown and every page is saved as a PNG, referred to from the Markdown. The structure is read from the file itself (merged cells, footnotes, links, charts, SmartArt, speaker notes, the numbers of headings).
-- **Tables that follow the pages.** A table that runs over several pages is one table in the Markdown, with a note on the later pages. A sheet laid out like a page is cut into one table per block.
+- **Tables and paragraphs that follow the pages.** A table or a paragraph that runs over several pages is one table or paragraph in the Markdown, with a note on the later pages. A sheet laid out like a page is cut into one table per block.
 - **Excel.** All columns of a sheet go on one image (even a very wide one, at a higher DPI), or all rows, or the print setup of the sheet (**Sheet range**, `--excel-range`).
 - **PDF.** Each page becomes an image, and the VLM (Step3) reads it. The text layer of the PDF, if it has one, only helps: it is the text of the page, and it is sent with the image. Turn it off (**Use the extracted text as a help**, `--pdf-text off`) for a PDF whose text is garbled. No Office or LibreOffice is needed.
 - **PowerPoint.** Text of shapes outside the slide (memos on the pasteboard) is written as `> **Off-slide**: …`; it can be left out.
@@ -45,7 +45,7 @@ To build from source: `dotnet build MarkPortO.slnx` (.NET 10 SDK).
 
 ### Desktop app
 
-Add files or a folder (or drop them on the list), choose an output folder, and press **Start**. The **Conditions** have a row of common options (sub-folders, engine, DPI), a row for each kind of file (convert it or not, and the options only for it), and the steps. The values are saved to `%APPDATA%\MarkPortO\settings.json` and restored at the next start.
+Add files or a folder (or drop them on the list), choose an output folder, and press **Start**. The **Conditions** have a row of common options (sub-folders, engine, DPI), a row for each kind of file (convert it or not, and the options only for it), and the steps. The list of files and the list of pages share the height; drag the bar between them to change it. The values are saved to `%APPDATA%\MarkPortO\settings.json` and restored at the next start.
 
 **Preview** (double-click a file): choose which of the page image, the extracted text and the VLM result to show, side by side or stacked, drawn or as source. **Follow** shows the page read last. Arrow keys and the mouse wheel change the page; dragging with the right button scrolls.
 

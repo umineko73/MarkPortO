@@ -74,6 +74,7 @@
   <sys:String x:Key="Main_Col_Deleted">Deleted</sys:String>
   <sys:String x:Key="Main_Col_Usage">VLM usage</sys:String>
   <sys:String x:Key="Main_Col_Message">Message</sys:String>
+  <sys:String x:Key="Main_SplitterTip">Drag to change the height of the file list and the page list</sys:String>
   <sys:String x:Key="Main_PagesGroup">Pages of the selected file</sys:String>
   <sys:String x:Key="Main_Col_Page">Page</sys:String>
   <sys:String x:Key="Main_Col_Position">Position</sys:String>

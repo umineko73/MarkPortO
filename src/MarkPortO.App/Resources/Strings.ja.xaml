@@ -74,6 +74,7 @@
   <sys:String x:Key="Main_Col_Deleted">削除</sys:String>
   <sys:String x:Key="Main_Col_Usage">VLM使用量</sys:String>
   <sys:String x:Key="Main_Col_Message">メッセージ</sys:String>
+  <sys:String x:Key="Main_SplitterTip">ドラッグして、ファイル一覧とページ一覧の高さを変えます</sys:String>
   <sys:String x:Key="Main_PagesGroup">選んだファイルのページ</sys:String>
   <sys:String x:Key="Main_Col_Page">ページ</sys:String>
   <sys:String x:Key="Main_Col_Position">位置</sys:String>

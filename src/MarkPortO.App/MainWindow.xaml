@@ -49,8 +49,7 @@
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
-        <RowDefinition Height="*" MinHeight="140" />
-        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" MinHeight="200" />
         <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
 
@@ -198,115 +197,126 @@
                 ToolTip="{DynamicResource Main_PreviewTip}" ToolTipService.ShowOnDisabled="True" />
       </StackPanel>
 
-      <!-- File list -->
-      <DataGrid Grid.Row="4" ItemsSource="{Binding Files}" SelectedItem="{Binding Selected}"
-                AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MouseDoubleClick="OnFileDoubleClick"
-                CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
-        <DataGrid.ContextMenu>
-          <ContextMenu>
-            <MenuItem Header="{DynamicResource Main_Preview}" Click="OnPreviewClick" IsEnabled="{Binding Selected.CanPreview, FallbackValue=False, TargetNullValue=False}" />
-          </ContextMenu>
-        </DataGrid.ContextMenu>
-        <DataGrid.RowStyle>
-          <Style TargetType="DataGridRow">
-            <Style.Triggers>
-              <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                <Setter Property="Foreground" Value="{DynamicResource FailedBrush}" />
-              </DataTrigger>
-              <DataTrigger Binding="{Binding HasPageFailures}" Value="True">
-                <Setter Property="Foreground" Value="{DynamicResource PartlyFailedBrush}" />
-              </DataTrigger>
-            </Style.Triggers>
-          </Style>
-        </DataGrid.RowStyle>
-        <DataGrid.Columns>
-          <DataGridTextColumn Binding="{Binding FileName}" Width="3*">
-            <DataGridTextColumn.Header>
-              <TextBlock Text="{DynamicResource Main_Col_File}" />
-            </DataGridTextColumn.Header>
-            <DataGridTextColumn.CellStyle>
-              <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
-                <Setter Property="ToolTip" Value="{Binding FullPath}" />
-              </Style>
-            </DataGridTextColumn.CellStyle>
-          </DataGridTextColumn>
-          <DataGridTextColumn Binding="{Binding KindText}" Width="56">
-            <DataGridTextColumn.Header>
-              <TextBlock Text="{DynamicResource Main_Col_Type}" />
-            </DataGridTextColumn.Header>
-          </DataGridTextColumn>
-          <DataGridTextColumn Binding="{Binding StateText}" Width="150">
-            <DataGridTextColumn.Header>
-              <TextBlock Text="{DynamicResource Main_Col_State}" />
-            </DataGridTextColumn.Header>
-          </DataGridTextColumn>
-          <DataGridTextColumn Header="Step1" Binding="{Binding Step1Text}" Width="80" />
-          <DataGridTextColumn Header="Step2" Binding="{Binding Step2Text}" Width="80" />
-          <DataGridTextColumn Header="Step3" Binding="{Binding Step3Text}" Width="100" />
-          <DataGridTextColumn Binding="{Binding PageCount}" Width="64">
-            <DataGridTextColumn.Header>
-              <TextBlock Text="{DynamicResource Main_Col_Pages}" />
-            </DataGridTextColumn.Header>
-          </DataGridTextColumn>
-          <DataGridTextColumn Binding="{Binding DeletedPageCount}" Width="84">
-            <DataGridTextColumn.Header>
-              <TextBlock Text="{DynamicResource Main_Col_Deleted}" />
-            </DataGridTextColumn.Header>
-          </DataGridTextColumn>
-          <DataGridTextColumn Binding="{Binding UsageText}" Width="360">
-            <DataGridTextColumn.Header>
-              <TextBlock Text="{DynamicResource Main_Col_Usage}" />
-            </DataGridTextColumn.Header>
-          </DataGridTextColumn>
-          <DataGridTextColumn Binding="{Binding Message}" Width="*">
-            <DataGridTextColumn.Header>
-              <TextBlock Text="{DynamicResource Main_Col_Message}" />
-            </DataGridTextColumn.Header>
-          </DataGridTextColumn>
-        </DataGrid.Columns>
-      </DataGrid>
-
-      <!-- The pages of the selected file -->
-      <GroupBox Grid.Row="5" Header="{DynamicResource Main_PagesGroup}" Margin="0,6,0,0" Padding="4" Height="150">
-        <DataGrid ItemsSource="{Binding Selected.Pages}" AutoGenerateColumns="False" IsReadOnly="True"
+      <Grid Grid.Row="4">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="2*" MinHeight="90" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" MinHeight="90" />
+        </Grid.RowDefinitions>
+        <!-- File list -->
+        <DataGrid Grid.Row="0" ItemsSource="{Binding Files}" SelectedItem="{Binding Selected}"
+                  AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MouseDoubleClick="OnFileDoubleClick"
                   CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+          <DataGrid.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="{DynamicResource Main_Preview}" Click="OnPreviewClick" IsEnabled="{Binding Selected.CanPreview, FallbackValue=False, TargetNullValue=False}" />
+            </ContextMenu>
+          </DataGrid.ContextMenu>
+          <DataGrid.RowStyle>
+            <Style TargetType="DataGridRow">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                  <Setter Property="Foreground" Value="{DynamicResource FailedBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding HasPageFailures}" Value="True">
+                  <Setter Property="Foreground" Value="{DynamicResource PartlyFailedBrush}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </DataGrid.RowStyle>
           <DataGrid.Columns>
-            <DataGridTextColumn Binding="{Binding Index}" Width="80">
+            <DataGridTextColumn Binding="{Binding FileName}" Width="3*">
               <DataGridTextColumn.Header>
-                <TextBlock Text="{DynamicResource Main_Col_Page}" />
-              </DataGridTextColumn.Header>
-            </DataGridTextColumn>
-            <DataGridTextColumn Binding="{Binding Label}" Width="*">
-              <DataGridTextColumn.Header>
-                <TextBlock Text="{DynamicResource Main_Col_Position}" />
-              </DataGridTextColumn.Header>
-            </DataGridTextColumn>
-            <DataGridCheckBoxColumn Binding="{Binding IsDeleted, Mode=OneWay}" Width="110">
-              <DataGridCheckBoxColumn.Header>
-                <TextBlock Text="{DynamicResource Main_Col_DeletedPage}" />
-              </DataGridCheckBoxColumn.Header>
-            </DataGridCheckBoxColumn>
-            <DataGridTextColumn Binding="{Binding VlmState}" Width="120">
-              <DataGridTextColumn.Header>
-                <TextBlock Text="{DynamicResource Main_Col_VlmState}" />
-              </DataGridTextColumn.Header>
-            </DataGridTextColumn>
-            <DataGridTextColumn Binding="{Binding UsageText}" Width="2*">
-              <DataGridTextColumn.Header>
-                <TextBlock Text="{DynamicResource Main_Col_Usage}" />
+                <TextBlock Text="{DynamicResource Main_Col_File}" />
               </DataGridTextColumn.Header>
               <DataGridTextColumn.CellStyle>
                 <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
-                  <Setter Property="ToolTip" Value="{Binding UsageText}" />
+                  <Setter Property="ToolTip" Value="{Binding FullPath}" />
                 </Style>
               </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding KindText}" Width="56">
+              <DataGridTextColumn.Header>
+                <TextBlock Text="{DynamicResource Main_Col_Type}" />
+              </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding StateText}" Width="150">
+              <DataGridTextColumn.Header>
+                <TextBlock Text="{DynamicResource Main_Col_State}" />
+              </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Header="Step1" Binding="{Binding Step1Text}" Width="80" />
+            <DataGridTextColumn Header="Step2" Binding="{Binding Step2Text}" Width="80" />
+            <DataGridTextColumn Header="Step3" Binding="{Binding Step3Text}" Width="100" />
+            <DataGridTextColumn Binding="{Binding PageCount}" Width="64">
+              <DataGridTextColumn.Header>
+                <TextBlock Text="{DynamicResource Main_Col_Pages}" />
+              </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding DeletedPageCount}" Width="84">
+              <DataGridTextColumn.Header>
+                <TextBlock Text="{DynamicResource Main_Col_Deleted}" />
+              </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding UsageText}" Width="360">
+              <DataGridTextColumn.Header>
+                <TextBlock Text="{DynamicResource Main_Col_Usage}" />
+              </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding Message}" Width="*">
+              <DataGridTextColumn.Header>
+                <TextBlock Text="{DynamicResource Main_Col_Message}" />
+              </DataGridTextColumn.Header>
+            </DataGridTextColumn>
           </DataGrid.Columns>
         </DataGrid>
-      </GroupBox>
+
+        <!-- The two lists share the height: the splitter changes the size of each -->
+        <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Center" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+                      Background="Transparent" Cursor="SizeNS" ToolTip="{DynamicResource Main_SplitterTip}" />
+
+        <!-- The pages of the selected file -->
+        <GroupBox Grid.Row="2" Header="{DynamicResource Main_PagesGroup}" Padding="4">
+          <DataGrid ItemsSource="{Binding Selected.Pages}" AutoGenerateColumns="False" IsReadOnly="True"
+                    CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+              <DataGridTextColumn Binding="{Binding Index}" Width="80">
+                <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource Main_Col_Page}" />
+                </DataGridTextColumn.Header>
+              </DataGridTextColumn>
+              <DataGridTextColumn Binding="{Binding Label}" Width="*">
+                <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource Main_Col_Position}" />
+                </DataGridTextColumn.Header>
+              </DataGridTextColumn>
+              <DataGridCheckBoxColumn Binding="{Binding IsDeleted, Mode=OneWay}" Width="110">
+                <DataGridCheckBoxColumn.Header>
+                  <TextBlock Text="{DynamicResource Main_Col_DeletedPage}" />
+                </DataGridCheckBoxColumn.Header>
+              </DataGridCheckBoxColumn>
+              <DataGridTextColumn Binding="{Binding VlmState}" Width="120">
+                <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource Main_Col_VlmState}" />
+                </DataGridTextColumn.Header>
+              </DataGridTextColumn>
+              <DataGridTextColumn Binding="{Binding UsageText}" Width="2*">
+                <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource Main_Col_Usage}" />
+                </DataGridTextColumn.Header>
+                <DataGridTextColumn.CellStyle>
+                  <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                    <Setter Property="ToolTip" Value="{Binding UsageText}" />
+                  </Style>
+                </DataGridTextColumn.CellStyle>
+              </DataGridTextColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+        </GroupBox>
+      </Grid>
 
       <!-- Status -->
-      <TextBlock Grid.Row="6" Text="{Binding Status}" TextWrapping="Wrap" Margin="0,8,0,0" />
+      <TextBlock Grid.Row="5" Text="{Binding Status}" TextWrapping="Wrap" Margin="0,8,0,0" />
     </Grid>
   </DockPanel>
 </Window>
