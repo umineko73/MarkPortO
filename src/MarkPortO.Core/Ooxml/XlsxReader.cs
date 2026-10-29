@@ -28,6 +28,11 @@ public readonly record struct MergeMark(bool FirstRow, int OriginRow, int Origin
 
 
 /// <summary>An Excel table (<c>xl/tables</c>) of a sheet: its name, and its cells (0-based in <see cref="SheetContent.Rows"/>).</summary>
+/// <summary>A piece of the Markdown of a sheet: a table (or a part of one that runs over pages), or the comments and the charts.</summary>
+/// <param name="Page">The page of the printed sheet (0-based) that the piece is on.</param>
+/// <param name="HeadPage">For a table: the page where the table starts (the page of its first piece).</param>
+public sealed record SheetPart(int Page, string Markdown, bool IsTable, int HeadPage);
+
 public sealed record SheetTable(string Name, int FirstRow, int LastRow, int FirstColumn, int LastColumn, bool HasHeader);
 
 /// <summary>A comment (note) of a cell (0-based in <see cref="SheetContent.Rows"/>).</summary>
@@ -87,9 +92,51 @@ public sealed class SheetContent
         $"{ExcelColumn.Name(FirstColumn + fromIndex)}:{ExcelColumn.Name(FirstColumn + toIndex)}";
 
     /// <summary>The cells of the given used-range columns (0-based, inclusive) as a Markdown table.</summary>
-    public string ToMarkdown(int fromIndex, int toIndex)
+    public string ToMarkdown(int fromIndex, int toIndex) =>
+        string.Join("\n\n", ToMarkdownParts(fromIndex, toIndex, null).Select(part => part.Markdown).Where(markdown => markdown.Length > 0));
+
+    /// <summary>
+    /// The same Markdown as pieces: a table that runs over several pages of the printed sheet is cut at the page breaks, one table for each page
+    /// (FR-090). <paramref name="rowPages"/> is the page (0-based) of each row of the sheet; null puts everything on page 0.
+    /// </summary>
+    public IReadOnlyList<SheetPart> ToMarkdownParts(int fromIndex, int toIndex, IReadOnlyList<int>? rowPages)
     {
-        var sections = new List<string>();
+        var parts = new List<SheetPart>();
+
+        // One table of the sheet, as one piece for each page that its rows are on.
+        void AddTable(int firstRow, int lastRow, int from, int to, bool hasHeader, bool skipEmptyRows, string? heading)
+        {
+            var groups = new List<(int First, int Last, int Page)>();
+            var previous = 0;
+            for (var r = firstRow; r <= lastRow && r < Rows.Length; r++)
+            {
+                var page = rowPages is null ? 0 : Math.Max(previous, r < rowPages.Count ? rowPages[r] : previous);
+                previous = page;
+                if (groups.Count > 0 && groups[^1].Page == page)
+                {
+                    groups[^1] = (groups[^1].First, r, page);
+                }
+                else
+                {
+                    groups.Add((r, r, page));
+                }
+            }
+
+            var started = false;
+            var headPage = groups.Count > 0 ? groups[0].Page : 0;
+            foreach (var (first, last, page) in groups)
+            {
+                var markdown = Block(first, last, from, to, hasHeader: !started && hasHeader, skipEmptyRows);
+                if (markdown.Length == 0)
+                {
+                    continue;
+                }
+
+                parts.Add(new SheetPart(page, !started && heading is not null ? heading + "\n\n" + markdown : markdown, IsTable: true, headPage));
+                started = true;
+            }
+        }
+
         if (StackedBlocks() is { } blocks)
         {
             foreach (var (first, last, table) in blocks)
@@ -100,7 +147,7 @@ public sealed class SheetContent
                     var filled = Enumerable.Range(first, last - first + 1).Where(r => !HiddenRows.Contains(r) && HasContent(r, fromIndex, toIndex)).ToList();
                     if (filled.Count > 0)
                     {
-                        sections.Add(Block(filled[0], filled[^1], fromIndex, toIndex, hasHeader: false));
+                        AddTable(filled[0], filled[^1], fromIndex, toIndex, hasHeader: false, skipEmptyRows: false, heading: null);
                     }
 
                     continue;
@@ -110,18 +157,21 @@ public sealed class SheetContent
                 var to = Math.Min(toIndex, table.LastColumn);
                 if (from <= to)
                 {
-                    sections.Add("### " + MarkdownText.EscapeCell(table.Name) + "\n\n" + Block(table.FirstRow, table.LastRow, from, to, table.HasHeader));
+                    AddTable(table.FirstRow, table.LastRow, from, to, table.HasHeader, skipEmptyRows: false, heading: "### " + MarkdownText.EscapeCell(table.Name));
                 }
             }
         }
         else if (!HasHeaderRow && Regions(0, Rows.Length - 1, fromIndex, toIndex) is { Count: > 1 } regions)
         {
             // Tables drawn on the sheet without the Excel table feature: each is written as a table of its own.
-            sections.AddRange(JoinThinBlocks(regions).Select(r => Block(r.FirstRow, r.LastRow, r.From, r.To, hasHeader: false, skipEmptyRows: r.Joined)));
+            foreach (var r in JoinThinBlocks(regions))
+            {
+                AddTable(r.FirstRow, r.LastRow, r.From, r.To, hasHeader: false, skipEmptyRows: r.Joined, heading: null);
+            }
         }
         else
         {
-            sections.Add(Block(0, Rows.Length - 1, fromIndex, toIndex, HasHeaderRow));
+            AddTable(0, Rows.Length - 1, fromIndex, toIndex, HasHeaderRow, skipEmptyRows: false, heading: null);
         }
 
         var notes = Notes
@@ -130,15 +180,15 @@ public sealed class SheetContent
             .ToList();
         if (notes.Count > 0)
         {
-            sections.Add(string.Join("\n>\n", notes));
+            parts.Add(new SheetPart(0, string.Join("\n>\n", notes), IsTable: false, 0));
         }
 
         if (fromIndex == 0)
         {
-            sections.AddRange(Charts.Select(chart => chart.ToMarkdown()));
+            parts.AddRange(Charts.Select(chart => new SheetPart(0, chart.ToMarkdown(), IsTable: false, 0)));
         }
 
-        return string.Join("\n\n", sections.Where(s => s.Length > 0));
+        return parts;
     }
 
     private bool HasContent(int row, int fromIndex, int toIndex) =>

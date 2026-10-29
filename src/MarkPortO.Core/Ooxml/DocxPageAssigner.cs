@@ -304,7 +304,7 @@ public static class DocxPageAssigner
         return builder.ToString();
     }
 
-    private static int Find(string haystack, string text, int cursor, int window)
+    internal static int Find(string haystack, string text, int cursor, int window)
     {
         var limit = Math.Min(haystack.Length, cursor + window);
         foreach (var length in new[] { Math.Min(text.Length, LongNeedle), Math.Min(text.Length, ShortNeedle) }.Distinct())
@@ -320,7 +320,7 @@ public static class DocxPageAssigner
         return -1;
     }
 
-    private static int PageOf(int[] pageStarts, int position)
+    internal static int PageOf(int[] pageStarts, int position)
     {
         var page = Array.BinarySearch(pageStarts, position);
         if (page < 0)

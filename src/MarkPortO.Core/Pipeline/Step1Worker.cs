@@ -268,13 +268,32 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
 
                 if (pdfPages > 0)
                 {
-                    // The table of the part goes with its first page; later pages of a long sheet carry only the image.
-                    layout.Blocks.Add(new Block
+                    // A long sheet is printed on several pages, one below the other: the rows are put on the page they are on, so that each page has the
+                    // table of its own rows (the text sent with the image of the page), and the Markdown of the document joins them again (FR-090).
+                    int[]? rowPages = null;
+                    if (pdfPages > 1)
                     {
-                        Kind = BlockKind.SheetTable,
-                        Markdown = sheet.ToMarkdown(unit.FromColumnIndex, unit.ToColumnIndex),
-                        PageIndex = firstPageOfUnit,
-                    });
+                        try
+                        {
+                            rowPages = ExcelRowPages.Assign(sheet, unit.FromColumnIndex, unit.ToColumnIndex, PdfTextExtractor.GetPageTexts(pdf));
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            work.Context.Logger.LogWarning("The pages of the rows of '{Sheet}' could not be found: {Message}", sheet.Name, ex.Message);
+                        }
+                    }
+
+                    int PageOf(int pageInUnit) => firstPageOfUnit + Math.Min(Math.Max(0, pageInUnit), pdfPages - 1);
+                    foreach (var part in sheet.ToMarkdownParts(unit.FromColumnIndex, unit.ToColumnIndex, rowPages))
+                    {
+                        layout.Blocks.Add(new Block
+                        {
+                            Kind = part.IsTable ? BlockKind.SheetTable : BlockKind.Paragraph,
+                            Markdown = part.Markdown,
+                            PageIndex = PageOf(part.Page),
+                            JoinedToPage = part.IsTable && part.Page != part.HeadPage ? PageOf(part.HeadPage) : null,
+                        });
+                    }
                 }
 
                 if (unit.PartCount > 1 && unit.Part == 1)

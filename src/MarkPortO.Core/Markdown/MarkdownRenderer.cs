@@ -64,10 +64,11 @@ public static class MarkdownRenderer
 
         var effectivePages = DocxPageAssigner.EffectivePages(document.Blocks, document.Pages.Count);
         var blockTexts = JoinTableParts(document.Blocks, effectivePages, language);
+        var vlmTexts = includeVlm ? VlmTableJoiner.Join(document, effectivePages, language) : new Dictionary<int, string>();
         foreach (var page in document.Pages.OrderBy(p => p.Index))
         {
             builder.Append('\n');
-            AppendPage(builder, document, page, effectivePages, blockTexts, includeImages, includeVlm, vlmFile, language);
+            AppendPage(builder, document, page, effectivePages, blockTexts, vlmTexts, includeImages, includeVlm, vlmFile, language);
         }
 
         return builder.ToString().TrimEnd('\n') + "\n";
@@ -158,6 +159,7 @@ public static class MarkdownRenderer
         PageRecord page,
         IReadOnlyList<int> effectivePages,
         IReadOnlyList<string> blockTexts,
+        IReadOnlyDictionary<int, string> vlmTexts,
         bool includeImages,
         bool includeVlm,
         bool vlmOnly,
@@ -203,7 +205,7 @@ public static class MarkdownRenderer
 
         if (includeVlm)
         {
-            AppendVlm(builder, page);
+            AppendVlm(builder, page, vlmTexts);
         }
     }
 
@@ -219,7 +221,7 @@ public static class MarkdownRenderer
         for (var i = 0; i < blocks.Count; i++)
         {
             var block = blocks[i];
-            if (block.Kind != BlockKind.Table)
+            if (block.Kind is not (BlockKind.Table or BlockKind.SheetTable))
             {
                 continue;
             }
@@ -244,7 +246,7 @@ public static class MarkdownRenderer
         return texts;
     }
 
-    private static void AppendVlm(StringBuilder builder, PageRecord page)
+    private static void AppendVlm(StringBuilder builder, PageRecord page, IReadOnlyDictionary<int, string> vlmTexts)
     {
         var number = page.Index.ToString(CultureInfo.InvariantCulture);
         switch (page.Step3)
@@ -256,7 +258,7 @@ public static class MarkdownRenderer
                 builder.Append("\n<!-- vlm:begin page=").Append(number)
                     .Append(page.Bands > 1 ? " bands=" + page.Bands.ToString(CultureInfo.InvariantCulture) : string.Empty)
                     .Append(" -->\n")
-                    .Append(MarkdownText.NeutraliseMarkers(page.VlmText.Trim()))
+                    .Append(MarkdownText.NeutraliseMarkers(vlmTexts.TryGetValue(page.Index, out var joined) ? joined : page.VlmText.Trim()))
                     .Append("\n<!-- vlm:end -->\n");
                 builder.Append(UsageComment(page));
                 break;
