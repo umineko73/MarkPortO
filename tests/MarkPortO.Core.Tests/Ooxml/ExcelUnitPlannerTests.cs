@@ -33,9 +33,22 @@ public class ExcelUnitPlannerTests
     [Fact]
     public void TheLimitIsThePrintableWidthDividedByTheMinimumScale()
     {
-        // A3 landscape 1190.55 pt minus 2 x 18 pt margins = 1154.55 pt; / 0.6 = 1924.25 pt.
+        // A3 landscape 1190.55 pt minus 2 x 18 pt margins = 1154.55 pt; / 0.2 = 5772.75 pt.
         Assert.Equal(1154.55, ExcelUnitPlanner.PrintableWidthPoints, 2);
-        Assert.Equal(1924.25, ExcelUnitPlanner.MaxGroupWidthPoints, 2);
+        Assert.Equal(5772.75, ExcelUnitPlanner.MaxGroupWidthPoints, 2);
+    }
+
+    [Theory]
+    [InlineData(48.0, 1.0)]       // 5 columns: not shrunk
+    [InlineData(1924.25, 1.0)]    // shrunk to 0.6: the text is as large as the DPI says
+    [InlineData(2886.375, 1.5)]   // shrunk to 0.4: 0.6 / 0.4
+    [InlineData(5772.75, 3.0)]    // shrunk to 0.2: 0.6 / 0.2
+    public void ASheetThatIsShrunkBelowTheComfortScale_GetsAHigherDpi(double width, double expected)
+    {
+        var sheet = Sheet("Data", width);
+        var unit = Assert.Single(ExcelUnitPlanner.Plan(sheet));
+
+        Assert.Equal(expected, ExcelUnitPlanner.DpiFactor(sheet, unit), 3);
     }
 
     [Fact]
@@ -69,27 +82,27 @@ public class ExcelUnitPlannerTests
     }
 
     [Fact]
-    public void SixtyWideColumns_AreSplitIntoGroupsThatEachFit_CoveringEveryColumnOnce()
+    public void OneHundredSixtyWideColumns_AreSplitIntoGroupsThatEachFit_CoveringEveryColumnOnce()
     {
-        var sheet = Sheet("Wide", Enumerable.Repeat(73.5, 60).ToArray());
+        var sheet = Sheet("Wide", Enumerable.Repeat(73.5, 160).ToArray());
 
         var units = ExcelUnitPlanner.Plan(sheet);
 
-        // 26 columns x 73.5 pt = 1911 pt fits; 27 columns = 1984.5 pt does not.
+        // 78 columns x 73.5 pt = 5733 pt fits; 79 columns = 5806.5 pt does not.
         Assert.Equal(3, units.Count);
-        Assert.Equal(["A:Z", "AA:AZ", "BA:BH"], units.Select(u => u.ColumnRange));
+        Assert.Equal(["A:BZ", "CA:EZ", "FA:FD"], units.Select(u => u.ColumnRange));
         Assert.All(units, u =>
         {
             var width = sheet.ColumnWidthsPoints.Skip(u.FromColumnIndex).Take(u.ToColumnIndex - u.FromColumnIndex + 1).Sum();
             Assert.True(width <= ExcelUnitPlanner.MaxGroupWidthPoints, $"{u.ColumnRange} is {width} pt wide");
         });
-        Assert.Equal(Enumerable.Range(0, 60), units.SelectMany(u => Enumerable.Range(u.FromColumnIndex, u.ToColumnIndex - u.FromColumnIndex + 1)));
+        Assert.Equal(Enumerable.Range(0, 160), units.SelectMany(u => Enumerable.Range(u.FromColumnIndex, u.ToColumnIndex - u.FromColumnIndex + 1)));
     }
 
     [Fact]
     public void AColumnWiderThanTheLimit_GetsAGroupOfItsOwn()
     {
-        var units = ExcelUnitPlanner.Plan(Sheet("Data", 48, 5000, 48));
+        var units = ExcelUnitPlanner.Plan(Sheet("Data", 48, 9000, 48));
 
         Assert.Equal(["A:A", "B:B", "C:C"], units.Select(u => u.ColumnRange));
     }

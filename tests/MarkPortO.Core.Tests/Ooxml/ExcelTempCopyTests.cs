@@ -109,7 +109,7 @@ public class ExcelTempCopyTests
     {
         using var dir = new TempDir();
         var source = dir.Combine("wide.xlsx");
-        XlsxFactory.Create(source, XlsxFactory.WideSheet("Wide", columns: 60, rows: 3, columnWidthChars: 14));
+        XlsxFactory.Create(source, XlsxFactory.WideSheet("Wide", columns: 160, rows: 3, columnWidthChars: 14));
         var (sheet, second) = Plan(source, "Wide", part: 2);
         var copy = dir.Combine("copy.xlsx");
 
@@ -117,7 +117,7 @@ public class ExcelTempCopyTests
 
         using var document = SpreadsheetDocument.Open(copy, false);
         var area = document.WorkbookPart!.Workbook!.DefinedNames!.Elements<DefinedName>().Single(n => n.Name!.Value == "_xlnm.Print_Area");
-        Assert.Equal("'Wide'!$AA$1:$AZ$4", area.Text);
+        Assert.Equal("'Wide'!$CA$1:$EZ$4", area.Text);
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public class ExcelTempCopyTests
     {
         using var dir = new TempDir();
         var source = dir.Combine("book.xlsx");
-        XlsxFactory.Create(source, XlsxFactory.WideSheet("Wide", columns: 60, rows: 3, columnWidthChars: 14));
+        XlsxFactory.Create(source, XlsxFactory.WideSheet("Wide", columns: 160, rows: 3, columnWidthChars: 14));
         var sheet = XlsxReader.Read(source, false).Single();
         var units = ExcelUnitPlanner.Plan(sheet);
         Assert.Equal(3, units.Count);
@@ -240,14 +240,14 @@ public class ExcelTempCopyTests
             }
 
             // A column of another part must not appear in this part.
-            var outside = unit.ToColumnIndex + 2 <= 60 ? unit.ToColumnIndex + 2 : unit.FromColumnIndex;
+            var outside = unit.ToColumnIndex + 2 <= 160 ? unit.ToColumnIndex + 2 : unit.FromColumnIndex;
             if (unit.Part < units.Count)
             {
                 Assert.False(ContainsToken(text, $"r3c{outside}"), $"part {unit.Part} should not contain column {outside}");
             }
         }
 
-        Assert.Equal(Enumerable.Range(1, 60), seen.Order());
+        Assert.Equal(Enumerable.Range(1, 160), seen.Order());
     }
 
     // "r3c1" must not match inside "r3c12": the PDF text puts cells next to each other without a separator.

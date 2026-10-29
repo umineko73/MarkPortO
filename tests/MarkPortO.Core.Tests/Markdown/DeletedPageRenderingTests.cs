@@ -118,9 +118,9 @@ public class DeletedPageRenderingTests
     {
         using var dir = new TempDir();
         var source = dir.Combine("in", "book.xlsx");
-        var wide = XlsxFactory.WideSheet("Crossed", columns: 60, rows: 4, columnWidthChars: 14) with
+        var wide = XlsxFactory.WideSheet("Crossed", columns: 160, rows: 4, columnWidthChars: 14) with
         {
-            Shapes = [new CellShapeSpec("mathMultiply", 0, 0, 60, 5)],
+            Shapes = [new CellShapeSpec("mathMultiply", 0, 0, 160, 5)],
         };
         XlsxFactory.Create(source, new SheetSpec("Kept", [["kept-cell"]]), wide);
 

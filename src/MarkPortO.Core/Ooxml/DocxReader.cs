@@ -27,7 +27,19 @@ namespace MarkPortO.Core.Ooxml;
 /// <summary>A paragraph or table of a docx body, with the plain text that is searched for in the PDF (see DocxPageAssigner).</summary>
 /// <param name="Block">The block as Markdown. <see cref="Block.PageIndex"/> is not set yet.</param>
 /// <param name="SearchText">Text without Markdown marks, used to find the block in the PDF text.</param>
-public sealed record DocxBlock(Block Block, string SearchText);
+/// <param name="Table">The rows of a table block, so that a table that runs over several pages can be cut at the page breaks.</param>
+public sealed record DocxBlock(Block Block, string SearchText, DocxTable? Table = null)
+{
+    /// <summary>The page (1-based) of each row of <see cref="Table"/>, set by <see cref="DocxPageAssigner"/>; null when the rows were not placed.</summary>
+    public IReadOnlyList<int>? RowPages { get; set; }
+}
+
+/// <summary>The rows of a table, as Markdown cells and as the plain text of the cells that the PDF is searched for.</summary>
+/// <param name="Rows">The cells of each row as written in the Markdown table (merged cells are marks).</param>
+/// <param name="PlainRows">The plain text of the cells of each row (no marks), in order.</param>
+/// <param name="HasHeader">The first row is a header row of the table (FR-060).</param>
+/// <param name="RepeatsHeader">Word repeats the first row at the top of every page.</param>
+public sealed record DocxTable(IReadOnlyList<IReadOnlyList<string>> Rows, IReadOnlyList<IReadOnlyList<string>> PlainRows, bool HasHeader, bool RepeatsHeader);
 
 /// <summary>The shapes of one paragraph of the body, with the block they belong to.</summary>
 /// <param name="HostBlockIndex">
@@ -87,6 +99,9 @@ public static partial class DocxReader
         private readonly Dictionary<string, (int? HeadingLevel, bool IsTitle)> _styles = BuildStyleMap(main);
         private int _footnoteNumber;
         private int _endnoteNumber;
+
+        /// <summary>The automatic numbers ("1.2", "第3章") of the paragraphs; every paragraph of the body is passed to it in order.</summary>
+        public DocxNumbering Numbering { get; } = new(main);
 
         /// <summary>The notes that the paragraph being read refers to: written after it as <c>[^1]: text</c> (FR-071).</summary>
         public List<(string Label, string Text)> PendingNotes { get; } = [];
@@ -193,6 +208,9 @@ public static partial class DocxReader
         double pageWidth,
         double pageHeight)
     {
+        // The number of a list is counted for every paragraph, also for one without text (FR-077).
+        var number = context.Numbering.Label(paragraph);
+
         // The plain text finds the page of the block; the Markdown text also has links, note marks and the alternative text of pictures.
         var text = ParagraphText(paragraph).Trim();
         var markdown = ParagraphText(paragraph, context).Trim();
@@ -205,7 +223,9 @@ public static partial class DocxReader
             if (headingLevel is not null || isTitle)
             {
                 var level = Math.Clamp(headingLevel ?? 1, 1, 6);
-                blocks.Add(New(BlockKind.Heading, $"{new string('#', level)} {escaped.Replace("  \n", " ", StringComparison.Ordinal)}", text));
+                // The number that Word shows in front of a heading (1.2, 第3章) is not in its text: it is written here.
+                var title = escaped.Replace("  \n", " ", StringComparison.Ordinal);
+                blocks.Add(New(BlockKind.Heading, $"{new string('#', level)} {(number is null ? string.Empty : number + " ")}{title}", text));
             }
             else if (properties?.NumberingProperties is { } numbering)
             {
@@ -280,13 +300,16 @@ public static partial class DocxReader
     private static void AddTable(Table table, Context context, List<DocxBlock> blocks)
     {
         var rows = new List<IReadOnlyList<string>>();
+        var plainRows = new List<IReadOnlyList<string>>();
         string? firstCell = null;
         foreach (var row in table.Elements<TableRow>())
         {
             var cells = new List<string>();
+            var plainCells = new List<string>();
             foreach (var cell in row.Elements<TableCell>())
             {
                 var text = CellText(cell, context);
+                plainCells.Add(string.Concat(cell.Elements<Paragraph>().Select(p => ParagraphText(p).Trim())));
                 if (firstCell is null && text.Length > 0)
                 {
                     // The page of the table is found by plain text, not by the Markdown (links, note marks).
@@ -310,13 +333,18 @@ public static partial class DocxReader
             }
 
             rows.Add(cells);
+            plainRows.Add(plainCells);
         }
 
-        var markdown = MarkdownText.Table(rows, HasHeaderRow(table));
+        var hasHeader = HasHeaderRow(table);
+        var markdown = MarkdownText.Table(rows, hasHeader);
         if (markdown.Length > 0)
         {
-            // The page of a table is the page of its first cell: the order in which a PDF lists the other cells varies.
-            blocks.Add(New(BlockKind.Table, markdown, firstCell ?? string.Empty));
+            // The page where a table starts is the page of its first cell: the order in which a PDF lists the other cells varies.
+            // The pages of the other rows are looked for one by one (DocxPageAssigner), so that a long table is cut at the page breaks.
+            var repeats = table.Elements<TableRow>().FirstOrDefault()?.TableRowProperties?.Elements<TableHeader>().FirstOrDefault() is { } header
+                && (header.Val is null || header.Val.Value != OnOffOnlyValues.Off);
+            blocks.Add(new DocxBlock(new Block { Kind = BlockKind.Table, Markdown = markdown }, firstCell ?? string.Empty, new DocxTable(rows, plainRows, hasHeader, repeats)));
         }
     }
 

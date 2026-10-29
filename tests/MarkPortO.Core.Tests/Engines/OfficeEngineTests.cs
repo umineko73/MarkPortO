@@ -202,7 +202,7 @@ public class OfficeEngineTests(ITestOutputHelper output)
     {
         using var dir = new TempDir();
         var source = dir.Combine("book.xlsx");
-        XlsxFactory.Create(source, XlsxFactory.WideSheet("Wide", columns: 60, rows: 3, columnWidthChars: 14));
+        XlsxFactory.Create(source, XlsxFactory.WideSheet("Wide", columns: 160, rows: 3, columnWidthChars: 14));
         var sheet = XlsxReader.Read(source, false).Single();
         var units = ExcelUnitPlanner.Plan(sheet);
         Assert.Equal(3, units.Count);
@@ -217,7 +217,7 @@ public class OfficeEngineTests(ITestOutputHelper output)
             await office.ExportPdfAsync(Request(copy, DocumentKind.Xlsx, pdf), CancellationToken.None);
             var pages = PdfTextExtractor.GetPageTexts(pdf);
             Assert.Single(pages); // every part is one page, as with LibreOffice
-            officeColumns.Add([.. Enumerable.Range(1, 60).Where(c => ContainsToken(pages[0], $"r3c{c}"))]);
+            officeColumns.Add([.. Enumerable.Range(1, 160).Where(c => ContainsToken(pages[0], $"r3c{c}"))]);
         }
 
         output.WriteLine("Office columns per part: " + string.Join(" | ", officeColumns.Select(c => $"{c.Min()}-{c.Max()} ({c.Length})")));

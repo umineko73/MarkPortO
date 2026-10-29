@@ -46,6 +46,26 @@ public partial class MarkdownPane : UserControl
           });
           document.addEventListener('mouseup', function (e) { if (e.button === 2) { down = false; } });
           document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+          // The wheel scrolls the page; at the top or the bottom (after a short pause) it asks for the page before or after. The arrow keys ask too.
+          var last = 0;
+          function post(message) { try { window.chrome.webview.postMessage(message); } catch (error) { } }
+          function atEdge(down) {
+            var max = document.documentElement.scrollHeight - window.innerHeight;
+            return down ? window.scrollY >= max - 1 : window.scrollY <= 0;
+          }
+          document.addEventListener('wheel', function (e) {
+            if (e.ctrlKey || e.deltaY === 0) { return; }
+            var down = e.deltaY > 0, now = Date.now();
+            if (!atEdge(down)) { last = now; return; }
+            e.preventDefault();
+            if (now - last > 400) { last = now; post(down ? 'next' : 'previous'); }
+          }, { passive: false });
+          document.addEventListener('keydown', function (e) {
+            if (e.altKey || e.ctrlKey || e.shiftKey) { return; }
+            if (e.key === 'ArrowRight') { post('next'); e.preventDefault(); }
+            else if (e.key === 'ArrowLeft') { post('previous'); e.preventDefault(); }
+          });
         })();
         """;
 
@@ -54,6 +74,9 @@ public partial class MarkdownPane : UserControl
         get => HeaderText.Text;
         set => HeaderText.Text = value;
     }
+
+    /// <summary>The page shown asks for the page after it (1) or before it (-1): the wheel at the end of the page, or an arrow key.</summary>
+    public event Action<int>? PageStepRequested;
 
     /// <summary>True when the WebView2 runtime is not there, so the Markdown can only be shown as written.</summary>
     public bool WebFailed { get; private set; }
@@ -70,7 +93,20 @@ public partial class MarkdownPane : UserControl
             settings.IsScriptEnabled = true;
             settings.AreDefaultContextMenusEnabled = false;
             settings.AreDevToolsEnabled = false;
-            settings.IsWebMessageEnabled = false;
+            // The only message that the page script sends is "next" or "previous" (the page itself cannot run script).
+            settings.IsWebMessageEnabled = true;
+            Web.CoreWebView2.WebMessageReceived += (_, args) =>
+            {
+                switch (args.TryGetWebMessageAsString())
+                {
+                    case "next":
+                        PageStepRequested?.Invoke(1);
+                        break;
+                    case "previous":
+                        PageStepRequested?.Invoke(-1);
+                        break;
+                }
+            };
             // Nothing is opened from the page: no link, no new window.
             Web.CoreWebView2.NavigationStarting += (_, args) =>
             {

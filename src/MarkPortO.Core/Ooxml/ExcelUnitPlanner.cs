@@ -28,12 +28,16 @@ public sealed record ExcelUnit(string SheetName, int Part, int PartCount, int Fr
 
 /// <summary>
 /// Decides how a sheet is cut into images so that all columns of a part fit on one page width
-/// without shrinking below <see cref="MinScale"/> (FR-010b, FR-011, research R4).
+/// without shrinking below <see cref="MinScale"/> (FR-010b, FR-011, research R4). A page that is shrunk below
+/// <see cref="ComfortScale"/> is rendered with a higher DPI, so that its text keeps the size it has at <see cref="ComfortScale"/> (FR-079).
 /// </summary>
 public static class ExcelUnitPlanner
 {
-    /// <summary>The page is shrunk to at most this fraction; smaller text can no longer be read reliably.</summary>
-    public const double MinScale = 0.6;
+    /// <summary>The page is shrunk to at most this fraction (a wider sheet is cut into parts).</summary>
+    public const double MinScale = 0.2;
+
+    /// <summary>Up to this shrinking the text of the image is as large as the DPI says; below it the DPI is raised (<see cref="DpiFactor"/>).</summary>
+    public const double ComfortScale = 0.6;
 
     /// <summary>A3 landscape is 420 mm = 1190.55 points wide.</summary>
     public const double PaperWidthPoints = 1190.55;
@@ -45,6 +49,22 @@ public static class ExcelUnitPlanner
 
     /// <summary>The widest group of columns (in points) that still fits one page at <see cref="MinScale"/>.</summary>
     public const double MaxGroupWidthPoints = PrintableWidthPoints / MinScale;
+
+    /// <summary>
+    /// How many times the DPI of the page image of a part is raised: a part that Excel shrinks below <see cref="ComfortScale"/> to fit the
+    /// page width gets <c>ComfortScale / scale</c> times the DPI, so that the text in the image is as large as before (1 for a part that is shrunk less).
+    /// </summary>
+    public static double DpiFactor(SheetContent sheet, ExcelUnit unit)
+    {
+        var width = 0.0;
+        for (var i = unit.FromColumnIndex; i <= unit.ToColumnIndex && i < sheet.ColumnWidthsPoints.Length; i++)
+        {
+            width += sheet.ColumnWidthsPoints[i];
+        }
+
+        var scale = width <= 0 ? 1.0 : Math.Min(1.0, PrintableWidthPoints / width);
+        return scale >= ComfortScale ? 1.0 : ComfortScale / scale;
+    }
 
     /// <summary>
     /// The images of a sheet. An empty sheet has none. Columns are grouped from the left, as many as fit;

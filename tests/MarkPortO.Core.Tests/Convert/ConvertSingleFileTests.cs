@@ -86,27 +86,27 @@ public class ConvertSingleFileTests
         XlsxFactory.Create(
             source,
             new SheetSpec("Data", [["Name", "Qty"], ["Apple", "3"]], PrintArea: "A1:A1"), // the print area is ignored
-            XlsxFactory.WideSheet("Wide", columns: 60, rows: 4, columnWidthChars: 14));
+            XlsxFactory.WideSheet("Wide", columns: 160, rows: 4, columnWidthChars: 14));
 
         var result = await RunAsync(dir, Request(dir.Combine("out"), Options(), source));
 
         var document = Assert.Single(result.Documents);
         Assert.True(document.IsDone());
 
-        // Data: one image. Wide: three parts (A:Z, AA:AZ, BA:BH), each one image.
+        // Data: one image. Wide: three parts (A:BZ, CA:EZ, FA:FD), each one image.
         Assert.Equal(4, document.Pages.Count);
         Assert.Equal(4, ImageFiles(document.OutputFolder).Length);
         Assert.Equal(
-            [("Data", "A:B", 1, 1), ("Wide", "A:Z", 1, 3), ("Wide", "AA:AZ", 2, 3), ("Wide", "BA:BH", 3, 3)],
+            [("Data", "A:B", 1, 1), ("Wide", "A:BZ", 1, 3), ("Wide", "CA:EZ", 2, 3), ("Wide", "FA:FD", 3, 3)],
             document.Pages.Select(p => (p.Sheet!.Name, p.Sheet.ColumnRange, p.Sheet.Part, p.Sheet.PartCount)));
 
         var markdown = File.ReadAllText(Path.Combine(document.OutputFolder, "book.md"));
         Assert.Contains("<!-- sheet: Data part=1/1 columns=A:B -->", markdown);
-        Assert.Contains("<!-- sheet: Wide part=2/3 columns=AA:AZ -->", markdown);
+        Assert.Contains("<!-- sheet: Wide part=2/3 columns=CA:EZ -->", markdown);
         Assert.Contains("| Name | Qty |", markdown);
         Assert.Contains("| Apple | 3 |", markdown); // the author's print area A1:A1 did not cut the data
         Assert.Contains("SheetSplit", document.Warnings.Select(w => w.Code));
-        Assert.DoesNotContain("H27", markdown.Split("part=1/3")[1].Split("part=2/3")[0]); // part 1 has no column of part 2
+        Assert.DoesNotContain("H79", markdown.Split("part=1/3")[1].Split("part=2/3")[0]); // part 1 has no column of part 2
     }
 
     [LibreOfficeFact]

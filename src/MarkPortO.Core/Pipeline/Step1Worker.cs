@@ -37,6 +37,9 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     /// <summary>How many documents are converted at once. Set from the engine (Office: 1, LibreOffice: 2).</summary>
     public int Concurrency { get; init; } = 1;
 
+    /// <summary>The DPI of the image of a wide sheet is raised up to this (FR-079); a DPI that is set higher is kept.</summary>
+    private const int MaxRaisedDpi = 600;
+
     /// <summary>One page of a PDF that becomes one page of the output.</summary>
     private sealed record PdfPageRef(string PdfPath, int PageIndexInPdf);
 
@@ -49,6 +52,9 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         public List<string> Labels { get; } = [];
 
         public List<SheetInfo?> Sheets { get; } = [];
+
+        /// <summary>How many times the DPI is raised for a page (0-based index in <see cref="Pdf"/>); a page that is not in it has the DPI as it is.</summary>
+        public Dictionary<int, double> DpiFactors { get; } = [];
 
         /// <summary>Blocks as 1-based output page numbers are not known for docx until the PDF text is read.</summary>
         public List<Block> Blocks { get; } = [];
@@ -136,11 +142,15 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
 
         var pageTexts = PdfTextExtractor.GetPageTexts(pdf);
         layout.Warnings.AddRange(DocxPageAssigner.Assign(blocks, pageTexts));
-        layout.DocxBlocks = blocks;
-        layout.Blocks.AddRange(blocks.Select(b => b.Block));
 
-        // A shape belongs to the page of the paragraph it is anchored in.
-        var effective = DocxPageAssigner.EffectivePages(layout.Blocks, pageTexts.Count);
+        // A shape belongs to the page of the paragraph it is anchored in (its index is a place in the blocks as they were read).
+        var effective = DocxPageAssigner.EffectivePages([.. blocks.Select(b => b.Block)], pageTexts.Count);
+
+        // A table that runs over several pages is cut at the page breaks: each page has the rows that are on it.
+        var placed = DocxPageAssigner.ExpandTables(blocks);
+        layout.DocxBlocks = placed;
+        layout.Blocks.AddRange(placed.Select(b => b.Block));
+
         var shapesByPage = new Dictionary<int, List<ShapeBox>>();
         foreach (var shapes in content.Shapes)
         {
@@ -244,6 +254,11 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                     layout.Pdf.Add(new PdfPageRef(pdf, i));
                     layout.Labels.Add(PageLabel.Sheet(sheet.Name));
                     layout.Sheets.Add(new SheetInfo(sheet.Name, unit.ColumnRange, unit.Part, unit.PartCount));
+                    if (work.Context.Options.ExcelRange == ExcelRange.Columns && ExcelUnitPlanner.DpiFactor(sheet, unit) is var factor and > 1.0)
+                    {
+                        layout.DpiFactors[layout.Pdf.Count - 1] = factor;
+                    }
+
                     if (verdicts.TryGetValue(sheet.Name, out var verdict))
                     {
                         // A "×" over the sheet deletes every part of the sheet. The warning is given once per sheet.
@@ -342,10 +357,11 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                     opened[reference.PdfPath] = pdfDocument;
                 }
 
+                var pageDpi = layout.DpiFactors.TryGetValue(i, out var factor) ? Math.Clamp((int)Math.Round(dpi * factor), dpi, Math.Max(dpi, MaxRaisedDpi)) : dpi;
                 await PdfRenderer.RenderPageAsync(
                     pdfDocument,
                     reference.PageIndexInPdf,
-                    dpi,
+                    pageDpi,
                     Path.Combine(document.OutputFolder, imageFile.Replace('/', Path.DirectorySeparatorChar)),
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }

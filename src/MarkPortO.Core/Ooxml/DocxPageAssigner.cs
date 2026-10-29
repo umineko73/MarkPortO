@@ -16,6 +16,7 @@
 using MarkPortO.Core.Localization;
 using System.Text;
 using MarkPortO.Core.Jobs.Models;
+using MarkPortO.Core.Markdown;
 
 namespace MarkPortO.Core.Ooxml;
 
@@ -46,6 +47,9 @@ public static class DocxPageAssigner
 
     private const int MinimumWindow = 2000;
 
+    /// <summary>How far after the row before it the next row of a table is looked for (the rows of a table follow one another closely).</summary>
+    private const int MinimumRowWindow = 1000;
+
     /// <summary>
     /// Sets <see cref="Block.PageIndex"/> (1-based PDF page) on every block that could be found, and returns
     /// a warning for each block that could not.
@@ -69,18 +73,30 @@ public static class DocxPageAssigner
 
         var haystack = all.ToString();
         var window = Math.Max(MinimumWindow, maxPageLength * 2);
+        var rowWindow = Math.Max(MinimumRowWindow, maxPageLength / 2);
         var cursor = 0;
 
         foreach (var item in blocks)
         {
-            var text = Normalize(item.SearchText);
-            if (text.Length < MinimumNeedle)
+            var candidates = StartCandidates(item);
+            if (candidates.Count == 0)
             {
                 item.Block.PageIndex = null;
                 continue;
             }
 
-            var position = Find(haystack, text, cursor, window);
+            var text = candidates[0];
+            var position = -1;
+            foreach (var candidate in candidates)
+            {
+                position = Find(haystack, candidate, cursor, window);
+                if (position >= 0)
+                {
+                    text = candidate;
+                    break;
+                }
+            }
+
             if (position < 0)
             {
                 item.Block.PageIndex = null;
@@ -102,9 +118,140 @@ public static class DocxPageAssigner
             cursor = haystack.AsSpan(position).StartsWith(text.AsSpan(), StringComparison.Ordinal)
                 ? position + text.Length
                 : position + Math.Min(text.Length, LongNeedle);
+
+            // The rows of a table are placed one by one: a long table runs over several pages.
+            if (item.Table is { PlainRows.Count: > 1 } table)
+            {
+                cursor = Math.Max(cursor, AssignRows(item, table, haystack, pageStarts, cursor, rowWindow));
+            }
         }
 
         return warnings;
+    }
+
+    /// <summary>
+    /// The texts that a block is looked for by, best first. A paragraph has its own text. A table has its first cell, and when that is
+    /// too short to be found (a header such as "No" or "項目"), the whole first row and its longest cells: a table is not left without a page.
+    /// </summary>
+    private static List<string> StartCandidates(DocxBlock item)
+    {
+        var candidates = new List<string>();
+        void Add(string text)
+        {
+            var normalized = Normalize(text);
+            if (normalized.Length >= MinimumNeedle && !candidates.Contains(normalized))
+            {
+                candidates.Add(normalized);
+            }
+        }
+
+        Add(item.SearchText);
+        if (item.Table is { PlainRows.Count: > 0 } table)
+        {
+            var first = table.PlainRows[0];
+            Add(string.Concat(first));
+            foreach (var cell in first.OrderByDescending(c => c.Length).Take(2))
+            {
+                Add(cell);
+            }
+        }
+
+        return candidates;
+    }
+
+    /// <summary>
+    /// Finds the page of each row of a table: the rows are looked for one after another, by the text of the whole row, or by its
+    /// longest cells when a PDF lists the cells of a row in another order. A row that is not found stays on the page of the row before it.
+    /// Sets <see cref="DocxBlock.RowPages"/> and returns the position in the text after the last row that was found.
+    /// </summary>
+    private static int AssignRows(DocxBlock item, DocxTable table, string haystack, int[] pageStarts, int start, int window)
+    {
+        var pages = new int[table.PlainRows.Count];
+        var page = item.Block.PageIndex ?? 1;
+        pages[0] = page;
+        var cursor = start;
+        for (var row = 1; row < pages.Length; row++)
+        {
+            var cells = table.PlainRows[row].Select(Normalize).Where(c => c.Length >= MinimumNeedle).ToList();
+            var candidates = new List<string>();
+            var whole = string.Concat(table.PlainRows[row].Select(Normalize));
+            if (whole.Length >= MinimumNeedle)
+            {
+                candidates.Add(whole);
+            }
+
+            candidates.AddRange(cells.OrderByDescending(c => c.Length).Take(2));
+
+            var found = -1;
+            var matched = 0;
+            foreach (var candidate in candidates.Distinct())
+            {
+                found = Find(haystack, candidate, cursor, window);
+                if (found >= 0)
+                {
+                    matched = Math.Min(candidate.Length, LongNeedle);
+                    break;
+                }
+            }
+
+            if (found < 0)
+            {
+                pages[row] = page;
+                continue;
+            }
+
+            page = Math.Max(page, PageOf(pageStarts, found) + 1);
+            pages[row] = page;
+            cursor = found + matched;
+        }
+
+        item.RowPages = pages;
+        return cursor;
+    }
+
+    /// <summary>
+    /// Cuts every table that runs over several pages into one table for each page (the rows that are on the page), so that
+    /// the text of a page is the text that is on the page. When Word repeats the header row on every page, each part starts with it.
+    /// </summary>
+    public static List<DocxBlock> ExpandTables(IReadOnlyList<DocxBlock> blocks)
+    {
+        var result = new List<DocxBlock>(blocks.Count);
+        foreach (var item in blocks)
+        {
+            if (item.Table is not { } table || item.RowPages is not { } pages || pages.Distinct().Count() < 2)
+            {
+                result.Add(item);
+                continue;
+            }
+
+            var start = 0;
+            for (var row = 1; row <= pages.Count; row++)
+            {
+                if (row < pages.Count && pages[row] == pages[start])
+                {
+                    continue;
+                }
+
+                var rows = table.Rows.Skip(start).Take(row - start).ToList();
+                var hasHeader = table.HasHeader;
+                if (start > 0)
+                {
+                    hasHeader = table.RepeatsHeader;
+                    if (hasHeader)
+                    {
+                        rows.Insert(0, table.Rows[0]);
+                    }
+                }
+
+                var searchText = start == 0 ? item.SearchText : string.Concat(table.PlainRows[start]);
+                result.Add(new DocxBlock(
+                    new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table(rows, hasHeader), PageIndex = pages[start] },
+                    searchText));
+                start = row;
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

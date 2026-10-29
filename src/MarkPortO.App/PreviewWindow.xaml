@@ -20,7 +20,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:MarkPortO.App"
         Icon="Assets/MarkPortO.ico" Height="780" Width="1100" MinHeight="420" MinWidth="640"
-        WindowStartupLocation="CenterOwner" KeyDown="OnKeyDown">
+        WindowStartupLocation="CenterOwner" KeyDown="OnKeyDown" PreviewKeyDown="OnPreviewKeyDown" PreviewMouseWheel="OnWheel">
   <Grid Margin="8">
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="210" MinWidth="120" />

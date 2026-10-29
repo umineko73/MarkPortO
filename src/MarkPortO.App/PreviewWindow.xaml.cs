@@ -63,6 +63,8 @@ public partial class PreviewWindow : Window
             VlmPane.Release();
         };
 
+        TextPane.PageStepRequested += Step;
+        VlmPane.PageStepRequested += Step;
         TextPane.Header = UiText.Get("Preview_PaneText");
         VlmPane.Header = UiText.Get("Preview_PaneVlm");
         ShowVlmBox.IsChecked = _item.Source is { Step3: not StepStatus.NotApplicable };
@@ -303,6 +305,78 @@ public partial class PreviewWindow : Window
     }
 
     private async void OnRefresh(object sender, RoutedEventArgs e) => await ReloadAsync();
+
+    // The left and right arrow keys, and the wheel at the end of what a pane can scroll, go to the page before or after.
+    private DateTime _lastScroll = DateTime.MinValue;
+    private DateTime _lastStep = DateTime.MinValue;
+
+    private void Step(int delta)
+    {
+        var index = Math.Clamp(PageList.SelectedIndex + delta, 0, Math.Max(0, _items.Count - 1));
+        if (_items.Count == 0 || index == PageList.SelectedIndex)
+        {
+            return;
+        }
+
+        PageList.SelectedIndex = index;
+        PageList.ScrollIntoView(PageList.SelectedItem);
+    }
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.None || e.Key is not (Key.Left or Key.Right))
+        {
+            return;
+        }
+
+        Step(e.Key == Key.Right ? 1 : -1);
+        e.Handled = true;
+    }
+
+    private void OnWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.None || e.Delta == 0)
+        {
+            return;
+        }
+
+        var down = e.Delta < 0;
+        var scroller = ScrollerOf(e.OriginalSource as DependencyObject);
+        var now = DateTime.UtcNow;
+        var canScroll = scroller is not null && (down ? scroller.VerticalOffset < scroller.ScrollableHeight - 0.5 : scroller.VerticalOffset > 0.5);
+        if (canScroll)
+        {
+            _lastScroll = now; // the pane scrolls as it does
+            return;
+        }
+
+        // At the end (or where nothing scrolls) the wheel changes the page, after a short pause so that a scroll that reached the end does not go on to the next page.
+        e.Handled = true;
+        if (now - _lastScroll < TimeSpan.FromMilliseconds(400) || now - _lastStep < TimeSpan.FromMilliseconds(200))
+        {
+            return;
+        }
+
+        _lastStep = now;
+        Step(down ? 1 : -1);
+    }
+
+    private static ScrollViewer? ScrollerOf(DependencyObject? element)
+    {
+        while (element is not null)
+        {
+            if (element is ScrollViewer viewer)
+            {
+                return viewer;
+            }
+
+            element = element is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D
+                ? System.Windows.Media.VisualTreeHelper.GetParent(element)
+                : LogicalTreeHelper.GetParent(element);
+        }
+
+        return null;
+    }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {

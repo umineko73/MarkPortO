@@ -84,10 +84,40 @@ public static class PdfRenderer
             throw new PageTooLargeException(pixels, maxPixels);
         }
 
+        // The Windows renderer multiplies the size it is given by the display scale of the PC (125% makes the image 1.25 times
+        // larger), so the size is divided by the scale first. The scale is measured on the first image and kept.
+        var (bytes, requested) = await RenderAsync(page, width, height, cancellationToken).ConfigureAwait(false);
+        var (actualWidth, actualHeight) = PngSize(bytes);
+        var measured = requested > 0 ? actualWidth / (double)requested : 1.0;
+        if (Math.Abs(measured - _renderScale) > 0.02 && measured > 0)
+        {
+            _renderScale = measured;
+            (bytes, _) = await RenderAsync(page, width, height, cancellationToken).ConfigureAwait(false);
+            (actualWidth, actualHeight) = PngSize(bytes);
+        }
+
+        // The size is exactly the one that the DPI gives (the scale and the rounding can leave a pixel or two).
+        if (actualWidth != width || actualHeight != height)
+        {
+            bytes = Resize(bytes, width, height);
+            (actualWidth, actualHeight) = (width, height);
+        }
+
+        AtomicFile.WriteAllBytes(outputPngPath, bytes);
+        return new RenderedImage(outputPngPath, actualWidth, actualHeight);
+    }
+
+    // What the renderer makes of a size: 1.0 on a display at 100%, 1.25 at 125%.
+    private static double _renderScale = 1.0;
+
+    private static async Task<(byte[] Bytes, int RequestedWidth)> RenderAsync(PdfPage page, int width, int height, CancellationToken cancellationToken)
+    {
+        var scale = _renderScale;
+        var requestedWidth = (uint)Math.Max(1, Math.Round(width / scale));
         var options = new PdfPageRenderOptions
         {
-            DestinationWidth = (uint)width,
-            DestinationHeight = (uint)height,
+            DestinationWidth = requestedWidth,
+            DestinationHeight = (uint)Math.Max(1, Math.Round(height / scale)),
         };
 
         using var stream = new InMemoryRandomAccessStream();
@@ -95,15 +125,35 @@ public static class PdfRenderer
 
         stream.Seek(0);
         var bytes = new byte[stream.Size];
-        using (var reader = new DataReader(stream))
+        using var reader = new DataReader(stream);
+        await reader.LoadAsync((uint)stream.Size).AsTask(cancellationToken).ConfigureAwait(false);
+        reader.ReadBytes(bytes);
+        return (bytes, (int)requestedWidth);
+    }
+
+    private static byte[] Resize(byte[] png, int width, int height)
+    {
+        using var input = new System.IO.MemoryStream(png);
+        using var source = new System.Drawing.Bitmap(input);
+        using var target = new System.Drawing.Bitmap(width, height);
+        using (var graphics = System.Drawing.Graphics.FromImage(target))
         {
-            await reader.LoadAsync((uint)stream.Size).AsTask(cancellationToken).ConfigureAwait(false);
-            reader.ReadBytes(bytes);
+            graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+            graphics.DrawImage(source, 0, 0, width, height);
         }
 
-        AtomicFile.WriteAllBytes(outputPngPath, bytes);
-        return new RenderedImage(outputPngPath, width, height);
+        using var output = new System.IO.MemoryStream();
+        target.Save(output, System.Drawing.Imaging.ImageFormat.Png);
+        return output.ToArray();
     }
+
+    // Width and height from the IHDR chunk of a PNG.
+    private static (int Width, int Height) PngSize(byte[] bytes) =>
+        bytes.Length < 24 ? (0, 0) : (ReadInt(bytes, 16), ReadInt(bytes, 20));
+
+    private static int ReadInt(byte[] bytes, int offset) =>
+        (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
 
     private static (int Width, int Height) ToPixels(double widthDevice, double heightDevice, int dpi)
     {
