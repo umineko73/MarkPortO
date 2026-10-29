@@ -218,12 +218,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool IncludeHidden
+    public bool IncludeHiddenSheets
     {
-        get => _store.Current.Input.IncludeHidden;
+        get => _store.Current.Input.IncludeHiddenSheets;
         set
         {
-            _store.Update(s => s.Input.IncludeHidden = value);
+            _store.Update(s => s.Input.IncludeHiddenSheets = value);
+            Raise();
+        }
+    }
+
+    public bool IncludeHiddenSlides
+    {
+        get => _store.Current.Input.IncludeHiddenSlides;
+        set
+        {
+            _store.Update(s => s.Input.IncludeHiddenSlides = value);
             Raise();
         }
     }

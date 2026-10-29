@@ -246,8 +246,30 @@ public sealed class InputSettings
 
     public List<DocumentKind> Types { get; set; } = [DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx];
 
-    /// <summary>Include hidden sheets (xlsx) and hidden slides (pptx) (FR-010a).</summary>
-    public bool IncludeHidden { get; set; }
+    /// <summary>
+    /// The setting of before "hidden sheets" and "hidden slides" were two: it is read (and sets both), and never written.
+    /// It is declared first, so that a file that has the new settings too takes them.
+    /// </summary>
+    [JsonPropertyName("includeHidden")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IncludeHiddenBoth
+    {
+        get => null;
+        set
+        {
+            if (value is { } both)
+            {
+                IncludeHiddenSheets = both;
+                IncludeHiddenSlides = both;
+            }
+        }
+    }
+
+    /// <summary>Include hidden sheets of a workbook (xlsx) (FR-010a).</summary>
+    public bool IncludeHiddenSheets { get; set; }
+
+    /// <summary>Include hidden slides of a presentation (pptx) (FR-010a).</summary>
+    public bool IncludeHiddenSlides { get; set; }
 
     /// <summary>Write the text of the shapes that lie outside a slide (memos on the pasteboard), as a quote of its own (pptx, FR-086).</summary>
     public bool IncludeOffSlideText { get; set; } = true;

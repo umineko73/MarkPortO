@@ -17,7 +17,7 @@ MarkPortO converts Word, Excel and PowerPoint documents (docx, xlsx, pptx) into 
 ## Features
 
 - **Markdown and page images.** The text of a document becomes Markdown, and every page is saved as a PNG. Each page's place in the Markdown refers to its image.
-- **Excel sheets as one page.** By default all columns of a sheet fit in a single image (a sheet with an extreme number of columns is split at column boundaries). You can also fit all rows on one page, or follow the print setup of the sheet (**Excel range**, `--excel-range`).
+- **Excel sheets as one page.** By default all columns of a sheet fit in a single image (a sheet with an extreme number of columns is split at column boundaries). You can also fit all rows on one page, or follow the print setup of the sheet (**Sheet range**, `--excel-range`).
 - **Sheets drawn as tables.** A sheet that is laid out like a page (several tables side by side or one below the other, labels running over empty cells) is written as one Markdown table for each block of content, cut at empty rows and columns, instead of one huge table.
 - **Deleted pages.** A page that is crossed out with a full-page "X" shape is treated as deleted: its image is kept, and the Markdown only marks the place with a notice.
 - **Folders and filters.** Convert a single file or a whole folder, optionally including sub-folders, and choose which of docx / xlsx / pptx to convert. If the output folder already exists, a number is added (`name (2)`); existing output is never overwritten.
@@ -75,7 +75,7 @@ dotnet run --project src/MarkPortO.Cli -- check-connection --settings settings.j
 dotnet run --project src/MarkPortO.Cli -- list-connections --settings settings.json   # list the connections (keys are not shown)
 ```
 
-Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden`, `--no-include-off-slide`, `--engine`, `--dpi`, `--excel-range columns|rows|print-area`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options on the command line override `settings.json`.
+Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden` (or `--include-hidden-sheets`, `--include-hidden-slides`), `--no-include-off-slide`, `--engine`, `--dpi`, `--excel-range columns|rows|print-area`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options on the command line override `settings.json`.
 
 Exit codes: `0` everything succeeded, `1` some files failed, `2` invalid arguments or settings, `3` the checks before the run failed (including a missing consent), `4` stopped by a usage limit, a login or a limit of pages or cost (continue with `--resume`), `130` interrupted (`Ctrl+C`; continue with `--resume`).
 
@@ -97,7 +97,7 @@ The **Settings** menu has the language (follow Windows / Japanese / English), th
 
 While a conversion runs, the conditions and the inputs cannot be changed. When the previous conversion in the output folder can be resumed, the items that a resume does not use (types, range, engine, DPI) are locked too; **Clear the previous conversion** gives it up and unlocks them.
 
-**Excel range** (xlsx): *All columns on one page* (default), *All rows on one page*, or *Follow the print setup* (the print area and page setup of each sheet).
+**Sheet range** (xlsx): *All columns on one page* (default), *All rows on one page*, or *Follow the print setup* (the print area and page setup of each sheet).
 
 The list shows the state of each file: waiting, Step1 to Step3 running, done, done (some pages failed), failed, interrupted. For a folder, a file is shown by its path relative to that folder. If the VLM could not read some pages of a file, **Retry failed** reads only those pages again. Values you set in the app are saved to `settings.json` (`%APPDATA%\MarkPortO\settings.json`) at once and restored on the next start.
 
@@ -106,7 +106,7 @@ The list shows the state of each file: waiting, Step1 to Step3 running, done, do
 ```json
 {
   "schemaVersion": 1,
-  "input": { "paths": ["D:\\docs"], "recurse": true, "types": ["docx", "xlsx", "pptx"], "includeHidden": false },
+  "input": { "paths": ["D:\\docs"], "recurse": true, "types": ["docx", "xlsx", "pptx"], "includeHiddenSheets": false, "includeHiddenSlides": false, "includeOffSlideText": true },
   "output": { "folder": "D:\\out" },
   "ui": { "language": "system", "theme": "system" },
   "engine": { "kind": "office" },

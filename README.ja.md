@@ -17,7 +17,7 @@ Word・Excel・PowerPoint の文書（docx・xlsx・pptx）を、Markdownと、�
 ## できること
 
 - 文書のテキストをMarkdownにし、全ページの画像（PNG）を保存します。Markdownの各ページの位置に、そのページの画像への参照を入れます。
-- Excelは、既定では、シートの全列が1枚の画像に収まるようにします（列が極端に多いシートは、列の区切りで複数の画像に分けます）。「Excelの範囲」で、全行を1ページに収める、シートの印刷範囲設定に従う、も選べます（`--excel-range`）。
+- Excelは、既定では、シートの全列が1枚の画像に収まるようにします（列が極端に多いシートは、列の区切りで複数の画像に分けます）。「シートの範囲」で、全行を1ページに収める、シートの印刷範囲設定に従う、も選べます（`--excel-range`）。
 - ページのように配置したシート（複数の表が左右や上下に並ぶもの、ラベルの文字が空白のセルにはみ出すもの）は、1つの巨大な表にせず、空の行・列で区切ったブロックごとに、別々のMarkdownの表にします。
 - ページ全体に「×」の図形が付いたページは、削除ページとして扱います。画像は保存し、Markdownにはそのページの位置に削除を示す文言だけを書きます。
 - フォルダ単位の変換、サブフォルダの走査、種類（docx / xlsx / pptx）の選択ができます。出力先に同名のフォルダがあれば `名前 (2)` のように連番を付け、既存の出力は上書きしません。
@@ -81,7 +81,7 @@ dotnet run --project src/MarkPortO.Cli -- check-connection --settings settings.j
 dotnet run --project src/MarkPortO.Cli -- list-connections --settings settings.json   # 登録した接続の一覧（キーは表示しない）
 ```
 
-主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`、`--no-include-off-slide`、`--engine`、`--dpi`、`--excel-range columns|rows|print-area`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。コマンドラインの指定は `settings.json` より優先されます。
+主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`（または `--include-hidden-sheets`、`--include-hidden-slides`）、`--no-include-off-slide`、`--engine`、`--dpi`、`--excel-range columns|rows|print-area`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。コマンドラインの指定は `settings.json` より優先されます。
 
 アクセスキーは、`settings.json` に環境変数の**名前**（`apiKeyEnv`）として書くのが基本です（値そのものは保存しません）。画面で入力したキーは、現在のWindowsユーザーだけが復号できる形（DPAPI）で保存します。ログ・Markdown・状態ファイルにキーは出ません。
 
@@ -103,7 +103,7 @@ dotnet run --project src/MarkPortO.App
 
 ![プロンプトの設定](docs/images/prompts.ja.png)
 
-ファイルまたはフォルダを追加し（一覧へのドロップでも追加できます。対応していない種類のファイルは無視します）、出力先を選んで（出力先の欄へフォルダをドロップしても設定できます）「開始」を押します。「条件」には、対象の種類、範囲、変換（エンジンとDPI）、Step1〜Step3の行があります（Step1は常に実行します）。「Excelの範囲」（xlsx）は、「すべての列を1ページに含める」（既定）、「すべての行を1ページに収める」、「印刷範囲設定に従う」（シートごとの印刷範囲とページ設定）から選びます。一覧に、ファイルごとの状態（待機中、Step1〜3の実行中、完了、完了（一部失敗）、失敗、中断）が出ます。フォルダを指定したファイルは、指定したフォルダからの相対パスで表示します。VLMが読み取れなかったページがあるファイルは、「失敗のみ再試行」で、そのページだけを読み直せます。画面で設定した値は、すぐに `settings.json`（`%APPDATA%\MarkPortO\settings.json`）に保存され、次回の起動で元に戻ります。
+ファイルまたはフォルダを追加し（一覧へのドロップでも追加できます。対応していない種類のファイルは無視します）、出力先を選んで（出力先の欄へフォルダをドロップしても設定できます）「開始」を押します。「条件」には、すべての形式に共通のオプション（サブフォルダ、エンジン、DPI）の行、形式ごと（Word・Excel・PowerPoint）の行（その形式を対象にするか、と、その形式だけのオプション）、Step1〜Step3の行があります（Step1は常に実行します）。形式のチェックを外すと、その行のオプションは使えなくなります。「シートの範囲」（xlsx）は、「すべての列を1ページに含める」（既定）、「すべての行を1ページに収める」、「印刷範囲設定に従う」（シートごとの印刷範囲とページ設定）から選びます。一覧に、ファイルごとの状態（待機中、Step1〜3の実行中、完了、完了（一部失敗）、失敗、中断）が出ます。フォルダを指定したファイルは、指定したフォルダからの相対パスで表示します。VLMが読み取れなかったページがあるファイルは、「失敗のみ再試行」で、そのページだけを読み直せます。画面で設定した値は、すぐに `settings.json`（`%APPDATA%\MarkPortO\settings.json`）に保存され、次回の起動で元に戻ります。
 
 変換の実行中は、条件と入力を変えられません。出力先に再開できる前回の変換があるときは、再開で使わない項目（種類・範囲・エンジン・DPI）も変えられません。「前回の変換をクリア」で前回を破棄すると、変えられるようになります。
 
@@ -112,7 +112,7 @@ dotnet run --project src/MarkPortO.App
 ```json
 {
   "schemaVersion": 1,
-  "input": { "paths": ["D:\\docs"], "recurse": true, "types": ["docx", "xlsx", "pptx"], "includeHidden": false },
+  "input": { "paths": ["D:\\docs"], "recurse": true, "types": ["docx", "xlsx", "pptx"], "includeHiddenSheets": false, "includeHiddenSlides": false, "includeOffSlideText": true },
   "output": { "folder": "D:\\out" },
   "ui": { "language": "system", "theme": "system" },
   "engine": { "kind": "office" },

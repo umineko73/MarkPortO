@@ -31,7 +31,12 @@ public sealed record ConvertArgs
 
     public bool? Recurse { get; init; }
 
+    /// <summary>Both hidden sheets and hidden slides; <see cref="IncludeHiddenSheets"/> and <see cref="IncludeHiddenSlides"/> set one and are applied after it.</summary>
     public bool? IncludeHidden { get; init; }
+
+    public bool? IncludeHiddenSheets { get; init; }
+
+    public bool? IncludeHiddenSlides { get; init; }
 
     public bool? IncludeOffSlideText { get; init; }
 
@@ -123,7 +128,18 @@ public static class ConvertArgsResolver
 
         if (args.IncludeHidden is { } includeHidden)
         {
-            settings.Input.IncludeHidden = includeHidden;
+            settings.Input.IncludeHiddenSheets = includeHidden;
+            settings.Input.IncludeHiddenSlides = includeHidden;
+        }
+
+        if (args.IncludeHiddenSheets is { } includeHiddenSheets)
+        {
+            settings.Input.IncludeHiddenSheets = includeHiddenSheets;
+        }
+
+        if (args.IncludeHiddenSlides is { } includeHiddenSlides)
+        {
+            settings.Input.IncludeHiddenSlides = includeHiddenSlides;
         }
 
         if (args.IncludeOffSlideText is { } includeOffSlideText)

@@ -55,7 +55,7 @@ public class CliParsingTests
     [Fact]
     public void TheCommandLineWinsOverTheSettingsFile()
     {
-        var file = FromFile(s => { s.Images.Dpi = 200; s.Input.Recurse = true; s.Steps.Step2 = false; s.Input.IncludeHidden = true; });
+        var file = FromFile(s => { s.Images.Dpi = 200; s.Input.Recurse = true; s.Steps.Step2 = false; s.Input.IncludeHiddenSheets = true; s.Input.IncludeHiddenSlides = true; });
         var args = new ConvertArgs
         {
             Inputs = [@"D:\cli-input"],
@@ -72,7 +72,8 @@ public class CliParsingTests
 
         Assert.Equal(100, settings.Images.Dpi);
         Assert.False(settings.Input.Recurse);
-        Assert.False(settings.Input.IncludeHidden);
+        Assert.False(settings.Input.IncludeHiddenSheets);
+        Assert.False(settings.Input.IncludeHiddenSlides);
         Assert.True(settings.Steps.Step2);
         Assert.Equal(@"D:\cli-out", settings.Output.Folder);
         Assert.Equal([@"D:\cli-input"], settings.Input.Paths);
@@ -249,6 +250,18 @@ public class CliParsingTests
         var settings = Resolved(new ConvertArgs { ExcelRange = text }, FromFile());
 
         Assert.Equal(expected, settings.Images.ExcelRange);
+    }
+
+    [Fact]
+    public void TheHiddenSheetsAndTheHiddenSlides_CanBeSetApartAfterTheOneFlagForBoth()
+    {
+        var both = Resolved(new ConvertArgs { IncludeHidden = true }, FromFile());
+        Assert.True(both.Input.IncludeHiddenSheets);
+        Assert.True(both.Input.IncludeHiddenSlides);
+
+        var apart = Resolved(new ConvertArgs { IncludeHidden = true, IncludeHiddenSlides = false }, FromFile());
+        Assert.True(apart.Input.IncludeHiddenSheets);
+        Assert.False(apart.Input.IncludeHiddenSlides);
     }
 
     [Theory]

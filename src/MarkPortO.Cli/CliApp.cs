@@ -80,8 +80,12 @@ public static class CliApp
         var types = new Option<string?>("--types") { Description = "Types to convert in a folder: docx,xlsx,pptx (comma separated)." };
         var recurse = new Option<bool>("--recurse") { Description = "Also convert documents in sub-folders." };
         var noRecurse = new Option<bool>("--no-recurse") { Description = "Do not search sub-folders." };
-        var includeHidden = new Option<bool>("--include-hidden") { Description = "Include hidden sheets and slides." };
+        var includeHidden = new Option<bool>("--include-hidden") { Description = "Include hidden sheets and slides (both; --include-hidden-sheets and --include-hidden-slides set one)." };
         var noIncludeHidden = new Option<bool>("--no-include-hidden") { Description = "Leave out hidden sheets and slides." };
+        var includeHiddenSheets = new Option<bool>("--include-hidden-sheets") { Description = "Include hidden sheets (xlsx)." };
+        var noIncludeHiddenSheets = new Option<bool>("--no-include-hidden-sheets") { Description = "Leave out hidden sheets (xlsx)." };
+        var includeHiddenSlides = new Option<bool>("--include-hidden-slides") { Description = "Include hidden slides (pptx)." };
+        var noIncludeHiddenSlides = new Option<bool>("--no-include-hidden-slides") { Description = "Leave out hidden slides (pptx)." };
         var includeOffSlide = new Option<bool>("--include-off-slide") { Description = "Write the text of the shapes outside a slide (pptx), as a quote (the default)." };
         var noIncludeOffSlide = new Option<bool>("--no-include-off-slide") { Description = "Leave out the text of the shapes outside a slide (pptx)." };
         var engine = new Option<string?>("--engine") { Description = "office or libreoffice." };
@@ -104,7 +108,7 @@ public static class CliApp
         convert.Arguments.Add(inputs);
         foreach (var option in new Option[]
         {
-            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeOffSlide, noIncludeOffSlide, engine, dpi, excelRange, step2, step3, vlmSeparate,
+            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, engine, dpi, excelRange, step2, step3, vlmSeparate,
             connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
         })
         {
@@ -122,6 +126,8 @@ public static class CliApp
                 Types = parse.GetValue(types),
                 Recurse = Flag(parse.GetValue(recurse), parse.GetValue(noRecurse)),
                 IncludeHidden = Flag(parse.GetValue(includeHidden), parse.GetValue(noIncludeHidden)),
+                IncludeHiddenSheets = Flag(parse.GetValue(includeHiddenSheets), parse.GetValue(noIncludeHiddenSheets)),
+                IncludeHiddenSlides = Flag(parse.GetValue(includeHiddenSlides), parse.GetValue(noIncludeHiddenSlides)),
                 IncludeOffSlideText = Flag(parse.GetValue(includeOffSlide), parse.GetValue(noIncludeOffSlide)),
                 Engine = parse.GetValue(engine),
                 Dpi = parse.GetValue(dpi),

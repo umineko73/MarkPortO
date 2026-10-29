@@ -110,6 +110,32 @@ public class TableAndNumberingTests
     }
 
     [Fact]
+    public void Read_TheParagraphsAndTablesInsideAContentControl_AreReadInTheirPlace()
+    {
+        // The table of contents that Word makes is in a content control (w:sdt); so is the whole body of many forms, or a cell.
+        using var dir = new TempDir();
+        var path = dir.Combine("sdt.docx");
+        using (var document = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document))
+        {
+            var main = document.AddMainDocumentPart();
+            main.Document = new Document(new Body(
+                new Paragraph(new Run(new Text("before the control"))),
+                new SdtBlock(new SdtProperties(), new SdtContentBlock(
+                    new Paragraph(new Run(new Text("first line inside"))),
+                    new SdtBlock(new SdtProperties(), new SdtContentBlock(new Paragraph(new Run(new Text("nested control"))))),
+                    new Table(new TableRow(new TableCell(new SdtBlock(new SdtProperties(), new SdtContentBlock(new Paragraph(new Run(new Text("cell in a control"))))))))))
+                ,
+                new Paragraph(new Run(new Text("after the control")))));
+        }
+
+        var markdown = DocxReader.Read(path).Select(b => b.Block.Markdown).ToArray();
+
+        Assert.Equal(["before the control", "first line inside", "nested control"], markdown[..3]);
+        Assert.Contains("cell in a control", markdown[3]);
+        Assert.Equal("after the control", markdown[4]);
+    }
+
+    [Fact]
     public void Read_TheNumberOfAHeadingThatIsLinkedToAList_IsWrittenInFrontOfIt()
     {
         using var dir = new TempDir();

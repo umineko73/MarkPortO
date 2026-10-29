@@ -78,7 +78,7 @@ public static partial class DocxReader
             var blocks = new List<DocxBlock>();
             var shapes = new List<DocxShapes>();
             var (pageWidth, pageHeight) = PageSizeEmu(body);
-            foreach (var element in body.ChildElements)
+            foreach (var element in Flatten(body.ChildElements))
             {
                 switch (element)
                 {
@@ -235,6 +235,26 @@ public static partial class DocxReader
         }
     }
 
+    // The paragraphs and tables of a body (or of a cell), also those inside a content control (w:sdt): the table of contents that Word makes is one,
+    // and so is the whole body of many forms. What is inside is read as if it were not in the control (FR-088).
+    private static IEnumerable<OpenXmlElement> Flatten(IEnumerable<OpenXmlElement> elements)
+    {
+        foreach (var element in elements)
+        {
+            if (element is SdtBlock control)
+            {
+                foreach (var inner in Flatten(control.SdtContentBlock?.ChildElements ?? Enumerable.Empty<OpenXmlElement>()))
+                {
+                    yield return inner;
+                }
+            }
+            else
+            {
+                yield return element;
+            }
+        }
+    }
+
     private static (double Width, double Height) PageSizeEmu(Body body)
     {
         var size = body.Elements<SectionProperties>().LastOrDefault()?.GetFirstChild<PageSize>();
@@ -337,7 +357,7 @@ public static partial class DocxReader
     private static string CellText(TableCell cell, Context context)
     {
         var parts = new List<string>();
-        foreach (var child in cell.ChildElements)
+        foreach (var child in Flatten(cell.ChildElements))
         {
             switch (child)
             {

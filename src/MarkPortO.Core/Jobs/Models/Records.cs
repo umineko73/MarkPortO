@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using System.Text.Json.Serialization;
 using MarkPortO.Core.Localization;
 
 namespace MarkPortO.Core.Jobs.Models;
@@ -156,7 +157,28 @@ public sealed class OptionsSnapshot
     /// <summary>How the pages of an Excel sheet are cut (FR-073).</summary>
     public ExcelRange ExcelRange { get; set; }
 
-    public bool IncludeHidden { get; set; }
+    /// <summary>
+    /// The setting of before "hidden sheets" and "hidden slides" were two: it is read (and sets both), and never written.
+    /// It is declared first, so that a file that has the new settings too takes them.
+    /// </summary>
+    [JsonPropertyName("includeHidden")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IncludeHiddenBoth
+    {
+        get => null;
+        set
+        {
+            if (value is { } both)
+            {
+                IncludeHiddenSheets = both;
+                IncludeHiddenSlides = both;
+            }
+        }
+    }
+
+    public bool IncludeHiddenSheets { get; set; }
+
+    public bool IncludeHiddenSlides { get; set; }
 
     /// <summary>Write the text of the shapes outside a slide (FR-086). A job from before this setting wrote it, so it is on.</summary>
     public bool IncludeOffSlideText { get; set; } = true;

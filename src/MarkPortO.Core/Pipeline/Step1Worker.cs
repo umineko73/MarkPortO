@@ -183,7 +183,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     private static async Task<Layout> LayoutPptxAsync(DocumentWork work, string workDirectory, CancellationToken cancellationToken)
     {
         var document = work.Document;
-        var includeHidden = work.Context.Options.IncludeHidden;
+        var includeHidden = work.Context.Options.IncludeHiddenSlides;
         var layout = new Layout();
         var slides = PptxReader.Read(document.SourcePath, includeHidden, work.Context.Options.IncludeOffSlideText);
         if (slides.Count == 0)
@@ -232,7 +232,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     {
         var document = work.Document;
         var layout = new Layout();
-        var sheets = XlsxReader.Read(document.SourcePath, work.Context.Options.IncludeHidden);
+        var sheets = XlsxReader.Read(document.SourcePath, work.Context.Options.IncludeHiddenSheets);
         var verdicts = XlsxCrossExtractor.Evaluate(document.SourcePath, sheets);
 
         var unitNumber = 0;

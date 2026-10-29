@@ -35,7 +35,8 @@ public class AppSettingsValidationTests
         Assert.Equal(150, s.Images.Dpi);
         Assert.True(s.Steps.Step2);
         Assert.False(s.Steps.Step3);
-        Assert.False(s.Input.IncludeHidden);
+        Assert.False(s.Input.IncludeHiddenSheets);
+        Assert.False(s.Input.IncludeHiddenSlides);
         Assert.False(s.Input.Recurse);
         Assert.Equal(EngineKind.Office, s.Engine.Kind);
         Assert.Equal([DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx], s.Input.Types);

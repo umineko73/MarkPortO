@@ -116,23 +116,10 @@
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
-          <TextBlock Grid.Row="0" Text="{DynamicResource Main_Cond_Types}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
+          <!-- Common to every kind of file -->
+          <TextBlock Grid.Row="0" Text="{DynamicResource Main_Cond_Common}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
-            <CheckBox Content="docx" IsChecked="{Binding TypeDocx}" VerticalAlignment="Center" Margin="0,0,12,0" />
-            <CheckBox Content="xlsx" IsChecked="{Binding TypeXlsx}" VerticalAlignment="Center" Margin="0,0,12,0" />
-            <CheckBox Content="pptx" IsChecked="{Binding TypePptx}" VerticalAlignment="Center" Margin="0,0,12,0" />
-            <TextBlock Text="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Foreground="{DynamicResource SubtleTextBrush}" />
-          </StackPanel>
-
-          <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_Range}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
-          <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
             <CheckBox Content="{DynamicResource Main_Cond_Recurse}" IsChecked="{Binding Recurse}" VerticalAlignment="Center" Margin="0,0,20,0" />
-            <CheckBox Content="{DynamicResource Main_Cond_Hidden}" IsChecked="{Binding IncludeHidden}" VerticalAlignment="Center" Margin="0,0,20,0" />
-            <CheckBox Content="{DynamicResource Main_Cond_OffSlide}" IsChecked="{Binding IncludeOffSlideText}" VerticalAlignment="Center" ToolTip="{DynamicResource Main_Cond_OffSlideTip}" />
-          </StackPanel>
-
-          <TextBlock Grid.Row="2" Text="{DynamicResource Main_Cond_Convert}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
-          <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
             <TextBlock Text="{DynamicResource Main_Cond_Engine}" VerticalAlignment="Center" Margin="0,0,6,0" />
             <ComboBox ItemsSource="{Binding EngineChoices}" DisplayMemberPath="Name" SelectedValuePath="Kind"
                       SelectedValue="{Binding SelectedEngine}" Width="170" Margin="0,0,20,0" />
@@ -140,14 +127,34 @@
             <TextBox Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="56" VerticalContentAlignment="Center" />
           </StackPanel>
 
-          <!-- Step1 always runs: it is shown, and it cannot be changed (FR-039) -->
-          <TextBlock Grid.Row="3" Text="{DynamicResource Main_Cond_Excel}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
-          <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
-            <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelColumns}" IsChecked="{Binding ExcelColumns}" ToolTip="{DynamicResource Main_Cond_ExcelColumnsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelRows}" IsChecked="{Binding ExcelRows}" ToolTip="{DynamicResource Main_Cond_ExcelRowsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelPrintArea}" IsChecked="{Binding ExcelPrintArea}" ToolTip="{DynamicResource Main_Cond_ExcelPrintAreaTip}" VerticalAlignment="Center" />
+          <!-- One row for each kind of file: whether it is converted, and the options that are only for it -->
+          <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_RowDocx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
+          <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
+            <CheckBox Content="docx" IsChecked="{Binding TypeDocx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,16,0" />
           </StackPanel>
 
+          <TextBlock Grid.Row="2" Text="{DynamicResource Main_Cond_RowXlsx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
+          <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
+            <CheckBox Content="xlsx" IsChecked="{Binding TypeXlsx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <StackPanel Orientation="Horizontal" IsEnabled="{Binding TypeXlsx}">
+              <CheckBox Content="{DynamicResource Main_Cond_HiddenSheets}" IsChecked="{Binding IncludeHiddenSheets}" VerticalAlignment="Center" Margin="0,0,20,0" />
+              <TextBlock Text="{DynamicResource Main_Cond_Excel}" VerticalAlignment="Center" Margin="0,0,10,0" />
+              <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelColumns}" IsChecked="{Binding ExcelColumns}" ToolTip="{DynamicResource Main_Cond_ExcelColumnsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
+              <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelRows}" IsChecked="{Binding ExcelRows}" ToolTip="{DynamicResource Main_Cond_ExcelRowsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
+              <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelPrintArea}" IsChecked="{Binding ExcelPrintArea}" ToolTip="{DynamicResource Main_Cond_ExcelPrintAreaTip}" VerticalAlignment="Center" />
+            </StackPanel>
+          </StackPanel>
+
+          <TextBlock Grid.Row="3" Text="{DynamicResource Main_Cond_RowPptx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
+          <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
+            <CheckBox Content="pptx" IsChecked="{Binding TypePptx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <StackPanel Orientation="Horizontal" IsEnabled="{Binding TypePptx}">
+              <CheckBox Content="{DynamicResource Main_Cond_HiddenSlides}" IsChecked="{Binding IncludeHiddenSlides}" VerticalAlignment="Center" Margin="0,0,20,0" />
+              <CheckBox Content="{DynamicResource Main_Cond_OffSlide}" IsChecked="{Binding IncludeOffSlideText}" ToolTip="{DynamicResource Main_Cond_OffSlideTip}" VerticalAlignment="Center" />
+            </StackPanel>
+          </StackPanel>
+
+          <!-- Step1 always runs: it is shown, and it cannot be changed (FR-039) -->
           <TextBlock Grid.Row="4" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" />
           <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
             <CheckBox Content="{DynamicResource Main_Cond_Step1}" IsChecked="True" IsEnabled="False" VerticalAlignment="Center" Margin="0,0,10,0" />

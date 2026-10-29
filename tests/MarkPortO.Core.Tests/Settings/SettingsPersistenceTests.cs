@@ -145,7 +145,8 @@ public class SettingsPersistenceTests
         {
             foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
-                if (property.GetCustomAttributes().Any(a => a.GetType().Name == "JsonIgnoreAttribute"))
+                // The one old name of the two hidden settings is only read (it sets both new ones): it is the one that is not written.
+                if (property.Name != nameof(InputSettings.IncludeHiddenBoth) && property.GetCustomAttributes().Any(a => a.GetType().Name == "JsonIgnoreAttribute"))
                 {
                     ignored.Add($"{type.Name}.{property.Name}");
                 }
@@ -181,7 +182,7 @@ public class SettingsPersistenceTests
 
         foreach (var key in new[]
         {
-            "\"paths\"", "\"recurse\"", "\"types\"", "\"includeHidden\"", "\"folder\"", "\"kind\"", "\"libreOfficePath\"", "\"dpi\"",
+            "\"paths\"", "\"recurse\"", "\"types\"", "\"includeHiddenSheets\"", "\"includeHiddenSlides\"", "\"folder\"", "\"kind\"", "\"libreOfficePath\"", "\"dpi\"",
             "\"step2\"", "\"step3\"", "\"selected\"", "\"connections\"", "\"name\"", "\"baseUrl\"", "\"model\"", "\"apiKeyEnv\"",
             "\"apiKey\"", "\"timeoutSeconds\"", "\"prompts\"", "\"docx\"", "\"xlsx\"", "\"pptx\"",
         })

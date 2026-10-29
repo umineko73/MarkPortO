@@ -31,7 +31,8 @@ public static class ConvertTestHelper
         Step2 = step2,
         Step3 = step3,
         Connection = connection,
-        IncludeHidden = includeHidden,
+        IncludeHiddenSheets = includeHidden,
+        IncludeHiddenSlides = includeHidden,
         MarkdownLanguage = markdownLanguage,
     };
 

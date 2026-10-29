@@ -50,7 +50,7 @@ public class SettingsStoreTests
                 s.Input.Paths = [@"D:\in", @"D:\in2\a.docx"];
                 s.Input.Recurse = true;
                 s.Input.Types = [DocumentKind.Xlsx, DocumentKind.Pptx];
-                s.Input.IncludeHidden = true;
+                s.Input.IncludeHiddenSheets = true;
                 s.Output.Folder = @"D:\出力";
                 s.Engine.Kind = EngineKind.LibreOffice;
                 s.Engine.LibreOfficePath = @"C:\LO\soffice.exe";
@@ -74,7 +74,8 @@ public class SettingsStoreTests
         Assert.Equal([@"D:\in", @"D:\in2\a.docx"], s.Input.Paths);
         Assert.True(s.Input.Recurse);
         Assert.Equal([DocumentKind.Xlsx, DocumentKind.Pptx], s.Input.Types);
-        Assert.True(s.Input.IncludeHidden);
+        Assert.True(s.Input.IncludeHiddenSheets);
+        Assert.False(s.Input.IncludeHiddenSlides);
         Assert.Equal(@"D:\出力", s.Output.Folder);
         Assert.Equal(EngineKind.LibreOffice, s.Engine.Kind);
         Assert.Equal(@"C:\LO\soffice.exe", s.Engine.LibreOfficePath);
