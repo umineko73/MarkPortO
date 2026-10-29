@@ -60,6 +60,16 @@ public class PreviewLineBreakTests
     }
 
     [Fact]
+    public void ATableWithoutTheOuterPipes_IsStillATable()
+    {
+        // The VLM often writes a table like this; a break added to its lines would make it a paragraph (v0.1.4).
+        var html = MarkdownHtml.Render("no | name | url\n---|---|---\n1 | bed | https://example.com/a\n2 | | https://example.com/b");
+
+        Assert.Contains("<table>", html);
+        Assert.DoesNotContain("<br", html);
+    }
+
+    [Fact]
     public void TheBreakOfACellOfATable_IsStillShown()
     {
         Assert.Contains("x<br>y", MarkdownHtml.Render("| a |\n|---|\n| x<br>y |"));
