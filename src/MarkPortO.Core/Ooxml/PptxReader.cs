@@ -347,10 +347,10 @@ public static class PptxReader
             switch (child)
             {
                 case A.Run run when part is not null && LinkOf(run, part) is { } address && run.Text?.Text is { Length: > 0 } label:
-                    builder.Append('[').Append(label.Replace("]", "\\]", StringComparison.Ordinal)).Append("](").Append(address).Append(')');
+                    builder.Append('[').Append(StruckIf(run, part, label.Replace("]", "\\]", StringComparison.Ordinal))).Append("](").Append(address).Append(')');
                     break;
                 case A.Run run:
-                    builder.Append(run.Text?.Text);
+                    builder.Append(StruckIf(run, part, run.Text?.Text ?? string.Empty));
                     break;
                 case A.Break:
                     builder.Append('\n');
@@ -361,6 +361,10 @@ public static class PptxReader
             }
         }
 
-        return builder.ToString();
+        return part is null ? builder.ToString() : Strikethrough.Merge(builder.ToString());
     }
+
+    // A run with a strikethrough is written between ~~ (FR-092); in the plain text (no slide part) it is as it is.
+    private static string StruckIf(A.Run run, SlidePart? part, string text) =>
+        part is not null && run.RunProperties?.Strike?.Value is { } strike && strike != A.TextStrikeValues.NoStrike ? Strikethrough.Wrap(text) : text;
 }

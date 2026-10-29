@@ -28,6 +28,27 @@ public readonly record struct MergeMark(bool FirstRow, int OriginRow, int Origin
 
 
 /// <summary>An Excel table (<c>xl/tables</c>) of a sheet: its name, and its cells (0-based in <see cref="SheetContent.Rows"/>).</summary>
+/// <summary>A shared string of a workbook: its text, and for rich text its parts, each with whether it has a strikethrough (null: as the font of the cell).</summary>
+internal sealed record SharedItem(string Plain, List<(string Text, bool? Struck)>? Runs)
+{
+    /// <summary>The text for a cell whose font has (or has not) a strikethrough; a part with a strikethrough is written between ~~ (FR-092).</summary>
+    public string Text(bool cellStruck)
+    {
+        if (Runs is null)
+        {
+            return cellStruck && Plain.Length > 0 ? Strikethrough.Wrap(Plain) : Plain;
+        }
+
+        var builder = new StringBuilder();
+        foreach (var (text, struck) in Runs)
+        {
+            builder.Append((struck ?? cellStruck) ? Strikethrough.Wrap(text) : text);
+        }
+
+        return Strikethrough.Merge(builder.ToString());
+    }
+}
+
 /// <summary>A piece of the Markdown of a sheet: a table (or a part of one that runs over pages), or the comments and the charts.</summary>
 /// <param name="Page">The page of the printed sheet (0-based) that the piece is on.</param>
 /// <param name="HeadPage">For a table: the page where the table starts (the page of its first piece).</param>
@@ -436,6 +457,7 @@ public static partial class XlsxReader
             var sheets = workbookPart.Workbook?.Sheets ?? throw new InvalidDocumentException(Loc.T("The workbook has no sheets."));
 
             var sharedStrings = ReadSharedStrings(workbookPart);
+            var struckStyles = ReadStruckStyles(workbookPart);
             var dateStyles = ReadDateStyles(workbookPart);
             var numberFormats = ReadNumberFormats(workbookPart, dateStyles);
 
@@ -453,7 +475,7 @@ public static partial class XlsxReader
                     continue; // a chart sheet
                 }
 
-                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats));
+                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles));
             }
 
             return result;
@@ -482,9 +504,10 @@ public static partial class XlsxReader
         string name,
         bool hidden,
         WorksheetPart part,
-        IReadOnlyList<string> sharedStrings,
+        IReadOnlyList<SharedItem> sharedStrings,
         IReadOnlySet<uint> dateStyles,
-        IReadOnlyDictionary<uint, string> numberFormats)
+        IReadOnlyDictionary<uint, string> numberFormats,
+        IReadOnlySet<uint> struckStyles)
     {
         var worksheet = part.Worksheet ?? throw new InvalidDocumentException(Loc.T("The sheet '{0}' has no content.", name));
         var cells = new Dictionary<(int Row, int Column), string>();
@@ -506,7 +529,7 @@ public static partial class XlsxReader
             }
 
             var (column, row) = ExcelColumn.ParseReference(reference);
-            var text = CellText(cell, sharedStrings, dateStyles, numberFormats);
+            var text = CellText(cell, sharedStrings, dateStyles, numberFormats, struckStyles);
             var hasFormat = cell.StyleIndex?.Value is > 0;
             if (text.Length == 0 && !hasFormat)
             {
@@ -747,7 +770,22 @@ public static partial class XlsxReader
         return pixels * 0.75;
     }
 
-    private static string CellText(Cell cell, IReadOnlyList<string> sharedStrings, IReadOnlySet<uint> dateStyles, IReadOnlyDictionary<uint, string> numberFormats)
+    // The text of a cell; a cell whose font has a strikethrough is written between ~~ (FR-092).
+    private static string CellText(Cell cell, IReadOnlyList<SharedItem> sharedStrings, IReadOnlySet<uint> dateStyles, IReadOnlyDictionary<uint, string> numberFormats, IReadOnlySet<uint> struckStyles)
+    {
+        var struck = cell.StyleIndex?.Value is { } style && struckStyles.Contains(style);
+        if (cell.DataType?.Value == CellValues.SharedString && cell.CellValue?.Text is { } raw
+            && int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) && index >= 0 && index < sharedStrings.Count)
+        {
+            // The parts of the text that have a font of their own take it (and that font has a strikethrough or not); the others have the font of the cell.
+            return sharedStrings[index].Text(struck);
+        }
+
+        var text = CellTextOf(cell, dateStyles, numberFormats);
+        return struck && text.Length > 0 ? Strikethrough.Wrap(text) : text;
+    }
+
+    private static string CellTextOf(Cell cell, IReadOnlySet<uint> dateStyles, IReadOnlyDictionary<uint, string> numberFormats)
     {
         var raw = cell.CellValue?.Text;
         var type = cell.DataType?.Value;
@@ -764,9 +802,7 @@ public static partial class XlsxReader
 
         if (type == CellValues.SharedString)
         {
-            return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) && index >= 0 && index < sharedStrings.Count
-                ? sharedStrings[index]
-                : string.Empty;
+            return string.Empty; // read by CellText
         }
 
         if (type == CellValues.Boolean)
@@ -818,7 +854,7 @@ public static partial class XlsxReader
     private static string InlineText(InlineString? inline) =>
         inline is null ? string.Empty : string.Concat(inline.Descendants<Text>().Select(t => t.Text));
 
-    private static IReadOnlyList<string> ReadSharedStrings(WorkbookPart workbookPart)
+    private static IReadOnlyList<SharedItem> ReadSharedStrings(WorkbookPart workbookPart)
     {
         var table = workbookPart.SharedStringTablePart?.SharedStringTable;
         if (table is null)
@@ -826,19 +862,61 @@ public static partial class XlsxReader
             return [];
         }
 
-        var strings = new List<string>();
+        var strings = new List<SharedItem>();
         foreach (var item in table.Elements<SharedStringItem>())
         {
-            var builder = new StringBuilder();
-            foreach (var text in item.Descendants<Text>().Where(t => !t.Ancestors<PhoneticRun>().Any()))
+            var runs = new List<(string Text, bool? Struck)>();
+            var plain = new StringBuilder();
+            foreach (var child in item.ChildElements)
             {
-                builder.Append(text.Text);
+                switch (child)
+                {
+                    case Run run:
+                        var part = string.Concat(run.Elements<Text>().Select(t => t.Text));
+                        plain.Append(part);
+
+                        // A run with a font of its own has that font whole: it says by itself whether it has a strikethrough. One without has the font of the cell.
+                        bool? struck = run.RunProperties is null
+                            ? null
+                            : run.RunProperties.Elements<Strike>().FirstOrDefault() is { } strike && (strike.Val is null || strike.Val.Value);
+                        runs.Add((part, struck));
+                        break;
+                    case Text text:
+                        plain.Append(text.Text);
+                        break;
+                }
             }
 
-            strings.Add(builder.ToString());
+            strings.Add(new SharedItem(plain.ToString(), runs.Count > 0 ? runs : null));
         }
 
         return strings;
+    }
+
+    /// <summary>Style indexes (positions in cellXfs) whose font has a strikethrough.</summary>
+    private static IReadOnlySet<uint> ReadStruckStyles(WorkbookPart workbookPart)
+    {
+        var result = new HashSet<uint>();
+        var stylesheet = workbookPart.WorkbookStylesPart?.Stylesheet;
+        if (stylesheet?.CellFormats is not { } formats || stylesheet.Fonts is not { } fonts)
+        {
+            return result;
+        }
+
+        var fontList = fonts.Elements<Font>().ToList();
+        uint index = 0;
+        foreach (var format in formats.Elements<CellFormat>())
+        {
+            var fontId = format.FontId?.Value ?? 0;
+            if (fontId < fontList.Count && fontList[(int)fontId].Elements<Strike>().FirstOrDefault() is { } strike && (strike.Val is null || strike.Val.Value))
+            {
+                result.Add(index);
+            }
+
+            index++;
+        }
+
+        return result;
     }
 
     /// <summary>Style indexes (positions in cellXfs) whose number format shows a date or a time.</summary>

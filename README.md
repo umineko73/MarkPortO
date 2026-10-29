@@ -114,7 +114,7 @@ out/report/
     └── page-002.png
 ```
 
-Merged table cells are written in the notePM style (`<` joins the cell on the left, `^` the cell above). A `<!-- page: N -->` line starts each page.
+Merged table cells are written in the notePM style (`<` joins the cell on the left, `^` the cell above). Text with a strikethrough is written as `~~text~~`. A `<!-- page: N -->` line starts each page.
 
 ## Development
 

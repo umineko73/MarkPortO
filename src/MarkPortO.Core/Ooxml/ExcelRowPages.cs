@@ -14,6 +14,7 @@
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
 using System.Text;
+using MarkPortO.Core.Markdown;
 
 namespace MarkPortO.Core.Ooxml;
 
@@ -58,7 +59,7 @@ public static class ExcelRowPages
         {
             var cells = Enumerable.Range(fromIndex, toIndex - fromIndex + 1)
                 .Where(c => c < sheet.Rows[r].Length && !sheet.HiddenColumns.Contains(c))
-                .Select(c => DocxPageAssigner.Normalize(sheet.Rows[r][c]))
+                .Select(c => DocxPageAssigner.Normalize(Strikethrough.Remove(sheet.Rows[r][c])))
                 .Where(text => text.Length > 0)
                 .ToList();
             if (sheet.HiddenRows.Contains(r) || cells.Count == 0)

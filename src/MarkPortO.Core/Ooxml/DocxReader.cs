@@ -190,6 +190,49 @@ public static partial class DocxReader
         private static string? RelationshipOf(OpenXmlElement element, string name) =>
             element.GetAttributes().FirstOrDefault(a => a.LocalName == name && a.NamespaceUri.EndsWith("officeDocument/2006/relationships", StringComparison.Ordinal)).Value;
 
+        /// <summary>The run has a strikethrough: its own (single or double), or the one of its character style.</summary>
+        public bool IsStruck(Run run)
+        {
+            var properties = run.RunProperties;
+            if (properties?.Strike is { } strike)
+            {
+                return strike.Val is null || strike.Val.Value;
+            }
+
+            if (properties?.DoubleStrike is { } doubleStrike)
+            {
+                return doubleStrike.Val is null || doubleStrike.Val.Value;
+            }
+
+            var styleId = properties?.RunStyle?.Val?.Value;
+            for (var depth = 0; styleId is not null && depth < 8; depth++)
+            {
+                if (!_styleDefinitions.TryGetValue(styleId, out var style))
+                {
+                    return false;
+                }
+
+                if (style.StyleRunProperties?.Strike is { } styleStrike)
+                {
+                    return styleStrike.Val is null || styleStrike.Val.Value;
+                }
+
+                if (style.StyleRunProperties?.DoubleStrike is { } styleDouble)
+                {
+                    return styleDouble.Val is null || styleDouble.Val.Value;
+                }
+
+                styleId = style.BasedOn?.Val?.Value;
+            }
+
+            return false;
+        }
+
+        private readonly Dictionary<string, Style> _styleDefinitions = (main.StyleDefinitionsPart?.Styles?.Elements<Style>() ?? [])
+            .Where(s => s.StyleId?.Value is not null)
+            .GroupBy(s => s.StyleId!.Value!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
         public (int? HeadingLevel, bool IsTitle) StyleOf(string? styleId) =>
             styleId is not null && _styles.TryGetValue(styleId, out var style) ? style : (null, false);
 
@@ -466,11 +509,11 @@ public static partial class DocxReader
     {
         var builder = new StringBuilder();
         Append(paragraph, builder, markdown);
-        return builder.ToString();
+        return markdown is null ? builder.ToString() : Strikethrough.Merge(builder.ToString());
     }
 
     // With a context the text is Markdown (links, note marks, the alternative text of pictures); without it, plain text.
-    private static void Append(OpenXmlElement element, StringBuilder builder, Context? markdown = null)
+    private static void Append(OpenXmlElement element, StringBuilder builder, Context? markdown = null, bool ignoreStrike = false)
     {
         foreach (var child in element.ChildElements)
         {
@@ -529,6 +572,12 @@ public static partial class DocxReader
                         Append(choice, builder, markdown);
                     }
 
+                    break;
+                case Run run when markdown is not null && markdown.IsStruck(run):
+                    // A run with a strikethrough is written between ~~ (FR-092).
+                    var struck = new StringBuilder();
+                    Append(run, struck, markdown, ignoreStrike: true);
+                    builder.Append(Strikethrough.Wrap(struck.ToString()));
                     break;
                 case DeletedRun:
                 case DeletedText:
