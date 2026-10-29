@@ -245,7 +245,7 @@ public static class DocxPageAssigner
 
                 var searchText = start == 0 ? item.SearchText : string.Concat(table.PlainRows[start]);
                 result.Add(new DocxBlock(
-                    new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table(rows, hasHeader), PageIndex = pages[start] },
+                    new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table(rows, hasHeader), PageIndex = pages[start], JoinedToPage = start == 0 ? null : pages[0] },
                     searchText));
                 start = row;
             }

@@ -86,15 +86,9 @@ public static class PdfRenderer
 
         // The Windows renderer multiplies the size it is given by the display scale of the PC (125% makes the image 1.25 times
         // larger), so the size is divided by the scale first. The scale is measured on the first image and kept.
-        var (bytes, requested) = await RenderAsync(page, width, height, cancellationToken).ConfigureAwait(false);
+        var scale = await ScaleAsync(page, cancellationToken).ConfigureAwait(false);
+        var (bytes, _) = await RenderAsync(page, width, height, scale, cancellationToken).ConfigureAwait(false);
         var (actualWidth, actualHeight) = PngSize(bytes);
-        var measured = requested > 0 ? actualWidth / (double)requested : 1.0;
-        if (Math.Abs(measured - _renderScale) > 0.02 && measured > 0)
-        {
-            _renderScale = measured;
-            (bytes, _) = await RenderAsync(page, width, height, cancellationToken).ConfigureAwait(false);
-            (actualWidth, actualHeight) = PngSize(bytes);
-        }
 
         // The size is exactly the one that the DPI gives (the scale and the rounding can leave a pixel or two).
         if (actualWidth != width || actualHeight != height)
@@ -107,12 +101,27 @@ public static class PdfRenderer
         return new RenderedImage(outputPngPath, actualWidth, actualHeight);
     }
 
-    // What the renderer makes of a size: 1.0 on a display at 100%, 1.25 at 125%.
-    private static double _renderScale = 1.0;
+    // What the renderer makes of a size: 1.0 on a display at 100%, 1.25 at 125%. It is measured once, before the first image, so that every image
+    // is made the same way.
+    private static double? _renderScale;
 
-    private static async Task<(byte[] Bytes, int RequestedWidth)> RenderAsync(PdfPage page, int width, int height, CancellationToken cancellationToken)
+    private static async Task<double> ScaleAsync(PdfPage page, CancellationToken cancellationToken)
     {
-        var scale = _renderScale;
+        if (_renderScale is { } known)
+        {
+            return known;
+        }
+
+        const int probeWidth = 200;
+        var probeHeight = Math.Max(1, (int)Math.Round(probeWidth * page.Size.Height / Math.Max(1.0, page.Size.Width)));
+        var (bytes, _) = await RenderAsync(page, probeWidth, probeHeight, 1.0, cancellationToken).ConfigureAwait(false);
+        var measured = PngSize(bytes).Width / (double)probeWidth;
+        _renderScale = measured is > 0.99 and < 1.01 or <= 0 ? 1.0 : Math.Round(measured, 3);
+        return _renderScale.Value;
+    }
+
+    private static async Task<(byte[] Bytes, int RequestedWidth)> RenderAsync(PdfPage page, int width, int height, double scale, CancellationToken cancellationToken)
+    {
         var requestedWidth = (uint)Math.Max(1, Math.Round(width / scale));
         var options = new PdfPageRenderOptions
         {

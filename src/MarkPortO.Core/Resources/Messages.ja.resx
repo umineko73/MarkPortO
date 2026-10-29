@@ -325,6 +325,9 @@
   <data name="Interrupted" xml:space="preserve">
     <value>中断</value>
   </data>
+  <data name="Blank page" xml:space="preserve">
+    <value>空白ページ</value>
+  </data>
   <data name="Not applicable" xml:space="preserve">
     <value>対象外</value>
   </data>

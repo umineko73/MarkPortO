@@ -57,6 +57,13 @@ public sealed class Block
 
     /// <summary>Start page (the <see cref="PageRecord.Index"/>); <c>null</c> when it could not be determined.</summary>
     public int? PageIndex { get; set; }
+
+    /// <summary>
+    /// For the part of a table that runs over several pages, on the second page and after: the page where the table starts. The table is cut
+    /// at the page breaks so that each page has its own rows (for the text sent with the page image); the Markdown of the document joins the parts
+    /// into one table and says so on the later pages.
+    /// </summary>
+    public int? JoinedToPage { get; set; }
 }
 
 public sealed class PageRecord
@@ -71,6 +78,9 @@ public sealed class PageRecord
     public string ImageFile { get; set; } = string.Empty;
 
     public bool IsDeleted { get; set; }
+
+    /// <summary>The image of the page has nothing on it (FR-082): it is not sent to the VLM.</summary>
+    public bool IsBlank { get; set; }
 
     public SheetInfo? Sheet { get; set; }
 

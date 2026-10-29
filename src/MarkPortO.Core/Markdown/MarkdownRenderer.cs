@@ -50,7 +50,7 @@ public static class MarkdownRenderer
         var builder = new StringBuilder();
         builder.Append("# ").Append(MarkdownText.Escape(fileName).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
         AppendStructureNote(builder, fileName, document.Kind, includeImages, includeVlm, document.Pages.Any(p => p.Bands > 1),
-            document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), language,
+            document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), language,
             vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmSeparate ? VlmFileName(name) : null);
 
         if (includeVlm && TryUsageLine(document.Pages, language) is { } usageLine)
@@ -63,10 +63,11 @@ public static class MarkdownRenderer
         }
 
         var effectivePages = DocxPageAssigner.EffectivePages(document.Blocks, document.Pages.Count);
+        var blockTexts = JoinTableParts(document.Blocks, effectivePages, language);
         foreach (var page in document.Pages.OrderBy(p => p.Index))
         {
             builder.Append('\n');
-            AppendPage(builder, document, page, effectivePages, includeImages, includeVlm, vlmFile, language);
+            AppendPage(builder, document, page, effectivePages, blockTexts, includeImages, includeVlm, vlmFile, language);
         }
 
         return builder.ToString().TrimEnd('\n') + "\n";
@@ -79,7 +80,7 @@ public static class MarkdownRenderer
         return "images/page-" + pageIndex.ToString("D" + digits, CultureInfo.InvariantCulture) + ".png";
     }
 
-    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, bool hasBands, bool hasMergedCells, string language, string? mainFile, string? vlmFile)
+    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, bool hasBands, bool hasMergedCells, bool hasJoinedTables, string language, string? mainFile, string? vlmFile)
     {
         void Line(string text) => builder.Append("> ").Append(text).Append('\n');
 
@@ -111,6 +112,11 @@ public static class MarkdownRenderer
             Line(Loc.M("- Merged table cells: `<` is merged with the cell on its left, `^` with the cell above (the notePM style). A Markdown table cannot merge cells, so a cell that is hidden by a merged cell is written as `<` or `^`. The header row cannot be merged: its value is repeated. An empty cell is left empty.", language));
         }
 
+        if (hasJoinedTables)
+        {
+            Line(Loc.M("- A table that runs over several pages is one table, written where it starts. On the later pages a quote tells that the rows were joined to the table of the first page.", language));
+        }
+
         if (kind == DocumentKind.Xlsx)
         {
             Line(Loc.M("- Sheets (xlsx): `<!-- sheet: name part=2/3 columns=I:P -->`. Written on every page; it shows which sheet and which columns. When a sheet with many columns is split into several images, the part is 2/3 and so on.", language));
@@ -119,7 +125,7 @@ public static class MarkdownRenderer
 
     private static string? TryUsageLine(IReadOnlyList<PageRecord> pages, string language)
     {
-        var read = pages.Where(p => !p.IsDeleted).ToList();
+        var read = pages.Where(p => !p.IsDeleted && !p.IsBlank).ToList();
         if (read.Count == 0)
         {
             return null;
@@ -151,6 +157,7 @@ public static class MarkdownRenderer
         DocumentRecord document,
         PageRecord page,
         IReadOnlyList<int> effectivePages,
+        IReadOnlyList<string> blockTexts,
         bool includeImages,
         bool includeVlm,
         bool vlmOnly,
@@ -181,11 +188,16 @@ public static class MarkdownRenderer
             builder.Append("\n![").Append(Loc.M("alt|Page {0}", language, page.Index)).Append("](").Append(page.ImageFile).Append(")\n");
         }
 
+        if (page.IsBlank)
+        {
+            builder.Append("\n> ").Append(Loc.M("This page is blank.", language)).Append('\n');
+        }
+
         for (var i = 0; i < document.Blocks.Count && !vlmOnly; i++)
         {
-            if (effectivePages[i] == page.Index && document.Blocks[i].Markdown.Length > 0)
+            if (effectivePages[i] == page.Index && blockTexts[i].Length > 0)
             {
-                builder.Append('\n').Append(MarkdownText.ResolveMarks(document.Blocks[i].Markdown)).Append('\n');
+                builder.Append('\n').Append(MarkdownText.ResolveMarks(blockTexts[i])).Append('\n');
             }
         }
 
@@ -195,11 +207,51 @@ public static class MarkdownRenderer
         }
     }
 
+    /// <summary>
+    /// The text of each block as it is written in the Markdown of the document. A table that runs over several pages was cut at the page
+    /// breaks (the text sent with each page image is only the rows of the page); here the parts are one table, written where the table starts, and
+    /// on the later pages a quote tells where the rows went.
+    /// </summary>
+    private static string[] JoinTableParts(IReadOnlyList<Block> blocks, IReadOnlyList<int> effectivePages, string language)
+    {
+        var texts = blocks.Select(b => b.Markdown).ToArray();
+        var head = -1;
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            var block = blocks[i];
+            if (block.Kind != BlockKind.Table)
+            {
+                continue;
+            }
+
+            if (block.JoinedToPage is null)
+            {
+                head = i;
+                continue;
+            }
+
+            // A part whose first part is not there (its page was a deleted page) stays a table of its own.
+            if (head < 0 || effectivePages[head] != block.JoinedToPage)
+            {
+                continue;
+            }
+
+            // The first two lines of a part are its header row (the repeated header, or an empty one): they are not rows of the joined table.
+            texts[head] += "\n" + string.Join('\n', block.Markdown.Split('\n').Skip(2));
+            texts[i] = "> " + Loc.M("The rows of this table are joined to the table on page {0}.", language, block.JoinedToPage.Value);
+        }
+
+        return texts;
+    }
+
     private static void AppendVlm(StringBuilder builder, PageRecord page)
     {
         var number = page.Index.ToString(CultureInfo.InvariantCulture);
         switch (page.Step3)
         {
+            case PageStep3Status.Skipped when page.IsBlank:
+                builder.Append("\n<!-- vlm:skipped page=").Append(number).Append(" reason=\"blank page\" -->\n");
+                break;
             case PageStep3Status.Done when page.VlmText is not null:
                 builder.Append("\n<!-- vlm:begin page=").Append(number)
                     .Append(page.Bands > 1 ? " bands=" + page.Bands.ToString(CultureInfo.InvariantCulture) : string.Empty)

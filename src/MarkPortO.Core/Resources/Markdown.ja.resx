@@ -91,4 +91,13 @@
   <data name="**VLM cost**: {0} US dollars in total" xml:space="preserve">
     <value>**VLM費用**: 合計 {0} 米ドル</value>
   </data>
+  <data name="The rows of this table are joined to the table on page {0}." xml:space="preserve">
+    <value>この表の行は、ページ{0}の表に結合しました。</value>
+  </data>
+  <data name="- A table that runs over several pages is one table, written where it starts. On the later pages a quote tells that the rows were joined to the table of the first page." xml:space="preserve">
+    <value>- 複数のページにまたがる表は、1つの表として、表が始まる位置に書く。後のページには、行を最初のページの表に結合したことを、引用で書く。</value>
+  </data>
+  <data name="This page is blank." xml:space="preserve">
+    <value>このページは空白です。</value>
+  </data>
 </root>

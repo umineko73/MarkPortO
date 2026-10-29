@@ -58,15 +58,15 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             var prompt = (context.Prompts ?? new Settings.PromptSettings()).For(document.Kind, document.MarkdownLanguage);
             var governor = context.Governor ?? new Step3Governor();
 
-            foreach (var page in document.Pages.Where(p => p.IsDeleted))
+            foreach (var page in document.Pages.Where(p => p.IsDeleted || p.IsBlank))
             {
-                page.Step3 = PageStep3Status.Skipped; // a deleted page is never read
+                page.Step3 = PageStep3Status.Skipped; // a deleted page and a blank page are never read
             }
 
             var gate = new object();
             using var slots = new SemaphoreSlim(Math.Max(1, context.Step3Parallel));
             var readings = new List<Task>();
-            foreach (var page in document.Pages.Where(p => !p.IsDeleted && p.Step3 != PageStep3Status.Done))
+            foreach (var page in document.Pages.Where(p => !p.IsDeleted && !p.IsBlank && p.Step3 != PageStep3Status.Done))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -81,7 +81,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
 
             await Task.WhenAll(readings).ConfigureAwait(false);
 
-            var unfinished = document.Pages.Any(p => !p.IsDeleted && p.Step3 is PageStep3Status.Pending or PageStep3Status.Running);
+            var unfinished = document.Pages.Any(p => !p.IsDeleted && !p.IsBlank && p.Step3 is PageStep3Status.Pending or PageStep3Status.Running);
             document.Step3 = unfinished ? StepStatus.Interrupted : StepStatus.Done;
             document.UsageTotal = Total(document);
             document.CostTotalUsd = CostTotal(document);

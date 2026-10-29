@@ -358,12 +358,19 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                 }
 
                 var pageDpi = layout.DpiFactors.TryGetValue(i, out var factor) ? Math.Clamp((int)Math.Round(dpi * factor), dpi, Math.Max(dpi, MaxRaisedDpi)) : dpi;
-                await PdfRenderer.RenderPageAsync(
+                var rendered = await PdfRenderer.RenderPageAsync(
                     pdfDocument,
                     reference.PageIndexInPdf,
                     pageDpi,
                     Path.Combine(document.OutputFolder, imageFile.Replace('/', Path.DirectorySeparatorChar)),
                     cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                // A page with nothing on it is not sent to the VLM (FR-082).
+                if (!page.IsDeleted && PageBlank.IsBlank(rendered.Path, ignoreHeaderAndFooter: document.Kind == DocumentKind.Docx))
+                {
+                    page.IsBlank = true;
+                    page.Step3 = PageStep3Status.Skipped;
+                }
             }
             catch (PageTooLargeException ex)
             {
