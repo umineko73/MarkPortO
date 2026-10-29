@@ -114,6 +114,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
           <!-- Common to every kind of file -->
@@ -154,18 +155,27 @@
             </StackPanel>
           </StackPanel>
 
+          <TextBlock Grid.Row="4" Text="{DynamicResource Main_Cond_RowPdf}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
+          <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
+            <CheckBox Content="pdf" IsChecked="{Binding TypePdf}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <StackPanel Orientation="Horizontal" IsEnabled="{Binding TypePdf}">
+              <CheckBox Content="{DynamicResource Main_Cond_PdfText}" IsChecked="{Binding UsePdfText}" ToolTip="{DynamicResource Main_Cond_PdfTextTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
+              <TextBlock Text="{DynamicResource Main_Cond_PdfHint}" Foreground="{DynamicResource SubtleTextBrush}" VerticalAlignment="Center" Visibility="{Binding PdfHintVisibility}" />
+            </StackPanel>
+          </StackPanel>
+
           <!-- Step1 always runs: it is shown, and it cannot be changed (FR-039) -->
-          <TextBlock Grid.Row="4" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+          <TextBlock Grid.Row="5" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
             <CheckBox Content="{DynamicResource Main_Cond_Step1}" IsChecked="True" IsEnabled="False" VerticalAlignment="Center" Margin="0,0,10,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Step1Always}" VerticalAlignment="Center" Foreground="{DynamicResource SubtleTextBrush}" />
           </StackPanel>
 
-          <TextBlock Grid.Row="5" Text="Step2" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <CheckBox Grid.Row="5" Grid.Column="1" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <TextBlock Grid.Row="6" Text="Step2" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <CheckBox Grid.Row="6" Grid.Column="1" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,0,6" />
 
-          <TextBlock Grid.Row="6" Text="Step3" VerticalAlignment="Center" />
-          <WrapPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal">
+          <TextBlock Grid.Row="7" Text="Step3" VerticalAlignment="Center" />
+          <WrapPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal">
             <CheckBox Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
             <CheckBox Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Connection}" VerticalAlignment="Center" Margin="0,0,4,0" />

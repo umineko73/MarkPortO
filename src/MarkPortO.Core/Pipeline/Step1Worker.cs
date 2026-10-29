@@ -85,7 +85,15 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var workDirectory = context.WorkDirectory(document);
         try
         {
-            OoxmlPackage.EnsureOpens(document.SourcePath, document.Kind);
+            if (document.Kind == DocumentKind.Pdf)
+            {
+                PdfPackage.EnsureOpens(document.SourcePath);
+            }
+            else
+            {
+                OoxmlPackage.EnsureOpens(document.SourcePath, document.Kind);
+            }
+
             if (!Directory.Exists(document.OutputFolder))
             {
                 Directory.CreateDirectory(document.OutputFolder);
@@ -99,6 +107,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                 DocumentKind.Docx => await LayoutDocxAsync(work, workDirectory, cancellationToken).ConfigureAwait(false),
                 DocumentKind.Pptx => await LayoutPptxAsync(work, workDirectory, cancellationToken).ConfigureAwait(false),
                 DocumentKind.Xlsx => await LayoutXlsxAsync(work, workDirectory, cancellationToken).ConfigureAwait(false),
+                DocumentKind.Pdf => await LayoutPdfAsync(work, cancellationToken).ConfigureAwait(false),
                 _ => throw new ArgumentOutOfRangeException(nameof(work)),
             };
 
@@ -173,6 +182,52 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             layout.Pdf.Add(new PdfPageRef(pdf, i));
             layout.Labels.Add(PageLabel.Page(i + 1));
             layout.Sheets.Add(null);
+        }
+
+        return layout;
+    }
+
+    // ---- pdf: the page images are the content; the text layer, when there is one, only helps (FR-076) ----
+
+    private static async Task<Layout> LayoutPdfAsync(DocumentWork work, CancellationToken cancellationToken)
+    {
+        var document = work.Document;
+        var layout = new Layout();
+        var pdf = document.SourcePath;
+        var pageCount = await PdfRenderer.GetPageCountAsync(pdf).ConfigureAwait(false);
+        var usePdfText = work.Context.Options.UsePdfText;
+
+        using var text = usePdfText ? PdfPackage.OpenText(pdf) : null;
+        var withoutText = 0;
+        for (var i = 0; i < pageCount; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            layout.Pdf.Add(new PdfPageRef(pdf, i));
+            layout.Labels.Add(PageLabel.Page(i + 1));
+            layout.Sheets.Add(null);
+
+            if (text is null)
+            {
+                continue;
+            }
+
+            var paragraphs = PdfPackage.TryGetParagraphs(text, i);
+            foreach (var paragraph in paragraphs)
+            {
+                layout.Blocks.Add(new Block { Kind = BlockKind.Paragraph, Markdown = paragraph, PageIndex = i + 1 });
+            }
+
+            if (paragraphs.Count == 0)
+            {
+                withoutText++;
+            }
+        }
+
+        if (withoutText > 0)
+        {
+            layout.Warnings.Add(new Warning(
+                "PdfNoText",
+                Loc.T("{0} of {1} pages have no text layer (a scanned page?). Their text comes only from the VLM (Step3).", withoutText, pageCount)));
         }
 
         return layout;

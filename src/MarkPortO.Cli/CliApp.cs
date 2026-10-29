@@ -77,7 +77,7 @@ public static class CliApp
         var inputs = new Argument<string[]>("inputs") { Description = "Files and/or folders to convert.", Arity = ArgumentArity.ZeroOrMore };
         var settings = new Option<string?>("--settings") { Description = "Path of settings.json (default: %APPDATA%\\MarkPortO\\settings.json)." };
         var output = new Option<string?>("--out") { Description = "Output folder." };
-        var types = new Option<string?>("--types") { Description = "Types to convert in a folder: docx,xlsx,pptx (comma separated)." };
+        var types = new Option<string?>("--types") { Description = "Types to convert in a folder: docx,xlsx,pptx,pdf (comma separated)." };
         var recurse = new Option<bool>("--recurse") { Description = "Also convert documents in sub-folders." };
         var noRecurse = new Option<bool>("--no-recurse") { Description = "Do not search sub-folders." };
         var includeHidden = new Option<bool>("--include-hidden") { Description = "Include hidden sheets and slides (both; --include-hidden-sheets and --include-hidden-slides set one)." };
@@ -88,6 +88,7 @@ public static class CliApp
         var noIncludeHiddenSlides = new Option<bool>("--no-include-hidden-slides") { Description = "Leave out hidden slides (pptx)." };
         var includeOffSlide = new Option<bool>("--include-off-slide") { Description = "Write the text of the shapes outside a slide (pptx), as a quote (the default)." };
         var noIncludeOffSlide = new Option<bool>("--no-include-off-slide") { Description = "Leave out the text of the shapes outside a slide (pptx)." };
+        var pdfText = new Option<string?>("--pdf-text") { Description = "on or off: use the text layer of a PDF as the text of its pages (the default is on)." };
         var engine = new Option<string?>("--engine") { Description = "office or libreoffice." };
         var dpi = new Option<int?>("--dpi") { Description = "Resolution of the page images (72-600)." };
         var excelRange = new Option<string?>("--excel-range") { Description = "How the pages of an Excel sheet are cut: columns (all columns on the width of a page), rows (all rows on the height of a page) or print-area (follow the print setup of the sheet)." };
@@ -108,7 +109,7 @@ public static class CliApp
         convert.Arguments.Add(inputs);
         foreach (var option in new Option[]
         {
-            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, engine, dpi, excelRange, step2, step3, vlmSeparate,
+            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, pdfText, engine, dpi, excelRange, step2, step3, vlmSeparate,
             connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
         })
         {
@@ -129,6 +130,7 @@ public static class CliApp
                 IncludeHiddenSheets = Flag(parse.GetValue(includeHiddenSheets), parse.GetValue(noIncludeHiddenSheets)),
                 IncludeHiddenSlides = Flag(parse.GetValue(includeHiddenSlides), parse.GetValue(noIncludeHiddenSlides)),
                 IncludeOffSlideText = Flag(parse.GetValue(includeOffSlide), parse.GetValue(noIncludeOffSlide)),
+                PdfText = parse.GetValue(pdfText),
                 Engine = parse.GetValue(engine),
                 Dpi = parse.GetValue(dpi),
                 ExcelRange = parse.GetValue(excelRange),

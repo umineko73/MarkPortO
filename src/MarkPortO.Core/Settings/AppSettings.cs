@@ -244,7 +244,7 @@ public sealed class InputSettings
 
     public bool Recurse { get; set; }
 
-    public List<DocumentKind> Types { get; set; } = [DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx];
+    public List<DocumentKind> Types { get; set; } = [DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx, DocumentKind.Pdf];
 
     /// <summary>
     /// The setting of before "hidden sheets" and "hidden slides" were two: it is read (and sets both), and never written.
@@ -273,6 +273,9 @@ public sealed class InputSettings
 
     /// <summary>Write the text of the shapes that lie outside a slide (memos on the pasteboard), as a quote of its own (pptx, FR-086).</summary>
     public bool IncludeOffSlideText { get; set; } = true;
+
+    /// <summary>Use the text layer of a PDF as the text of its pages, next to the page images (pdf, FR-076).</summary>
+    public bool UsePdfText { get; set; } = true;
 }
 
 public sealed class OutputSettings
@@ -439,6 +442,13 @@ public sealed class PromptSettings
     public const string DefaultPptxEn =
         "This image is one slide of a PowerPoint presentation. The \"Extracted text\" below is the text that was read directly from the document file for the same slide. Looking at the layout in the image, transcribe the slide as Markdown that keeps the structure of the title and the body, using the characters of the extracted text exactly. Read the text that is not in the extracted text (text inside figures and pictures) from the image and add it. If the extracted text and the image disagree, trust the image. You may write a diagram (flowchart, architecture diagram, sequence diagram, etc.) in Mermaid syntax (a ```mermaid code block) when its structure can be read. Do not wrap the whole answer or a table in a code block such as ```markdown. Do not write explanations or a preamble.\n\nExtracted text:\n{pagetext}";
 
+    // A PDF is read mostly from the image; its text layer, when it has one, only helps (FR-076).
+    public const string DefaultPdf =
+        "この画像は PDF 文書の1ページです。画像を見て、見出し・段落・表・箇条書きの構造を保ったMarkdownで書き起こしてください。次の「抽出テキスト」は、同じページのテキスト層から取り出した文字列で、補助として使います（空のこともあり、順序や改行が崩れていることもあります）。画像の文字を読み取り、抽出テキストは固有名詞・数字・記号を確かめるために使ってください。抽出テキストと画像が食い違うときは、画像を優先してください。図（フローチャート、構成図、シーケンス図など）は、構造が読み取れるなら Mermaid 記法（```mermaid のコードブロック）で書いて構いません。回答全体や表を ```markdown などのコードブロックで囲まないでください。説明や前置きは書かないでください。\n\n抽出テキスト:\n{pagetext}";
+
+    public const string DefaultPdfEn =
+        "This image is one page of a PDF document. Looking at the image, transcribe the page as Markdown that keeps the structure of headings, paragraphs, tables and lists. The \"Extracted text\" below is the text of the text layer of the same page; use it only as a help (it may be empty, and its order and line breaks may be wrong). Read the characters from the image, and use the extracted text to check proper names, numbers and symbols. If the extracted text and the image disagree, trust the image. You may write a diagram (flowchart, architecture diagram, sequence diagram, etc.) in Mermaid syntax (a ```mermaid code block) when its structure can be read. Do not wrap the whole answer or a table in a code block such as ```markdown. Do not write explanations or a preamble.\n\nExtracted text:\n{pagetext}";
+
     /// <summary>The built-in prompt of the kind, in the language ("ja", or English for anything else).</summary>
     public static string DefaultFor(DocumentKind kind, string language)
     {
@@ -448,6 +458,7 @@ public sealed class PromptSettings
             DocumentKind.Docx => ja ? DefaultDocx : DefaultDocxEn,
             DocumentKind.Xlsx => ja ? DefaultXlsx : DefaultXlsxEn,
             DocumentKind.Pptx => ja ? DefaultPptx : DefaultPptxEn,
+            DocumentKind.Pdf => ja ? DefaultPdf : DefaultPdfEn,
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
     }
@@ -473,11 +484,14 @@ public sealed class PromptSettings
 
     public string Pptx { get; set; } = DefaultPptx;
 
+    public string Pdf { get; set; } = DefaultPdf;
+
     public string For(DocumentKind kind) => kind switch
     {
         DocumentKind.Docx => Docx,
         DocumentKind.Xlsx => Xlsx,
         DocumentKind.Pptx => Pptx,
+        DocumentKind.Pdf => Pdf,
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 

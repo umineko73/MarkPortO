@@ -198,6 +198,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public bool TypePptx { get => HasType(DocumentKind.Pptx); set => SetType(DocumentKind.Pptx, value); }
 
+    public bool TypePdf { get => HasType(DocumentKind.Pdf); set => SetType(DocumentKind.Pdf, value); }
+
+    /// <summary>Use the text layer of a PDF next to its page images (FR-076).</summary>
+    public bool UsePdfText
+    {
+        get => _store.Current.Input.UsePdfText;
+        set
+        {
+            _store.Update(s => s.Input.UsePdfText = value);
+            Raise();
+        }
+    }
+
+    /// <summary>A PDF is read best through its image: tell it when the PDF is chosen and Step3 is off.</summary>
+    public System.Windows.Visibility PdfHintVisibility =>
+        TypePdf && !Step3 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+
     public bool Recurse
     {
         get => _store.Current.Input.Recurse;
@@ -459,6 +476,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             _store.Update(s => s.Steps.Step3 = value);
             Raise(nameof(CanEditVlmSeparate));
+            Raise(nameof(PdfHintVisibility));
             Raise();
         }
     }
@@ -573,7 +591,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     private static bool IsSupportedFile(string path) =>
-        System.IO.Path.GetExtension(path).ToLowerInvariant() is ".docx" or ".xlsx" or ".pptx";
+        System.IO.Path.GetExtension(path).ToLowerInvariant() is ".docx" or ".xlsx" or ".pptx" or ".pdf";
 
     private Task BrowseOutputAsync()
     {
@@ -611,6 +629,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(TypeDocx));
         Raise(nameof(TypeXlsx));
         Raise(nameof(TypePptx));
+        Raise(nameof(TypePdf));
+        Raise(nameof(PdfHintVisibility));
         UpdateRunCommands();
     }
 

@@ -39,7 +39,8 @@ public class AppSettingsValidationTests
         Assert.False(s.Input.IncludeHiddenSlides);
         Assert.False(s.Input.Recurse);
         Assert.Equal(EngineKind.Office, s.Engine.Kind);
-        Assert.Equal([DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx], s.Input.Types);
+        Assert.Equal([DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx, DocumentKind.Pdf], s.Input.Types);
+        Assert.True(s.Input.UsePdfText);
         Assert.Empty(s.Validate());
     }
 

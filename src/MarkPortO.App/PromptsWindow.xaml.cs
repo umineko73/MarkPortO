@@ -36,14 +36,17 @@ public partial class PromptsWindow : Window
         DocxBox.Text = store.Current.Vlm.Prompts.For(DocumentKind.Docx, _language);
         XlsxBox.Text = store.Current.Vlm.Prompts.For(DocumentKind.Xlsx, _language);
         PptxBox.Text = store.Current.Vlm.Prompts.For(DocumentKind.Pptx, _language);
+        PdfBox.Text = store.Current.Vlm.Prompts.For(DocumentKind.Pdf, _language);
         DocxBox.LostFocus += (_, _) => Save(DocumentKind.Docx, DocxBox);
         XlsxBox.LostFocus += (_, _) => Save(DocumentKind.Xlsx, XlsxBox);
         PptxBox.LostFocus += (_, _) => Save(DocumentKind.Pptx, PptxBox);
+        PdfBox.LostFocus += (_, _) => Save(DocumentKind.Pdf, PdfBox);
         Closing += (_, _) =>
         {
             Save(DocumentKind.Docx, DocxBox);
             Save(DocumentKind.Xlsx, XlsxBox);
             Save(DocumentKind.Pptx, PptxBox);
+            Save(DocumentKind.Pdf, PdfBox);
         };
     }
 
@@ -64,7 +67,8 @@ public partial class PromptsWindow : Window
             {
                 case DocumentKind.Docx: s.Vlm.Prompts.Docx = text; break;
                 case DocumentKind.Xlsx: s.Vlm.Prompts.Xlsx = text; break;
-                default: s.Vlm.Prompts.Pptx = text; break;
+                case DocumentKind.Pptx: s.Vlm.Prompts.Pptx = text; break;
+                default: s.Vlm.Prompts.Pdf = text; break;
             }
         });
     }
@@ -76,7 +80,8 @@ public partial class PromptsWindow : Window
         {
             0 => (DocumentKind.Docx, DocxBox),
             1 => (DocumentKind.Xlsx, XlsxBox),
-            _ => (DocumentKind.Pptx, PptxBox),
+            2 => (DocumentKind.Pptx, PptxBox),
+            _ => (DocumentKind.Pdf, PdfBox),
         };
         var at = box.SelectionStart;
         box.SelectedText = MarkPortO.Core.Vlm.PromptSupplement.PageTextPlaceholder;
@@ -91,7 +96,8 @@ public partial class PromptsWindow : Window
         {
             0 => (DocumentKind.Docx, DocxBox),
             1 => (DocumentKind.Xlsx, XlsxBox),
-            _ => (DocumentKind.Pptx, PptxBox),
+            2 => (DocumentKind.Pptx, PptxBox),
+            _ => (DocumentKind.Pdf, PdfBox),
         };
         box.Text = DefaultFor(kind);
         Save(kind, box);

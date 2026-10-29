@@ -46,6 +46,10 @@
   <sys:String x:Key="Main_Cond_RowDocx">Word</sys:String>
   <sys:String x:Key="Main_Cond_RowXlsx">Excel</sys:String>
   <sys:String x:Key="Main_Cond_RowPptx">PowerPoint</sys:String>
+  <sys:String x:Key="Main_Cond_RowPdf">PDF</sys:String>
+  <sys:String x:Key="Main_Cond_PdfText">抽出テキストを補助に使う</sys:String>
+  <sys:String x:Key="Main_Cond_PdfTextTip">PDFにテキスト層があれば、ページのテキストとしてMarkdownに入れ、VLMへ画像と一緒に送ります（プロンプトに {pagetext} があるとき）。文字化けなどで当てにならないPDFでは外してください。</sys:String>
+  <sys:String x:Key="Main_Cond_PdfHint">Step3（画像からの読み取り）を使うと、PDFを最も活かせます</sys:String>
   <sys:String x:Key="Main_Cond_HiddenSheets">非表示のシートを含める</sys:String>
   <sys:String x:Key="Main_Cond_HiddenSlides">非表示のスライドを含める</sys:String>
   <sys:String x:Key="Main_Cond_Recurse">サブフォルダも対象にする</sys:String>
@@ -131,7 +135,7 @@
   <sys:String x:Key="Confirm_StartWithInterrupted">出力先に、中断した変換が残っています（完了 {0}、失敗 {1}、未完了 {2}）。&#10;&#10;それでも新しく変換を始めますか？ 中断した変換は再開できなくなります（出力済みのファイルは消えません）。&#10;続きを実行するときは「いいえ」を選び、「再開」を押してください。</sys:String>
   <sys:String x:Key="Dialog_SelectFolder">フォルダを選択</sys:String>
   <sys:String x:Key="Dialog_SelectFiles">変換するファイルを選択</sys:String>
-  <sys:String x:Key="Dialog_Filter">Office文書 (*.docx;*.xlsx;*.pptx)|*.docx;*.xlsx;*.pptx|すべてのファイル (*.*)|*.*</sys:String>
+  <sys:String x:Key="Dialog_Filter">Office・PDF文書 (*.docx;*.xlsx;*.pptx;*.pdf)|*.docx;*.xlsx;*.pptx;*.pdf|すべてのファイル (*.*)|*.*</sys:String>
   <sys:String x:Key="Conn_Title">VLM接続の設定</sys:String>
   <sys:String x:Key="Conn_List">接続の一覧</sys:String>
   <sys:String x:Key="Conn_InUse">使用中:</sys:String>

@@ -6,7 +6,7 @@
 
 [English](README.md) | **日本語**
 
-Word・Excel・PowerPoint の文書（docx・xlsx・pptx）を、Markdownと、ページごとの画像（PNG）に変換するWindows向けのツールです。画面（WPF）とコマンドライン（CLI）があり、どちらも同じ変換処理を使うので、ビルドやCIの中で人手なしに動かすこともできます。
+Word・Excel・PowerPoint・PDF の文書（docx・xlsx・pptx・pdf）を、Markdownと、ページごとの画像（PNG）に変換するWindows向けのツールです。画面（WPF）とコマンドライン（CLI）があり、どちらも同じ変換処理を使うので、ビルドやCIの中で人手なしに動かすこともできます。
 
 > 開発中です。Microsoft Office とサンプルの文書で、実機での確認をしています。LibreOffice と大きな文書は、手動の確認が済んでいません。
 
@@ -17,6 +17,7 @@ Word・Excel・PowerPoint の文書（docx・xlsx・pptx）を、Markdownと、�
 - **Markdownとページ画像**: 文書のテキストをMarkdownにし、全ページをPNGで保存して、Markdownから参照します。構造はファイルの中から読みます（結合セル、脚注、リンク、グラフ、SmartArt、発表者ノート、見出しの番号）。
 - **ページをまたぐ表**: 複数のページにまたがる表は、Markdownでは1つの表にし、後のページに注記を入れます。ページのように配置したシートは、ブロックごとの表にします。
 - **Excel**: シートの全列を1枚の画像にします（列が極端に多くても、DPIを上げて）。全行を1ページにする、シートの印刷範囲に従う、も選べます（「シートの範囲」、`--excel-range`）。
+- **PDF**: ページごとに画像にして、VLM（Step3）で読み取ります。PDFに文字の層があれば、補助として使います（ページのテキストにし、画像と一緒に送ります）。文字化けするPDFでは、「抽出テキストを補助に使う」（`--pdf-text off`）を外します。OfficeもLibreOfficeも要りません。
 - **PowerPoint**: スライドの外に置いたシェイプ（メモ）の文字を、`> **Off-slide**: …` の引用で書きます。書かないこともできます。
 - **削除ページと空白ページ**: ページ全体に「×」の図形が付いたページは削除ページ、何も描かれていないページは空白ページとして示します。どちらもVLMには渡しません。
 - **プレビュー**: ページの画像、抽出テキスト、VLMの結果を、変換の実行中から並べて見られます。`mermaid` のブロックは、図として描きます。
@@ -67,7 +68,7 @@ markporto list-jobs --out D:\out
 markporto check-connection --settings settings.json
 ```
 
-主なオプション: `--settings`、`--out`、`--types`、`--recurse`、`--include-hidden`（または `--include-hidden-sheets`、`--include-hidden-slides`）、`--no-include-off-slide`、`--engine`、`--dpi`、`--excel-range columns|rows|print-area`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`、`--resume`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。指定は `settings.json` より優先されます。
+主なオプション: `--settings`、`--out`、`--types`、`--recurse`、`--include-hidden`（または `--include-hidden-sheets`、`--include-hidden-slides`）、`--no-include-off-slide`、`--pdf-text on|off`、`--engine`、`--dpi`、`--excel-range columns|rows|print-area`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`、`--resume`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。指定は `settings.json` より優先されます。
 
 終了コード: `0` 成功、`1` 一部のファイルが失敗、`2` 引数や設定が不正、`3` 開始前の確認に失敗（同意がない場合を含む）、`4` 利用上限・ログイン切れ・ページ数や費用の上限で停止（`--resume` で続ける）、`130` 中断。
 
@@ -76,7 +77,7 @@ markporto check-connection --settings settings.json
 ```json
 {
   "schemaVersion": 1,
-  "input": { "paths": ["D:\\docs"], "recurse": true, "types": ["docx", "xlsx", "pptx"], "includeHiddenSheets": false, "includeHiddenSlides": false, "includeOffSlideText": true },
+  "input": { "paths": ["D:\\docs"], "recurse": true, "types": ["docx", "xlsx", "pptx", "pdf"], "includeHiddenSheets": false, "includeHiddenSlides": false, "includeOffSlideText": true },
   "output": { "folder": "D:\\out" },
   "ui": { "language": "system", "theme": "system" },
   "engine": { "kind": "office" },

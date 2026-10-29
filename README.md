@@ -6,7 +6,7 @@
 
 **English** | [日本語](README.ja.md)
 
-MarkPortO converts Word, Excel and PowerPoint documents (docx, xlsx, pptx) into Markdown plus one PNG image per page. It is a WPF desktop app and a command-line tool that share the same conversion code, so it can also run unattended in a build or CI job.
+MarkPortO converts Word, Excel, PowerPoint and PDF documents (docx, xlsx, pptx, pdf) into Markdown plus one PNG image per page. It is a WPF desktop app and a command-line tool that share the same conversion code, so it can also run unattended in a build or CI job.
 
 > **Status: under development.** Checked on a real machine with Microsoft Office and a few sample documents; LibreOffice and large documents are not checked by hand.
 
@@ -17,6 +17,7 @@ MarkPortO converts Word, Excel and PowerPoint documents (docx, xlsx, pptx) into 
 - **Markdown and page images.** The text becomes Markdown and every page is saved as a PNG, referred to from the Markdown. The structure is read from the file itself (merged cells, footnotes, links, charts, SmartArt, speaker notes, the numbers of headings).
 - **Tables that follow the pages.** A table that runs over several pages is one table in the Markdown, with a note on the later pages. A sheet laid out like a page is cut into one table per block.
 - **Excel.** All columns of a sheet go on one image (even a very wide one, at a higher DPI), or all rows, or the print setup of the sheet (**Sheet range**, `--excel-range`).
+- **PDF.** Each page becomes an image, and the VLM (Step3) reads it. The text layer of the PDF, if it has one, only helps: it is the text of the page, and it is sent with the image. Turn it off (**Use the extracted text as a help**, `--pdf-text off`) for a PDF whose text is garbled. No Office or LibreOffice is needed.
 - **PowerPoint.** Text of shapes outside the slide (memos on the pasteboard) is written as `> **Off-slide**: …`; it can be left out.
 - **Deleted and blank pages.** A page crossed out with a full-page "X" is a deleted page; a blank page is marked. Neither is sent to the VLM.
 - **Preview.** See the page image, the extracted text and the VLM result side by side while the conversion runs. `mermaid` blocks are drawn as diagrams.
@@ -67,7 +68,7 @@ markporto list-jobs --out D:\out
 markporto check-connection --settings settings.json
 ```
 
-Main options: `--settings`, `--out`, `--types`, `--recurse`, `--include-hidden` (or `--include-hidden-sheets`, `--include-hidden-slides`), `--no-include-off-slide`, `--engine`, `--dpi`, `--excel-range columns|rows|print-area`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>`, `--resume`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options override `settings.json`.
+Main options: `--settings`, `--out`, `--types`, `--recurse`, `--include-hidden` (or `--include-hidden-sheets`, `--include-hidden-slides`), `--no-include-off-slide`, `--pdf-text on|off`, `--engine`, `--dpi`, `--excel-range columns|rows|print-area`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>`, `--resume`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options override `settings.json`.
 
 Exit codes: `0` success, `1` some files failed, `2` invalid arguments or settings, `3` the checks before the run failed (including a missing consent), `4` stopped by a usage limit, a login or a limit of pages or cost (use `--resume`), `130` interrupted.
 
@@ -76,7 +77,7 @@ Exit codes: `0` success, `1` some files failed, `2` invalid arguments or setting
 ```json
 {
   "schemaVersion": 1,
-  "input": { "paths": ["D:\\docs"], "recurse": true, "types": ["docx", "xlsx", "pptx"], "includeHiddenSheets": false, "includeHiddenSlides": false, "includeOffSlideText": true },
+  "input": { "paths": ["D:\\docs"], "recurse": true, "types": ["docx", "xlsx", "pptx", "pdf"], "includeHiddenSheets": false, "includeHiddenSlides": false, "includeOffSlideText": true },
   "output": { "folder": "D:\\out" },
   "ui": { "language": "system", "theme": "system" },
   "engine": { "kind": "office" },

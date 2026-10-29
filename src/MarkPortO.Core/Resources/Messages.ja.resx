@@ -49,8 +49,11 @@
   <data name="Choose an output folder." xml:space="preserve">
     <value>出力先のフォルダを選んでください。</value>
   </data>
-  <data name="'{0}' is not a .docx, .xlsx or .pptx file." xml:space="preserve">
-    <value>'{0}' は .docx、.xlsx、.pptx のファイルではありません。</value>
+  <data name="'{0}' is not a .docx, .xlsx, .pptx or .pdf file." xml:space="preserve">
+    <value>'{0}' は .docx、.xlsx、.pptx、.pdf のファイルではありません。</value>
+  </data>
+  <data name="{0} of {1} pages have no text layer (a scanned page?). Their text comes only from the VLM (Step3)." xml:space="preserve">
+    <value>{1} ページのうち {0} ページにテキスト層がありません（スキャンしたページでしょうか）。これらのページの文字は、VLM（Step3）でだけ得られます。</value>
   </data>
   <data name="The input file was not found." xml:space="preserve">
     <value>入力ファイルが見つかりません。</value>

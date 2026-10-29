@@ -295,11 +295,12 @@ public sealed class ConvertService
         {
             if (OoxmlPackage.KindOf(input.Path) is null)
             {
-                throw new ConvertStartException(Loc.T("'{0}' is not a .docx, .xlsx or .pptx file.", input.Path));
+                throw new ConvertStartException(Loc.T("'{0}' is not a .docx, .xlsx, .pptx or .pdf file.", input.Path));
             }
         }
 
-        var availability = _engine.CheckAvailability();
+        // A PDF is read as it is: no Office or LibreOffice is needed for a run that has only PDF files.
+        var availability = request.Inputs.All(i => OoxmlPackage.KindOf(i.Path) == DocumentKind.Pdf) ? EngineAvailability.Available : _engine.CheckAvailability();
         if (!availability.IsAvailable)
         {
             throw new ConvertStartException(availability.Reason ?? Loc.T("The conversion engine is not available."));

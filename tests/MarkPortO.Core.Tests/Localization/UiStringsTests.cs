@@ -114,7 +114,7 @@ public partial class UiStringsTests
     {
         // A text attribute with letters or Japanese in it is a text that is not translated. The names of the file types and of
         // the steps (docx, Step1 ...) and the name of the program are the same in every language.
-        var allowed = new HashSet<string>(["docx", "xlsx", "pptx", "Step1", "Step2", "Step3", "MarkPortO", "URL", "Word (docx)", "Excel (xlsx)", "PowerPoint (pptx)"], StringComparer.Ordinal);
+        var allowed = new HashSet<string>(["docx", "xlsx", "pptx", "pdf", "Step1", "Step2", "Step3", "MarkPortO", "URL", "Word (docx)", "Excel (xlsx)", "PowerPoint (pptx)", "PDF (pdf)"], StringComparer.Ordinal);
         var found = new List<string>();
         foreach (var file in SourceFiles(".xaml"))
         {

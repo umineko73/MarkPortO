@@ -46,6 +46,10 @@
   <sys:String x:Key="Main_Cond_RowDocx">Word</sys:String>
   <sys:String x:Key="Main_Cond_RowXlsx">Excel</sys:String>
   <sys:String x:Key="Main_Cond_RowPptx">PowerPoint</sys:String>
+  <sys:String x:Key="Main_Cond_RowPdf">PDF</sys:String>
+  <sys:String x:Key="Main_Cond_PdfText">Use the extracted text as a help</sys:String>
+  <sys:String x:Key="Main_Cond_PdfTextTip">If the PDF has a text layer, its text is put in the Markdown and sent to the VLM with the image (when the prompt has {pagetext}). Turn it off for a PDF whose text is not reliable (garbled characters).</sys:String>
+  <sys:String x:Key="Main_Cond_PdfHint">Turn on Step3 (reading the image) to get the most from a PDF</sys:String>
   <sys:String x:Key="Main_Cond_HiddenSheets">Include hidden sheets</sys:String>
   <sys:String x:Key="Main_Cond_HiddenSlides">Include hidden slides</sys:String>
   <sys:String x:Key="Main_Cond_Recurse">Include sub-folders</sys:String>
@@ -131,7 +135,7 @@
   <sys:String x:Key="Confirm_StartWithInterrupted">An interrupted conversion is left in the output folder ({0} done, {1} failed, {2} not finished).&#10;&#10;Start a new conversion anyway? The interrupted one can no longer be resumed (the files already written stay).&#10;To continue it, choose No and press Resume.</sys:String>
   <sys:String x:Key="Dialog_SelectFolder">Select a folder</sys:String>
   <sys:String x:Key="Dialog_SelectFiles">Select files to convert</sys:String>
-  <sys:String x:Key="Dialog_Filter">Office documents (*.docx;*.xlsx;*.pptx)|*.docx;*.xlsx;*.pptx|All files (*.*)|*.*</sys:String>
+  <sys:String x:Key="Dialog_Filter">Office and PDF documents (*.docx;*.xlsx;*.pptx;*.pdf)|*.docx;*.xlsx;*.pptx;*.pdf|All files (*.*)|*.*</sys:String>
   <sys:String x:Key="Conn_Title">VLM connection settings</sys:String>
   <sys:String x:Key="Conn_List">Connections</sys:String>
   <sys:String x:Key="Conn_InUse">In use:</sys:String>

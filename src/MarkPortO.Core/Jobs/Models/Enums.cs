@@ -23,6 +23,7 @@ public enum DocumentKind
     Docx,
     Xlsx,
     Pptx,
+    Pdf,
 }
 
 [JsonConverter(typeof(LowercaseEnumConverter<EngineKind>))]

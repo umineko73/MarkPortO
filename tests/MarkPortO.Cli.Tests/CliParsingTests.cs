@@ -102,6 +102,32 @@ public class CliParsingTests
     }
 
     [Theory]
+    [InlineData("pdf", new[] { DocumentKind.Pdf })]
+    [InlineData("docx, PDF", new[] { DocumentKind.Docx, DocumentKind.Pdf })]
+    public void Pdf_IsAType(string text, DocumentKind[] expected)
+    {
+        Assert.Equal(expected, Resolved(new ConvertArgs { Types = text }, FromFile()).Input.Types);
+    }
+
+    [Fact]
+    public void PdfText_IsOnByDefault_AndTheOptionTurnsItOffOrOn()
+    {
+        Assert.True(Resolved(new ConvertArgs(), FromFile()).Input.UsePdfText);
+        Assert.False(Resolved(new ConvertArgs { PdfText = "off" }, FromFile()).Input.UsePdfText);
+        Assert.True(Resolved(new ConvertArgs { PdfText = "on" }, FromFile(s => s.Input.UsePdfText = false)).Input.UsePdfText);
+        Assert.False(Resolved(new ConvertArgs(), FromFile(s => s.Input.UsePdfText = false)).Input.UsePdfText);
+    }
+
+    [Fact]
+    public void AnInvalidPdfText_IsReportedWithTheOptionName()
+    {
+        var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { PdfText = "maybe" }, FromFile());
+
+        Assert.Null(settings);
+        Assert.Contains(errors, e => e.StartsWith("--pdf-text", StringComparison.Ordinal) && e.Contains("maybe"));
+    }
+
+    [Theory]
     [InlineData("--types", "doc")]
     [InlineData("--engine", "word")]
     [InlineData("--step2", "maybe")]

@@ -42,6 +42,7 @@ public static class OoxmlPackage
             ".docx" => DocumentKind.Docx,
             ".xlsx" => DocumentKind.Xlsx,
             ".pptx" => DocumentKind.Pptx,
+            ".pdf" => DocumentKind.Pdf,
             _ => null,
         };
 

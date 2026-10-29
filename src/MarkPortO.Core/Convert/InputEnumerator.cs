@@ -64,7 +64,7 @@ public static class InputEnumerator
                 }
                 else if (OoxmlPackage.KindOf(path) is null)
                 {
-                    warnings.Add($"'{path}' is not a .docx, .xlsx or .pptx file. Skipped.");
+                    warnings.Add($"'{path}' is not a .docx, .xlsx, .pptx or .pdf file. Skipped.");
                 }
                 else
                 {
