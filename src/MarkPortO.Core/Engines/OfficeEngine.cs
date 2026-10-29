@@ -361,6 +361,11 @@ public sealed class OfficeEngine : IDocumentEngine, IDisposable
         Configure(kind, instance);
         var app = new OfficeApp(instance, processName, startedByUs, owned);
         _apps[kind] = app;
+        if (startedByUs)
+        {
+            RememberStarted(owned, processName);
+        }
+
         return app;
     }
 
@@ -443,6 +448,38 @@ public sealed class OfficeEngine : IDocumentEngine, IDisposable
         }
 
         _apps.Remove(kind);
+    }
+
+    // The Office processes that this program started. When the program ends (a window closed in the middle of a conversion, an error that
+    // stopped the shutdown), they are stopped too, so that no hidden Word, Excel or PowerPoint is left behind. The user's own are never in it.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, string> StartedProcesses = new();
+    private static int _exitHookInstalled;
+
+    private static void RememberStarted(IEnumerable<int> ids, string processName)
+    {
+        foreach (var id in ids)
+        {
+            StartedProcesses[id] = processName;
+        }
+
+        if (Interlocked.Exchange(ref _exitHookInstalled, 1) == 0)
+        {
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => StopStartedProcesses();
+        }
+    }
+
+    /// <summary>Stops the Office processes that were started by this program and are still running.</summary>
+    public static void StopStartedProcesses()
+    {
+        foreach (var (id, name) in StartedProcesses.ToArray())
+        {
+            if (IsRunning(id))
+            {
+                Kill(id, name);
+            }
+
+            StartedProcesses.TryRemove(id, out _);
+        }
     }
 
     private sealed record OfficeApp(dynamic Instance, string ProcessName, bool StartedByUs, IReadOnlyList<int> OwnedProcessIds);

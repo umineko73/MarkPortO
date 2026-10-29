@@ -38,4 +38,25 @@ public partial class App : Application
         MainWindow = new MainWindow();
         MainWindow.Show();
     }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        base.OnExit(e);
+
+        // The Office programs that this program started are stopped now (not only when the process ends).
+        MarkPortO.Core.Engines.OfficeEngine.StopStartedProcesses();
+
+        // The process ends by itself within a moment. If something holds it (a call that does not return), it is stopped after 8 seconds:
+        // MarkPortO.exe is never left behind with no window. The thread is a background thread, so it does not hold the process.
+        var watchdog = new Thread(() =>
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(8));
+            System.Diagnostics.Process.GetCurrentProcess().Kill();
+        })
+        {
+            IsBackground = true,
+            Name = "MarkPortO exit watchdog",
+        };
+        watchdog.Start();
+    }
 }

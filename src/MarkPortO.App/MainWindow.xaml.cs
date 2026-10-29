@@ -41,6 +41,25 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
     }
 
+    private bool _closeConfirmed;
+
+    // Closing in the middle of a conversion stops it first and waits (up to 40 seconds) until Office and the job are closed; the
+    // window does not go before that. If Office is stuck, it is stopped when the program ends (OfficeEngine).
+    protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        base.OnClosing(e);
+        if (_closeConfirmed || !_viewModel.IsRunning)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        IsEnabled = false;
+        await _viewModel.StopAsync(TimeSpan.FromSeconds(40));
+        _closeConfirmed = true;
+        Close();
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         // Saves any setting that is still waiting to be written.

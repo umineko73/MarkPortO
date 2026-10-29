@@ -459,6 +459,24 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _store.Dispose();
     }
 
+    private TaskCompletionSource? _runFinished;
+
+    /// <summary>
+    /// Asks a conversion that is running to stop, and waits until it has closed what it opened (Office, the connection, the state of the job).
+    /// Returns false when it did not finish within the time.
+    /// </summary>
+    public async Task<bool> StopAsync(TimeSpan timeout)
+    {
+        if (!IsRunning || _runFinished is not { } finished)
+        {
+            return true;
+        }
+
+        SetStatus(() => UiText.Get("Status_Interrupting"));
+        _cancellation?.Cancel();
+        return await Task.WhenAny(finished.Task, Task.Delay(timeout)).ConfigureAwait(true) == finished.Task;
+    }
+
     // ---- input and output ----
 
     private Task AddFilesAsync()
@@ -743,6 +761,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         service.DocumentChanged += feed.Post;
 
         _cancellation = new CancellationTokenSource();
+        _runFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _scanVersion++; // a search for the earlier run that is still going is out of date
         IsRunning = true;
         SetStatus(() => UiText.Get("Status_Running"));
@@ -766,11 +785,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
         finally
         {
-            (engine as IDisposable)?.Dispose();
-            vlm?.Dispose();
+            // Closing Office can take seconds (and much longer when it is stuck): not on the thread of the screen, so that the window answers.
+            await Task.Run(() =>
+            {
+                (engine as IDisposable)?.Dispose();
+                vlm?.Dispose();
+            }).ConfigureAwait(true);
             _cancellation.Dispose();
             _cancellation = null;
             IsRunning = false;
+            _runFinished?.TrySetResult();
         }
 
         // What can be resumed has changed with this run.
