@@ -39,16 +39,21 @@ internal static partial class VlmTableJoiner
     public static IReadOnlyDictionary<int, string> Join(DocumentRecord document, IReadOnlyList<int> effectivePages, string language)
     {
         var continuation = new HashSet<int>();
+        var paragraphContinuation = new HashSet<int>();
         for (var i = 0; i < document.Blocks.Count; i++)
         {
             if (document.Blocks[i] is { Kind: BlockKind.Table or BlockKind.SheetTable, JoinedToPage: not null })
             {
                 continuation.Add(effectivePages[i]);
             }
+            else if (document.Blocks[i] is { Kind: BlockKind.Paragraph, JoinedToPage: not null })
+            {
+                paragraphContinuation.Add(effectivePages[i]);
+            }
         }
 
         var changed = new Dictionary<int, string>();
-        if (continuation.Count == 0)
+        if (continuation.Count == 0 && paragraphContinuation.Count == 0)
         {
             return changed;
         }
@@ -69,26 +74,39 @@ internal static partial class VlmTableJoiner
             var lines = page.VlmText.Trim().Split('\n');
             var leading = LeadingTableLines(lines);
             var joined = false;
-            if (owner is { } ownerPage && page.Index == lastPage + 1 && continuation.Contains(page.Index) && leading > 0
-                && document.Pages.First(p => p.Index == ownerPage) is { } holder
-                && TryJoin(TextOf(holder), lines[..leading], out var merged))
+            if (owner is { } ownerPage && page.Index == lastPage + 1 && document.Pages.First(p => p.Index == ownerPage) is { } holder)
             {
-                changed[ownerPage] = merged;
-                var rest = string.Join('\n', lines[leading..]).Trim('\n', '\r', ' ');
-                var note = "> " + Loc.M("The rows of this table are joined to the table on page {0}.", language, ownerPage);
-                changed[page.Index] = rest.Length == 0 ? note : note + "\n\n" + rest;
-                joined = true;
-
-                // The table goes on to the next page only if this page had nothing but its rows.
-                if (rest.Length > 0)
+                string? note = null;
+                string? rest = null;
+                string merged = string.Empty;
+                if (continuation.Contains(page.Index) && leading > 0 && TryJoin(TextOf(holder), lines[..leading], out merged))
                 {
-                    owner = EndsWithTable(rest) ? page.Index : null;
+                    rest = string.Join('\n', lines[leading..]).Trim('\n', '\r', ' ');
+                    note = "> " + Loc.M("The rows of this table are joined to the table on page {0}.", language, ownerPage);
+                }
+                else if (paragraphContinuation.Contains(page.Index) && ParagraphJoin.TryJoin(TextOf(holder), page.VlmText.Trim(), out merged, out var remainder))
+                {
+                    rest = remainder;
+                    note = "> " + Loc.M("The rest of this paragraph is joined to the paragraph on page {0}.", language, ownerPage);
+                }
+
+                if (note is not null && rest is not null)
+                {
+                    changed[ownerPage] = merged;
+                    changed[page.Index] = rest.Length == 0 ? note : note + "\n\n" + rest;
+                    joined = true;
+
+                    // It goes on to the next page only if this page had nothing but the rest of it.
+                    if (rest.Length > 0)
+                    {
+                        owner = page.Index;
+                    }
                 }
             }
 
             if (!joined)
             {
-                owner = EndsWithTable(TextOf(page)) ? page.Index : null;
+                owner = TextOf(page).Length > 0 ? page.Index : null;
             }
 
             lastPage = page.Index;

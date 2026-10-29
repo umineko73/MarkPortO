@@ -218,9 +218,26 @@ public static class MarkdownRenderer
     {
         var texts = blocks.Select(b => b.Markdown).ToArray();
         var head = -1;
+        var paragraphHead = -1;
         for (var i = 0; i < blocks.Count; i++)
         {
             var block = blocks[i];
+            if (block.Kind == BlockKind.Paragraph)
+            {
+                // The part of a paragraph after a page break goes back to the paragraph (FR-091).
+                if (block.JoinedToPage is null)
+                {
+                    paragraphHead = i;
+                }
+                else if (paragraphHead >= 0 && effectivePages[paragraphHead] == block.JoinedToPage)
+                {
+                    texts[paragraphHead] += ParagraphJoin.Separator(texts[paragraphHead], block.Markdown) + block.Markdown;
+                    texts[i] = "> " + Loc.M("The rest of this paragraph is joined to the paragraph on page {0}.", language, block.JoinedToPage.Value);
+                }
+
+                continue;
+            }
+
             if (block.Kind is not (BlockKind.Table or BlockKind.SheetTable))
             {
                 continue;

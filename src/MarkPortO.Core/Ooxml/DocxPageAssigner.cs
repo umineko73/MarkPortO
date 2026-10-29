@@ -50,6 +50,15 @@ public static class DocxPageAssigner
     /// <summary>How far after the row before it the next row of a table is looked for (the rows of a table follow one another closely).</summary>
     private const int MinimumRowWindow = 1000;
 
+    /// <summary>A paragraph with less text than this is not looked at for a page break.</summary>
+    private const int MinimumSplitLength = 30;
+
+    /// <summary>How far from the end of a page (and from the start of the next one) text of a header or a footer may stand between the two parts of a paragraph.</summary>
+    private const int PageEdgeWindow = 400;
+
+    /// <summary>The part of a paragraph after a page break has at least this much text.</summary>
+    private const int MinimumTail = 6;
+
     /// <summary>
     /// Sets <see cref="Block.PageIndex"/> (1-based PDF page) on every block that could be found, and returns
     /// a warning for each block that could not.
@@ -130,6 +139,14 @@ public static class DocxPageAssigner
                 ? position + text.Length
                 : position + Math.Min(text.Length, LongNeedle);
 
+            // A paragraph that runs over a page break is cut there: each page has the part that is on it (FR-091).
+            if (item.Splittable && item.Table is null && text.Length >= MinimumSplitLength
+                && FindSegments(haystack, text, pageStarts, position) is { Count: > 1 } segments)
+            {
+                item.Segments = segments;
+                cursor = Math.Max(cursor, segments[^1].HaystackEnd);
+            }
+
             // The rows of a table are placed one by one: a long table runs over several pages.
             if (item.Table is { PlainRows.Count: > 1 } table)
             {
@@ -168,6 +185,97 @@ public static class DocxPageAssigner
         }
 
         return candidates;
+    }
+
+    /// <summary>
+    /// The parts of a paragraph that start at <paramref name="position"/> of the text of the PDF, one for each page that it is on: the text goes on at the
+    /// start of the next page, after the text of a header if there is one. Null when the text does not go on the way a page break would make it.
+    /// </summary>
+    private static List<ParagraphSegment>? FindSegments(string haystack, string text, int[] pageStarts, int position)
+    {
+        var result = new List<ParagraphSegment>();
+        var offset = 0;
+        var current = position;
+        for (var step = 0; step < 12 && offset < text.Length; step++)
+        {
+            var page = PageOf(pageStarts, current);
+            var pageEnd = page + 1 < pageStarts.Length ? pageStarts[page + 1] : haystack.Length;
+            var matched = CommonPrefix(haystack, current, text, offset);
+            if (matched == 0 && result.Count > 0)
+            {
+                // After a page break the page may begin with the text of a header: the next text of the paragraph is looked for near the start.
+                var needle = text.Substring(offset, Math.Min(LongNeedle, text.Length - offset));
+                var found = needle.Length >= MinimumTail ? haystack.IndexOf(needle, current, StringComparison.Ordinal) : -1;
+                if (found < 0 || found - current > PageEdgeWindow)
+                {
+                    return null;
+                }
+
+                current = found;
+                page = PageOf(pageStarts, current);
+                pageEnd = page + 1 < pageStarts.Length ? pageStarts[page + 1] : haystack.Length;
+                matched = CommonPrefix(haystack, current, text, offset);
+            }
+
+            if (matched == 0)
+            {
+                return null;
+            }
+
+            if (offset + matched == text.Length && current + matched <= pageEnd)
+            {
+                result.Add(new ParagraphSegment(offset, text.Length, page + 1, current + matched));
+                return result;
+            }
+
+            var mismatch = current + matched;
+            if (mismatch <= pageEnd && pageEnd - mismatch > PageEdgeWindow)
+            {
+                return null; // it stops in the middle of a page: not a page break
+            }
+
+            // The part on this page ends at the end of the page, or where the text stops being the same (the footer).
+            var end = mismatch <= pageEnd ? mismatch : pageEnd;
+            result.Add(new ParagraphSegment(offset, offset + (end - current), page + 1, end));
+            offset += end - current;
+            current = pageEnd;
+        }
+
+        return null;
+    }
+
+    private static int CommonPrefix(string haystack, int haystackStart, string text, int textStart)
+    {
+        var count = 0;
+        while (haystackStart + count < haystack.Length && textStart + count < text.Length && haystack[haystackStart + count] == text[textStart + count])
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>The place in <paramref name="plain"/> where <paramref name="normalizedCount"/> characters of its normalized text have been read.</summary>
+    private static int OriginalIndex(string plain, int normalizedCount)
+    {
+        if (normalizedCount <= 0)
+        {
+            return 0;
+        }
+
+        var count = 0;
+        for (var i = 0; i < plain.Length;)
+        {
+            var length = char.IsHighSurrogate(plain[i]) && i + 1 < plain.Length ? 2 : 1;
+            count += Normalize(plain.Substring(i, length)).Length;
+            i += length;
+            if (count >= normalizedCount)
+            {
+                return i;
+            }
+        }
+
+        return plain.Length;
     }
 
     /// <summary>
@@ -229,6 +337,34 @@ public static class DocxPageAssigner
         var result = new List<DocxBlock>(blocks.Count);
         foreach (var item in blocks)
         {
+            if (item.Segments is { Count: > 1 } segments)
+            {
+                // A paragraph over a page break: one block for each page, each with its own part of the text.
+                var plain = item.SearchText;
+                for (var part = 0; part < segments.Count; part++)
+                {
+                    var from = OriginalIndex(plain, segments[part].Start);
+                    var to = OriginalIndex(plain, segments[part].End);
+                    var piece = plain[from..to].Trim();
+                    if (piece.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    result.Add(new DocxBlock(
+                        new Block
+                        {
+                            Kind = BlockKind.Paragraph,
+                            Markdown = MarkdownText.Escape(piece).Replace("\n", "  \n", StringComparison.Ordinal),
+                            PageIndex = segments[part].Page,
+                            JoinedToPage = part == 0 ? null : segments[0].Page,
+                        },
+                        piece));
+                }
+
+                continue;
+            }
+
             if (item.Table is not { } table || item.RowPages is not { } pages || pages.Distinct().Count() < 2)
             {
                 result.Add(item);

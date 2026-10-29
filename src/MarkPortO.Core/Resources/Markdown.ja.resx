@@ -100,4 +100,7 @@
   <data name="This page is blank." xml:space="preserve">
     <value>このページは空白です。</value>
   </data>
+  <data name="The rest of this paragraph is joined to the paragraph on page {0}." xml:space="preserve">
+    <value>この段落の続きは、ページ{0}の段落に結合しました。</value>
+  </data>
 </root>

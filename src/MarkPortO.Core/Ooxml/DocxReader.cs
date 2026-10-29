@@ -38,7 +38,19 @@ public sealed record DocxBlock(Block Block, string SearchText, DocxTable? Table 
     /// the search for it does not move the place where the next block is looked for.
     /// </summary>
     public bool Floating { get; init; }
+
+    /// <summary>
+    /// A plain paragraph (no link, note mark or picture in it): its Markdown is its text, escaped, so it can be cut where a page ends and written
+    /// again as two paragraphs (FR-091).
+    /// </summary>
+    public bool Splittable { get; init; }
+
+    /// <summary>The parts of a paragraph that runs over a page break, set by <see cref="DocxPageAssigner"/>; null when it is on one page.</summary>
+    public IReadOnlyList<ParagraphSegment>? Segments { get; set; }
 }
+
+/// <summary>The part of a paragraph that is on one page: its place in the normalized text, the page (1-based), and where it ends in the text of the PDF.</summary>
+public sealed record ParagraphSegment(int Start, int End, int Page, int HaystackEnd);
 
 /// <summary>The rows of a table, as Markdown cells and as the plain text of the cells that the PDF is searched for.</summary>
 /// <param name="Rows">The cells of each row as written in the Markdown table (merged cells are marks).</param>
@@ -298,7 +310,7 @@ public static partial class DocxReader
             }
             else
             {
-                blocks.Add(New(BlockKind.Paragraph, escaped, text));
+                blocks.Add(New(BlockKind.Paragraph, escaped, text) with { Splittable = markdown == text });
             }
         }
 
