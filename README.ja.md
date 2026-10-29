@@ -22,6 +22,7 @@ Word・Excel・PowerPoint の文書（docx・xlsx・pptx）を、Markdownと、�
 - ページ全体に「×」の図形が付いたページは、削除ページとして扱います。画像は保存し、Markdownにはそのページの位置に削除を示す文言だけを書きます。
 - フォルダ単位の変換、サブフォルダの走査、種類（docx / xlsx / pptx）の選択ができます。出力先に同名のフォルダがあれば `名前 (2)` のように連番を付け、既存の出力は上書きしません。
 - プレビュー: ページの画像、ファイルから取ったテキスト、VLMの結果を並べて見られます。変換の実行中でも見られます。
+- PowerPointは、スライドの外に置いたシェイプ（メモ）の文字を、`> **Off-slide**: …` の引用として書きます。書かないこともできます（「スライド外の文字を含める」、`--no-include-off-slide`）。
 - 途中で中断でき、次回に続きから再開できます。完了済みのファイルは、やり直しません。
 - Step3（任意）: OpenAI互換のVLMサーバー（画像を読めるモデル）で、ページの画像から文字を読み取ってMarkdownに入れます。接続先は複数登録して切り替えられ、使用トークン数をページごと・ファイルごとに記録します。
 - 変換エンジンは Microsoft Office（COM）か LibreOffice（画面を出さずに実行）を選べます。既定は Office です。画面の選択肢には、インストールされているエンジンだけが出ます。
@@ -80,7 +81,7 @@ dotnet run --project src/MarkPortO.Cli -- check-connection --settings settings.j
 dotnet run --project src/MarkPortO.Cli -- list-connections --settings settings.json   # 登録した接続の一覧（キーは表示しない）
 ```
 
-主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`、`--engine`、`--dpi`、`--excel-range columns|rows|print-area`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。コマンドラインの指定は `settings.json` より優先されます。
+主なオプション: `--settings <path>`（`settings.json`）、`--out`、`--types`、`--recurse`、`--include-hidden`、`--no-include-off-slide`、`--engine`、`--dpi`、`--excel-range columns|rows|print-area`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`（結果をJSONで保存）、`--resume`、`--job`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。コマンドラインの指定は `settings.json` より優先されます。
 
 アクセスキーは、`settings.json` に環境変数の**名前**（`apiKeyEnv`）として書くのが基本です（値そのものは保存しません）。画面で入力したキーは、現在のWindowsユーザーだけが復号できる形（DPAPI）で保存します。ログ・Markdown・状態ファイルにキーは出ません。
 

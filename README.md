@@ -22,6 +22,7 @@ MarkPortO converts Word, Excel and PowerPoint documents (docx, xlsx, pptx) into 
 - **Deleted pages.** A page that is crossed out with a full-page "X" shape is treated as deleted: its image is kept, and the Markdown only marks the place with a notice.
 - **Folders and filters.** Convert a single file or a whole folder, optionally including sub-folders, and choose which of docx / xlsx / pptx to convert. If the output folder already exists, a number is added (`name (2)`); existing output is never overwritten.
 - **Preview.** Look at the page image, the text taken from the file and the VLM result side by side, while the conversion is still running.
+- **Memos outside the slide.** In PowerPoint, the text of a shape that lies wholly outside the slide (a memo on the pasteboard) is written as a quote `> **Off-slide**: …`. It can be left out (**Include text outside the slide**, `--no-include-off-slide`).
 - **Interrupt and resume.** A run can be interrupted and continued later. Files that are already done are not converted again.
 - **Optional VLM reading (Step3).** A VLM (a model that can read images) behind an OpenAI-compatible server reads the text from each page image and adds it to the Markdown. You can register several connections and switch between them. Token usage is recorded per page and per file.
 - **Two engines.** Microsoft Office (COM) or LibreOffice (headless) turns documents into PDF. The app lists only the engines that are installed.
@@ -74,7 +75,7 @@ dotnet run --project src/MarkPortO.Cli -- check-connection --settings settings.j
 dotnet run --project src/MarkPortO.Cli -- list-connections --settings settings.json   # list the connections (keys are not shown)
 ```
 
-Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden`, `--engine`, `--dpi`, `--excel-range columns|rows|print-area`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options on the command line override `settings.json`.
+Main options: `--settings <path>`, `--out`, `--types`, `--recurse`, `--include-hidden`, `--no-include-off-slide`, `--engine`, `--dpi`, `--excel-range columns|rows|print-area`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>` (save the result as JSON), `--resume`, `--job`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options on the command line override `settings.json`.
 
 Exit codes: `0` everything succeeded, `1` some files failed, `2` invalid arguments or settings, `3` the checks before the run failed (including a missing consent), `4` stopped by a usage limit, a login or a limit of pages or cost (continue with `--resume`), `130` interrupted (`Ctrl+C`; continue with `--resume`).
 

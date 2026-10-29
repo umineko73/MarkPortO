@@ -32,6 +32,12 @@ public sealed record DocxBlock(Block Block, string SearchText, DocxTable? Table 
 {
     /// <summary>The page (1-based) of each row of <see cref="Table"/>, set by <see cref="DocxPageAssigner"/>; null when the rows were not placed.</summary>
     public IReadOnlyList<int>? RowPages { get; set; }
+
+    /// <summary>
+    /// The text of a text box, a chart or a SmartArt diagram: a PDF lists it after the text of the page, not where it is in the document, so
+    /// the search for it does not move the place where the next block is looked for.
+    /// </summary>
+    public bool Floating { get; init; }
 }
 
 /// <summary>The rows of a table, as Markdown cells and as the plain text of the cells that the PDF is searched for.</summary>
@@ -106,6 +112,9 @@ public static partial class DocxReader
         /// <summary>The notes that the paragraph being read refers to: written after it as <c>[^1]: text</c> (FR-071).</summary>
         public List<(string Label, string Text)> PendingNotes { get; } = [];
 
+        /// <summary>The pictures that float (are anchored, not in the line) in the paragraph being read: written after it, as lines of their own.</summary>
+        public List<string> PendingPictures { get; } = [];
+
         /// <summary>The address of an outside link of the body, or null (a link inside the document has no address to write).</summary>
         public string? LinkTarget(string relationshipId)
         {
@@ -134,6 +143,40 @@ public static partial class DocxReader
             PendingNotes.Add((label, text));
             return "[^" + label + "]";
         }
+
+        /// <summary>
+        /// The charts and the SmartArt diagrams drawn in a paragraph (FR-084): a chart as its title and the values that the file keeps, a diagram as
+        /// the text of its nodes. The text of a picture of them is not in the file as text, so this is the only way to have it. The search text finds the page.
+        /// </summary>
+        public IEnumerable<(string Markdown, string SearchText)> Figures(Paragraph paragraph)
+        {
+            foreach (var drawing in paragraph.Descendants<Drawing>())
+            {
+                if (drawing.Ancestors<AlternateContentFallback>().Any())
+                {
+                    continue;
+                }
+
+                foreach (var element in drawing.Descendants<OpenXmlElement>())
+                {
+                    if (element.LocalName == "chart" && element.NamespaceUri.EndsWith("drawingml/2006/chart", StringComparison.Ordinal)
+                        && RelationshipOf(element, "id") is { } chartId && main.GetPartById(chartId) is ChartPart chartPart
+                        && ChartReader.Read(chartPart) is { } chart)
+                    {
+                        yield return (chart.ToMarkdown(), chart.Title);
+                    }
+                    else if (element.LocalName == "relIds" && element.NamespaceUri.EndsWith("drawingml/2006/diagram", StringComparison.Ordinal)
+                        && RelationshipOf(element, "dm") is { } diagramId && main.GetPartById(diagramId) is DiagramDataPart diagramPart
+                        && PptxReader.DiagramText(diagramPart) is { Length: > 0 } text)
+                    {
+                        yield return (text, text.Split('\n')[0].TrimStart('-', ' '));
+                    }
+                }
+            }
+        }
+
+        private static string? RelationshipOf(OpenXmlElement element, string name) =>
+            element.GetAttributes().FirstOrDefault(a => a.LocalName == name && a.NamespaceUri.EndsWith("officeDocument/2006/relationships", StringComparison.Ordinal)).Value;
 
         public (int? HeadingLevel, bool IsTitle) StyleOf(string? styleId) =>
             styleId is not null && _styles.TryGetValue(styleId, out var style) ? style : (null, false);
@@ -241,6 +284,20 @@ public static partial class DocxReader
 
         AddNotes(context, blocks);
 
+        // The floating pictures of the paragraph follow it, each in a line of its own.
+        foreach (var picture in context.PendingPictures)
+        {
+            blocks.Add(New(BlockKind.Paragraph, picture, string.Empty) with { Floating = true });
+        }
+
+        context.PendingPictures.Clear();
+
+        // The charts and the SmartArt of the paragraph follow it.
+        foreach (var (figureMarkdown, figureSearch) in context.Figures(paragraph))
+        {
+            blocks.Add(New(BlockKind.Paragraph, figureMarkdown, figureSearch) with { Floating = true });
+        }
+
         // Shapes (for the "×" check) belong to the block of this paragraph, or to the one before it if it has no text.
         var boxes = ShapeExtractor.Extract(paragraph, pageWidth, pageHeight);
         if (boxes.Count > 0)
@@ -249,14 +306,14 @@ public static partial class DocxReader
         }
 
         // Text boxes anchored in this paragraph follow it as paragraphs of their own.
-        foreach (var box in TextBoxes(paragraph))
+        foreach (var box in InReadingOrder(TextBoxes(paragraph)))
         {
             foreach (var inner in box.Elements<Paragraph>())
             {
                 var innerText = ParagraphText(inner).Trim();
                 if (innerText.Length > 0)
                 {
-                    blocks.Add(New(BlockKind.Paragraph, MarkdownText.Escape(innerText).Replace("\n", "  \n", StringComparison.Ordinal), innerText));
+                    blocks.Add(New(BlockKind.Paragraph, MarkdownText.Escape(innerText).Replace("\n", "  \n", StringComparison.Ordinal), innerText) with { Floating = true });
                 }
             }
         }
@@ -407,7 +464,17 @@ public static partial class DocxReader
                     var description = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties>().FirstOrDefault()?.Description?.Value?.Trim();
                     if (!string.IsNullOrEmpty(description) && drawing.Descendants<OpenXmlElement>().Any(e => e.LocalName == "blip"))
                     {
-                        builder.Append("![").Append(description.Replace("]", "\\]", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal)).Append(']');
+                        var picture = "![" + description.Replace("]", "\\]", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal) + "]";
+
+                        // A picture in the line is written in the line; a floating one is not part of the sentence (or the heading) that it is anchored in.
+                        if (drawing.ChildElements.Any(e => e.LocalName == "anchor"))
+                        {
+                            markdown.PendingPictures.Add(picture);
+                        }
+                        else
+                        {
+                            builder.Append(picture);
+                        }
                     }
 
                     Append(child, builder, markdown);
@@ -461,6 +528,36 @@ public static partial class DocxReader
 
             yield return box;
         }
+    }
+
+    // The text boxes of a paragraph, from the top of the page to the bottom (the file lists them in the order they were made, which is
+    // another thing). Only when every one of them says where it is, from the same place (the page, or the margin).
+    private static List<TextBoxContent> InReadingOrder(IEnumerable<TextBoxContent> boxes)
+    {
+        var list = boxes.ToList();
+        var places = list.Select(PlaceOf).ToList();
+        if (list.Count < 2 || places.Any(p => p is null) || places.Select(p => p!.Value.From).Distinct().Count() != 1)
+        {
+            return list;
+        }
+
+        return [.. list.Select((box, index) => (box, index)).OrderBy(x => places[x.index]!.Value.Top).ThenBy(x => places[x.index]!.Value.Left).ThenBy(x => x.index).Select(x => x.box)];
+    }
+
+    private static (string From, long Top, long Left)? PlaceOf(TextBoxContent box)
+    {
+        var anchor = box.Ancestors<OpenXmlElement>().FirstOrDefault(e => e.LocalName == "anchor");
+        var vertical = anchor?.ChildElements.FirstOrDefault(e => e.LocalName == "positionV");
+        var horizontal = anchor?.ChildElements.FirstOrDefault(e => e.LocalName == "positionH");
+        string? Offset(OpenXmlElement? position) => position?.ChildElements.FirstOrDefault(e => e.LocalName == "posOffset")?.InnerText;
+        var from = vertical?.GetAttributes().FirstOrDefault(a => a.LocalName == "relativeFrom").Value;
+        if (from is null || !long.TryParse(Offset(vertical), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var top))
+        {
+            return null;
+        }
+
+        _ = long.TryParse(Offset(horizontal), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var left);
+        return (from, top, left);
     }
 
     [GeneratedRegex(@"^\s*heading\s*([1-9])\s*$", RegexOptions.IgnoreCase)]

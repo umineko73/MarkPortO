@@ -90,6 +90,13 @@ public static class DocxPageAssigner
             foreach (var candidate in candidates)
             {
                 position = Find(haystack, candidate, cursor, window);
+                if (position < 0 && item.Floating)
+                {
+                    // It may be listed before the place of the cursor, in the same page: look from the start of that page.
+                    var pageStart = pageStarts[Math.Min(PageOf(pageStarts, Math.Max(0, cursor - 1)), pageStarts.Length - 1)];
+                    position = Find(haystack, candidate, pageStart, window);
+                }
+
                 if (position >= 0)
                 {
                     text = candidate;
@@ -113,6 +120,10 @@ public static class DocxPageAssigner
             }
 
             item.Block.PageIndex = PageOf(pageStarts, position) + 1;
+            if (item.Floating)
+            {
+                continue; // where it is listed says nothing about where the text that follows it is
+            }
 
             // If the whole block is found in one piece, skip past all of it; otherwise past the part that was matched.
             cursor = haystack.AsSpan(position).StartsWith(text.AsSpan(), StringComparison.Ordinal)

@@ -34,8 +34,12 @@ public sealed record SlideContent(int Number, bool Hidden, string Title, string 
 /// <summary>Reads the slides of a .pptx file (research R2). Speaker notes are not read.</summary>
 public static class PptxReader
 {
+    /// <summary>The size of the slide (EMU), and whether the text of the shapes that are outside of it is written (FR-086).</summary>
+    private sealed record SlideContext(long Width, long Height, bool IncludeOffSlide);
+
     /// <param name="includeHidden">Include hidden slides (FR-010a).</param>
-    public static IReadOnlyList<SlideContent> Read(string path, bool includeHidden)
+    /// <param name="includeOffSlideText">Write the text of the shapes that lie outside the slide, as a quote of its own (FR-086); when false they are left out.</param>
+    public static IReadOnlyList<SlideContent> Read(string path, bool includeHidden, bool includeOffSlideText = true)
     {
         OoxmlPackage.EnsureOpens(path, DocumentKind.Pptx);
         try
@@ -44,6 +48,8 @@ public static class PptxReader
             var presentationPart = document.PresentationPart ?? throw new InvalidDocumentException(Loc.T("The presentation has no main part."));
             var slideIds = presentationPart.Presentation?.SlideIdList?.Elements<SlideId>().ToList() ?? [];
 
+            var size = presentationPart.Presentation?.SlideSize;
+            var context = new SlideContext(size?.Cx?.Value ?? 9144000, size?.Cy?.Value ?? 6858000, includeOffSlideText);
             var result = new List<SlideContent>();
             for (var i = 0; i < slideIds.Count; i++)
             {
@@ -58,7 +64,7 @@ public static class PptxReader
                     continue;
                 }
 
-                result.Add(ReadSlide(i + 1, hidden, slidePart));
+                result.Add(ReadSlide(i + 1, hidden, slidePart, context));
             }
 
             return result;
@@ -82,7 +88,7 @@ public static class PptxReader
         ];
     }
 
-    private static SlideContent ReadSlide(int number, bool hidden, SlidePart part)
+    private static SlideContent ReadSlide(int number, bool hidden, SlidePart part, SlideContext context)
     {
         var tree = part.Slide?.CommonSlideData?.ShapeTree;
         var title = string.Empty;
@@ -90,7 +96,7 @@ public static class PptxReader
 
         if (tree is not null)
         {
-            Walk(tree, ref title, body, part);
+            Walk(tree, ref title, body, part, context, off: false, check: true);
         }
 
         // Charts and SmartArt of the slide, then the speaker notes (FR-072).
@@ -131,22 +137,45 @@ public static class PptxReader
         return new SlideContent(number, hidden, title, markdown.ToString());
     }
 
-    private static void Walk(OpenXmlElement container, ref string title, List<string> body, SlidePart part)
+    // off: the container is outside the slide. check: the position of the shapes is the position on the slide (not inside a group, where it is the group's own).
+    private static void Walk(OpenXmlElement container, ref string title, List<string> body, SlidePart part, SlideContext context, bool off, bool check)
     {
         foreach (var element in container.ChildElements)
         {
             switch (element)
             {
                 case Shape shape:
-                    ReadShape(shape, ref title, body, part);
+                    if (!(off || (check && IsOffSlide(shape.ShapeProperties?.Transform2D?.Offset, shape.ShapeProperties?.Transform2D?.Extents, context))))
+                    {
+                        ReadShape(shape, ref title, body, part);
+                    }
+                    else if (context.IncludeOffSlide)
+                    {
+                        ReadOffSlideShape(shape, body, part);
+                    }
+
                     break;
                 case GraphicFrame frame:
-                    ReadTable(frame, body, part);
+                    if (context.IncludeOffSlide || !(off || (check && IsOffSlide(frame.Transform?.Offset, frame.Transform?.Extents, context))))
+                    {
+                        ReadTable(frame, body, part);
+                    }
+
                     break;
                 case GroupShape group:
-                    Walk(group, ref title, body, part);
+                    var groupOff = off || (check && IsOffSlide(group.GroupShapeProperties?.TransformGroup?.Offset, group.GroupShapeProperties?.TransformGroup?.Extents, context));
+                    if (!groupOff || context.IncludeOffSlide)
+                    {
+                        Walk(group, ref title, body, part, context, groupOff, check: false);
+                    }
+
                     break;
                 case Picture picture:
+                    if (!context.IncludeOffSlide && (off || (check && IsOffSlide(picture.ShapeProperties?.Transform2D?.Offset, picture.ShapeProperties?.Transform2D?.Extents, context))))
+                    {
+                        break;
+                    }
+
                     // A picture is written by its alternative text, without the image file (FR-072).
                     if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Description?.Value?.Trim() is { Length: > 0 } description)
                     {
@@ -155,6 +184,36 @@ public static class PptxReader
 
                     break;
             }
+        }
+    }
+
+    // A shape that lies wholly outside the slide: a memo on the pasteboard. A shape that is partly on the slide is seen on it, so it is not one.
+    private static bool IsOffSlide(A.Offset? offset, A.Extents? extents, SlideContext context)
+    {
+        if (offset?.X is null || offset.Y is null || extents?.Cx is null || extents.Cy is null)
+        {
+            return false; // no place of its own (a placeholder takes it from the layout)
+        }
+
+        long x = offset.X.Value, y = offset.Y.Value, width = extents.Cx.Value, height = extents.Cy.Value;
+        return width > 0 && height > 0 && (x + width <= 0 || y + height <= 0 || x >= context.Width || y >= context.Height);
+    }
+
+    // The text of a shape outside the slide, as a quote that says so (FR-086): it is not in the image of the slide.
+    private static void ReadOffSlideShape(Shape shape, List<string> body, SlidePart part)
+    {
+        var ignoredTitle = string.Empty;
+        var lines = new List<string>();
+        ReadShape(shape, ref ignoredTitle, lines, part);
+        var texts = lines.SelectMany(block => block.Split('\n')).Select(line => line.Trim().TrimStart('-', ' ')).Where(line => line.Length > 0).ToList();
+        if (texts.Count == 0 && ignoredTitle.Length > 0)
+        {
+            texts.Add(MarkdownText.Escape(ignoredTitle));
+        }
+
+        if (texts.Count > 0)
+        {
+            body.Add(string.Join("\n>\n", texts.Select(text => "> **Off-slide**: " + text)));
         }
     }
 
@@ -183,7 +242,7 @@ public static class PptxReader
     }
 
     // The text of the nodes of a SmartArt diagram, one line each (the shapes of a diagram are drawn from this data).
-    private static string DiagramText(DiagramDataPart part)
+    internal static string DiagramText(DiagramDataPart part)
     {
         var lines = (part.DataModelRoot?.Descendants<OpenXmlElement>() ?? [])
             .Where(e => e.LocalName == "pt" && e.GetAttributes().FirstOrDefault(a => a.LocalName == "type").Value is null or "node")

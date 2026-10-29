@@ -158,6 +158,9 @@ public sealed class OptionsSnapshot
 
     public bool IncludeHidden { get; set; }
 
+    /// <summary>Write the text of the shapes outside a slide (FR-086). A job from before this setting wrote it, so it is on.</summary>
+    public bool IncludeOffSlideText { get; set; } = true;
+
     public EngineKind Engine { get; set; }
 
     public bool Step2 { get; set; }

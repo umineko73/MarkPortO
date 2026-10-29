@@ -251,6 +251,16 @@ public class CliParsingTests
         Assert.Equal(expected, settings.Images.ExcelRange);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void TheTextOutsideTheSlide_IsTakenFromTheCommandLine(bool on)
+    {
+        var settings = Resolved(new ConvertArgs { IncludeOffSlideText = on }, FromFile());
+
+        Assert.Equal(on, settings.Input.IncludeOffSlideText);
+    }
+
     [Fact]
     public void AnUnknownExcelRange_IsAnError()
     {

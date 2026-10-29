@@ -123,9 +123,10 @@ internal static class ChartReader
             }
 
             var text = point.ChildElements.FirstOrDefault(e => e.LocalName == "v")?.InnerText ?? string.Empty;
-            if (formatCode is not null && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+            if (applyFormat && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
             {
-                text = XlsxNumberFormat.Format(number, formatCode) ?? text;
+                // A value is written as the file shows it; one that has no format is written with 15 digits (4.4000000000000004 is 4.4).
+                text = (formatCode is not null ? XlsxNumberFormat.Format(number, formatCode) : null) ?? number.ToString("G15", CultureInfo.InvariantCulture);
             }
 
             result[index] = text;

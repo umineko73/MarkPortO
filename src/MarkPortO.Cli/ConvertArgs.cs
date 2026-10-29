@@ -33,6 +33,8 @@ public sealed record ConvertArgs
 
     public bool? IncludeHidden { get; init; }
 
+    public bool? IncludeOffSlideText { get; init; }
+
     public string? Engine { get; init; }
 
     public int? Dpi { get; init; }
@@ -122,6 +124,11 @@ public static class ConvertArgsResolver
         if (args.IncludeHidden is { } includeHidden)
         {
             settings.Input.IncludeHidden = includeHidden;
+        }
+
+        if (args.IncludeOffSlideText is { } includeOffSlideText)
+        {
+            settings.Input.IncludeOffSlideText = includeOffSlideText;
         }
 
         if (args.Engine is not null)

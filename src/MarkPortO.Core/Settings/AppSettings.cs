@@ -248,6 +248,9 @@ public sealed class InputSettings
 
     /// <summary>Include hidden sheets (xlsx) and hidden slides (pptx) (FR-010a).</summary>
     public bool IncludeHidden { get; set; }
+
+    /// <summary>Write the text of the shapes that lie outside a slide (memos on the pasteboard), as a quote of its own (pptx, FR-086).</summary>
+    public bool IncludeOffSlideText { get; set; } = true;
 }
 
 public sealed class OutputSettings

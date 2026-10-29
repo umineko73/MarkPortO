@@ -185,7 +185,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var document = work.Document;
         var includeHidden = work.Context.Options.IncludeHidden;
         var layout = new Layout();
-        var slides = PptxReader.Read(document.SourcePath, includeHidden);
+        var slides = PptxReader.Read(document.SourcePath, includeHidden, work.Context.Options.IncludeOffSlideText);
         if (slides.Count == 0)
         {
             layout.Warnings.Add(new Warning("EmptyDocument", Loc.T("The presentation has no slides to convert.")));

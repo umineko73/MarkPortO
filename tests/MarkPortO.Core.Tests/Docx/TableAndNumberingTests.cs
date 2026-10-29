@@ -43,6 +43,25 @@ public class TableAndNumberingTests
     }
 
     [Fact]
+    public void Assign_TheTextOfAChartThatThePdfListsAfterThePageText_DoesNotMoveTheSearchForTheNextBlocks()
+    {
+        // A PDF lists the text of a chart, a SmartArt or a text box after the text of the page.
+        var chart = new DocxBlock(new Block { Kind = BlockKind.Paragraph }, "Chart title here") { Floating = true };
+        DocxBlock[] blocks =
+        [
+            new(new Block { Kind = BlockKind.Paragraph }, "First paragraph of page one"),
+            chart,
+            new(new Block { Kind = BlockKind.Paragraph }, "Second paragraph of page one"),
+            new(new Block { Kind = BlockKind.Paragraph }, "Paragraph of page two"),
+        ];
+
+        var warnings = DocxPageAssigner.Assign(blocks, ["First paragraph of page one Second paragraph of page one Chart title here", "Paragraph of page two"]);
+
+        Assert.Equal([1, 1, 1, 2], blocks.Select(b => b.Block.PageIndex).ToArray());
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
     public void Assign_TheRowsOfALongTable_GetThePageTheyAreOn()
     {
         var table = TableBlock([["No", "Item", "Amount"], ["1", "Pencil", "100"], ["2", "Eraser", "200"], ["3", "Ruler", "300"], ["4", "Compass", "400"]]);

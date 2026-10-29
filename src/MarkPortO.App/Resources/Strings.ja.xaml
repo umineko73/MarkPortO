@@ -46,6 +46,8 @@
   <sys:String x:Key="Main_Cond_Range">範囲</sys:String>
   <sys:String x:Key="Main_Cond_Recurse">サブフォルダも対象にする</sys:String>
   <sys:String x:Key="Main_Cond_Hidden">非表示のシート・スライドを含める</sys:String>
+  <sys:String x:Key="Main_Cond_OffSlide">スライド外の文字を含める</sys:String>
+  <sys:String x:Key="Main_Cond_OffSlideTip">PowerPoint: スライドの外に置いたシェイプ（メモ）の文字を、「Off-slide」の引用として書きます。スライドの画像には写りません。</sys:String>
   <sys:String x:Key="Main_Cond_Convert">変換</sys:String>
   <sys:String x:Key="Main_Cond_Engine">変換エンジン:</sys:String>
   <sys:String x:Key="Main_Cond_Dpi">画像のDPI:</sys:String>

@@ -127,7 +127,8 @@
           <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_Range}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
             <CheckBox Content="{DynamicResource Main_Cond_Recurse}" IsChecked="{Binding Recurse}" VerticalAlignment="Center" Margin="0,0,20,0" />
-            <CheckBox Content="{DynamicResource Main_Cond_Hidden}" IsChecked="{Binding IncludeHidden}" VerticalAlignment="Center" />
+            <CheckBox Content="{DynamicResource Main_Cond_Hidden}" IsChecked="{Binding IncludeHidden}" VerticalAlignment="Center" Margin="0,0,20,0" />
+            <CheckBox Content="{DynamicResource Main_Cond_OffSlide}" IsChecked="{Binding IncludeOffSlideText}" VerticalAlignment="Center" ToolTip="{DynamicResource Main_Cond_OffSlideTip}" />
           </StackPanel>
 
           <TextBlock Grid.Row="2" Text="{DynamicResource Main_Cond_Convert}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />

@@ -208,6 +208,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    public bool IncludeOffSlideText
+    {
+        get => _store.Current.Input.IncludeOffSlideText;
+        set
+        {
+            _store.Update(s => s.Input.IncludeOffSlideText = value);
+            Raise();
+        }
+    }
+
     public bool IncludeHidden
     {
         get => _store.Current.Input.IncludeHidden;

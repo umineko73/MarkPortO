@@ -62,6 +62,7 @@ public sealed class ConvertRequest
         Dpi = settings.Images.Dpi,
         ExcelRange = settings.Images.ExcelRange,
         IncludeHidden = settings.Input.IncludeHidden,
+        IncludeOffSlideText = settings.Input.IncludeOffSlideText,
         Engine = settings.Engine.Kind,
         Step2 = settings.Steps.Step2,
         Step3 = settings.Steps.Step3,
