@@ -16,6 +16,7 @@ MarkPortO uses the packages below. The license of each is the one declared in it
 | Microsoft.Extensions.Logging.Abstractions | 10.0.13 | MIT | Logging interfaces |
 | System.Security.Cryptography.ProtectedData | 10.0.13 | MIT | Protecting access keys typed on the screen (DPAPI, current user) |
 | System.CommandLine | 2.0.13 | MIT | The command line |
+| Mermaid (`mermaid.min.js`, not a NuGet package) | 11.4.1 | MIT (© 2014 - 2022 Knut Sveidqvist; the license text is in `Assets/mermaid/LICENSE.txt`) | Drawing the Mermaid diagrams in the preview |
 
 These packages bring in the following packages, which ship with MarkPortO too. All of them are MIT, © Microsoft Corporation (checked against each `.nuspec`): DocumentFormat.OpenXml.Framework 3.5.1, Microsoft.Extensions.DependencyInjection.Abstractions 10.0.13, Microsoft.Win32.SystemEvents 10.0.13, System.IO.Packaging 10.0.2.
 

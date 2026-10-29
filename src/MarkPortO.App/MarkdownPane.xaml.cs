@@ -61,6 +61,33 @@ public partial class MarkdownPane : UserControl
             e.preventDefault();
             if (now - last > 400) { last = now; post(down ? 'next' : 'previous'); }
           }, { passive: false });
+          // A Mermaid block is drawn as a picture. The library is loaded from the folder of the program (the page allows only that one script);
+          // a block that cannot be drawn stays as it is written.
+          document.addEventListener('DOMContentLoaded', function () {
+            // Markdig writes a mermaid block as <pre class="mermaid">.
+            var blocks = document.querySelectorAll('pre.mermaid');
+            if (blocks.length === 0) { return; }
+            var script = document.createElement('script');
+            script.src = '@MERMAID@';
+            script.onload = function () {
+              try {
+                mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default' });
+              } catch (error) { return; }
+              blocks.forEach(function (code, index) {
+                var pre = code;
+                mermaid.render('mermaid-' + index, code.textContent).then(function (result) {
+                  var figure = document.createElement('div');
+                  figure.className = 'mermaid-figure';
+                  figure.innerHTML = result.svg;
+                  pre.parentNode.replaceChild(figure, pre);
+                }).catch(function () {
+                  var leftover = document.getElementById('dmermaid-' + index);
+                  if (leftover) { leftover.remove(); }
+                });
+              });
+            };
+            document.head.appendChild(script);
+          });
           document.addEventListener('keydown', function (e) {
             if (e.altKey || e.ctrlKey || e.shiftKey) { return; }
             if (e.key === 'ArrowRight') { post('next'); e.preventDefault(); }
@@ -116,7 +143,14 @@ public partial class MarkdownPane : UserControl
                 }
             };
             Web.CoreWebView2.NewWindowRequested += (_, args) => args.Handled = true;
-            await Web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(DragScrollScript);
+            // The library of the diagrams is in the folder of the program; the pages may load that one file (see MarkdownHtml).
+            var mermaidFolder = Path.Combine(AppContext.BaseDirectory, "Assets", "mermaid");
+            if (Directory.Exists(mermaidFolder))
+            {
+                Web.CoreWebView2.SetVirtualHostNameToFolderMapping(MarkdownHtml.MermaidHost, mermaidFolder, CoreWebView2HostResourceAccessKind.Allow);
+            }
+
+            await Web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(DragScrollScript.Replace("@MERMAID@", MarkdownHtml.MermaidScript, StringComparison.Ordinal));
             _ready = true;
         }
         catch (Exception ex) when (ex is WebView2RuntimeNotFoundException or InvalidOperationException or System.Runtime.InteropServices.COMException or ArgumentException)

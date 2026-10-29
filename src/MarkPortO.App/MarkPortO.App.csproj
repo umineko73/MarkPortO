@@ -14,6 +14,9 @@
     <!-- shown by the Help menu -->
     <None Include="..\..\LICENSE" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Mermaid draws the diagrams of the preview (FR-083); it is loaded from the folder of the program, never from the net -->
+    <None Include="Assets\mermaid\mermaid.min.js" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\mermaid\LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" />

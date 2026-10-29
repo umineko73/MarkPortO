@@ -61,4 +61,15 @@ public class MarkdownHtmlTests
         Assert.Contains("<td>&lt;</td>", html);
         Assert.Contains("<td>^</td>", html);
     }
+
+    [Fact]
+    public void Render_AllowsOnlyTheOneScriptOfTheDiagrams_AndWritesNoScriptOfItsOwn()
+    {
+        var html = MarkdownHtml.Render("# T\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n<script>alert(1)</script>\n");
+
+        Assert.Contains("script-src https://mermaid.local/mermaid.min.js", html);
+        Assert.DoesNotContain("script-src 'unsafe-inline'", html);
+        Assert.DoesNotContain("<script", html); // the text of a page cannot bring a script
+        Assert.Contains("<pre class=\"mermaid\">flowchart LR", html); // the preview draws this block with the library
+    }
 }
