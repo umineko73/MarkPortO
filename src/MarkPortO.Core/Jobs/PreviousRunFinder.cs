@@ -33,7 +33,7 @@ public sealed record PreviousRun(JobState Job, IReadOnlyList<DocumentRecord> Doc
 }
 
 /// <summary>
-/// Looks in an output folder for the newest run that can be resumed or has failures, so the screen can show it when it
+/// Looks in an output folder for the newest run that can be resumed or has failures (none when the newest run finished without failures), so the screen can show it when it
 /// starts and enable "resume" and "retry failed only" only when they can run (FR-013d, FR-013e). The input list of the
 /// screen plays no part (FR-013f).
 /// </summary>
@@ -54,6 +54,13 @@ public static class PreviousRunFinder
             }
 
             var store = new StateStore(outputFolder);
+            // The newest run decides: when it finished without a failure, the earlier runs that were interrupted or had failures are
+            // done with (a later run of other files has gone through), and nothing is shown.
+            if (store.ListJobs().FirstOrDefault(j => j.Status != JobStatus.Abandoned) is { Status: JobStatus.Completed })
+            {
+                return null;
+            }
+
             // An interrupted run comes first; without one, the newest run that finished with failures.
             var job = store.FindResumableJobs(null, includeFinishedWithErrors: false).FirstOrDefault()
                 ?? store.FindResumableJobs(null, includeFinishedWithErrors: true).FirstOrDefault();

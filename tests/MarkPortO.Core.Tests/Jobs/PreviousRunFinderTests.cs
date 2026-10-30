@@ -151,6 +151,19 @@ o\sucholder")]
         Assert.True(run.CanResume);
     }
 
+    [Theory]
+    [InlineData(JobStatus.Interrupted)]
+    [InlineData(JobStatus.CompletedWithErrors)]
+    public void AnEarlierJobThatFailedOrWasInterrupted_IsNotOffered_WhenTheNewestJobSucceeded(JobStatus earlier)
+    {
+        using var dir = new TempDir();
+        var store = new StateStore(dir.Path);
+        Save(store, earlier, DateTime.UtcNow.AddHours(-1), Doc("d0001", StepStatus.Interrupted, PageStep3Status.Failed));
+        Save(store, JobStatus.Completed, DateTime.UtcNow, Doc("d0001", StepStatus.Done));
+
+        Assert.Null(PreviousRunFinder.Find(dir.Path));
+    }
+
     [Fact]
     public void AnAbandonedJob_IsNotOffered_AndItsStateStays()
     {
