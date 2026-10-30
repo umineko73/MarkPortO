@@ -64,6 +64,7 @@ public sealed class ConvertRequest
         IncludeHiddenSheets = settings.Input.IncludeHiddenSheets,
         IncludeHiddenSlides = settings.Input.IncludeHiddenSlides,
         IncludeOffSlideText = settings.Input.IncludeOffSlideText,
+        Emphasis = settings.Input.Emphasis,
         UsePdfText = settings.Input.UsePdfText,
         Engine = settings.Engine.Kind,
         Step2 = settings.Steps.Step2,

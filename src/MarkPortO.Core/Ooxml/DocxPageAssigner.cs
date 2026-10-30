@@ -429,6 +429,11 @@ public static class DocxPageAssigner
         var builder = new StringBuilder(folded.Length);
         foreach (var ch in folded)
         {
+            if (ch is TextEmphasis.BoldMark or TextEmphasis.ItalicMark)
+            {
+                continue; // the marks of bold and italic are not in the text of a PDF
+            }
+
             if (char.IsWhiteSpace(ch) || ch is '​' or '‌' or '‍' or '﻿' or '­')
             {
                 continue;

@@ -274,6 +274,9 @@ public sealed class InputSettings
     /// <summary>Write the text of the shapes that lie outside a slide (memos on the pasteboard), as a quote of its own (pptx, FR-086).</summary>
     public bool IncludeOffSlideText { get; set; } = true;
 
+    /// <summary>Write text in bold between ** and text in italic between * (docx, pptx, xlsx, FR-101). A paragraph or a cell that is all in bold (italic), and a heading, is not marked.</summary>
+    public bool Emphasis { get; set; } = true;
+
     /// <summary>Use the text layer of a PDF as the text of its pages, next to the page images (pdf, FR-076).</summary>
     public bool UsePdfText { get; set; } = true;
 }

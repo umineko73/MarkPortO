@@ -74,10 +74,13 @@ public static partial class DocxReader
 {
     private const double EmuPerTwip = 635;
 
-    public static IReadOnlyList<DocxBlock> Read(string path) => ReadContent(path).Blocks;
+    public static IReadOnlyList<DocxBlock> Read(string path, bool emphasis = false) => ReadContent(path, emphasis).Blocks;
 
-    /// <summary>The blocks of the body, and the shapes drawn in it (for the deleted-page check, FR-012).</summary>
-    public static DocxContent ReadContent(string path)
+    /// <summary>
+    /// The blocks of the body, and the shapes drawn in it (for the deleted-page check, FR-012). With <paramref name="emphasis"/>, text in bold or italic
+    /// is marked (FR-101).
+    /// </summary>
+    public static DocxContent ReadContent(string path, bool emphasis = false)
     {
         OoxmlPackage.EnsureOpens(path, DocumentKind.Docx);
         try
@@ -86,7 +89,7 @@ public static partial class DocxReader
             var main = document.MainDocumentPart ?? throw new InvalidDocumentException(Loc.T("The document has no main part."));
             var body = main.Document?.Body ?? throw new InvalidDocumentException(Loc.T("The document has no body."));
 
-            var context = new Context(main);
+            var context = new Context(main, emphasis);
             var blocks = new List<DocxBlock>();
             var shapes = new List<DocxShapes>();
             var (pageWidth, pageHeight) = PageSizeEmu(body);
@@ -112,8 +115,63 @@ public static partial class DocxReader
         }
     }
 
-    private sealed class Context(MainDocumentPart main)
+    private sealed class Context(MainDocumentPart main, bool emphasis)
     {
+        /// <summary>Bold and italic text is marked (FR-101).</summary>
+        public bool Marking { get; } = emphasis;
+
+        /// <summary>For the paragraph being written: may its bold (italic) text be marked? Not when the whole of it is bold (italic), or it is a heading.</summary>
+        public bool BoldAllowed { get; private set; }
+
+        public bool ItalicAllowed { get; private set; }
+
+        /// <summary>Decides which marks the paragraph may have: the whole text of a paragraph in bold (a heading, a header cell) is not marked.</summary>
+        public void BeginParagraph(Paragraph paragraph)
+        {
+            var (headingLevel, isTitle) = StyleOf(paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value);
+            var runs = paragraph.Descendants<Run>()
+                .Where(r => !r.Ancestors<TextBoxContent>().Any() && !r.Ancestors<DeletedRun>().Any() && r.Descendants<Text>().Any(t => !string.IsNullOrWhiteSpace(t.Text)))
+                .ToList();
+            var heading = headingLevel is not null || isTitle;
+            BoldAllowed = Marking && !heading && runs.Count > 0 && !runs.All(r => IsBold(r, paragraph));
+            ItalicAllowed = Marking && !heading && runs.Count > 0 && !runs.All(r => IsItalic(r, paragraph));
+        }
+
+        public void EndParagraph()
+        {
+            BoldAllowed = false;
+            ItalicAllowed = false;
+        }
+
+        public bool IsBold(Run run, Paragraph paragraph) => Lookup(run, paragraph, e => e?.GetFirstChild<Bold>());
+
+        public bool IsItalic(Run run, Paragraph paragraph) => Lookup(run, paragraph, e => e?.GetFirstChild<Italic>());
+
+        /// <summary>The run's own setting, else that of its character style, else that of the style of its paragraph (each with the styles it is based on).</summary>
+        private bool Lookup(Run run, Paragraph paragraph, Func<OpenXmlCompositeElement?, OnOffType?> pick)
+        {
+            if (pick(run.RunProperties) is { } own)
+            {
+                return own.Val is null || own.Val.Value;
+            }
+
+            foreach (var styleId in new[] { run.RunProperties?.RunStyle?.Val?.Value, paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value })
+            {
+                var id = styleId;
+                for (var depth = 0; id is not null && depth < 8 && _styleDefinitions.TryGetValue(id, out var style); depth++)
+                {
+                    if (pick(style.StyleRunProperties) is { } set)
+                    {
+                        return set.Val is null || set.Val.Value;
+                    }
+
+                    id = style.BasedOn?.Val?.Value;
+                }
+            }
+
+            return false;
+        }
+
         private readonly Dictionary<string, (int? HeadingLevel, bool IsTitle)> _styles = BuildStyleMap(main);
         private int _footnoteNumber;
         private int _endnoteNumber;
@@ -508,8 +566,14 @@ public static partial class DocxReader
     private static string ParagraphText(OpenXmlElement paragraph, Context? markdown = null)
     {
         var builder = new StringBuilder();
+        if (markdown is { Marking: true } && paragraph is Paragraph whole)
+        {
+            markdown.BeginParagraph(whole);
+        }
+
         Append(paragraph, builder, markdown);
-        return markdown is null ? builder.ToString() : Strikethrough.Merge(builder.ToString());
+        markdown?.EndParagraph();
+        return markdown is null ? builder.ToString() : TextEmphasis.Merge(Strikethrough.Merge(builder.ToString()));
     }
 
     // With a context the text is Markdown (links, note marks, the alternative text of pictures); without it, plain text.
@@ -573,11 +637,23 @@ public static partial class DocxReader
                     }
 
                     break;
-                case Run run when markdown is not null && markdown.IsStruck(run):
-                    // A run with a strikethrough is written between ~~ (FR-092).
-                    var struck = new StringBuilder();
-                    Append(run, struck, markdown, ignoreStrike: true);
-                    builder.Append(Strikethrough.Wrap(struck.ToString()));
+                case Run run when markdown is not null && (markdown.IsStruck(run) || (markdown.BoldAllowed || markdown.ItalicAllowed)):
+                    // A run with a strikethrough is written between ~~ (FR-092); bold between ** and italic between * (FR-101).
+                    var marked = new StringBuilder();
+                    Append(run, marked, markdown, ignoreStrike: true);
+                    var piece = marked.ToString();
+                    var owner = run.Ancestors<Paragraph>().FirstOrDefault();
+                    if (owner is not null && markdown.ItalicAllowed && markdown.IsItalic(run, owner))
+                    {
+                        piece = TextEmphasis.Italic(piece);
+                    }
+
+                    if (owner is not null && markdown.BoldAllowed && markdown.IsBold(run, owner))
+                    {
+                        piece = TextEmphasis.Bold(piece);
+                    }
+
+                    builder.Append(markdown.IsStruck(run) ? Strikethrough.Wrap(piece) : piece);
                     break;
                 case DeletedRun:
                 case DeletedText:

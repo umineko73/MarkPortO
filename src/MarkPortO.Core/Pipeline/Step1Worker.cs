@@ -144,7 +144,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var document = work.Document;
         var layout = new Layout();
         // Word has the numbers of figures and tables counted again when it prints, so the text is read from a copy in which Word did it.
-        var content = DocxReader.ReadContent(await UpdatedFieldsCopyAsync(work, workDirectory, cancellationToken).ConfigureAwait(false) ?? document.SourcePath);
+        var content = DocxReader.ReadContent(await UpdatedFieldsCopyAsync(work, workDirectory, cancellationToken).ConfigureAwait(false) ?? document.SourcePath, work.Context.Options.Emphasis);
         var blocks = content.Blocks;
 
         var pdf = Path.Combine(workDirectory, "document.pdf");
@@ -241,7 +241,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var document = work.Document;
         var includeHidden = work.Context.Options.IncludeHiddenSlides;
         var layout = new Layout();
-        var slides = PptxReader.Read(document.SourcePath, includeHidden, work.Context.Options.IncludeOffSlideText);
+        var slides = PptxReader.Read(document.SourcePath, includeHidden, work.Context.Options.IncludeOffSlideText, work.Context.Options.Emphasis);
         if (slides.Count == 0)
         {
             layout.Warnings.Add(new Warning("EmptyDocument", Loc.T("The presentation has no slides to convert.")));
@@ -288,7 +288,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     {
         var document = work.Document;
         var layout = new Layout();
-        var sheets = XlsxReader.Read(document.SourcePath, work.Context.Options.IncludeHiddenSheets);
+        var sheets = XlsxReader.Read(document.SourcePath, work.Context.Options.IncludeHiddenSheets, work.Context.Options.Emphasis);
         var verdicts = XlsxCrossExtractor.Evaluate(document.SourcePath, sheets);
 
         var unitNumber = 0;

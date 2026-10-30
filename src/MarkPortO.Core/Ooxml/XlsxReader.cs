@@ -29,23 +29,40 @@ public readonly record struct MergeMark(bool FirstRow, int OriginRow, int Origin
 
 /// <summary>An Excel table (<c>xl/tables</c>) of a sheet: its name, and its cells (0-based in <see cref="SheetContent.Rows"/>).</summary>
 /// <summary>A shared string of a workbook: its text, and for rich text its parts, each with whether it has a strikethrough (null: as the font of the cell).</summary>
-internal sealed record SharedItem(string Plain, List<(string Text, bool? Struck)>? Runs)
+internal sealed record SharedItem(string Plain, List<(string Text, bool? Struck, bool Bold, bool Italic)>? Runs)
 {
-    /// <summary>The text for a cell whose font has (or has not) a strikethrough; a part with a strikethrough is written between ~~ (FR-092).</summary>
-    public string Text(bool cellStruck)
+    /// <summary>
+    /// The text for a cell whose font has (or has not) a strikethrough; a part with a strikethrough is written between ~~ (FR-092). With
+    /// <paramref name="marking"/>, a part in bold is written between ** and one in italic between * (FR-101), unless all the parts are.
+    /// </summary>
+    public string Text(bool cellStruck, bool marking = false)
     {
         if (Runs is null)
         {
             return cellStruck && Plain.Length > 0 ? Strikethrough.Wrap(Plain) : Plain;
         }
 
+        var filled = Runs.Where(r => !string.IsNullOrWhiteSpace(r.Text)).ToList();
+        var boldAllowed = marking && filled.Count > 0 && !filled.All(r => r.Bold);
+        var italicAllowed = marking && filled.Count > 0 && !filled.All(r => r.Italic);
         var builder = new StringBuilder();
-        foreach (var (text, struck) in Runs)
+        foreach (var (text, struck, bold, italic) in Runs)
         {
-            builder.Append((struck ?? cellStruck) ? Strikethrough.Wrap(text) : text);
+            var piece = text;
+            if (italicAllowed && italic)
+            {
+                piece = TextEmphasis.Italic(piece);
+            }
+
+            if (boldAllowed && bold)
+            {
+                piece = TextEmphasis.Bold(piece);
+            }
+
+            builder.Append((struck ?? cellStruck) ? Strikethrough.Wrap(piece) : piece);
         }
 
-        return Strikethrough.Merge(builder.ToString());
+        return TextEmphasis.Merge(Strikethrough.Merge(builder.ToString()));
     }
 }
 
@@ -447,8 +464,14 @@ public static partial class XlsxReader
 
     /// <param name="path">The workbook.</param>
     /// <param name="includeHidden">Include hidden sheets (FR-010a).</param>
-    public static IReadOnlyList<SheetContent> Read(string path, bool includeHidden)
+    // Whether the cells that are being read are written with the marks of bold and italic (set by Read; the reading of a file is on one thread).
+    [ThreadStatic]
+    private static bool _marking;
+
+    /// <param name="emphasis">Mark the parts of a text in bold or italic (FR-101); a cell all in bold (italic) is not marked.</param>
+    public static IReadOnlyList<SheetContent> Read(string path, bool includeHidden, bool emphasis = false)
     {
+        _marking = emphasis;
         OoxmlPackage.EnsureOpens(path, DocumentKind.Xlsx);
         try
         {
@@ -778,7 +801,7 @@ public static partial class XlsxReader
             && int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) && index >= 0 && index < sharedStrings.Count)
         {
             // The parts of the text that have a font of their own take it (and that font has a strikethrough or not); the others have the font of the cell.
-            return sharedStrings[index].Text(struck);
+            return sharedStrings[index].Text(struck, _marking);
         }
 
         var text = CellTextOf(cell, dateStyles, numberFormats);
@@ -792,7 +815,8 @@ public static partial class XlsxReader
 
         if (type == CellValues.InlineString)
         {
-            return InlineText(cell.InlineString);
+            // The parts of a rich text in bold or italic are marked (FR-101).
+            return _marking && cell.InlineString is { } inline && inline.Elements<Run>().Any() ? ItemOf(inline).Text(false, marking: true) : InlineText(cell.InlineString);
         }
 
         if (raw is null)
@@ -854,6 +878,36 @@ public static partial class XlsxReader
     private static string InlineText(InlineString? inline) =>
         inline is null ? string.Empty : string.Concat(inline.Descendants<Text>().Select(t => t.Text));
 
+    /// <summary>The text of a shared string or of an inline string, with its parts when it is rich text (a part has its font: strikethrough, bold, italic).</summary>
+    private static SharedItem ItemOf(DocumentFormat.OpenXml.OpenXmlElement item)
+    {
+        var runs = new List<(string Text, bool? Struck, bool Bold, bool Italic)>();
+        var plain = new StringBuilder();
+        foreach (var child in item.ChildElements)
+        {
+            switch (child)
+            {
+                case Run run:
+                    var part = string.Concat(run.Elements<Text>().Select(t => t.Text));
+                    plain.Append(part);
+
+                    // A run with a font of its own has that font whole: it says by itself whether it has a strikethrough. One without has the font of the cell.
+                    bool? struck = run.RunProperties is null
+                        ? null
+                        : run.RunProperties.Elements<Strike>().FirstOrDefault() is { } strike && (strike.Val is null || strike.Val.Value);
+                    var bold = run.RunProperties?.Elements<Bold>().FirstOrDefault() is { } b && (b.Val is null || b.Val.Value);
+                    var italic = run.RunProperties?.Elements<Italic>().FirstOrDefault() is { } i && (i.Val is null || i.Val.Value);
+                    runs.Add((part, struck, bold, italic));
+                    break;
+                case Text text:
+                    plain.Append(text.Text);
+                    break;
+            }
+        }
+
+        return new SharedItem(plain.ToString(), runs.Count > 0 ? runs : null);
+    }
+
     private static IReadOnlyList<SharedItem> ReadSharedStrings(WorkbookPart workbookPart)
     {
         var table = workbookPart.SharedStringTablePart?.SharedStringTable;
@@ -865,29 +919,7 @@ public static partial class XlsxReader
         var strings = new List<SharedItem>();
         foreach (var item in table.Elements<SharedStringItem>())
         {
-            var runs = new List<(string Text, bool? Struck)>();
-            var plain = new StringBuilder();
-            foreach (var child in item.ChildElements)
-            {
-                switch (child)
-                {
-                    case Run run:
-                        var part = string.Concat(run.Elements<Text>().Select(t => t.Text));
-                        plain.Append(part);
-
-                        // A run with a font of its own has that font whole: it says by itself whether it has a strikethrough. One without has the font of the cell.
-                        bool? struck = run.RunProperties is null
-                            ? null
-                            : run.RunProperties.Elements<Strike>().FirstOrDefault() is { } strike && (strike.Val is null || strike.Val.Value);
-                        runs.Add((part, struck));
-                        break;
-                    case Text text:
-                        plain.Append(text.Text);
-                        break;
-                }
-            }
-
-            strings.Add(new SharedItem(plain.ToString(), runs.Count > 0 ? runs : null));
+            strings.Add(ItemOf(item));
         }
 
         return strings;

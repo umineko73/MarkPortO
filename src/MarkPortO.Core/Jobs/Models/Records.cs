@@ -190,6 +190,9 @@ public sealed class OptionsSnapshot
     /// <summary>Write the text of the shapes outside a slide (FR-086). A job from before this setting wrote it, so it is on.</summary>
     public bool IncludeOffSlideText { get; set; } = true;
 
+    /// <summary>Write bold text between ** and italic text between * (FR-101). A job from before this setting did not, so it is off.</summary>
+    public bool Emphasis { get; set; }
+
     /// <summary>Use the text layer of a PDF as the text of its pages (FR-076). A job from before this setting did not read PDF files.</summary>
     public bool UsePdfText { get; set; } = true;
 

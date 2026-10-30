@@ -257,6 +257,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Write bold text between ** and italic text between * (FR-101).</summary>
+    public bool Emphasis
+    {
+        get => _store.Current.Input.Emphasis;
+        set
+        {
+            _store.Update(s => s.Input.Emphasis = value);
+            Raise();
+        }
+    }
+
     public bool IncludeHiddenSheets
     {
         get => _store.Current.Input.IncludeHiddenSheets;

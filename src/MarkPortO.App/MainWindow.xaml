@@ -120,6 +120,7 @@
           <TextBlock Grid.Row="0" Text="{DynamicResource Main_Cond_Common}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
             <CheckBox Content="{DynamicResource Main_Cond_Recurse}" IsChecked="{Binding Recurse}" VerticalAlignment="Center" Margin="0,0,20,0" />
+            <CheckBox Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Engine}" VerticalAlignment="Center" Margin="0,0,6,0" />
             <ComboBox ItemsSource="{Binding EngineChoices}" DisplayMemberPath="Name" SelectedValuePath="Kind"
                       SelectedValue="{Binding SelectedEngine}" Width="170" Margin="0,0,20,0" />

@@ -40,6 +40,9 @@ public sealed record ConvertArgs
 
     public bool? IncludeOffSlideText { get; init; }
 
+    /// <summary>Mark bold and italic text (FR-101).</summary>
+    public bool? Emphasis { get; init; }
+
     public string? PdfText { get; init; }
 
     public string? Engine { get; init; }
@@ -150,6 +153,11 @@ public static class ConvertArgsResolver
         if (args.IncludeOffSlideText is { } includeOffSlideText)
         {
             settings.Input.IncludeOffSlideText = includeOffSlideText;
+        }
+
+        if (args.Emphasis is { } emphasisOn)
+        {
+            settings.Input.Emphasis = emphasisOn;
         }
 
         if (args.Engine is not null)

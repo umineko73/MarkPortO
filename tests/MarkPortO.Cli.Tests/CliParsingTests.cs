@@ -301,6 +301,14 @@ public class CliParsingTests
     }
 
     [Fact]
+    public void Emphasis_IsOnWithoutAnOption_AndTheCommandLineSetsIt()
+    {
+        Assert.True(Resolved(new ConvertArgs(), FromFile()).Input.Emphasis);
+        Assert.False(Resolved(new ConvertArgs { Emphasis = false }, FromFile()).Input.Emphasis);
+        Assert.True(Resolved(new ConvertArgs { Emphasis = true }, FromFile()).Input.Emphasis);
+    }
+
+    [Fact]
     public void AnUnknownExcelRange_IsAnError()
     {
         var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { ExcelRange = "everything" }, FromFile());

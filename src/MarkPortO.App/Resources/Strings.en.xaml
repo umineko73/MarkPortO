@@ -53,6 +53,8 @@
   <sys:String x:Key="Main_Cond_HiddenSheets">Include hidden sheets</sys:String>
   <sys:String x:Key="Main_Cond_HiddenSlides">Include hidden slides</sys:String>
   <sys:String x:Key="Main_Cond_Recurse">Include sub-folders</sys:String>
+  <sys:String x:Key="Main_Cond_Emphasis">Write bold and italic</sys:String>
+  <sys:String x:Key="Main_Cond_EmphasisTip">Bold text in a line is written between ** and italic text between * (Word, PowerPoint, Excel). A paragraph (a cell) that is all in bold (italic), a heading and the title of a slide are not marked.</sys:String>
   <sys:String x:Key="Main_Cond_OffSlide">Include text outside the slide</sys:String>
   <sys:String x:Key="Main_Cond_OffSlideTip">PowerPoint: the text of the shapes that lie outside the slide (memos on the pasteboard) is written as a quote "Off-slide". They are not in the image of the slide.</sys:String>
   <sys:String x:Key="Main_Cond_Engine">Engine:</sys:String>

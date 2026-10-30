@@ -39,9 +39,11 @@ public static class PptxReader
 
     /// <param name="includeHidden">Include hidden slides (FR-010a).</param>
     /// <param name="includeOffSlideText">Write the text of the shapes that lie outside the slide, as a quote of its own (FR-086); when false they are left out.</param>
-    public static IReadOnlyList<SlideContent> Read(string path, bool includeHidden, bool includeOffSlideText = true)
+    /// <param name="emphasis">Mark text in bold or italic (FR-101); a paragraph all in bold (italic), and a title, is not marked.</param>
+    public static IReadOnlyList<SlideContent> Read(string path, bool includeHidden, bool includeOffSlideText = true, bool emphasis = false)
     {
         OoxmlPackage.EnsureOpens(path, DocumentKind.Pptx);
+        _marking = emphasis;
         try
         {
             using var document = PresentationDocument.Open(path, isEditable: false);
@@ -269,7 +271,7 @@ public static class PptxReader
         var lines = new List<string>();
         foreach (var paragraph in textBody.Elements<A.Paragraph>())
         {
-            var text = ParagraphText(paragraph, part).Trim();
+            var text = ParagraphText(paragraph, part, allowEmphasis: !isTitle).Trim();
             if (text.Length == 0)
             {
                 continue;
@@ -338,19 +340,32 @@ public static class PptxReader
         return uri?.OriginalString.Replace(" ", "%20", StringComparison.Ordinal).Replace(")", "%29", StringComparison.Ordinal);
     }
 
+    // Whether the slides that are being read are written with the marks of bold and italic (set by Read; the reading of a file is on one thread).
+    [ThreadStatic]
+    private static bool _marking;
+
+    private static bool IsBold(A.Run run) => run.RunProperties?.Bold?.Value == true;
+
+    private static bool IsItalic(A.Run run) => run.RunProperties?.Italic?.Value == true;
+
     // With the slide part, a run that has a link to the outside is written as a Markdown link (FR-072).
-    private static string ParagraphText(A.Paragraph paragraph, SlidePart? part = null)
+    private static string ParagraphText(A.Paragraph paragraph, SlidePart? part = null, bool allowEmphasis = true)
     {
         var builder = new StringBuilder();
+        var runs = _marking && part is not null && allowEmphasis
+            ? paragraph.Elements<A.Run>().Where(r => !string.IsNullOrWhiteSpace(r.Text?.Text)).ToList()
+            : [];
+        var boldAllowed = runs.Count > 0 && !runs.All(IsBold);
+        var italicAllowed = runs.Count > 0 && !runs.All(IsItalic);
         foreach (var child in paragraph.ChildElements)
         {
             switch (child)
             {
                 case A.Run run when part is not null && LinkOf(run, part) is { } address && run.Text?.Text is { Length: > 0 } label:
-                    builder.Append('[').Append(StruckIf(run, part, label.Replace("]", "\\]", StringComparison.Ordinal))).Append("](").Append(address).Append(')');
+                    builder.Append('[').Append(Marked(run, part, label.Replace("]", "\\]", StringComparison.Ordinal), boldAllowed, italicAllowed)).Append("](").Append(address).Append(')');
                     break;
                 case A.Run run:
-                    builder.Append(StruckIf(run, part, run.Text?.Text ?? string.Empty));
+                    builder.Append(Marked(run, part, run.Text?.Text ?? string.Empty, boldAllowed, italicAllowed));
                     break;
                 case A.Break:
                     builder.Append('\n');
@@ -361,10 +376,27 @@ public static class PptxReader
             }
         }
 
-        return part is null ? builder.ToString() : Strikethrough.Merge(builder.ToString());
+        return part is null ? builder.ToString() : TextEmphasis.Merge(Strikethrough.Merge(builder.ToString()));
     }
 
-    // A run with a strikethrough is written between ~~ (FR-092); in the plain text (no slide part) it is as it is.
-    private static string StruckIf(A.Run run, SlidePart? part, string text) =>
-        part is not null && run.RunProperties?.Strike?.Value is { } strike && strike != A.TextStrikeValues.NoStrike ? Strikethrough.Wrap(text) : text;
+    // A run with a strikethrough is written between ~~ (FR-092), bold between ** and italic between * (FR-101); in the plain text (no slide part) it is as it is.
+    private static string Marked(A.Run run, SlidePart? part, string text, bool boldAllowed, bool italicAllowed)
+    {
+        if (part is null)
+        {
+            return text;
+        }
+
+        if (italicAllowed && IsItalic(run))
+        {
+            text = TextEmphasis.Italic(text);
+        }
+
+        if (boldAllowed && IsBold(run))
+        {
+            text = TextEmphasis.Bold(text);
+        }
+
+        return run.RunProperties?.Strike?.Value is { } strike && strike != A.TextStrikeValues.NoStrike ? Strikethrough.Wrap(text) : text;
+    }
 }

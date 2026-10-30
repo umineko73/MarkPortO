@@ -73,12 +73,15 @@ public static partial class MarkdownText
     public const string MergedUp = "\uE001";
 
     public static bool HasMarks(string markdown) =>
-        markdown.Contains(MergedLeft, StringComparison.Ordinal) || markdown.Contains(MergedUp, StringComparison.Ordinal);
+        markdown.Contains(MergedLeft, StringComparison.Ordinal) || markdown.Contains(MergedUp, StringComparison.Ordinal) || TextEmphasis.HasMarks(markdown);
 
-    /// <summary>Writes the marks of merged cells as <c>&lt;</c> and <c>^</c>. The marks do not depend on the language.</summary>
+    /// <summary>
+    /// Writes the marks of merged cells as <c>&lt;</c> and <c>^</c>, and the marks of bold and italic as <c>**</c> and <c>*</c> (FR-101).
+    /// The marks do not depend on the language.
+    /// </summary>
     public static string ResolveMarks(string markdown) =>
         HasMarks(markdown)
-            ? markdown.Replace(MergedLeft, "<", StringComparison.Ordinal).Replace(MergedUp, "^", StringComparison.Ordinal)
+            ? TextEmphasis.Resolve(markdown.Replace(MergedLeft, "<", StringComparison.Ordinal).Replace(MergedUp, "^", StringComparison.Ordinal))
             : markdown;
 
     /// <summary>

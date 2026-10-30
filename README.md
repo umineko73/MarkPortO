@@ -68,7 +68,7 @@ markporto list-jobs --out D:\out
 markporto check-connection --settings settings.json
 ```
 
-Main options: `--settings`, `--out`, `--types`, `--recurse`, `--include-hidden` (or `--include-hidden-sheets`, `--include-hidden-slides`), `--no-include-off-slide`, `--pdf-text on|off`, `--engine`, `--dpi`, `--pages <range>` (one file: the pages that Step3 reads, like `3-5,8`), `--excel-range columns|rows|print-area`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>`, `--resume`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options override `settings.json`.
+Main options: `--settings`, `--out`, `--types`, `--recurse`, `--include-hidden` (or `--include-hidden-sheets`, `--include-hidden-slides`), `--emphasis` / `--no-emphasis` (bold and italic text between `**` and `*`), `--no-include-off-slide`, `--pdf-text on|off`, `--engine`, `--dpi`, `--pages <range>` (one file: the pages that Step3 reads, like `3-5,8`), `--excel-range columns|rows|print-area`, `--step2 on|off`, `--step3 on|off`, `--vlm-separate on|off`, `--result <file>`, `--resume`, `--retry-failed`, `--quiet`, `--max-pages`, `--max-cost`, `--parallel`. Options override `settings.json`.
 
 Exit codes: `0` success, `1` some files failed, `2` invalid arguments or settings, `3` the checks before the run failed (including a missing consent), `4` stopped by a usage limit, a login or a limit of pages or cost (use `--resume`), `130` interrupted.
 
