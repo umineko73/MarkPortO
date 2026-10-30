@@ -152,7 +152,7 @@ internal static partial class VlmTableJoiner
                 return false;
             }
 
-            var isRepeatedHeader = first.All(c => c.Length == 0) || (ownerHeader is not null && SameRow(first, ownerHeader));
+            var isRepeatedHeader = first.All(c => c.Length == 0) || (ownerHeader is not null && SameHeader(first, ownerHeader));
             if (!isRepeatedHeader)
             {
                 rows.Add(lines[0]); // it was a row of the table, not a header
@@ -168,7 +168,7 @@ internal static partial class VlmTableJoiner
             }
 
             rows.AddRange(lines.Where(l => !IsSeparator(l)));
-            if (ownerHeader is not null && rows.Count > 0 && SameRow(Cells(rows[0]), ownerHeader))
+            if (ownerHeader is not null && rows.Count > 0 && SameHeader(Cells(rows[0]), ownerHeader))
             {
                 rows.RemoveAt(0); // the header written again, without a separator
             }
@@ -229,6 +229,21 @@ internal static partial class VlmTableJoiner
 
     private static bool SameRow(List<string> a, List<string> b) =>
         a.Count == b.Count && a.Zip(b).All(pair => Normalize(pair.First) == Normalize(pair.Second));
+
+    /// <summary>
+    /// A header that is written again: the same cells, except one when there are three columns or more. The VLM reads the header of a page from its
+    /// image, where a header of two rows or of joined cells ("数量" under "設置") is another text than in the first page.
+    /// </summary>
+    private static bool SameHeader(List<string> a, List<string> b)
+    {
+        if (a.Count != b.Count)
+        {
+            return false;
+        }
+
+        var same = a.Zip(b).Count(pair => pair.First.Length > 0 && Normalize(pair.First) == Normalize(pair.Second));
+        return a.Count >= 3 ? same >= a.Count - 1 && same >= 2 : same == a.Count;
+    }
 
     private static string Normalize(string cell) =>
         Regex.Replace(cell.Normalize(NormalizationForm.FormKC), @"\s+", string.Empty);

@@ -58,6 +58,9 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             var prompt = (context.Prompts ?? new Settings.PromptSettings()).For(document.Kind, document.MarkdownLanguage);
             var governor = context.Governor ?? new Step3Governor();
 
+            // The header, the footer and the page number of a Word document are in every page image; the result of the VLM is without them (FR-100).
+            var furniture = document.Kind == DocumentKind.Docx && File.Exists(document.SourcePath) ? PageFurniture.Read(document.SourcePath) : [];
+
             MarkOutOfRange(document, context.Options.Pages);
             foreach (var page in document.Pages.Where(p => !p.ReadsInStep3))
             {
@@ -99,7 +102,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
                         context.Save(document);
                     }
 
-                    var outcome = await ReadPageAsync(document, page, reader, prompt, context.MaxLinesPerRead, context.MaxImageSide, cancellationToken).ConfigureAwait(false);
+                    var outcome = await ReadPageAsync(document, page, reader, prompt, context.MaxLinesPerRead, context.MaxImageSide, furniture, cancellationToken).ConfigureAwait(false);
                     lock (gate)
                     {
                         if (outcome.Succeeded)
@@ -176,7 +179,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
     /// <summary>How a page ended: read, or failed with a kind of failure.</summary>
     private readonly record struct PageOutcome(bool Succeeded, VlmFailureKind Kind, string Message);
 
-    private static async Task<PageOutcome> ReadPageAsync(DocumentRecord document, PageRecord page, IVlmReader reader, string prompt, int maxLines, int maxImageSide, CancellationToken cancellationToken)
+    private static async Task<PageOutcome> ReadPageAsync(DocumentRecord document, PageRecord page, IVlmReader reader, string prompt, int maxLines, int maxImageSide, IReadOnlyList<string> furniture, CancellationToken cancellationToken)
     {
         try
         {
@@ -220,7 +223,9 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
                 cost = costs.Any(c => c.HasValue) ? costs.Sum(c => c ?? 0) : null;
             }
 
-            page.VlmText = text;
+            // The header and the footer are taken out; a page that the model wrote twice is cut at the second copy (and the header and the
+            // footer that stood between the copies are taken out again).
+            page.VlmText = PageFurniture.Strip(RepeatedStart.Trim(PageFurniture.Strip(text, furniture)), furniture);
             page.Usage = usage;
             page.CostUsd = cost;
             page.Bands = bands.Count;
