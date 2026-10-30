@@ -22,24 +22,34 @@ namespace MarkPortO.Core.Tests.Settings;
 public class ExcelPromptTests
 {
     [Fact]
-    public void TheDefaultPromptOfExcel_AsksForRowsThatStartAndEndWithAPipe()
+    public void TheDefaultPromptOfExcel_AsksForSeparateTablesWhoseRowsStartAndEndWithAPipe()
     {
-        Assert.Contains("「|」で始めて「|」で終え", PromptSettings.DefaultFor(DocumentKind.Xlsx, "ja"));
-        Assert.Contains("leading and a trailing", PromptSettings.DefaultFor(DocumentKind.Xlsx, "en"));
-        Assert.DoesNotContain("leading and a trailing", PromptSettings.DefaultFor(DocumentKind.Docx, "en"));
+        var ja = PromptSettings.DefaultFor(DocumentKind.Xlsx, "ja");
+        Assert.Contains("「|」で始めて「|」で終えます", ja);
+        Assert.Contains("|---|---|", ja);
+        Assert.Contains("まとまり", ja);
+        var en = PromptSettings.DefaultFor(DocumentKind.Xlsx, "en");
+        Assert.Contains("Start every row with", en);
+        Assert.Contains("separate table for each group", en);
+        Assert.DoesNotContain("Start every row with", PromptSettings.DefaultFor(DocumentKind.Docx, "en"));
     }
 
     [Fact]
-    public void ThePromptOfBeforeTheRule_IsStillTheBuiltInOne_AndAnEditedOneIsKept()
+    public void ThePromptsOfEarlierVersions_AreStillTheBuiltInOne_AndAnEditedOneIsKept()
     {
         var ja = PromptSettings.DefaultFor(DocumentKind.Xlsx, "ja");
-        var start = ja.IndexOf("表の行は、すべて", StringComparison.Ordinal);
-        var end = ja.IndexOf("抽出テキスト:", StringComparison.Ordinal) - 2; // the two line breaks before it stay
-        var before = ja.Remove(start, end - start);
+        var cut = ja.IndexOf("\n\n表は、次の決まり", StringComparison.Ordinal);
+        var basis = ja[..cut];
+        var tail = "\n\n抽出テキスト:\n{pagetext}";
+        var beforeTheRule = basis + tail; // 0.1.4: no rule for the table
+        var pipeRule = basis + "表の行は、すべて「|」で始めて「|」で終え、列の数を見出し行と同じにしてください（空のセルも省かず、「|」と「|」の間を空けて書き、列をずらさないでください）。" + tail; // 0.1.5
 
-        Assert.NotEqual(ja, before);
-        Assert.True(PromptSettings.IsDefault(DocumentKind.Xlsx, before));
-        Assert.False(PromptSettings.IsDefault(DocumentKind.Xlsx, before + "my own line"));
-        Assert.Equal(ja, new PromptSettings { Xlsx = before }.For(DocumentKind.Xlsx, "ja"));
+        foreach (var earlier in new[] { beforeTheRule, pipeRule })
+        {
+            Assert.NotEqual(ja, earlier);
+            Assert.True(PromptSettings.IsDefault(DocumentKind.Xlsx, earlier));
+            Assert.False(PromptSettings.IsDefault(DocumentKind.Xlsx, earlier + "my own line"));
+            Assert.Equal(ja, new PromptSettings { Xlsx = earlier }.For(DocumentKind.Xlsx, "ja"));
+        }
     }
 }
