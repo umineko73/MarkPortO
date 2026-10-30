@@ -143,7 +143,8 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     {
         var document = work.Document;
         var layout = new Layout();
-        var content = DocxReader.ReadContent(document.SourcePath);
+        // Word has the numbers of figures and tables counted again when it prints, so the text is read from a copy in which Word did it.
+        var content = DocxReader.ReadContent(await UpdatedFieldsCopyAsync(work, workDirectory, cancellationToken).ConfigureAwait(false) ?? document.SourcePath);
         var blocks = content.Blocks;
 
         var pdf = Path.Combine(workDirectory, "document.pdf");
@@ -384,6 +385,34 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                 Loc.T("{0} has a freehand drawing over the whole page. If it is a \"×\" mark it cannot be recognised, so the page is converted as usual.", PageLabel.Text(where, CultureInfo.CurrentUICulture)),
                 page));
         }
+    }
+
+    /// <summary>
+    /// A copy of the docx saved by Word with its fields updated, when the document has numbered figures or tables and the engine is Office;
+    /// otherwise null (the original is read). The numbers in the file can be old, and the page images show the new ones.
+    /// </summary>
+    private static async Task<string?> UpdatedFieldsCopyAsync(DocumentWork work, string workDirectory, CancellationToken cancellationToken)
+    {
+        if (work.Context.Engine is not IFieldUpdatingEngine updating || !DocxFieldProbe.HasCountingFields(work.Document.SourcePath))
+        {
+            return null;
+        }
+
+        var copy = Path.Combine(workDirectory, "fields-updated.docx");
+        try
+        {
+            if (await updating.TryUpdateFieldsAsync(work.Document.SourcePath, copy, work.Context.EngineTimeout, cancellationToken).ConfigureAwait(false) && File.Exists(copy))
+            {
+                return copy;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // the original is read
+        }
+
+        work.Context.Logger.LogInformation("The fields of {Source} could not be updated by Word; the numbers saved in the file are used.", work.Document.SourcePath);
+        return null;
     }
 
     private static async Task ExportAsync(DocumentWork work, string source, string pdf, CancellationToken cancellationToken)

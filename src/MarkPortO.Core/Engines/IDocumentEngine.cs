@@ -48,6 +48,16 @@ public interface IDocumentEngine
     Task ExportPdfAsync(PdfExportRequest request, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// An engine that can have the fields of a document counted again (the numbers of figures and tables): a copy is saved in which the
+/// results are new. Only Microsoft Office can do it; the copy is for reading the text, and the PDF is made from the original.
+/// </summary>
+public interface IFieldUpdatingEngine
+{
+    /// <summary>Saves a docx copy with the fields updated. False when it could not be made (the caller goes on with the original).</summary>
+    Task<bool> TryUpdateFieldsAsync(string sourcePath, string copyPath, TimeSpan timeout, CancellationToken cancellationToken);
+}
+
 /// <summary>A document could not be converted by the engine (corrupt, password protected, timed out ...).</summary>
 public class EngineException : Exception
 {

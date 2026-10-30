@@ -27,7 +27,7 @@ namespace MarkPortO.Core.Engines;
 /// converted at a time. An Office application that the user already had open is never closed: only the document this
 /// engine opened is closed, and only a process this engine started is ever stopped.
 /// </summary>
-public sealed class OfficeEngine : IDocumentEngine, IDisposable
+public sealed class OfficeEngine : IDocumentEngine, IFieldUpdatingEngine, IDisposable
 {
     private readonly StaThread _thread = new();
     private readonly Dictionary<DocumentKind, OfficeApp> _apps = [];
@@ -89,6 +89,84 @@ public sealed class OfficeEngine : IDocumentEngine, IDisposable
         {
             TimedOut = true,
         };
+    }
+
+    public async Task<bool> TryUpdateFieldsAsync(string sourcePath, string copyPath, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(sourcePath))
+        {
+            return false;
+        }
+
+        var source = Path.GetFullPath(sourcePath);
+        var target = Path.GetFullPath(copyPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        if (File.Exists(target))
+        {
+            File.Delete(target);
+        }
+
+        var work = _thread.Run(() => UpdateFields(source, target));
+        var finished = await Task.WhenAny(work, Task.Delay(timeout, cancellationToken)).ConfigureAwait(false);
+        if (finished == work)
+        {
+            return await work.ConfigureAwait(false);
+        }
+
+        // Too slow, or cancelled: the Word that this engine started is stopped, which ends the call that is stuck.
+        StopOwnProcess(DocumentKind.Docx);
+        try
+        {
+            await work.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // the stuck call ends with an error once its process is gone
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return false;
+    }
+
+    private bool UpdateFields(string source, string target)
+    {
+        try
+        {
+            var app = GetApp(DocumentKind.Docx);
+            dynamic? document = null;
+            try
+            {
+                document = app.Instance.Documents.Open(
+                    FileName: source,
+                    ConfirmConversions: false,
+                    ReadOnly: true,
+                    AddToRecentFiles: false,
+                    PasswordDocument: "markporto-no-password",
+                    NoEncodingDialog: true,
+                    Visible: false);
+                document.Fields.Update();
+                document.SaveAs2(FileName: target, FileFormat: 16); // wdFormatXMLDocument
+            }
+            finally
+            {
+                CloseQuietly(() => document?.Close(SaveChanges: 0), (object?)document);
+            }
+
+            return File.Exists(target);
+        }
+        catch (COMException ex)
+        {
+            if (IsApplicationGone(ex))
+            {
+                StopOwnProcess(DocumentKind.Docx);
+            }
+
+            return false;
+        }
+        catch (Exception ex) when (ex is EngineException or InvalidOperationException or MissingMemberException or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+        {
+            return false;
+        }
     }
 
     public void Dispose()
