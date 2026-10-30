@@ -83,6 +83,13 @@ public sealed class PageRecord
     /// <summary>The image of the page has nothing on it (FR-082): it is not sent to the VLM.</summary>
     public bool IsBlank { get; set; }
 
+    /// <summary>The page is outside the page range that the user gave (FR-097): the VLM does not read it. Its image and its text are made as for any page.</summary>
+    public bool IsOutOfRange { get; set; }
+
+    /// <summary>Step 3 reads the page: it is not deleted, not blank and not outside the page range.</summary>
+    [JsonIgnore]
+    public bool ReadsInStep3 => !IsDeleted && !IsBlank && !IsOutOfRange;
+
     public SheetInfo? Sheet { get; set; }
 
     public PageStep3Status Step3 { get; set; } = PageStep3Status.Pending;
@@ -195,6 +202,10 @@ public sealed class OptionsSnapshot
     public bool VlmSeparate { get; set; }
 
     public string? Connection { get; set; }
+
+    /// <summary>The pages that Step 3 reads, as the user wrote them (<c>3-5,8</c>); empty or <c>null</c> for all (FR-097).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Pages { get; set; }
 
     /// <summary>The language of the texts in the output Markdown (<c>ja</c> / <c>en</c>), fixed when the job starts (FR-036).</summary>
     public string MarkdownLanguage { get; set; } = "en";

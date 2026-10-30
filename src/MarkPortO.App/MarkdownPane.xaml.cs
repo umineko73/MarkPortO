@@ -26,6 +26,17 @@ public partial class MarkdownPane : UserControl
 {
     private bool _ready;
     private string? _mappedFolder;
+    private double _zoom = 1.0;
+    private bool _navigating;
+
+    // What is shown now. A refresh that brings the same text does nothing; one that brings other text for the same page (its result came in)
+    // keeps the scroll position, and a new page starts at the top (FR-068).
+    private string? _shownMarkdown;
+    private string? _shownFolder;
+    private bool _shownRendered;
+    private string? _pageKey;
+    private double _scrollY;
+    private bool _restoreScroll;
 
     public MarkdownPane()
     {
@@ -47,8 +58,16 @@ public partial class MarkdownPane : UserControl
           document.addEventListener('mouseup', function (e) { if (e.button === 2) { down = false; } });
           document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
-          // The wheel scrolls the page; at the top or the bottom (after a short pause) it asks for the page before or after. The arrow keys ask too.
-          var last = 0;
+          // The wheel scrolls the page; at the top or the bottom it stops there. Every turn is told to the program ("scroll", or "wheel-next" /
+          // "wheel-previous" at the end), which decides by its own clock whether it starts after a pause and changes the page (FR-080): the clock cannot
+          // be here, because every new page is a new document. The arrow keys ask too.
+          // The scroll position is told to the program, which puts it back when the same page is shown again with new text.
+          var scrollPending = false;
+          document.addEventListener('scroll', function () {
+            if (scrollPending) { return; }
+            scrollPending = true;
+            window.requestAnimationFrame(function () { scrollPending = false; post('y:' + window.scrollY); });
+          });
           function post(message) { try { window.chrome.webview.postMessage(message); } catch (error) { } }
           function atEdge(down) {
             var max = document.documentElement.scrollHeight - window.innerHeight;
@@ -56,10 +75,12 @@ public partial class MarkdownPane : UserControl
           }
           document.addEventListener('wheel', function (e) {
             if (e.ctrlKey || e.deltaY === 0) { return; }
-            var down = e.deltaY > 0, now = Date.now();
-            if (!atEdge(down)) { last = now; return; }
+            var down = e.deltaY > 0;
+            if (!atEdge(down)) { post('scroll'); return; }
             e.preventDefault();
-            if (now - last > 400) { last = now; post(down ? 'next' : 'previous'); }
+            // A page that fits has no scroll bar: nothing to scroll past, so each turn may change the page.
+            var fits = document.documentElement.scrollHeight <= window.innerHeight + 1;
+            post((fits ? 'fit-' : 'wheel-') + (down ? 'next' : 'previous'));
           }, { passive: false });
           // A Mermaid block is drawn as a picture. The library is loaded from the folder of the program (the page allows only that one script);
           // a block that cannot be drawn stays as it is written.
@@ -120,7 +141,7 @@ public partial class MarkdownPane : UserControl
             settings.IsScriptEnabled = true;
             settings.AreDefaultContextMenusEnabled = false;
             settings.AreDevToolsEnabled = false;
-            // The only message that the page script sends is "next" or "previous" (the page itself cannot run script).
+            // The messages that the page script sends are "next", "previous", "scroll", "wheel-next", "wheel-previous", "fit-next" and "fit-previous" (the page itself cannot run script).
             settings.IsWebMessageEnabled = true;
             Web.CoreWebView2.WebMessageReceived += (_, args) =>
             {
@@ -130,6 +151,28 @@ public partial class MarkdownPane : UserControl
                         PageStepRequested?.Invoke(1);
                         break;
                     case "previous":
+                        PageStepRequested?.Invoke(-1);
+                        break;
+                    case "scroll":
+                        WheelGesture.Scrolled();
+                        break;
+                    case { } message when message.StartsWith("y:", StringComparison.Ordinal):
+                        if (!_navigating && double.TryParse(message.AsSpan(2), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var y))
+                        {
+                            _scrollY = y;
+                        }
+
+                        break;
+                    case "fit-next" when WheelGesture.StepsWhenFits():
+                        PageStepRequested?.Invoke(1);
+                        break;
+                    case "fit-previous" when WheelGesture.StepsWhenFits():
+                        PageStepRequested?.Invoke(-1);
+                        break;
+                    case "wheel-next" when WheelGesture.StartsAtEnd():
+                        PageStepRequested?.Invoke(1);
+                        break;
+                    case "wheel-previous" when WheelGesture.StartsAtEnd():
                         PageStepRequested?.Invoke(-1);
                         break;
                 }
@@ -151,6 +194,28 @@ public partial class MarkdownPane : UserControl
             }
 
             await Web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(DragScrollScript.Replace("@MERMAID@", MarkdownHtml.MermaidScript, StringComparison.Ordinal));
+            // The zoom (Ctrl+wheel) goes back to the default with every new document; it is kept here and put back (FR-096).
+            Web.ZoomFactorChanged += (_, _) =>
+            {
+                if (!_navigating)
+                {
+                    _zoom = Web.ZoomFactor;
+                }
+            };
+            Web.NavigationCompleted += (_, _) =>
+            {
+                _navigating = false;
+                if (Math.Abs(Web.ZoomFactor - _zoom) > 0.001)
+                {
+                    Web.ZoomFactor = _zoom;
+                }
+
+                if (_restoreScroll)
+                {
+                    _restoreScroll = false;
+                    _ = Web.CoreWebView2.ExecuteScriptAsync("window.scrollTo(0, " + _scrollY.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")");
+                }
+            };
             _ready = true;
         }
         catch (Exception ex) when (ex is WebView2RuntimeNotFoundException or InvalidOperationException or System.Runtime.InteropServices.COMException or ArgumentException)
@@ -161,9 +226,31 @@ public partial class MarkdownPane : UserControl
         }
     }
 
-    public void Show(string markdown, string folder, bool rendered)
+    /// <param name="pageKey">Which page the text is of. The same page with new text keeps its scroll position.</param>
+    public void Show(string markdown, string folder, bool rendered, string? pageKey = null)
     {
+        if (markdown == _shownMarkdown && folder == _shownFolder && rendered == _shownRendered && pageKey == _pageKey)
+        {
+            return; // nothing changed: do not load it again (that would throw the position away)
+        }
+
+        var samePage = pageKey is not null && pageKey == _pageKey;
+        var rawOffset = RawBox.VerticalOffset;
+        _shownMarkdown = markdown;
+        _shownFolder = folder;
+        _shownRendered = rendered;
+        _pageKey = pageKey;
+        if (!samePage)
+        {
+            _scrollY = 0;
+        }
+
         RawBox.Text = markdown;
+        if (samePage)
+        {
+            RawBox.Dispatcher.BeginInvoke(() => RawBox.ScrollToVerticalOffset(rawOffset), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
         if (!rendered || WebFailed)
         {
             RawBox.Visibility = Visibility.Visible;
@@ -175,6 +262,7 @@ public partial class MarkdownPane : UserControl
         Web.Visibility = Visibility.Visible;
         if (!_ready)
         {
+            _shownMarkdown = null; // not drawn yet: the next call must do it
             return;
         }
 
@@ -190,6 +278,8 @@ public partial class MarkdownPane : UserControl
             _mappedFolder = folder;
         }
 
+        _navigating = true;
+        _restoreScroll = samePage;
         Web.NavigateToString(MarkdownHtml.Render(markdown));
     }
 

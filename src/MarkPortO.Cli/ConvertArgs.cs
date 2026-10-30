@@ -48,6 +48,9 @@ public sealed record ConvertArgs
 
     public string? ExcelRange { get; init; }
 
+    /// <summary>The pages that Step 3 reads (FR-097); for one file.</summary>
+    public string? Pages { get; init; }
+
     public string? Step2 { get; init; }
 
     public string? Step3 { get; init; }

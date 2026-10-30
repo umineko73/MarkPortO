@@ -175,8 +175,8 @@ public static class FileStatusProjector
 
     /// <summary>How many of the pages step 3 reads are finished (read or failed); the deleted pages are not counted.</summary>
     public static (int Read, int Total) Step3Progress(DocumentRecord document) =>
-        (document.Pages.Count(p => !p.IsDeleted && !p.IsBlank && p.Step3 is PageStep3Status.Done or PageStep3Status.Failed),
-         document.Pages.Count(p => !p.IsDeleted && !p.IsBlank));
+        (document.Pages.Count(p => p.ReadsInStep3 && p.Step3 is PageStep3Status.Done or PageStep3Status.Failed),
+         document.Pages.Count(p => p.ReadsInStep3));
 
     /// <summary>The text of step 3 in the list: while it runs, how many of the pages are finished (<c>実行中 3/12</c>).</summary>
     public static string Step3Text(FileRow row) =>
@@ -257,6 +257,8 @@ public static class FileStatusProjector
             ? Loc.T("Not applicable")
             : page.IsBlank
                 ? Loc.T("Blank page")
+            : page.IsOutOfRange
+                ? Loc.T("Out of range")
             : page.Step3 switch
             {
                 PageStep3Status.Running => Loc.T("Running"),

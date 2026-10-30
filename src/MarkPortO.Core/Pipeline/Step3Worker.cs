@@ -58,15 +58,16 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             var prompt = (context.Prompts ?? new Settings.PromptSettings()).For(document.Kind, document.MarkdownLanguage);
             var governor = context.Governor ?? new Step3Governor();
 
-            foreach (var page in document.Pages.Where(p => p.IsDeleted || p.IsBlank))
+            MarkOutOfRange(document, context.Options.Pages);
+            foreach (var page in document.Pages.Where(p => !p.ReadsInStep3))
             {
-                page.Step3 = PageStep3Status.Skipped; // a deleted page and a blank page are never read
+                page.Step3 = PageStep3Status.Skipped; // a deleted page, a blank page and a page outside the range are never read
             }
 
             var gate = new object();
             using var slots = new SemaphoreSlim(Math.Max(1, context.Step3Parallel));
             var readings = new List<Task>();
-            foreach (var page in document.Pages.Where(p => !p.IsDeleted && !p.IsBlank && p.Step3 != PageStep3Status.Done))
+            foreach (var page in document.Pages.Where(p => p.ReadsInStep3 && p.Step3 != PageStep3Status.Done))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -81,7 +82,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
 
             await Task.WhenAll(readings).ConfigureAwait(false);
 
-            var unfinished = document.Pages.Any(p => !p.IsDeleted && !p.IsBlank && p.Step3 is PageStep3Status.Pending or PageStep3Status.Running);
+            var unfinished = document.Pages.Any(p => p.ReadsInStep3 && p.Step3 is PageStep3Status.Pending or PageStep3Status.Running);
             document.Step3 = unfinished ? StepStatus.Interrupted : StepStatus.Done;
             document.UsageTotal = Total(document);
             document.CostTotalUsd = CostTotal(document);
@@ -141,6 +142,34 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             document.Error = new DocumentError(3, SecretRedact(ex.Message));
             context.Save(document);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Marks the pages outside the page range of the job (FR-097). A range that goes past the last page is cut there, with a warning;
+    /// a range with no page of this document fails the step.
+    /// </summary>
+    private static void MarkOutOfRange(DocumentRecord document, string? text)
+    {
+        var range = PageRange.Parse(text);
+        foreach (var page in document.Pages)
+        {
+            page.IsOutOfRange = range is not null && !range.Contains(page.Index);
+        }
+
+        if (range is null)
+        {
+            return;
+        }
+
+        if (document.Pages.Count > 0 && document.Pages.All(p => p.IsOutOfRange))
+        {
+            throw new InvalidOperationException(Loc.T("The page range '{0}' has no page of this document ({1} pages).", text, document.Pages.Count));
+        }
+
+        if (range.Highest > document.Pages.Count && !document.Warnings.Any(w => w.Code == "PageRangeCut"))
+        {
+            document.Warnings.Add(new Warning("PageRangeCut", Loc.T("The page range '{0}' goes past the last page; it is cut at page {1}.", text, document.Pages.Count)));
         }
     }
 

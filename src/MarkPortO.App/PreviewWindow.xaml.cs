@@ -177,9 +177,10 @@ public partial class PreviewWindow : Window
         var folder = _item.Source?.OutputFolder ?? string.Empty;
         var rendered = RenderedRadio.IsChecked == true;
         var text = PagePreview.WithoutVlm(page.Markdown);
-        TextPane.Show(text.Length > 0 ? text : UiText.Get("Preview_NoMarkdown"), folder, rendered);
+        var key = $"{_item.Source?.DocId}:{page.Index}";
+        TextPane.Show(text.Length > 0 ? text : UiText.Get("Preview_NoMarkdown"), folder, rendered, key);
         var vlm = page.Vlm ?? (page.Step3 == PageStep3Status.Failed ? UiText.Get("Preview_VlmFailed") : UiText.Get("Preview_NoVlm"));
-        VlmPane.Show(vlm, folder, rendered);
+        VlmPane.Show(vlm, folder, rendered, key);
         await Task.CompletedTask;
     }
 
@@ -252,10 +253,14 @@ public partial class PreviewWindow : Window
         }
     }
 
+    private string? _shownImage;
+    private DateTime _shownImageStamp;
+
     private void ShowImage(string? path)
     {
         if (path is null)
         {
+            _shownImage = null;
             PageImage.Source = null;
             NoImageText.Visibility = Visibility.Visible;
             return;
@@ -263,6 +268,15 @@ public partial class PreviewWindow : Window
 
         try
         {
+            // The same file, not written again: leave the picture (and its scroll position) as it is.
+            var stamp = File.GetLastWriteTimeUtc(path);
+            if (path == _shownImage && stamp == _shownImageStamp && PageImage.Source is not null)
+            {
+                return;
+            }
+
+            _shownImage = path;
+            _shownImageStamp = stamp;
             // Read the file at once, so that it is not locked (the conversion may write it again).
             var image = new BitmapImage();
             image.BeginInit();
@@ -307,8 +321,6 @@ public partial class PreviewWindow : Window
     private async void OnRefresh(object sender, RoutedEventArgs e) => await ReloadAsync();
 
     // The left and right arrow keys, and the wheel at the end of what a pane can scroll, go to the page before or after.
-    private DateTime _lastScroll = DateTime.MinValue;
-    private DateTime _lastStep = DateTime.MinValue;
 
     private void Step(int delta)
     {
@@ -342,23 +354,21 @@ public partial class PreviewWindow : Window
 
         var down = e.Delta < 0;
         var scroller = ScrollerOf(e.OriginalSource as DependencyObject);
-        var now = DateTime.UtcNow;
         var canScroll = scroller is not null && (down ? scroller.VerticalOffset < scroller.ScrollableHeight - 0.5 : scroller.VerticalOffset > 0.5);
         if (canScroll)
         {
-            _lastScroll = now; // the pane scrolls as it does
-            return;
+            WheelGesture.Scrolled();
+            return; // the pane scrolls as it does
         }
 
-        // At the end (or where nothing scrolls) the wheel changes the page, after a short pause so that a scroll that reached the end does not go on to the next page.
+        // At the end (or where nothing scrolls) the pane stops there. The page changes only for a wheel that starts after a pause,
+        // so a scroll that goes on past the end does not carry on to the next page (FR-080).
         e.Handled = true;
-        if (now - _lastScroll < TimeSpan.FromMilliseconds(400) || now - _lastStep < TimeSpan.FromMilliseconds(200))
+        var fits = scroller is null || scroller.ScrollableHeight <= 0.5;
+        if (fits ? WheelGesture.StepsWhenFits() : WheelGesture.StartsAtEnd())
         {
-            return;
+            Step(down ? 1 : -1);
         }
-
-        _lastStep = now;
-        Step(down ? 1 : -1);
     }
 
     private static ScrollViewer? ScrollerOf(DependencyObject? element)
@@ -403,6 +413,7 @@ public partial class PreviewWindow : Window
         {
             var mark = page.IsDeleted ? "  ×"
                 : !vlmOn ? string.Empty
+                : page.IsOutOfRange ? "  –"
                 : page.Step3 switch
                 {
                     PageStep3Status.Done => "  ✓",

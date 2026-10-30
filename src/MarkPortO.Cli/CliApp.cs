@@ -92,6 +92,7 @@ public static class CliApp
         var engine = new Option<string?>("--engine") { Description = "office or libreoffice." };
         var dpi = new Option<int?>("--dpi") { Description = "Resolution of the page images (72-600)." };
         var excelRange = new Option<string?>("--excel-range") { Description = "How the pages of an Excel sheet are cut: columns (all columns on the width of a page), rows (all rows on the height of a page) or print-area (follow the print setup of the sheet)." };
+        var pages = new Option<string?>("--pages") { Description = "The pages that Step 3 reads, like 3-5,8 (8- is from page 8, -4 is up to page 4; write --pages=-4). Only for one file; Step 1 still converts the whole file." };
         var step2 = new Option<string?>("--step2") { Description = "on or off: put image references in the Markdown." };
         var step3 = new Option<string?>("--step3") { Description = "on or off: read the page images with the VLM." };
         var vlmSeparate = new Option<string?>("--vlm-separate") { Description = "on or off: write the results of Step 3 to a separate file, name_vlm.md." };
@@ -110,7 +111,7 @@ public static class CliApp
         foreach (var option in new Option[]
         {
             settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, pdfText, engine, dpi, excelRange, step2, step3, vlmSeparate,
-            connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
+            pages, connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
         })
         {
             convert.Options.Add(option);
@@ -134,6 +135,7 @@ public static class CliApp
                 Engine = parse.GetValue(engine),
                 Dpi = parse.GetValue(dpi),
                 ExcelRange = parse.GetValue(excelRange),
+                Pages = parse.GetValue(pages),
                 Step2 = parse.GetValue(step2),
                 Step3 = parse.GetValue(step3),
                 VlmSeparate = parse.GetValue(vlmSeparate),
@@ -248,6 +250,12 @@ public static class CliApp
             return ExitCodes.InvalidArguments;
         }
 
+        if (resuming && args.Pages is not null)
+        {
+            await stderr.WriteLineAsync("error: --pages cannot be used with --resume; the job keeps its page range.");
+            return ExitCodes.InvalidArguments;
+        }
+
         if (resuming)
         {
             return await ResumeAsync(args, settings, stdout, stderr, cancellationToken);
@@ -271,13 +279,34 @@ public static class CliApp
             return ExitCodes.InvalidArguments;
         }
 
+        if (!string.IsNullOrWhiteSpace(args.Pages))
+        {
+            if (found.Inputs.Count != 1 || found.InputFolder is not null)
+            {
+                await stderr.WriteLineAsync("error: --pages can be used only when one file is converted.");
+                return ExitCodes.InvalidArguments;
+            }
+
+            try
+            {
+                MarkPortO.Core.Pipeline.PageRange.Parse(args.Pages);
+            }
+            catch (FormatException ex)
+            {
+                await stderr.WriteLineAsync("error: --pages: " + ex.Message);
+                return ExitCodes.InvalidArguments;
+            }
+        }
+
+        var options = ConvertRequest.OptionsFrom(settings);
+        options.Pages = string.IsNullOrWhiteSpace(args.Pages) ? null : args.Pages.Trim();
         var request = new ConvertRequest
         {
             Inputs = found.Inputs,
             GivenInputs = settings.Input.Paths,
             InputFolder = found.InputFolder,
             OutputFolder = settings.Output.Folder,
-            Options = ConvertRequest.OptionsFrom(settings),
+            Options = options,
         };
 
         // 4. run

@@ -68,7 +68,7 @@ markporto list-jobs --out D:\out
 markporto check-connection --settings settings.json
 ```
 
-主なオプション: `--settings`、`--out`、`--types`、`--recurse`、`--include-hidden`（または `--include-hidden-sheets`、`--include-hidden-slides`）、`--no-include-off-slide`、`--pdf-text on|off`、`--engine`、`--dpi`、`--excel-range columns|rows|print-area`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`、`--resume`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。指定は `settings.json` より優先されます。
+主なオプション: `--settings`、`--out`、`--types`、`--recurse`、`--include-hidden`（または `--include-hidden-sheets`、`--include-hidden-slides`）、`--no-include-off-slide`、`--pdf-text on|off`、`--engine`、`--dpi`、`--pages <範囲>`（1ファイルのとき、Step3で読むページ。`3-5,8` のように）、`--excel-range columns|rows|print-area`、`--step2 on|off`、`--step3 on|off`、`--vlm-separate on|off`、`--result <file>`、`--resume`、`--retry-failed`、`--quiet`、`--max-pages`、`--max-cost`、`--parallel`。指定は `settings.json` より優先されます。
 
 終了コード: `0` 成功、`1` 一部のファイルが失敗、`2` 引数や設定が不正、`3` 開始前の確認に失敗（同意がない場合を含む）、`4` 利用上限・ログイン切れ・ページ数や費用の上限で停止（`--resume` で続ける）、`130` 中断。
 

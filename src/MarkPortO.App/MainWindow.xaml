@@ -181,6 +181,11 @@
             <TextBlock Text="{Binding ConnectionInUse, Mode=OneWay}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,8,0" />
             <Button Content="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" Padding="8,2" />
             <Button Content="{DynamicResource Menu_Prompts}" Command="{Binding PromptsCommand}" Padding="8,2" Margin="6,0,0,0" />
+            <!-- The pages that Step3 reads: for one file only (FR-097) -->
+            <StackPanel Orientation="Horizontal" Margin="16,0,0,0" IsEnabled="{Binding CanEditPages}" ToolTip="{Binding PagesTip}" ToolTipService.ShowOnDisabled="True">
+              <TextBlock Text="{DynamicResource Main_Cond_Pages}" VerticalAlignment="Center" Margin="0,0,6,0" />
+              <TextBox Text="{Binding PageRangeText, UpdateSourceTrigger=PropertyChanged}" Width="110" VerticalContentAlignment="Center" />
+            </StackPanel>
           </WrapPanel>
         </Grid>
       </GroupBox>

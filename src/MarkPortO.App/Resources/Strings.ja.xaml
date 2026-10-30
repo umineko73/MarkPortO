@@ -62,6 +62,10 @@
   <sys:String x:Key="Main_Cond_Step2">Markdownに画像を入れる</sys:String>
   <sys:String x:Key="Main_Cond_VlmSeparate">結果を別ファイル（名前__vlm.md）に書く</sys:String>
   <sys:String x:Key="Main_Cond_Step3">VLMで画像から文字を読み取る</sys:String>
+  <sys:String x:Key="Main_Cond_Pages">ページの範囲:</sys:String>
+  <sys:String x:Key="Main_Cond_PagesTip">Step3で読むページを、3-5,8 のように書きます（空欄: すべて）。Step1は文書全体を変換します。</sys:String>
+  <sys:String x:Key="Main_Cond_PagesOneFileTip">ページの範囲は、ファイルを1つだけ変換するときに選べます。</sys:String>
+  <sys:String x:Key="Main_Cond_PagesStep3OffTip">Step3がオフのため、ページの範囲は使われません。</sys:String>
   <sys:String x:Key="Main_Cond_Connection">接続:</sys:String>
   <sys:String x:Key="Main_Start">開始</sys:String>
   <sys:String x:Key="Main_Interrupt">中断</sys:String>

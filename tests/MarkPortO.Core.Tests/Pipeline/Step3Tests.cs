@@ -77,6 +77,32 @@ public class Step3Tests
     }
 
     [LibreOfficeFact]
+    public async Task OnlyThePagesOfTheRange_AreRead_FR097()
+    {
+        using var dir = new TempDir();
+        using var server = new FakeOpenAiServer { PageReply = p => "ECHO:" + p };
+        var source = dir.Combine("in", "a.docx");
+        DocxFactory.CreatePaged(source, ["page one text"], ["page two text"], ["page three text"]);
+        var options = Options(step3: true, connection: "fake");
+        options.Pages = "2";
+
+        var (result, _) = await RunWithVlmAsync(dir, server, Request(dir.Combine("out"), options, source));
+
+        var document = Assert.Single(result.Documents);
+        Assert.True(document.IsDone());
+        Assert.Equal(1, server.Requests.Count(r => r.HasImage));
+        Assert.Equal([true, false, true], document.Pages.Select(p => p.IsOutOfRange));
+        Assert.All(document.Pages.Where(p => p.IsOutOfRange), p => Assert.Equal(PageStep3Status.Skipped, p.Step3));
+        var markdown = MarkdownOf(document);
+        Assert.Contains("<!-- vlm:begin page=2 -->", markdown);
+        Assert.DoesNotContain("<!-- vlm:begin page=1 -->", markdown);
+        Assert.Contains("<!-- vlm:skipped page=1 reason=\"out of range\" -->", markdown);
+        // the text and the images of the pages outside the range are made as for any page
+        Assert.Contains("page one text", markdown);
+        Assert.Equal((1, 1), FileStatusProjector.Step3Progress(document));
+    }
+
+    [LibreOfficeFact]
     public async Task EachDocumentType_UsesItsOwnPrompt_FR021()
     {
         using var dir = new TempDir();

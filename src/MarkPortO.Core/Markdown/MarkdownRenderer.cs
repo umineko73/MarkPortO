@@ -126,7 +126,7 @@ public static class MarkdownRenderer
 
     private static string? TryUsageLine(IReadOnlyList<PageRecord> pages, string language)
     {
-        var read = pages.Where(p => !p.IsDeleted && !p.IsBlank).ToList();
+        var read = pages.Where(p => p.ReadsInStep3).ToList();
         if (read.Count == 0)
         {
             return null;
@@ -270,6 +270,9 @@ public static class MarkdownRenderer
         {
             case PageStep3Status.Skipped when page.IsBlank:
                 builder.Append("\n<!-- vlm:skipped page=").Append(number).Append(" reason=\"blank page\" -->\n");
+                break;
+            case PageStep3Status.Skipped when page.IsOutOfRange:
+                builder.Append("\n<!-- vlm:skipped page=").Append(number).Append(" reason=\"out of range\" -->\n");
                 break;
             case PageStep3Status.Done when page.VlmText is not null:
                 builder.Append("\n<!-- vlm:begin page=").Append(number)

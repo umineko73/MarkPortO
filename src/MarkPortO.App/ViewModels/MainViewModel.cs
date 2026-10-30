@@ -16,6 +16,7 @@
 using MarkPortO.App.Services;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using System.Windows.Threading;
 using MarkPortO.Core.Convert;
 using MarkPortO.Core.Engines;
@@ -49,6 +50,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private Func<string> _statusSource = () => string.Empty; // makes the text again when the language changes
     private bool _running;
     private string _dpiText;
+    private string _pageRangeText = string.Empty;
     private FileItemViewModel? _selected;
     private PreviousRun? _previous;
     private int _scanVersion;
@@ -146,6 +148,24 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>"Write the results to a separate file" has a meaning only when Step 3 is on.</summary>
     public bool CanEditVlmSeparate => !IsRunning && Step3;
 
+    /// <summary>The pages that Step3 reads, as written (FR-097). Not kept in the settings: it is for the one file that is converted.</summary>
+    public string PageRangeText
+    {
+        get => _pageRangeText;
+        set => Set(ref _pageRangeText, value);
+    }
+
+    /// <summary>The page range can be written when one file (not a folder) is the input and a new run can be set up.</summary>
+    public bool CanEditPages => CanEditNewRun && IsOneFile;
+
+    /// <summary>The input is one file, not a folder and not several.</summary>
+    private bool IsOneFile => InputPaths.Count == 1 && !Directory.Exists(InputPaths[0]);
+
+    public string PagesTip =>
+        !IsOneFile ? UiText.Get("Main_Cond_PagesOneFileTip")
+        : !Step3 ? UiText.Get("Main_Cond_PagesStep3OffTip")
+        : UiText.Get("Main_Cond_PagesTip");
+
     /// <summary>Why the locked items are locked (null when they are not).</summary>
     public string? LockedTip => HasPrevious && !IsRunning ? UiText.Get("Main_Cond_LockedTip") : null;
 
@@ -155,6 +175,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(HasPrevious));
         Raise(nameof(CanEditNewRun));
         Raise(nameof(CanEditVlmSeparate));
+        Raise(nameof(CanEditPages));
+        Raise(nameof(PagesTip));
         Raise(nameof(LockedTip));
         ClearPreviousCommand.RaiseCanExecuteChanged();
     }
@@ -476,6 +498,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             _store.Update(s => s.Steps.Step3 = value);
             Raise(nameof(CanEditVlmSeparate));
+            Raise(nameof(PagesTip));
             Raise(nameof(PdfHintVisibility));
             Raise();
         }
@@ -707,10 +730,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 GivenInputs = snapshot.Input.Paths,
                 InputFolder = found.InputFolder,
                 OutputFolder = snapshot.Output.Folder,
-                Options = ConvertRequest.OptionsFrom(snapshot),
+                Options = WithPages(ConvertRequest.OptionsFrom(snapshot)),
             },
             token);
     }, outputFolder => new StateStore(outputFolder).Abandon(replaced));
+
+    /// <summary>Puts the page range in the options when it can be used (one file); otherwise it is left out.</summary>
+    private OptionsSnapshot WithPages(OptionsSnapshot options)
+    {
+        options.Pages = IsOneFile && !string.IsNullOrWhiteSpace(PageRangeText) ? PageRangeText.Trim() : null;
+        return options;
+    }
 
     // The earlier run shown on the screen is the one to resume, whatever the input list holds (FR-013f).
     private Task ResumeAsync(ResumeMode mode)

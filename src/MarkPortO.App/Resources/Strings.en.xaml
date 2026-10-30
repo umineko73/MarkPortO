@@ -62,6 +62,10 @@
   <sys:String x:Key="Main_Cond_Step2">Put the images into the Markdown</sys:String>
   <sys:String x:Key="Main_Cond_VlmSeparate">Write the results to a separate file (name__vlm.md)</sys:String>
   <sys:String x:Key="Main_Cond_Step3">Read the text from the images with the VLM</sys:String>
+  <sys:String x:Key="Main_Cond_Pages">Pages:</sys:String>
+  <sys:String x:Key="Main_Cond_PagesTip">Write the pages that Step3 reads, like 3-5,8 (empty: all). Step1 still converts the whole file.</sys:String>
+  <sys:String x:Key="Main_Cond_PagesOneFileTip">Pages can be chosen only when one file is converted.</sys:String>
+  <sys:String x:Key="Main_Cond_PagesStep3OffTip">Step3 is off, so the pages are not used.</sys:String>
   <sys:String x:Key="Main_Cond_Connection">Connection:</sys:String>
   <sys:String x:Key="Main_Start">Start</sys:String>
   <sys:String x:Key="Main_Interrupt">Interrupt</sys:String>

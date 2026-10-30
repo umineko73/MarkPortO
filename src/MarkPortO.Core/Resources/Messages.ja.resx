@@ -448,4 +448,22 @@
   <data name="Do not use this connection for confidential documents." xml:space="preserve">
     <value>機密の文書には、この接続を使わないでください。</value>
   </data>
+  <data name="Out of range" xml:space="preserve">
+    <value>範囲外</value>
+  </data>
+  <data name="The page range '{0}' has no page of this document ({1} pages)." xml:space="preserve">
+    <value>ページの範囲 '{0}' に、この文書のページ（{1}ページ）がありません。</value>
+  </data>
+  <data name="The page range '{0}' goes past the last page; it is cut at page {1}." xml:space="preserve">
+    <value>ページの範囲 '{0}' が最後のページを超えています。{1}ページまでに切りました。</value>
+  </data>
+  <data name="The page range '{0}' goes backwards: {1}." xml:space="preserve">
+    <value>ページの範囲 '{0}' の {1} は、後ろから前になっています。</value>
+  </data>
+  <data name="'{0}' is not a page range. Write page numbers from 1 like 3, 3-5, 8- or -4, separated by commas." xml:space="preserve">
+    <value>'{0}' はページの範囲ではありません。1から始まるページの番号を、3、3-5、8-、-4 のようにカンマで区切って書いてください。</value>
+  </data>
+  <data name="A page range can be used only when one file is converted." xml:space="preserve">
+    <value>ページの範囲は、ファイルを1つだけ変換するときに使えます。</value>
+  </data>
 </root>

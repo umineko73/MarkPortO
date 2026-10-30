@@ -291,6 +291,24 @@ public sealed class ConvertService
             throw new ConvertStartException(Loc.T("Choose an output folder."));
         }
 
+        if (!string.IsNullOrWhiteSpace(request.Options.Pages))
+        {
+            // The page range is for one file (FR-097).
+            if (request.Inputs.Count != 1 || request.InputFolder is not null)
+            {
+                throw new ConvertStartException(Loc.T("A page range can be used only when one file is converted."));
+            }
+
+            try
+            {
+                PageRange.Parse(request.Options.Pages);
+            }
+            catch (FormatException ex)
+            {
+                throw new ConvertStartException(ex.Message);
+            }
+        }
+
         foreach (var input in request.Inputs)
         {
             if (OoxmlPackage.KindOf(input.Path) is null)

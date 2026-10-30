@@ -64,7 +64,7 @@ internal static partial class VlmTableJoiner
         var lastPage = -1;
         foreach (var page in document.Pages.OrderBy(p => p.Index))
         {
-            if (page.IsDeleted || page.IsBlank || page.Step3 != PageStep3Status.Done || page.VlmText is null)
+            if (page.IsDeleted || page.IsBlank || page.IsOutOfRange || page.Step3 != PageStep3Status.Done || page.VlmText is null)
             {
                 owner = null;
                 lastPage = page.Index;
