@@ -58,6 +58,8 @@ Word・Excel・PowerPoint・PDF の文書（docx・xlsx・pptx・pdf）を、Mar
 
 ![VLM接続の設定](docs/images/connections.ja.png)
 
+ファイル一覧の「出力先」の列には、各文書の出力フォルダが出ます。右クリックのメニューで、そのフォルダ、Markdown、VLMの結果のMarkdownを開けます。
+
 変換の実行中は、条件を変えられません。再開できる前回の変換があるときは、「前回の変換をクリア」で、変えられるようになります。「失敗のみ再試行」は、VLMが読めなかったページだけを読み直します。
 
 ### コマンドライン
@@ -99,19 +101,21 @@ markporto check-connection --settings settings.json
 
 ### 実験: 外部コマンドにMarkdownを書かせる
 
-ファイルの種類ごとに、自分で入れたプログラム（MarkItDown、Docling、Pandoc など）にMarkdownを書かせられます。MarkPortOは、そのプログラムをインストールも更新もしません。与えた引数で、シェルを通さずに実行するだけです。結果は、コマンドが書いた文書全体のMarkdownで、**ページの区切りも、ページ画像の参照もありません**（ページ画像は `images/` に保存され、VLMの結果は `名前_vlm.md` に書かれます）。その種類での、MarkPortOの機能（複数ページの表、結合セル、太字・斜体など）は効きません。実験機能なので、設定の書き方は変わることがあります。
+ファイルの種類ごとに、自分で入れたプログラム(MarkItDown、Docling、Pandoc など)にMarkdownを書かせられます。MarkPortOは、そのプログラムをインストールも更新もしません。与えた引数で、シェルを通さずに実行するだけです。結果は、コマンドが書いた文書全体のMarkdownで、**ページの区切りも、ページ画像の参照もありません**(ページ画像は `images/` に保存され、VLMの結果は `名前_vlm.md` に書かれます)。その種類での、MarkPortOの機能(複数ページの表、結合セル、太字・斜体など)は効きません。実験機能なので、設定の書き方は変わることがあります。また、**まだ正常に動作しないことがあります**。MarkItDown と Docling で、いくつかのサンプルを試しただけで、すべてのツール・版・文書では確かめていません。ツールによって結果も違います。出てきたMarkdownを確認してください(設定の「試す…」で、1つの文書に実行できます)。
 
-コマンドを `settings.json` に書き、ファイルの種類ごとに選びます（条件の「抽出（実験）」。コマンドがあると出ます。または `--extractor-docx|xlsx|pptx|pdf <名前>`。`builtin` は内蔵）。
+コマンドを使うときのStepの動き: Step1は、ページ画像を(いつもどおり)保存し、テキストはコマンドが書きます。Step2は、コマンドのMarkdownには画像を差し込みません。Step3は、いつもどおりページ画像を読み、結果は `名前_vlm.md` に書きます。種類の横のオプション(非表示のシート、シートの範囲など)は内蔵の抽出用で、コマンドを選んでいる間は灰色になります。
+
+コマンドは、メニューの「設定 > 抽出コマンドの設定(実験)」で登録します(名前、コマンド、引数、タイムアウト、環境変数、文書を外へ送ることへの同意、「試す…」で1つの文書に実行、「ひな形…」でMarkItDown・Doclingの通常の設定を追加)。下の例のように `settings.json` に書いても同じです。ファイルの種類ごとに選びます(条件の「抽出(実験)」。コマンドがあると出ます。または `--extractor-docx|xlsx|pptx|pdf <名前>`。`builtin` は内蔵)。
 
 ```json
 "extractors": [
-  { "name": "markitdown", "command": "C:\\tools\\venv\\Scripts\\markitdown.exe", "args": ["{input}", "-o", "{output}"] },
+  { "name": "markitdown", "command": "markitdown", "args": ["{input}", "-o", "{output}"] },
   { "name": "docling", "command": "docling", "args": ["{input}", "--to", "md", "--image-export-mode", "placeholder", "--output", "{outdir}"], "timeoutSeconds": 600 }
 ],
 "input": { "extractors": { "pdf": "docling" } }
 ```
 
-`{input}` は入力のファイル、`{output}` は書き出すMarkdownのファイル、`{outdir}` はコマンド用のフォルダです（`{outdir}` だけを渡したときは、コマンドがそこに書いた `.md` を読みます）。`"output": "stdout"` なら、標準出力を読みます。引数はツールの版で違うので、先に手で試してください。文書をPCの外へ送るコマンドは、`"sendsExternally": true` と同意（`"externalConsent": { "at": "2026-10-31T00:00:00+09:00", "noticeVersion": 2 }`）が要ります。
+`{input}` は入力のファイル、`{output}` は書き出すMarkdownのファイル、`{outdir}` はコマンド用のフォルダです(`{outdir}` だけを渡したときは、コマンドがそこに書いた `.md` を読みます)。`"output": "stdout"` なら、標準出力を読みます。コマンドは `PATH` から探します(フルパスでも可)。たとえば `uv tool install "markitdown[all]"` や `uv tool install docling` で入れたあとです。引数はツールの版で違うので、先に手で試してください。文書をPCの外へ送るコマンドは、`"sendsExternally": true` と同意(`"externalConsent": { "at": "2026-10-31T00:00:00+09:00", "noticeVersion": 2 }`)が要ります。
 
 ### `claude`・`codex`・`opencode` で読み取る
 

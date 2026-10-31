@@ -58,6 +58,8 @@ Add files or a folder (or drop them on the list), choose an output folder, and p
 
 ![VLM connection settings](docs/images/connections.png)
 
+The list of files shows the folder of each document in the output (the **Output** column); the right-click menu opens that folder, the Markdown, or the Markdown of the VLM results.
+
 While a conversion runs the conditions cannot be changed. If the previous conversion can be resumed, **Clear the previous conversion** unlocks them. **Retry failed** reads only the pages the VLM could not read.
 
 ### Command line
@@ -99,19 +101,21 @@ The location can be changed with the environment variable `MARKPORTO_SETTINGS`. 
 
 ### Experimental: an external command writes the Markdown
 
-For a kind of file, the Markdown can be written by a program that you installed yourself (MarkItDown, Docling, Pandoc and so on). MarkPortO does not install or update it; it only runs it, without a shell, with the arguments that you give. The result is the Markdown of the whole document, as the command wrote it, **with no page marks and no page image references** (the page images are still saved in `images/`, and the results of the VLM go to `name_vlm.md`). The features of MarkPortO for that kind of file (tables over several pages, merged cells, bold and italic, and so on) do not apply. This is an experimental feature: how it is set may change.
+For a kind of file, the Markdown can be written by a program that you installed yourself (MarkItDown, Docling, Pandoc and so on). MarkPortO does not install or update it; it only runs it, without a shell, with the arguments that you give. The result is the Markdown of the whole document, as the command wrote it, **with no page marks and no page image references** (the page images are still saved in `images/`, and the results of the VLM go to `name_vlm.md`). The features of MarkPortO for that kind of file (tables over several pages, merged cells, bold and italic, and so on) do not apply. This is an experimental feature: how it is set may change, and **it may not work correctly yet**. It has been tried with MarkItDown and Docling on a few sample files only, not with every tool, version or kind of document, and the results of the tools differ. Check the Markdown that comes out (**Try…** in the settings runs a command on one file), and expect problems.
 
-Write the commands in `settings.json`, and choose one for each kind of file (the field **Extractor (experimental)** of the conditions, which appears when there are commands, or `--extractor-docx|xlsx|pptx|pdf <name>`; `builtin` is the built-in one):
+How the steps work with a command: Step1 saves the page images (as always) and the command writes the text; Step2 does not put the images into the Markdown of a command; Step3 reads the page images as usual, and its results go to `name_vlm.md`. The options beside a kind of file (hidden sheets, the range of a sheet and so on) are for the built-in extraction, and are grayed out while a command is chosen.
+
+Register the commands in **Settings > Extractor settings (experimental)** (name, command, arguments, time-out, environment variables, consent to send documents outside, and **Try…** to run one on a file; **Template…** adds the usual settings of MarkItDown or Docling), or write them in `settings.json` as below, and choose one for each kind of file (the field **Extractor (experimental)** of the conditions, which appears when there are commands, or `--extractor-docx|xlsx|pptx|pdf <name>`; `builtin` is the built-in one):
 
 ```json
 "extractors": [
-  { "name": "markitdown", "command": "C:\\tools\\venv\\Scripts\\markitdown.exe", "args": ["{input}", "-o", "{output}"] },
+  { "name": "markitdown", "command": "markitdown", "args": ["{input}", "-o", "{output}"] },
   { "name": "docling", "command": "docling", "args": ["{input}", "--to", "md", "--image-export-mode", "placeholder", "--output", "{outdir}"], "timeoutSeconds": 600 }
 ],
 "input": { "extractors": { "pdf": "docling" } }
 ```
 
-`{input}` is the file, `{output}` the Markdown file to write, `{outdir}` a folder for the command (when only `{outdir}` is given, the `.md` file that the command writes there is read). `"output": "stdout"` reads the standard output. The arguments differ between versions of a tool: try the command by hand first. A command that sends your documents outside the PC needs `"sendsExternally": true` and a consent (`"externalConsent": { "at": "2026-10-31T00:00:00+09:00", "noticeVersion": 2 }`).
+`{input}` is the file, `{output}` the Markdown file to write, `{outdir}` a folder for the command (when only `{outdir}` is given, the `.md` file that the command writes there is read). `"output": "stdout"` reads the standard output. The command is found in the `PATH` (or give the full path), for example after `uv tool install "markitdown[all]"` or `uv tool install docling`. The arguments differ between versions of a tool: try the command by hand first. A command that sends your documents outside the PC needs `"sendsExternally": true` and a consent (`"externalConsent": { "at": "2026-10-31T00:00:00+09:00", "noticeVersion": 2 }`).
 
 ### Reading with `claude`, `codex` or `opencode`
 

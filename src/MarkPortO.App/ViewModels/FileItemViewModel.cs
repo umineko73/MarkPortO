@@ -13,7 +13,9 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using System.IO;
 using MarkPortO.Core.Jobs.Models;
+using MarkPortO.Core.Markdown;
 using MarkPortO.Core.Pipeline;
 
 namespace MarkPortO.App.ViewModels;
@@ -23,7 +25,14 @@ public sealed class FileItemViewModel : ObservableObject
 {
     private FileRow _row;
 
-    public FileItemViewModel(FileRow row) => _row = row;
+    private readonly Func<string> _outputRoot;
+
+    /// <param name="outputRoot">The output folder that is set now; the column of the output shows the folder of the document under it.</param>
+    public FileItemViewModel(FileRow row, Func<string>? outputRoot = null)
+    {
+        _row = row;
+        _outputRoot = outputRoot ?? (() => string.Empty);
+    }
 
     public string DocId => _row.DocId;
 
@@ -51,6 +60,41 @@ public sealed class FileItemViewModel : ObservableObject
 
     /// <summary>Total VLM usage of the file; empty when the VLM is not used.</summary>
     public string UsageText => _row.UsageText;
+
+    /// <summary>The folder of the document in the output (empty until the run has decided it).</summary>
+    public string OutputFolderPath => _row.Source?.OutputFolder ?? string.Empty;
+
+    /// <summary>The folder, as the path under the output folder (the whole path when it is not under it).</summary>
+    public string OutputText
+    {
+        get
+        {
+            var folder = OutputFolderPath;
+            var root = _outputRoot();
+            if (folder.Length == 0 || root.Length == 0)
+            {
+                return folder;
+            }
+
+            var relative = Path.GetRelativePath(root, folder);
+            return relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative) ? folder : relative;
+        }
+    }
+
+    public string MarkdownPath => NamedFile(MarkdownRenderer.MarkdownFileName);
+
+    public string VlmPath => NamedFile(MarkdownRenderer.VlmFileName);
+
+    public bool HasOutputFolder => OutputFolderPath.Length > 0 && Directory.Exists(OutputFolderPath);
+
+    public bool HasMarkdown => MarkdownPath.Length > 0 && File.Exists(MarkdownPath);
+
+    public bool HasVlm => VlmPath.Length > 0 && File.Exists(VlmPath);
+
+    private string NamedFile(Func<string, string> fileName) =>
+        _row.Source is { } document && document.OutputFolder.Length > 0
+            ? Path.Combine(document.OutputFolder, fileName(Path.GetFileNameWithoutExtension(document.SourcePath)))
+            : string.Empty;
 
     /// <summary>The reason of a failure.</summary>
     public string Message => _row.Message;

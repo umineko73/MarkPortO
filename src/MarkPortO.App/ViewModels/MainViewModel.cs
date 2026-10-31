@@ -97,6 +97,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         RemoveSelectedInputsCommand = new RelayCommand(RemoveSelectedInputsAsync, () => !IsRunning && SelectedInputPaths.Count > 0);
         BrowseOutputCommand = new RelayCommand(BrowseOutputAsync, () => !IsRunning);
         ConnectionSettingsCommand = new RelayCommand(OpenConnectionSettingsAsync, () => !IsRunning);
+        ExtractorSettingsCommand = new RelayCommand(OpenExtractorSettingsAsync, () => !IsRunning);
         PromptsCommand = new RelayCommand(() => { ShowPrompts?.Invoke(); return Task.CompletedTask; }, () => !IsRunning);
 
         InputPaths.CollectionChanged += (_, _) => UpdateRunCommands();
@@ -105,6 +106,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>Opens the window for VLM connections (set by the window).</summary>
     public Action? ShowConnectionSettings { get; set; }
+
+    public Action? ShowExtractorSettings { get; set; }
 
     public Action? ShowPrompts { get; set; }
 
@@ -242,7 +245,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (Set(ref _running, value))
             {
                 RaiseEditState();
-                foreach (var command in new[] { StartCommand, InterruptCommand, ResumeCommand, RetryFailedCommand, ClearPreviousCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, PromptsCommand })
+                foreach (var command in new[] { StartCommand, InterruptCommand, ResumeCommand, RetryFailedCommand, ClearPreviousCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
                 {
                     command.RaiseCanExecuteChanged();
                 }
@@ -291,10 +294,24 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public string ExtractorPdf { get => _store.Current.Input.Extractors.Pdf; set => SetExtractor(DocumentKind.Pdf, value); }
 
+    // The options beside a kind are for the built-in extraction; they do nothing to the Markdown of an extractor, so they are off while one is chosen.
+    public bool XlsxOptionsEnabled => TypeXlsx && ExtractorXlsx.Length == 0;
+
+    public bool PptxOptionsEnabled => TypePptx && ExtractorPptx.Length == 0;
+
+    public bool PdfOptionsEnabled => TypePdf && ExtractorPdf.Length == 0;
+
+    public string XlsxOptionsTip => ExtractorXlsx.Length == 0 ? string.Empty : UiText.Get("Main_Cond_OptionsOffTip");
+
+    public string PptxOptionsTip => ExtractorPptx.Length == 0 ? string.Empty : UiText.Get("Main_Cond_OptionsOffTip");
+
+    public string PdfOptionsTip => ExtractorPdf.Length == 0 ? string.Empty : UiText.Get("Main_Cond_OptionsOffTip");
+
     private void SetExtractor(DocumentKind kind, string? name)
     {
         _store.Update(s => s.Input.Extractors.Set(kind, name ?? string.Empty));
         Raise(kind switch { DocumentKind.Docx => nameof(ExtractorDocx), DocumentKind.Xlsx => nameof(ExtractorXlsx), DocumentKind.Pptx => nameof(ExtractorPptx), _ => nameof(ExtractorPdf) });
+        RaiseOptions();
     }
 
     /// <summary>Use the text layer of a PDF next to its page images (FR-076).</summary>
@@ -565,6 +582,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public RelayCommand ConnectionSettingsCommand { get; }
 
+    public RelayCommand ExtractorSettingsCommand { get; }
+
     public RelayCommand PromptsCommand { get; }
 
     /// <summary>Write the VLM results to a separate file (FR-058).</summary>
@@ -615,6 +634,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         ShowConnectionSettings?.Invoke();
         Raise(nameof(ConnectionInUse)); // the window may have changed the connection in use
+        return Task.CompletedTask;
+    }
+
+    private Task OpenExtractorSettingsAsync()
+    {
+        ShowExtractorSettings?.Invoke();
+
+        // The window may have added, removed or renamed extractors, or changed what is chosen.
+        foreach (var name in new[] { nameof(ExtractorChoices), nameof(ExtractorVisibility), nameof(ExtractorDocx), nameof(ExtractorXlsx), nameof(ExtractorPptx), nameof(ExtractorPdf) })
+        {
+            Raise(name);
+        }
+
+        RaiseOptions();
+
         return Task.CompletedTask;
     }
 
@@ -758,7 +792,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(TypePptx));
         Raise(nameof(TypePdf));
         Raise(nameof(PdfHintVisibility));
+        RaiseOptions();
         UpdateRunCommands();
+    }
+
+    private void RaiseOptions()
+    {
+        foreach (var name in new[] { nameof(XlsxOptionsEnabled), nameof(PptxOptionsEnabled), nameof(PdfOptionsEnabled), nameof(XlsxOptionsTip), nameof(PptxOptionsTip), nameof(PdfOptionsTip) })
+        {
+            Raise(name);
+        }
     }
 
     // ---- running ----
@@ -1025,7 +1068,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 foreach (var document in run.Documents)
                 {
-                    Files.Add(new FileItemViewModel(FileStatusProjector.Project(document)));
+                    Files.Add(new FileItemViewModel(FileStatusProjector.Project(document), OutputRoot));
                 }
 
                 string Text() => run.CanResume
@@ -1056,9 +1099,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Files.Clear();
         foreach (var document in documents)
         {
-            Files.Add(new FileItemViewModel(FileStatusProjector.Project(document)));
+            Files.Add(new FileItemViewModel(FileStatusProjector.Project(document), OutputRoot));
         }
     }
+
+    private string OutputRoot() => _store.Current.Output.Folder;
 
     private void Apply(IReadOnlyList<FileRow> rows)
     {
@@ -1067,7 +1112,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var item = Files.FirstOrDefault(f => f.DocId == row.DocId);
             if (item is null)
             {
-                Files.Add(new FileItemViewModel(row));
+                Files.Add(new FileItemViewModel(row, OutputRoot));
             }
             else
             {

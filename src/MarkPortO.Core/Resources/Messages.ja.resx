@@ -20,10 +20,10 @@
     <value>ジョブ {0} が {1} に見つかりません。</value>
   </data>
   <data name="The job {0} cannot be resumed (it is running, or finished without failures)." xml:space="preserve">
-    <value>ジョブ {0} は再開できません（実行中、または失敗なしで完了しています）。</value>
+    <value>ジョブ {0} は再開できません(実行中、または失敗なしで完了しています)。</value>
   </data>
   <data name="The job {0} cannot be resumed (it is running, or finished)." xml:space="preserve">
-    <value>ジョブ {0} は再開できません（実行中、または完了しています）。</value>
+    <value>ジョブ {0} は再開できません(実行中、または完了しています)。</value>
   </data>
   <data name="There is no job to resume in {0}." xml:space="preserve">
     <value>{0} に再開できるジョブがありません。</value>
@@ -38,7 +38,7 @@
     <value>このジョブは、別のプロセスで実行中です。</value>
   </data>
   <data name="Step3 is on, but no VLM connection is set up." xml:space="preserve">
-    <value>VLM読み取り（Step3）がオンですが、VLMの接続が設定されていません。</value>
+    <value>VLM読み取り(Step3)がオンですが、VLMの接続が設定されていません。</value>
   </data>
   <data name="The VLM connection check failed, so the conversion was not started. {0}" xml:space="preserve">
     <value>VLMの接続チェックに失敗したため、変換を始めませんでした。{0}</value>
@@ -53,13 +53,13 @@
     <value>'{0}' は .docx、.xlsx、.pptx、.pdf のファイルではありません。</value>
   </data>
   <data name="{0} of {1} pages have no text layer (a scanned page?). Their text comes only from the VLM (Step3)." xml:space="preserve">
-    <value>{1} ページのうち {0} ページにテキスト層がありません（スキャンしたページでしょうか）。これらのページの文字は、VLM（Step3）でだけ得られます。</value>
+    <value>{1} ページのうち {0} ページにテキスト層がありません(スキャンしたページでしょうか)。これらのページの文字は、VLM(Step3)でだけ得られます。</value>
   </data>
   <data name="The input file was not found." xml:space="preserve">
     <value>入力ファイルが見つかりません。</value>
   </data>
   <data name="LibreOffice (soffice.exe) was not found. Install it or set engine.libreOfficePath." xml:space="preserve">
-    <value>LibreOffice（soffice.exe）が見つかりません。インストールするか、engine.libreOfficePath を設定してください。</value>
+    <value>LibreOffice(soffice.exe)が見つかりません。インストールするか、engine.libreOfficePath を設定してください。</value>
   </data>
   <data name="LibreOffice was not found at '{0}'." xml:space="preserve">
     <value>LibreOffice が '{0}' に見つかりません。</value>
@@ -83,10 +83,10 @@
     <value>LibreOffice が {0:0} 秒以内に終わらなかったため、停止しました。</value>
   </data>
   <data name="LibreOffice failed (exit code {0}). {1}" xml:space="preserve">
-    <value>LibreOffice が失敗しました（終了コード {0}）。{1}</value>
+    <value>LibreOffice が失敗しました(終了コード {0})。{1}</value>
   </data>
   <data name="Microsoft Office is not installed ({0} not found). Choose LibreOffice." xml:space="preserve">
-    <value>Microsoft Office がインストールされていません（{0} が見つかりません）。LibreOffice を選んでください。</value>
+    <value>Microsoft Office がインストールされていません({0} が見つかりません)。LibreOffice を選んでください。</value>
   </data>
   <data name="Microsoft Office did not finish within {0:0} seconds and was stopped." xml:space="preserve">
     <value>Microsoft Office が {0:0} 秒以内に終わらなかったため、停止しました。</value>
@@ -116,7 +116,7 @@
     <value>このテキストのページをPDFの中に見つけられませんでした: 「{0}」。前後のブロックの間に置きます。</value>
   </data>
   <data name="The file is not a valid .{0} document (missing {1})." xml:space="preserve">
-    <value>このファイルは、正しい .{0} 文書ではありません（{1} がありません）。</value>
+    <value>このファイルは、正しい .{0} 文書ではありません({1} がありません)。</value>
   </data>
   <data name="The file cannot be opened as a .{0} document." xml:space="preserve">
     <value>このファイルは .{0} 文書として開けません。</value>
@@ -185,7 +185,7 @@
     <value>input.types: 同じ種類は1回だけ指定できます。</value>
   </data>
   <data name="images.dpi: must be between {0} and {1} (was {2})." xml:space="preserve">
-    <value>images.dpi: {0}〜{1} の範囲で指定してください（現在の値: {2}）。</value>
+    <value>images.dpi: {0}〜{1} の範囲で指定してください(現在の値: {2})。</value>
   </data>
   <data name="{0}.name: must not be empty." xml:space="preserve">
     <value>{0}.name: 空にできません。</value>
@@ -194,7 +194,7 @@
     <value>{0}.name: '{1}' が重複しています。</value>
   </data>
   <data name="{0}.baseUrl: must be an http or https URL (was '{1}')." xml:space="preserve">
-    <value>{0}.baseUrl: http または https のURLを指定してください（現在の値: '{1}'）。</value>
+    <value>{0}.baseUrl: http または https のURLを指定してください(現在の値: '{1}')。</value>
   </data>
   <data name="{0}.model: must not be empty." xml:space="preserve">
     <value>{0}.model: 空にできません。</value>
@@ -203,25 +203,25 @@
     <value>{0}.command: claude、codex、opencode のいずれかを選んでください。</value>
   </data>
   <data name="{0}.effort: must be empty, low, medium or high (was '{1}')." xml:space="preserve">
-    <value>{0}.effort: 空、low、medium、high のいずれかを指定してください（現在の値: '{1}'）。</value>
+    <value>{0}.effort: 空、low、medium、high のいずれかを指定してください(現在の値: '{1}')。</value>
   </data>
   <data name="{0}.parallel: must be between 1 and {1} (was {2})." xml:space="preserve">
-    <value>{0}.parallel: 1〜{1} の範囲で指定してください（現在の値: {2}）。</value>
+    <value>{0}.parallel: 1〜{1} の範囲で指定してください(現在の値: {2})。</value>
   </data>
   <data name="{0}.maxPages: must be empty or at least 1 (was {1})." xml:space="preserve">
-    <value>{0}.maxPages: 空、または1以上で指定してください（現在の値: {1}）。</value>
+    <value>{0}.maxPages: 空、または1以上で指定してください(現在の値: {1})。</value>
   </data>
   <data name="{0}.maxCostUsd: must be empty or more than 0 (was {1})." xml:space="preserve">
-    <value>{0}.maxCostUsd: 空、または0より大きい値で指定してください（現在の値: {1}）。</value>
+    <value>{0}.maxCostUsd: 空、または0より大きい値で指定してください(現在の値: {1})。</value>
   </data>
   <data name="{0}.maxLinesPerRead: must be 0 or more (was {1})." xml:space="preserve">
-    <value>{0}.maxLinesPerRead: 0以上で指定してください（現在の値: {1}）。</value>
+    <value>{0}.maxLinesPerRead: 0以上で指定してください(現在の値: {1})。</value>
   </data>
   <data name="{0}.maxImageSide: must be 0 or at least {1} (was {2})." xml:space="preserve">
-    <value>{0}.maxImageSide: 0、または{1}以上で指定してください（現在の値: {2}）。</value>
+    <value>{0}.maxImageSide: 0、または{1}以上で指定してください(現在の値: {2})。</value>
   </data>
   <data name="{0}.timeoutSeconds: must be between {1} and {2} (was {3})." xml:space="preserve">
-    <value>{0}.timeoutSeconds: {1}〜{2} の範囲で指定してください（現在の値: {3}）。</value>
+    <value>{0}.timeoutSeconds: {1}〜{2} の範囲で指定してください(現在の値: {3})。</value>
   </data>
   <data name="vlm.prompts.{0}: must not be empty." xml:space="preserve">
     <value>vlm.prompts.{0}: 空にできません。</value>
@@ -233,10 +233,10 @@
     <value>vlm.selected: Step3 がオンですが、使える接続が選ばれていません。</value>
   </data>
   <data name="ui.language: must be system, ja or en (was '{0}')." xml:space="preserve">
-    <value>ui.language: system、ja、en のいずれかを指定してください（現在の値: '{0}'）。</value>
+    <value>ui.language: system、ja、en のいずれかを指定してください(現在の値: '{0}')。</value>
   </data>
   <data name="ui.theme: must be system, light or dark (was '{0}')." xml:space="preserve">
-    <value>ui.theme: system、light、dark のいずれかを指定してください（現在の値: '{0}'）。</value>
+    <value>ui.theme: system、light、dark のいずれかを指定してください(現在の値: '{0}')。</value>
   </data>
   <data name="The server answered /models, but not in the OpenAI format." xml:space="preserve">
     <value>サーバーは /models に応答しましたが、OpenAI形式ではありません。</value>
@@ -260,19 +260,19 @@
     <value>接続できましたが、モデル「{0}」が見つかりません。 使えるモデル: {1}</value>
   </data>
   <data name="The answer was cut off at the token limit ({0}) before it came. This may be a model that thinks before answering, with a very long thinking part." xml:space="preserve">
-    <value>モデルの答えが出る前に、トークンの上限（{0}）に達しました。考えてから答えるモデルで、考える部分が長すぎる可能性があります。</value>
+    <value>モデルの答えが出る前に、トークンの上限({0})に達しました。考えてから答えるモデルで、考える部分が長すぎる可能性があります。</value>
   </data>
   <data name="The image was read. The model '{0}' can analyze images." xml:space="preserve">
     <value>画像を読み取れました。モデル「{0}」は画像を解析できます。</value>
   </data>
   <data name="The content of the image could not be read (answer: '{0}'). The model may not be able to analyze images." xml:space="preserve">
-    <value>画像の内容を読み取れませんでした（答え:「{0}」）。画像を解析できないモデルの可能性があります。</value>
+    <value>画像の内容を読み取れませんでした(答え:「{0}」)。画像を解析できないモデルの可能性があります。</value>
   </data>
   <data name="This model does not accept image input. ({0})" xml:space="preserve">
     <value>このモデルは画像の入力に対応していません。({0})</value>
   </data>
   <data name="Connected (this server does not list its models, so whether the model exists could not be checked)." xml:space="preserve">
-    <value>接続できました（このサーバーはモデルの一覧を返さないため、モデルの有無は確認できませんでした）。</value>
+    <value>接続できました(このサーバーはモデルの一覧を返さないため、モデルの有無は確認できませんでした)。</value>
   </data>
   <data name="Timed out. {0}" xml:space="preserve">
     <value>時間切れになりました。{0}</value>
@@ -287,7 +287,7 @@
     <value>失敗しました。{0}</value>
   </data>
   <data name="The environment variable {0} is not set (the access key of the connection '{1}')." xml:space="preserve">
-    <value>環境変数 {0} が設定されていません（接続「{1}」のアクセスキー）。</value>
+    <value>環境変数 {0} が設定されていません(接続「{1}」のアクセスキー)。</value>
   </data>
   <data name="The access key of the connection '{0}' cannot be read. It may have been saved by another user or on another PC. Enter the key again or use an environment variable." xml:space="preserve">
     <value>接続「{0}」のアクセスキーを読み取れません。別のユーザーまたはPCで保存された値の可能性があります。キーを入力し直すか、環境変数を使ってください。</value>
@@ -320,7 +320,7 @@
     <value>完了</value>
   </data>
   <data name="Done (some pages failed)" xml:space="preserve">
-    <value>完了（一部失敗）</value>
+    <value>完了(一部失敗)</value>
   </data>
   <data name="Failed" xml:space="preserve">
     <value>失敗</value>
@@ -344,7 +344,7 @@
     <value>取得不可</value>
   </data>
   <data name="{0} page(s) could not be read ({1}: {2}). Use &quot;Retry failed only&quot; to read only the failed pages." xml:space="preserve">
-    <value>{0}ページの読み取りに失敗しました（{1}: {2}）。「失敗のみ再試行」で、失敗したページだけをやり直せます。</value>
+    <value>{0}ページの読み取りに失敗しました({1}: {2})。「失敗のみ再試行」で、失敗したページだけをやり直せます。</value>
   </data>
   <data name="The page image could not be made smaller." xml:space="preserve">
     <value>ページの画像を縮小できませんでした。</value>
@@ -368,25 +368,25 @@
     <value>コマンドの出力を読み取れませんでした。</value>
   </data>
   <data name="{0}.model: may contain only letters, digits and . _ : / @ + - (was '{1}')." xml:space="preserve">
-    <value>{0}.model: 英数字と . _ : / @ + - だけが使えます（現在の値: '{1}'）。</value>
+    <value>{0}.model: 英数字と . _ : / @ + - だけが使えます(現在の値: '{1}')。</value>
   </data>
   <data name="{0}.executable: must be the name or the path of the command, without arguments (was '{1}')." xml:space="preserve">
-    <value>{0}.executable: 引数を付けずに、コマンドの名前またはパスを指定してください（現在の値: '{1}'）。</value>
+    <value>{0}.executable: 引数を付けずに、コマンドの名前またはパスを指定してください(現在の値: '{1}')。</value>
   </data>
   <data name="The conversion was stopped because the usage limit of the command was reached ({0}). Resume it after the limit is lifted." xml:space="preserve">
-    <value>コマンドの使用量の上限に達したため、変換を止めました（{0}）。上限が解除されたあとに、再開してください。</value>
+    <value>コマンドの使用量の上限に達したため、変換を止めました({0})。上限が解除されたあとに、再開してください。</value>
   </data>
   <data name="The conversion was stopped because the command is not logged in ({0}). Log in and resume it." xml:space="preserve">
-    <value>コマンドにログインしていないため、変換を止めました（{0}）。ログインしてから、再開してください。</value>
+    <value>コマンドにログインしていないため、変換を止めました({0})。ログインしてから、再開してください。</value>
   </data>
   <data name="The conversion was stopped because {0} pages in a row failed in the same way ({1})." xml:space="preserve">
-    <value>同じ種類の失敗が {0} ページ続いたため、変換を止めました（{1}）。</value>
+    <value>同じ種類の失敗が {0} ページ続いたため、変換を止めました({1})。</value>
   </data>
   <data name="The conversion was stopped after {0} pages, the limit of the connection. Raise the limit and resume it." xml:space="preserve">
-    <value>接続のページ数の上限（{0} ページ）に達したため、変換を止めました。上限を上げてから、再開してください。</value>
+    <value>接続のページ数の上限({0} ページ)に達したため、変換を止めました。上限を上げてから、再開してください。</value>
   </data>
   <data name="The conversion was stopped after the cost of {0:0.####} US dollars, the limit of the connection. Raise the limit and resume it." xml:space="preserve">
-    <value>接続の費用の上限（{0:0.####} 米ドル）に達したため、変換を止めました。上限を上げてから、再開してください。</value>
+    <value>接続の費用の上限({0:0.####} 米ドル)に達したため、変換を止めました。上限を上げてから、再開してください。</value>
   </data>
   <data name="Sending page images outside the local network needs your consent for the connection '{0}'. Agree in the settings, or run: markporto consent {0}" xml:space="preserve">
     <value>ページ画像をローカルネットワークの外へ送るには、接続 '{0}' への同意が必要です。設定で同意するか、次を実行してください: markporto consent {0}</value>
@@ -401,7 +401,7 @@
     <value>コマンド '{0}' が --version に時間内に答えませんでした。</value>
   </data>
   <data name="The command is available ({0})." xml:space="preserve">
-    <value>コマンドを使えます（{0}）。</value>
+    <value>コマンドを使えます({0})。</value>
   </data>
   <data name="The image was read. The command '{0}' can analyze images." xml:space="preserve">
     <value>画像を読み取れました。コマンド '{0}' は画像を解析できます。</value>
@@ -422,19 +422,19 @@
     <value>コマンドが応答しませんでした。{0}</value>
   </data>
   <data name="The command answered ({0}). The login and the model work." xml:space="preserve">
-    <value>コマンドが応答しました（{0}）。ログインとモデルは使えます。</value>
+    <value>コマンドが応答しました({0})。ログインとモデルは使えます。</value>
   </data>
   <data name="the service behind the command '{0}'" xml:space="preserve">
     <value>コマンド '{0}' の提供元のサービス</value>
   </data>
   <data name="the service behind the command '{0}' (model {1})" xml:space="preserve">
-    <value>コマンド '{0}' の提供元のサービス（モデル {1}）</value>
+    <value>コマンド '{0}' の提供元のサービス(モデル {1})</value>
   </data>
   <data name="The page images of your documents will be sent outside the local network, to: {0}." xml:space="preserve">
     <value>文書のページ画像が、ローカルネットワークの外の次の送信先に送られます: {0}。</value>
   </data>
   <data name="If a prompt contains {pagetext}, the text of the page that was taken from the document is sent with the image." xml:space="preserve">
-    <value>指示（プロンプト）に {pagetext} があると、文書から取り出したそのページのテキストも、画像と一緒に送られます。</value>
+    <value>指示(プロンプト)に {pagetext} があると、文書から取り出したそのページのテキストも、画像と一緒に送られます。</value>
   </data>
   <data name="{0}: the text of the page was cut at {1} characters for the prompt." xml:space="preserve">
     <value>{0}: ページのテキストが、指示に入れるときに {1} 文字で切られました。</value>
@@ -443,7 +443,7 @@
     <value>お使いのアカウントに、利用料が発生することがあります。</value>
   </data>
   <data name="A command may also send information about your environment (for example the email address of your account) to its provider." xml:space="preserve">
-    <value>コマンドは、これに加えて、環境の情報（例: アカウントのメールアドレス）を提供元に送ることがあります。</value>
+    <value>コマンドは、これに加えて、環境の情報(例: アカウントのメールアドレス)を提供元に送ることがあります。</value>
   </data>
   <data name="Do not use this connection for confidential documents." xml:space="preserve">
     <value>機密の文書には、この接続を使わないでください。</value>
@@ -452,7 +452,7 @@
     <value>範囲外</value>
   </data>
   <data name="The page range '{0}' has no page of this document ({1} pages)." xml:space="preserve">
-    <value>ページの範囲 '{0}' に、この文書のページ（{1}ページ）がありません。</value>
+    <value>ページの範囲 '{0}' に、この文書のページ({1}ページ)がありません。</value>
   </data>
   <data name="The page range '{0}' goes past the last page; it is cut at page {1}." xml:space="preserve">
     <value>ページの範囲 '{0}' が最後のページを超えています。{1}ページまでに切りました。</value>
@@ -483,5 +483,20 @@
   </data>
   <data name="The extractor '{0}' sends documents outside; it needs your consent first." xml:space="preserve">
     <value>抽出コマンド「{0}」は文書を外部へ送ります。先に同意が必要です。</value>
+  </data>
+  <data name="The extractor has no name." xml:space="preserve">
+    <value>抽出コマンドに名前がありません。</value>
+  </data>
+  <data name="The extractor '{0}' has no command." xml:space="preserve">
+    <value>抽出コマンド「{0}」に、コマンドがありません。</value>
+  </data>
+  <data name="The arguments of the extractor '{0}' have no {{input}}." xml:space="preserve">
+    <value>抽出コマンド「{0}」の引数に {{input}} がありません。</value>
+  </data>
+  <data name="The arguments of the extractor '{0}' have no {{output}} or {{outdir}}, but the command is to write a file." xml:space="preserve">
+    <value>抽出コマンド「{0}」の引数に {{output}} も {{outdir}} もありませんが、コマンドはファイルに書く設定です。</value>
+  </data>
+  <data name="The time-out of the extractor '{0}' must be 1 second or more." xml:space="preserve">
+    <value>抽出コマンド「{0}」のタイムアウトは、1秒以上にしてください。</value>
   </data>
 </root>

@@ -36,6 +36,7 @@
         <Separator />
         <MenuItem Header="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" />
         <MenuItem Header="{DynamicResource Menu_Prompts}" Command="{Binding PromptsCommand}" />
+        <MenuItem Header="{DynamicResource Menu_ExtractorSettings}" Command="{Binding ExtractorSettingsCommand}" />
       </MenuItem>
       <MenuItem Header="{DynamicResource Menu_Help}">
         <MenuItem Header="{DynamicResource Menu_About}" Click="OnAboutClick" />
@@ -140,58 +141,58 @@
             <ComboBox x:Name="EngineBox" ItemsSource="{Binding EngineChoices}" DisplayMemberPath="Name" SelectedValuePath="Kind"
                       SelectedValue="{Binding SelectedEngine}" Width="170" Margin="0,0,20,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Dpi}" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <TextBox x:Name="DpiBox" Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="56" VerticalContentAlignment="Center" />
+            <TextBox x:Name="DpiBox" Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="68" VerticalContentAlignment="Center" />
           </StackPanel>
 
           <!-- One row for each kind of file: whether it is converted, and the options that are only for it -->
           <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_RowDocx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
-            <CheckBox x:Name="DocxBox" Content="docx" IsChecked="{Binding TypeDocx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <StackPanel Orientation="Horizontal" Visibility="{Binding ExtractorVisibility}" Margin="16,0,0,0">
+            <CheckBox x:Name="DocxBox" Content="docx" IsChecked="{Binding TypeDocx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Width="68" />
+            <StackPanel Orientation="Horizontal" Visibility="{Binding ExtractorVisibility}" Margin="0,0,20,0">
               <TextBlock Text="{DynamicResource Main_Cond_Extractor}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource Main_Cond_ExtractorTip}" />
-              <ComboBox ItemsSource="{Binding ExtractorChoices}" DisplayMemberPath="Display" SelectedValuePath="Name" SelectedValue="{Binding ExtractorDocx}" MinWidth="130" />
+              <ComboBox ItemsSource="{Binding ExtractorChoices}" DisplayMemberPath="Display" SelectedValuePath="Name" SelectedValue="{Binding ExtractorDocx}" Width="130" />
             </StackPanel>
           </StackPanel>
 
           <TextBlock Grid.Row="2" Text="{DynamicResource Main_Cond_RowXlsx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
-            <CheckBox Content="xlsx" IsChecked="{Binding TypeXlsx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <StackPanel Orientation="Horizontal" IsEnabled="{Binding TypeXlsx}">
+            <CheckBox Content="xlsx" IsChecked="{Binding TypeXlsx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Width="68" />
+            <StackPanel Orientation="Horizontal" Visibility="{Binding ExtractorVisibility}" Margin="0,0,20,0">
+              <TextBlock Text="{DynamicResource Main_Cond_Extractor}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource Main_Cond_ExtractorTip}" />
+              <ComboBox ItemsSource="{Binding ExtractorChoices}" DisplayMemberPath="Display" SelectedValuePath="Name" SelectedValue="{Binding ExtractorXlsx}" Width="130" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" IsEnabled="{Binding XlsxOptionsEnabled}" ToolTip="{Binding XlsxOptionsTip}" ToolTipService.ShowOnDisabled="True">
               <CheckBox Content="{DynamicResource Main_Cond_HiddenSheets}" IsChecked="{Binding IncludeHiddenSheets}" VerticalAlignment="Center" Margin="0,0,20,0" />
               <TextBlock Text="{DynamicResource Main_Cond_Excel}" VerticalAlignment="Center" Margin="0,0,10,0" />
               <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelColumns}" IsChecked="{Binding ExcelColumns}" ToolTip="{DynamicResource Main_Cond_ExcelColumnsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
               <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelRows}" IsChecked="{Binding ExcelRows}" ToolTip="{DynamicResource Main_Cond_ExcelRowsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
               <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelPrintArea}" IsChecked="{Binding ExcelPrintArea}" ToolTip="{DynamicResource Main_Cond_ExcelPrintAreaTip}" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Visibility="{Binding ExtractorVisibility}" Margin="16,0,0,0">
-              <TextBlock Text="{DynamicResource Main_Cond_Extractor}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource Main_Cond_ExtractorTip}" />
-              <ComboBox ItemsSource="{Binding ExtractorChoices}" DisplayMemberPath="Display" SelectedValuePath="Name" SelectedValue="{Binding ExtractorXlsx}" MinWidth="130" />
-            </StackPanel>
           </StackPanel>
 
           <TextBlock Grid.Row="3" Text="{DynamicResource Main_Cond_RowPptx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
-            <CheckBox Content="pptx" IsChecked="{Binding TypePptx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <StackPanel Orientation="Horizontal" IsEnabled="{Binding TypePptx}">
+            <CheckBox Content="pptx" IsChecked="{Binding TypePptx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Width="68" />
+            <StackPanel Orientation="Horizontal" Visibility="{Binding ExtractorVisibility}" Margin="0,0,20,0">
+              <TextBlock Text="{DynamicResource Main_Cond_Extractor}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource Main_Cond_ExtractorTip}" />
+              <ComboBox ItemsSource="{Binding ExtractorChoices}" DisplayMemberPath="Display" SelectedValuePath="Name" SelectedValue="{Binding ExtractorPptx}" Width="130" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" IsEnabled="{Binding PptxOptionsEnabled}" ToolTip="{Binding PptxOptionsTip}" ToolTipService.ShowOnDisabled="True">
               <CheckBox Content="{DynamicResource Main_Cond_HiddenSlides}" IsChecked="{Binding IncludeHiddenSlides}" VerticalAlignment="Center" Margin="0,0,20,0" />
               <CheckBox Content="{DynamicResource Main_Cond_OffSlide}" IsChecked="{Binding IncludeOffSlideText}" ToolTip="{DynamicResource Main_Cond_OffSlideTip}" VerticalAlignment="Center" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Visibility="{Binding ExtractorVisibility}" Margin="16,0,0,0">
-              <TextBlock Text="{DynamicResource Main_Cond_Extractor}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource Main_Cond_ExtractorTip}" />
-              <ComboBox ItemsSource="{Binding ExtractorChoices}" DisplayMemberPath="Display" SelectedValuePath="Name" SelectedValue="{Binding ExtractorPptx}" MinWidth="130" />
             </StackPanel>
           </StackPanel>
 
           <TextBlock Grid.Row="4" Text="{DynamicResource Main_Cond_RowPdf}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
-            <CheckBox Content="pdf" IsChecked="{Binding TypePdf}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <StackPanel Orientation="Horizontal" IsEnabled="{Binding TypePdf}">
+            <CheckBox Content="pdf" IsChecked="{Binding TypePdf}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Width="68" />
+            <StackPanel Orientation="Horizontal" Visibility="{Binding ExtractorVisibility}" Margin="0,0,20,0">
+              <TextBlock Text="{DynamicResource Main_Cond_Extractor}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource Main_Cond_ExtractorTip}" />
+              <ComboBox ItemsSource="{Binding ExtractorChoices}" DisplayMemberPath="Display" SelectedValuePath="Name" SelectedValue="{Binding ExtractorPdf}" Width="130" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" IsEnabled="{Binding PdfOptionsEnabled}" ToolTip="{Binding PdfOptionsTip}" ToolTipService.ShowOnDisabled="True">
               <CheckBox Content="{DynamicResource Main_Cond_PdfText}" IsChecked="{Binding UsePdfText}" ToolTip="{DynamicResource Main_Cond_PdfTextTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
               <TextBlock Text="{DynamicResource Main_Cond_PdfHint}" Foreground="{DynamicResource SubtleTextBrush}" VerticalAlignment="Center" Visibility="{Binding PdfHintVisibility}" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Visibility="{Binding ExtractorVisibility}" Margin="16,0,0,0">
-              <TextBlock Text="{DynamicResource Main_Cond_Extractor}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource Main_Cond_ExtractorTip}" />
-              <ComboBox ItemsSource="{Binding ExtractorChoices}" DisplayMemberPath="Display" SelectedValuePath="Name" SelectedValue="{Binding ExtractorPdf}" MinWidth="130" />
             </StackPanel>
           </StackPanel>
 
@@ -269,6 +270,10 @@
           <DataGrid.ContextMenu>
             <ContextMenu>
               <MenuItem Header="{DynamicResource Main_Preview}" Click="OnPreviewClick" IsEnabled="{Binding Selected.CanPreview, FallbackValue=False, TargetNullValue=False}" />
+              <Separator />
+              <MenuItem Header="{DynamicResource Main_OpenFolder}" Click="OnOpenFolderClick" IsEnabled="{Binding Selected.HasOutputFolder, FallbackValue=False, TargetNullValue=False}" />
+              <MenuItem Header="{DynamicResource Main_OpenMarkdown}" Click="OnOpenMarkdownClick" IsEnabled="{Binding Selected.HasMarkdown, FallbackValue=False, TargetNullValue=False}" />
+              <MenuItem Header="{DynamicResource Main_OpenVlm}" Click="OnOpenVlmClick" IsEnabled="{Binding Selected.HasVlm, FallbackValue=False, TargetNullValue=False}" />
             </ContextMenu>
           </DataGrid.ContextMenu>
           <DataGrid.RowStyle>
@@ -294,7 +299,7 @@
                 </Style>
               </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
-            <DataGridTextColumn Binding="{Binding KindText}" Width="56">
+            <DataGridTextColumn Binding="{Binding KindText}" Width="68">
               <DataGridTextColumn.Header>
                 <TextBlock Text="{DynamicResource Main_Col_Type}" />
               </DataGridTextColumn.Header>
@@ -317,7 +322,17 @@
                 <TextBlock Text="{DynamicResource Main_Col_Deleted}" />
               </DataGridTextColumn.Header>
             </DataGridTextColumn>
-            <DataGridTextColumn Binding="{Binding UsageText}" Width="360">
+            <DataGridTextColumn Binding="{Binding OutputText}" Width="140">
+              <DataGridTextColumn.Header>
+                <TextBlock Text="{DynamicResource Main_Col_Output}" />
+              </DataGridTextColumn.Header>
+              <DataGridTextColumn.CellStyle>
+                <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                  <Setter Property="ToolTip" Value="{Binding OutputFolderPath}" />
+                </Style>
+              </DataGridTextColumn.CellStyle>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding UsageText}" Width="240">
               <DataGridTextColumn.Header>
                 <TextBlock Text="{DynamicResource Main_Col_Usage}" />
               </DataGridTextColumn.Header>

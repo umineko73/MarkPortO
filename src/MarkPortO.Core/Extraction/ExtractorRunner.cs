@@ -15,6 +15,7 @@
 
 using System.Diagnostics;
 using System.Text;
+using MarkPortO.Core.Localization;
 using MarkPortO.Core.Settings;
 using MarkPortO.Core.Vlm;
 
@@ -55,27 +56,27 @@ public static class ExtractorRunner
     {
         if (string.IsNullOrWhiteSpace(profile.Name))
         {
-            return "The extractor has no name.";
+            return Loc.T("The extractor has no name.");
         }
 
         if (string.IsNullOrWhiteSpace(profile.Command))
         {
-            return $"The extractor '{profile.Name}' has no command.";
+            return Loc.T("The extractor '{0}' has no command.", profile.Name);
         }
 
         if (!profile.Args.Any(a => a.Contains("{input}", StringComparison.Ordinal)))
         {
-            return $"The arguments of the extractor '{profile.Name}' have no {{input}}.";
+            return Loc.T("The arguments of the extractor '{0}' have no {{input}}.", profile.Name);
         }
 
         if (profile.Output == ExtractorOutput.File && !profile.Args.Any(a => a.Contains("{output}", StringComparison.Ordinal) || a.Contains("{outdir}", StringComparison.Ordinal)))
         {
-            return $"The arguments of the extractor '{profile.Name}' have no {{output}} or {{outdir}}, but the command is to write a file.";
+            return Loc.T("The arguments of the extractor '{0}' have no {{output}} or {{outdir}}, but the command is to write a file.", profile.Name);
         }
 
         if (profile.TimeoutSeconds < 1)
         {
-            return $"The time-out of the extractor '{profile.Name}' must be 1 second or more.";
+            return Loc.T("The time-out of the extractor '{0}' must be 1 second or more.", profile.Name);
         }
 
         return null;

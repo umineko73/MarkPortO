@@ -38,7 +38,7 @@ public enum FileDisplayState
     /// <summary>完了.</summary>
     Done,
 
-    /// <summary>完了（一部失敗）: the file is finished but some pages failed (FR-013b); see <see cref="FileRow.Message"/>.</summary>
+    /// <summary>完了(一部失敗): the file is finished but some pages failed (FR-013b); see <see cref="FileRow.Message"/>.</summary>
     DoneWithPageFailures,
 
     /// <summary>失敗: see <see cref="FileRow.Message"/>.</summary>

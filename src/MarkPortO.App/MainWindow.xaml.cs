@@ -37,6 +37,7 @@ public partial class MainWindow : Window
             PickFiles = PickFiles,
             Confirm = text => MessageBox.Show(this, text, UiText.Get("Confirm_Title"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes,
             ShowConnectionSettings = ShowConnectionSettings,
+            ShowExtractorSettings = ShowExtractorSettings,
             ShowPrompts = ShowPrompts,
         };
         DataContext = _viewModel;
@@ -94,6 +95,30 @@ public partial class MainWindow : Window
         if (e.OriginalSource is DependencyObject source && System.Windows.Controls.ItemsControl.ContainerFromElement((System.Windows.Controls.DataGrid)sender, source) is System.Windows.Controls.DataGridRow)
         {
             OnPreviewClick(sender, e);
+        }
+    }
+
+    // The folder and the Markdown files of the chosen document: the shell opens them (the folder in Explorer, a file in the program set for .md).
+    private void OnOpenFolderClick(object sender, RoutedEventArgs e) => OpenWithShell(_viewModel.Selected is { HasOutputFolder: true } item ? item.OutputFolderPath : null);
+
+    private void OnOpenMarkdownClick(object sender, RoutedEventArgs e) => OpenWithShell(_viewModel.Selected is { HasMarkdown: true } item ? item.MarkdownPath : null);
+
+    private void OnOpenVlmClick(object sender, RoutedEventArgs e) => OpenWithShell(_viewModel.Selected is { HasVlm: true } item ? item.VlmPath : null);
+
+    private void OpenWithShell(string? path)
+    {
+        if (path is null)
+        {
+            return;
+        }
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            MessageBox.Show(this, ex.Message, UiText.Get("About_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -170,6 +195,8 @@ public partial class MainWindow : Window
         // The window edits the same settings the main window uses, so its changes are saved and shown at once.
         new ConnectionSettingsWindow(_store) { Owner = this }.ShowDialog();
     }
+
+    private void ShowExtractorSettings() => new ExtractorSettingsWindow(_store) { Owner = this }.ShowDialog();
 
     private void ShowPrompts() => new PromptsWindow(_store) { Owner = this }.ShowDialog();
 

@@ -234,7 +234,7 @@ public class Step3Tests
         Assert.Equal([PageStep3Status.Done, PageStep3Status.Failed, PageStep3Status.Done], document.Pages.Select(p => p.Step3));
         var row = FileStatusProjector.Project(document);
         Assert.Equal(FileDisplayState.DoneWithPageFailures, row.State);
-        Assert.Equal("完了（一部失敗）", FileStatusProjector.Text(row.State));
+        Assert.Equal("完了(一部失敗)", FileStatusProjector.Text(row.State));
         Assert.Contains("1ページ", row.Message);
         Assert.Contains("1 秒", row.Message);
         Assert.Equal(JobStatus.CompletedWithErrors, result.Job.Status);
