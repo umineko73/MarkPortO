@@ -64,7 +64,10 @@
   <sys:String x:Key="Main_Cond_Step1">テキストをMarkdownにし、全ページの画像を保存する</sys:String>
   <sys:String x:Key="Main_Cond_Step1Always">（常に実行）</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Markdownに画像を入れる</sys:String>
-  <sys:String x:Key="Main_Cond_Step1Tables">表は抽出テキストのものを使う（VLMの表は省く）</sys:String>
+  <sys:String x:Key="Main_Cond_Tables">表:</sys:String>
+  <sys:String x:Key="Main_Cond_TablesVlm">VLMの結果を採用</sys:String>
+  <sys:String x:Key="Main_Cond_TablesReplace">抽出テキストを採用</sys:String>
+  <sys:String x:Key="Main_Cond_TablesOmit">VLMの結果には残さない</sys:String>
   <sys:String x:Key="Main_Cond_VlmSeparate">結果を別ファイル（名前__vlm.md）に書く</sys:String>
   <sys:String x:Key="Main_Cond_Step3">VLMで画像から文字を読み取る</sys:String>
   <sys:String x:Key="Main_Cond_Pages">ページの範囲:</sys:String>
@@ -136,6 +139,7 @@
   <sys:String x:Key="Preview_Rendered">プレビュー</sys:String>
   <sys:String x:Key="Preview_Text">ソース</sys:String>
   <sys:String x:Key="Preview_FitImage">画像を合わせる</sys:String>
+  <sys:String x:Key="Preview_ImageZoomTip">Ctrl+ホイール（またはCtrl+プラス・マイナス）で拡大・縮小、Ctrl+0で100%に戻す</sys:String>
   <sys:String x:Key="Preview_NoImage">画像なし</sys:String>
   <sys:String x:Key="Preview_NoVlm">未実行（Step3）。</sys:String>
   <sys:String x:Key="Preview_VlmFailed">このページはVLMで読めませんでした。</sys:String>

@@ -52,7 +52,10 @@
           </StackPanel>
         </GroupBox>
         <GroupBox Header="{DynamicResource Preview_GroupImage}" Margin="0,0,8,4" Padding="4,2">
-          <CheckBox x:Name="FitBox" Content="{DynamicResource Preview_FitImage}" IsChecked="True" Checked="OnFitChanged" Unchecked="OnFitChanged" VerticalAlignment="Center" />
+          <StackPanel Orientation="Horizontal" ToolTip="{DynamicResource Preview_ImageZoomTip}">
+            <CheckBox x:Name="FitBox" Content="{DynamicResource Preview_FitImage}" IsChecked="True" Checked="OnFitChanged" Unchecked="OnFitChanged" VerticalAlignment="Center" />
+            <TextBlock x:Name="ZoomText" VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="40" />
+          </StackPanel>
         </GroupBox>
         <GroupBox Header="{DynamicResource Preview_Show}" Margin="0,0,8,4" Padding="4,2">
           <StackPanel Orientation="Horizontal">
@@ -79,7 +82,7 @@
           </Grid.RowDefinitions>
           <TextBlock Text="{DynamicResource Preview_PaneImage}" FontWeight="SemiBold" Margin="2,0,0,3" />
           <Grid Grid.Row="1">
-            <ScrollViewer x:Name="ImageScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled">
+            <ScrollViewer x:Name="ImageScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled" SizeChanged="OnImageScrollSizeChanged">
               <Image x:Name="PageImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
             </ScrollViewer>
             <TextBlock x:Name="NoImageText" Text="{DynamicResource Preview_NoImage}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Opacity="0.6" />

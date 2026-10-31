@@ -287,6 +287,7 @@ public partial class PreviewWindow : Window
             image.Freeze();
             PageImage.Source = image;
             NoImageText.Visibility = Visibility.Collapsed;
+            ApplyImageSize();
         }
         catch (Exception ex) when (ex is IOException or NotSupportedException or InvalidOperationException or UriFormatException)
         {
@@ -311,11 +312,86 @@ public partial class PreviewWindow : Window
             return;
         }
 
+        _imageZoom = 1.0;
+        ApplyImageSize();
+    }
+
+    // The zoom of the image (FR-109): 1 is the size of the window when the image is fitted, or the real size of the image when it is not. The wheel
+    // with Ctrl (the pointer stays on the same point of the image), Ctrl and plus or minus zoom; Ctrl and 0 is 100% again.
+    private const double MinimumZoom = 0.1;
+    private const double MaximumZoom = 8.0;
+    private double _imageZoom = 1.0;
+
+    private void ApplyImageSize()
+    {
+        if (ImageScroll is null || PageImage is null || ZoomText is null)
+        {
+            return;
+        }
+
         var fit = FitBox.IsChecked == true;
-        PageImage.Stretch = fit ? System.Windows.Media.Stretch.Uniform : System.Windows.Media.Stretch.None;
-        var bars = fit ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
-        ImageScroll.HorizontalScrollBarVisibility = bars;
-        ImageScroll.VerticalScrollBarVisibility = bars;
+        ZoomText.Text = _imageZoom.ToString("P0", System.Globalization.CultureInfo.CurrentCulture);
+        if (fit && _imageZoom == 1.0)
+        {
+            // As it was: the image fills the pane and follows its size.
+            PageImage.Stretch = System.Windows.Media.Stretch.Uniform;
+            PageImage.Width = double.NaN;
+            PageImage.Height = double.NaN;
+            ImageScroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+            ImageScroll.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+            return;
+        }
+
+        ImageScroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
+        ImageScroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+        if (PageImage.Source is not System.Windows.Media.Imaging.BitmapSource source || source.DpiX <= 0 || source.DpiY <= 0)
+        {
+            PageImage.Stretch = System.Windows.Media.Stretch.None;
+            return;
+        }
+
+        var width = source.PixelWidth * 96.0 / source.DpiX;
+        var height = source.PixelHeight * 96.0 / source.DpiY;
+        var scale = _imageZoom;
+        if (fit && ImageScroll.ActualWidth > 0 && ImageScroll.ActualHeight > 0)
+        {
+            scale *= Math.Min(ImageScroll.ActualWidth / width, ImageScroll.ActualHeight / height);
+        }
+
+        PageImage.Stretch = System.Windows.Media.Stretch.Fill;
+        PageImage.Width = Math.Max(1.0, width * scale);
+        PageImage.Height = Math.Max(1.0, height * scale);
+    }
+
+    private void OnImageScrollSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (FitBox?.IsChecked == true && _imageZoom != 1.0)
+        {
+            ApplyImageSize();
+        }
+    }
+
+    private void ZoomImage(double factor, Point? anchorInViewer)
+    {
+        var zoom = Math.Clamp(Math.Round(_imageZoom * factor, 3), MinimumZoom, MaximumZoom);
+        if (zoom == _imageZoom)
+        {
+            return;
+        }
+
+        // The point of the image under the pointer (as a fraction of the image) stays under it.
+        var before = anchorInViewer is { } anchor && PageImage.ActualWidth > 0 && PageImage.ActualHeight > 0
+            ? (X: (ImageScroll.HorizontalOffset + anchor.X - Math.Max(0, (ImageScroll.ViewportWidth - PageImage.ActualWidth) / 2)) / PageImage.ActualWidth,
+               Y: (ImageScroll.VerticalOffset + anchor.Y - Math.Max(0, (ImageScroll.ViewportHeight - PageImage.ActualHeight) / 2)) / PageImage.ActualHeight)
+            : ((double X, double Y)?)null;
+        _imageZoom = zoom;
+        ApplyImageSize();
+        if (before is { } fraction && anchorInViewer is { } at)
+        {
+            ImageScroll.UpdateLayout();
+            ImageScroll.ScrollToHorizontalOffset((fraction.X * PageImage.ActualWidth) - at.X + Math.Max(0, (ImageScroll.ViewportWidth - PageImage.ActualWidth) / 2));
+            ImageScroll.ScrollToVerticalOffset((fraction.Y * PageImage.ActualHeight) - at.Y + Math.Max(0, (ImageScroll.ViewportHeight - PageImage.ActualHeight) / 2));
+        }
     }
 
     private async void OnRefresh(object sender, RoutedEventArgs e) => await ReloadAsync();
@@ -336,6 +412,25 @@ public partial class PreviewWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (Keyboard.Modifiers == ModifierKeys.Control && ImagePane.IsVisible && ImageScroll.IsMouseOver)
+        {
+            switch (e.Key)
+            {
+                case Key.D0 or Key.NumPad0:
+                    ZoomImage(1.0 / _imageZoom, null);
+                    e.Handled = true;
+                    return;
+                case Key.OemPlus or Key.Add:
+                    ZoomImage(1.1, null);
+                    e.Handled = true;
+                    return;
+                case Key.OemMinus or Key.Subtract:
+                    ZoomImage(1.0 / 1.1, null);
+                    e.Handled = true;
+                    return;
+            }
+        }
+
         if (Keyboard.Modifiers != ModifierKeys.None || e.Key is not (Key.Left or Key.Right))
         {
             return;
@@ -347,6 +442,13 @@ public partial class PreviewWindow : Window
 
     private void OnWheel(object sender, MouseWheelEventArgs e)
     {
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Delta != 0 && ImagePane.IsVisible && ImageScroll.IsMouseOver)
+        {
+            ZoomImage(Math.Pow(1.1, e.Delta / 120.0), e.GetPosition(ImageScroll));
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers != ModifierKeys.None || e.Delta == 0)
         {
             return;

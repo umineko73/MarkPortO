@@ -556,13 +556,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>Leave out the tables of the VLM result where the text of the page has a table (FR-105).</summary>
-    public bool Step1Tables
+    /// <summary>What is done with the tables of the VLM result where the text of the page has a table: 0 they stay, 1 Step1 replaces them, 2 they are left out (FR-105).</summary>
+    public int Step1TablesIndex
     {
-        get => _store.Current.Steps.Step1Tables;
+        get => (int)_store.Current.Steps.Step1Tables;
         set
         {
-            _store.Update(s => s.Steps.Step1Tables = value);
+            if (value is >= 0 and <= 2)
+            {
+                _store.Update(s => s.Steps.Step1Tables = (Step1TablesMode)value);
+            }
+
             Raise();
         }
     }

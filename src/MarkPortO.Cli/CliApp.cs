@@ -98,7 +98,7 @@ public static class CliApp
         var step2 = new Option<string?>("--step2") { Description = "on or off: put image references in the Markdown." };
         var step3 = new Option<string?>("--step3") { Description = "on or off: read the page images with the VLM." };
         var vlmSeparate = new Option<string?>("--vlm-separate") { Description = "on or off: write the results of Step 3 to a separate file, name_vlm.md." };
-        var step1Tables = new Option<string?>("--step1-tables") { Description = "on or off: where the text of a page has a table, leave out the tables of the VLM result." };
+        var step1Tables = new Option<string?>("--step1-tables") { Description = "off, replace or omit: where the text of a page has a table, replace the tables of the VLM result by it (replace), or leave them out (omit)." };
         var connection = new Option<string?>("--connection") { Description = "Name of the VLM connection in settings.json." };
         var maxPages = new Option<int?>("--max-pages") { Description = "Stop after this many pages have been read by Step 3 (default: the setting of the connection; empty is no limit)." };
         var maxCost = new Option<double?>("--max-cost") { Description = "Stop after Step 3 has cost this many US dollars, when the command says what it costs." };
@@ -377,7 +377,7 @@ public static class CliApp
             Step2 = Step(args.Step2),
             Step3 = Step(args.Step3),
             VlmSeparate = Step(args.VlmSeparate),
-            Step1Tables = Step(args.Step1Tables),
+            Step1Tables = ConvertArgsResolver.TryStep1Tables(args.Step1Tables),
             Connection = args.Connection,
         };
 

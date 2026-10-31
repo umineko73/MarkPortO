@@ -195,7 +195,17 @@ public static class ConvertArgsResolver
         ApplyOnOff("--step2", args.Step2, value => settings.Steps.Step2 = value, errors);
         ApplyOnOff("--step3", args.Step3, value => settings.Steps.Step3 = value, errors);
         ApplyOnOff("--vlm-separate", args.VlmSeparate, value => settings.Steps.VlmSeparate = value, errors);
-        ApplyOnOff("--step1-tables", args.Step1Tables, value => settings.Steps.Step1Tables = value, errors);
+        if (args.Step1Tables is not null)
+        {
+            if (TryStep1Tables(args.Step1Tables) is { } tables)
+            {
+                settings.Steps.Step1Tables = tables;
+            }
+            else
+            {
+                errors.Add($"--step1-tables: '{args.Step1Tables}' is not one of off, replace, omit.");
+            }
+        }
 
         if (args.Connection is not null)
         {
@@ -228,6 +238,15 @@ public static class ConvertArgsResolver
         errors.AddRange(settings.ValidateForRun());
         return errors.Count == 0 ? (settings, errors) : (null, errors);
     }
+
+    /// <summary><c>off</c>, <c>replace</c> or <c>omit</c> (<c>on</c> is <c>replace</c>); <c>null</c> for anything else.</summary>
+    internal static Step1TablesMode? TryStep1Tables(string? value) => value?.ToLowerInvariant() switch
+    {
+        "off" => Step1TablesMode.Off,
+        "on" or "replace" => Step1TablesMode.Replace,
+        "omit" => Step1TablesMode.Omit,
+        _ => null,
+    };
 
     private static void ApplyOnOff(string option, string? value, Action<bool> apply, List<string> errors)
     {

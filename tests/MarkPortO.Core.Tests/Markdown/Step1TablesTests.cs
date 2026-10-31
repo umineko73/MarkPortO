@@ -18,13 +18,13 @@ using MarkPortO.Core.Markdown;
 
 namespace MarkPortO.Core.Tests.Markdown;
 
-/// <summary>FR-105: where the text of a page has a table, the tables of the VLM result are left out and the table of Step1 is the one to use.</summary>
+/// <summary>FR-105: where the text of a page has a table, the tables of the VLM result are replaced by it, or left out and the table of Step1 is the one to use.</summary>
 public class Step1TablesTests
 {
     private const string Note = "> このページの表は、ここには書きません。文書の抽出テキストの表を使ってください。";
 
     // pages: the result of the VLM of each page. withTable: the pages whose text (Step1) has a table.
-    private static DocumentRecord Document(bool step1Tables, string[] pages, params int[] withTable)
+    private static DocumentRecord Document(Step1TablesMode step1Tables, string[] pages, params int[] withTable)
     {
         var document = new DocumentRecord
         {
@@ -56,7 +56,7 @@ public class Step1TablesTests
     [Fact]
     public void ATableOfTheVlm_IsLeftOut_OnAPageWhoseTextHasATable()
     {
-        var text = MarkdownRenderer.RenderVlm(Document(true, ["Intro\n\n| No | Item |\n|---|---|\n| 1 | a |\n\nThe end."], 1));
+        var text = MarkdownRenderer.RenderVlm(Document(Step1TablesMode.Omit, ["Intro\n\n| No | Item |\n|---|---|\n| 1 | a |\n\nThe end."], 1));
 
         Assert.Contains("<!-- vlm:begin page=1 -->\nIntro\n\n" + Note + "\n\nThe end.\n<!-- vlm:end -->", text);
         Assert.DoesNotContain("| 1 | a |", text);
@@ -65,7 +65,7 @@ public class Step1TablesTests
     [Fact]
     public void ATableOfTheVlm_IsKept_OnAPageWhoseTextHasNoTable()
     {
-        var text = MarkdownRenderer.RenderVlm(Document(true, ["| No | Item |\n|---|---|\n| 1 | a |", "| No | Item |\n|---|---|\n| 2 | b |"], 1));
+        var text = MarkdownRenderer.RenderVlm(Document(Step1TablesMode.Omit, ["| No | Item |\n|---|---|\n| 1 | a |", "| No | Item |\n|---|---|\n| 2 | b |"], 1));
 
         Assert.Contains("| 2 | b |", text);
         Assert.DoesNotContain("| 1 | a |", text);
@@ -74,7 +74,7 @@ public class Step1TablesTests
     [Fact]
     public void NothingChanges_WhenTheOptionIsOff()
     {
-        var text = MarkdownRenderer.RenderVlm(Document(false, ["| No | Item |\n|---|---|\n| 1 | a |"], 1));
+        var text = MarkdownRenderer.RenderVlm(Document(Step1TablesMode.Off, ["| No | Item |\n|---|---|\n| 1 | a |"], 1));
 
         Assert.Contains("| 1 | a |", text);
         Assert.DoesNotContain(Note, text);
@@ -83,7 +83,7 @@ public class Step1TablesTests
     [Fact]
     public void ATableThatRunsOverPages_IsLeftOutOnEveryPage_AndNotJoined()
     {
-        var text = MarkdownRenderer.RenderVlm(Document(true, ["| No | Item |\n|---|---|\n| 1 | a |", "| No | Item |\n|---|---|\n| 2 | b |\n\nThe end."], 1, 2));
+        var text = MarkdownRenderer.RenderVlm(Document(Step1TablesMode.Omit, ["| No | Item |\n|---|---|\n| 1 | a |", "| No | Item |\n|---|---|\n| 2 | b |\n\nThe end."], 1, 2));
 
         Assert.Equal(2, text.Split(Note).Length - 1);
         Assert.Contains("The end.", text);
@@ -92,9 +92,52 @@ public class Step1TablesTests
     }
 
     [Fact]
+    public void ATableOfTheVlm_IsReplacedByTheTableOfTheText_InTheModeReplace()
+    {
+        var text = MarkdownRenderer.RenderVlm(Document(Step1TablesMode.Replace, ["Intro\n\n| No | Item |\n|---|---|\n| 1 | a |\n\nThe end."], 1));
+
+        Assert.Contains("<!-- vlm:begin page=1 -->\nIntro\n\n| a |\n|---|\n| b |\n\nThe end.\n<!-- vlm:end -->", text);
+        Assert.DoesNotContain("| 1 | a |", text);
+        Assert.DoesNotContain(Note, text);
+    }
+
+    [Fact]
+    public void EachTableIsReplacedByTheTableOfTheSamePlace_WhenThereAreAsManyTables()
+    {
+        var document = Document(Step1TablesMode.Replace, ["| x |\n|---|\n| 1 |\n\nBetween\n\n| y |\n|---|\n| 2 |"], 1);
+        document.Blocks = [new Block { Kind = BlockKind.Table, Markdown = "| A |\n|---|\n| a |", PageIndex = 1 }, new Block { Kind = BlockKind.Table, Markdown = "| B |\n|---|\n| b |", PageIndex = 1 }];
+
+        var text = MarkdownRenderer.RenderVlm(document);
+
+        Assert.Contains("<!-- vlm:begin page=1 -->\n| A |\n|---|\n| a |\n\nBetween\n\n| B |\n|---|\n| b |\n<!-- vlm:end -->", text);
+    }
+
+    [Fact]
+    public void AllTheTablesStandWhereTheFirstWas_WhenThereAreNotAsManyTables()
+    {
+        var document = Document(Step1TablesMode.Replace, ["| x |\n|---|\n| 1 |\n\nBetween\n\n| y |\n|---|\n| 2 |"], 1);
+
+        var text = MarkdownRenderer.RenderVlm(document);
+
+        Assert.Contains("<!-- vlm:begin page=1 -->\n| a |\n|---|\n| b |\n\nBetween\n<!-- vlm:end -->", text);
+    }
+
+    [Fact]
+    public void AHeadingBeforeTheTableOfTheText_IsNotCopied()
+    {
+        var document = Document(Step1TablesMode.Replace, ["| x |\n|---|\n| 1 |"], 1);
+        document.Blocks = [new Block { Kind = BlockKind.SheetTable, Markdown = "### Sheet1\n\n| a |\n|---|\n| b |", PageIndex = 1 }];
+
+        var text = MarkdownRenderer.RenderVlm(document);
+
+        Assert.DoesNotContain("### Sheet1", text);
+        Assert.Contains("| b |", text);
+    }
+
+    [Fact]
     public void ARowWithoutTheFirstPipe_IsAlsoATable_WhenTheSeparatorRowIsThere()
     {
-        Assert.Equal("Intro\n\nN\n\nEnd", Step1Tables.Replace("Intro\n\nNo | Item\n---|---\n1 | a\n\nEnd", "N"));
+        Assert.Equal("Intro\n\nN\n\nEnd", Step1Tables.Omit("Intro\n\nNo | Item\n---|---\n1 | a\n\nEnd", "N"));
     }
 
     [Fact]
@@ -102,6 +145,6 @@ public class Step1TablesTests
     {
         const string text = "Use a | b to choose.";
 
-        Assert.Equal(text, Step1Tables.Replace(text, "N"));
+        Assert.Equal(text, Step1Tables.Omit(text, "N"));
     }
 }

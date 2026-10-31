@@ -329,8 +329,8 @@ public sealed class StepSettings
     /// <summary>Write the VLM results to a separate file, <c>name_vlm.md</c>, not into the Markdown of the document (FR-058).</summary>
     public bool VlmSeparate { get; set; }
 
-    /// <summary>On a page whose text has a table (Step1), the tables of the VLM result are left out; the table of Step1 is the one in the Markdown (FR-105).</summary>
-    public bool Step1Tables { get; set; }
+    /// <summary>On a page whose text has a table (Step1), the tables of the VLM result are replaced by the tables of Step1 or left out (FR-105).</summary>
+    public Step1TablesMode Step1Tables { get; set; }
 }
 
 public sealed class VlmSettings

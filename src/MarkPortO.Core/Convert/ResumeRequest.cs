@@ -14,6 +14,7 @@
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
 using MarkPortO.Core.Jobs;
+using MarkPortO.Core.Jobs.Models;
 
 namespace MarkPortO.Core.Convert;
 
@@ -38,7 +39,7 @@ public sealed class ResumeRequest
 
     public bool? VlmSeparate { get; init; }
 
-    public bool? Step1Tables { get; init; }
+    public Step1TablesMode? Step1Tables { get; init; }
 
     public string? Connection { get; init; }
 }
