@@ -178,7 +178,9 @@ public partial class PreviewWindow : Window
         var rendered = RenderedRadio.IsChecked == true;
         var text = PagePreview.WithoutVlm(page.Markdown);
         var key = $"{_item.Source?.DocId}:{page.Index}";
-        TextPane.Show(text.Length > 0 ? text : UiText.Get("Preview_NoMarkdown"), folder, rendered, key);
+        // The Markdown of an extractor is the same for every page: its key has no page, so that it stays where it is when the page changes (FR-114).
+        var textKey = _item.Source?.Extractor is null ? key : $"{_item.Source.DocId}:whole";
+        TextPane.Show(text.Length > 0 ? text : UiText.Get("Preview_NoMarkdown"), folder, rendered, textKey);
         var vlm = page.Vlm ?? (page.Step3 == PageStep3Status.Failed ? UiText.Get("Preview_VlmFailed") : UiText.Get("Preview_NoVlm"));
         VlmPane.Show(vlm, folder, rendered, key);
         await Task.CompletedTask;
