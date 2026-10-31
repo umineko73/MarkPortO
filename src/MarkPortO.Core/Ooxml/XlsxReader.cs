@@ -162,9 +162,10 @@ public sealed class SheetContent
 
             var started = false;
             var headPage = groups.Count > 0 ? groups[0].Page : 0;
+            var folded = FoldedColumns(firstRow, lastRow, from, to, skipEmptyRows); // the same columns on every page of the table
             foreach (var (first, last, page) in groups)
             {
-                var markdown = Block(first, last, from, to, hasHeader: !started && hasHeader, skipEmptyRows);
+                var markdown = Block(first, last, from, to, hasHeader: !started && hasHeader, skipEmptyRows, folded);
                 if (markdown.Length == 0)
                 {
                     continue;
@@ -415,7 +416,7 @@ public sealed class SheetContent
     }
 
     // The cells of rows firstRow..lastRow and columns fromIndex..toIndex as a Markdown table (hidden rows and columns left out).
-    private string Block(int firstRow, int lastRow, int fromIndex, int toIndex, bool hasHeader, bool skipEmptyRows = false)
+    private string Block(int firstRow, int lastRow, int fromIndex, int toIndex, bool hasHeader, bool skipEmptyRows = false, IReadOnlySet<int>? foldedColumns = null)
     {
         var rows = new List<IReadOnlyList<string>>();
         for (var r = firstRow; r <= lastRow && r < Rows.Length; r++)
@@ -426,12 +427,77 @@ public sealed class SheetContent
             }
 
             var row = Rows[r];
-            rows.Add([.. Enumerable.Range(fromIndex, toIndex - fromIndex + 1)
-                .Where(c => c < row.Length && !HiddenColumns.Contains(c))
-                .Select(c => CellOrMark(r, c, row[c], fromIndex))]);
+            var cells = Enumerable.Range(fromIndex, toIndex - fromIndex + 1)
+                .Where(c => c < row.Length && !HiddenColumns.Contains(c) && foldedColumns?.Contains(c) != true)
+                .Select(c => CellOrMark(r, c, row[c], fromIndex))
+                .ToList();
+
+            // A row that only goes on with the merged cells above it has nothing of its own (FR-106); the header row stays.
+            if (foldedColumns is not null && (rows.Count > 0 || !hasHeader) && IsOnlyMerged(cells))
+            {
+                continue;
+            }
+
+            rows.Add(cells);
         }
 
         return MarkdownText.Table(rows, hasHeader);
+    }
+
+    // The cells are all hidden by merged cells ("<" or "^") or empty, and at least one is hidden by a merged cell.
+    private static bool IsOnlyMerged(IEnumerable<string> cells)
+    {
+        var merged = false;
+        foreach (var cell in cells)
+        {
+            if (cell is MarkdownText.MergedLeft or MarkdownText.MergedUp)
+            {
+                merged = true;
+            }
+            else if (cell.Trim().Length > 0)
+            {
+                return false;
+            }
+        }
+
+        return merged;
+    }
+
+    /// <summary>
+    /// The columns of a table that no cell starts in (FR-106): in every row the cell is hidden by a merged cell or empty, and in some row it is
+    /// hidden by a merged cell. A sheet laid out on a grid (Excel 方眼紙) merges narrow columns to make one wide cell; the columns that are only a
+    /// part of a wide cell have nothing to write. An empty column, with no merged cell in it, stays.
+    /// </summary>
+    private HashSet<int> FoldedColumns(int firstRow, int lastRow, int fromIndex, int toIndex, bool skipEmptyRows)
+    {
+        var folded = new HashSet<int>();
+        for (var c = fromIndex; c <= toIndex; c++)
+        {
+            if (HiddenColumns.Contains(c))
+            {
+                continue;
+            }
+
+            var cells = new List<string>();
+            for (var r = firstRow; r <= lastRow && r < Rows.Length; r++)
+            {
+                if (HiddenRows.Contains(r) || (skipEmptyRows && !HasContent(r, fromIndex, toIndex)))
+                {
+                    continue;
+                }
+
+                cells.Add(c < Rows[r].Length ? CellOrMark(r, c, Rows[r][c], fromIndex) : string.Empty);
+            }
+
+            if (IsOnlyMerged(cells))
+            {
+                folded.Add(c);
+            }
+        }
+
+        // Every column folded is no table: the sheet is left as it is.
+        var shown = Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Count(c => !HiddenColumns.Contains(c));
+        return folded.Count < shown ? folded : [];
     }
 
     public string ToMarkdown() => ToMarkdown(0, Math.Max(0, ColumnCount - 1));
