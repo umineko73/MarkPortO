@@ -849,10 +849,26 @@ public static partial class XlsxReader
         if (cell.StyleIndex?.Value is { } numberStyle && numberFormats.TryGetValue(numberStyle, out var code)
             && double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
         {
-            return XlsxNumberFormat.Format(number, code) ?? raw;
+            return XlsxNumberFormat.Format(number, code) ?? Rounded(raw);
         }
 
-        return raw;
+        return Rounded(raw);
+    }
+
+    /// <summary>
+    /// A number as the file stores it has up to 17 digits, with the error of the calculation (<c>1.1068500000000001</c>); Excel keeps 15
+    /// (FR-107). A number with more than 15 significant digits is written with 15; an integer, and a number that has fewer digits, stay as they are.
+    /// </summary>
+    internal static string Rounded(string raw)
+    {
+        var digits = raw.TakeWhile(c => c != 'E' && c != 'e').Count(char.IsAsciiDigit);
+        if (digits <= 15 || !raw.Contains('.', StringComparison.Ordinal) || !double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+        {
+            return raw;
+        }
+
+        var text = number.ToString("G15", CultureInfo.InvariantCulture);
+        return text.Contains('E', StringComparison.Ordinal) && !raw.Contains('E', StringComparison.OrdinalIgnoreCase) ? raw : text;
     }
 
     private static string? FormatDate(double serial)

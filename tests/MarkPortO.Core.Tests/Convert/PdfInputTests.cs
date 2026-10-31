@@ -140,6 +140,42 @@ public class PdfInputTests
         Assert.Equal(["alpha beta gamma delta", "far below"], paragraphs);
     }
 
+    // FR-108: two columns are read one after the other, not line by line across both.
+    private static UglyToad.PdfPig.PdfDocument TwoColumns(int lines)
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        var page = builder.AddPage(PageSize.A4);
+        for (var i = 0; i < lines; i++)
+        {
+            page.AddText($"left column line {i + 1} with some words", 11, new PdfPoint(40, 780 - (i * 16)), font);
+            page.AddText($"right column line {i + 1} with some words", 11, new PdfPoint(320, 780 - (i * 16)), font);
+        }
+
+        return UglyToad.PdfPig.PdfDocument.Open(builder.Build());
+    }
+
+    [Fact]
+    public void TwoColumns_AreReadOneAfterTheOther()
+    {
+        using var document = TwoColumns(10);
+
+        var text = string.Join(" ", PdfParagraphExtractor.GetParagraphs(document, 0));
+
+        Assert.Contains("left column line 1 with some words left column line 2", text);
+        Assert.True(text.IndexOf("left column line 10", StringComparison.Ordinal) < text.IndexOf("right column line 1 ", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AFewLinesInTwoPlaces_AreNotColumns()
+    {
+        using var document = TwoColumns(3);
+
+        var text = string.Join(" ", PdfParagraphExtractor.GetParagraphs(document, 0));
+
+        Assert.Contains("words right column line 1", text);
+    }
+
     [Fact]
     public void ThePromptOfAPdfSaysThatTheImageComesFirst()
     {
