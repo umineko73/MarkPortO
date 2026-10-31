@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Title = "MarkPortO " + AboutWindow.Version;
 
         _viewModel = new MainViewModel(_store, Dispatcher)
         {
@@ -145,8 +146,7 @@ public partial class MainWindow : Window
 
     private void OnAboutClick(object sender, RoutedEventArgs e)
     {
-        var version = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? string.Empty;
-        MessageBox.Show(this, UiText.Get("About_Body", version), UiText.Get("About_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+        new AboutWindow { Owner = this }.ShowDialog();
     }
 
     /// <summary>Opens the license of MarkPortO and the notices of the packages it uses; both are installed next to the program.</summary>
