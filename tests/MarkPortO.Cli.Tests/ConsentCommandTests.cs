@@ -122,6 +122,67 @@ public class ConsentCommandTests
         Assert.Contains("'nope' was not found", run.Error);
     }
 
+    private static string SettingsWithExtractor(TempDir dir, bool sendsExternally, bool consent = false)
+    {
+        var json = JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["extractors"] = new[]
+            {
+                new Dictionary<string, object?>
+                {
+                    ["name"] = "cloudtool",
+                    ["command"] = "cloudtool",
+                    ["args"] = new[] { "{input}" },
+                    ["output"] = "stdout",
+                    ["sendsExternally"] = sendsExternally,
+                    ["externalConsent"] = consent ? new { at = "2026-10-26T01:00:00+00:00", noticeVersion = ExternalConsent.CurrentNoticeVersion } : null,
+                },
+            },
+        });
+        var path = dir.Combine("settings.json");
+        File.WriteAllText(path, json);
+        return path;
+    }
+
+    [Fact]
+    public async Task Consent_ForAnExtractorThatSendsOutside_ShowsTheNoticeAndWritesTheConsent()
+    {
+        using var dir = new TempDir();
+        var path = SettingsWithExtractor(dir, sendsExternally: true);
+
+        var run = await Cli.RunAsync("consent", "cloudtool", "--settings", path);
+
+        Assert.Equal(ExitCodes.Success, run.ExitCode);
+        Assert.Contains("cloudtool", run.Output);
+        Assert.Contains("outside the PC", run.Output);
+        var consent = Read(path)["extractors"]![0]!["externalConsent"]!;
+        Assert.Equal(ExternalConsent.CurrentNoticeVersion, consent["noticeVersion"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task ConsentRevoke_ForAnExtractor_RemovesTheConsent()
+    {
+        using var dir = new TempDir();
+        var path = SettingsWithExtractor(dir, sendsExternally: true, consent: true);
+
+        var run = await Cli.RunAsync("consent", "cloudtool", "--revoke", "--settings", path);
+
+        Assert.Equal(ExitCodes.Success, run.ExitCode);
+        Assert.Null(Read(path)["extractors"]![0]!["externalConsent"]);
+    }
+
+    [Fact]
+    public async Task Consent_ForAnExtractorThatStaysOnThePc_IsRefused()
+    {
+        using var dir = new TempDir();
+        var path = SettingsWithExtractor(dir, sendsExternally: false);
+
+        var run = await Cli.RunAsync("consent", "cloudtool", "--settings", path);
+
+        Assert.Equal(ExitCodes.InvalidArguments, run.ExitCode);
+        Assert.Contains("needs no consent", run.Error);
+    }
+
     [Fact]
     public async Task ListConnections_ShowsTheKindTheConsentAndTheLimits()
     {

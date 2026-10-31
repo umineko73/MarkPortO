@@ -481,8 +481,17 @@
   <data name="The command '{0}' of the extractor '{1}' was not found." xml:space="preserve">
     <value>抽出コマンド「{1}」のコマンド「{0}」が見つかりません。</value>
   </data>
-  <data name="The extractor '{0}' sends documents outside; it needs your consent first." xml:space="preserve">
-    <value>抽出コマンド「{0}」は文書を外部へ送ります。先に同意が必要です。</value>
+  <data name="The extractor '{0}' sends documents outside; it needs your consent first (markporto consent {0})." xml:space="preserve">
+    <value>抽出コマンド「{0}」は文書を外部へ送ります。先に同意が必要です(markporto consent {0})。</value>
+  </data>
+  <data name="The extractor '{0}' sends the content of your documents (text, tables, images) to a service outside the PC." xml:space="preserve">
+    <value>抽出コマンド「{0}」は、文書の内容(本文・表・画像)を、PCの外にあるサービスへ送ります。</value>
+  </data>
+  <data name="The terms of the service decide how it is handled. Usage charges may apply." xml:space="preserve">
+    <value>送られた内容の扱いは、そのサービスの規約によります。利用料金がかかることもあります。</value>
+  </data>
+  <data name="Do not use it for confidential documents." xml:space="preserve">
+    <value>機密の文書には使わないでください。</value>
   </data>
   <data name="The extractor has no name." xml:space="preserve">
     <value>抽出コマンドに名前がありません。</value>

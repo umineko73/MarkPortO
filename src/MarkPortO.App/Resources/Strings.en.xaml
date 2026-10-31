@@ -98,6 +98,7 @@
   <sys:String x:Key="Ext_Template">Template…</sys:String>
   <sys:String x:Key="Ext_TemplateMarkItDown">MarkItDown</sys:String>
   <sys:String x:Key="Ext_TemplateDocling">Docling</sys:String>
+  <sys:String x:Key="Ext_TemplatePandoc">Pandoc</sys:String>
   <sys:String x:Key="Main_Cond_OptionsOffTip">An extractor is chosen, so these options do not apply (the extractor writes the Markdown).</sys:String>
   <sys:String x:Key="Main_Col_Output">Output</sys:String>
   <sys:String x:Key="Main_OpenFolder">Open the output folder</sys:String>

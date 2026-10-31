@@ -185,8 +185,8 @@ public static class CliApp
         listConnections.Options.Add(listSettings);
         listConnections.SetAction((parse, _) => ListConnectionsAsync(parse.GetValue(listSettings), stdout, stderr));
 
-        var consent = new Command("consent", "Agree that the page images are sent outside the local network by a connection (an external command, or a server that is not in the local network).");
-        var consentName = new Argument<string>("connection") { Description = "Name of the connection." };
+        var consent = new Command("consent", "Agree that the page images are sent outside the local network by a connection (an external command, or a server that is not in the local network), or that the documents are sent outside by an extractor.");
+        var consentName = new Argument<string>("connection") { Description = "Name of the connection, or of the extractor." };
         var consentRevoke = new Option<bool>("--revoke") { Description = "Withdraw the consent." };
         var consentSettings = new Option<string?>("--settings") { Description = "Path of settings.json." };
         consent.Arguments.Add(consentName);
@@ -629,7 +629,12 @@ public static class CliApp
         var connection = loaded.Settings.FindConnection(name);
         if (connection is null)
         {
-            await stderr.WriteLineAsync($"error: the connection '{name}' was not found in settings.json (see 'markporto list-connections').");
+            if (loaded.Settings.FindExtractor(name) is { } extractor)
+            {
+                return await ConsentExtractorAsync(store, extractor, revoke, stdout, stderr);
+            }
+
+            await stderr.WriteLineAsync($"error: the connection or the extractor '{name}' was not found in settings.json (see 'markporto list-connections').");
             return ExitCodes.InvalidArguments;
         }
 
@@ -655,6 +660,34 @@ public static class CliApp
         store.Update(settings => ExternalConsent.Grant(settings.FindConnection(name)!, DateTimeOffset.UtcNow));
         store.Flush();
         await stdout.WriteLineAsync($"The consent for '{connection.Name}' was recorded in {store.FilePath}.");
+        return ExitCodes.Success;
+    }
+
+    /// <summary>The <c>consent</c> command for an extractor (FR-110): the same as for a connection, for a command that sends documents outside.</summary>
+    private static async Task<int> ConsentExtractorAsync(SettingsStore store, ExtractorProfile extractor, bool revoke, TextWriter stdout, TextWriter stderr)
+    {
+        if (!extractor.SendsExternally)
+        {
+            await stderr.WriteLineAsync($"error: the extractor '{extractor.Name}' is not marked as sending documents outside and needs no consent.");
+            return ExitCodes.InvalidArguments;
+        }
+
+        if (revoke)
+        {
+            store.Update(settings => ExternalConsent.Revoke(settings.FindExtractor(extractor.Name)!));
+            store.Flush();
+            await stdout.WriteLineAsync($"The consent for '{extractor.Name}' was withdrawn.");
+            return ExitCodes.Success;
+        }
+
+        foreach (var line in ExternalConsent.Notice(extractor))
+        {
+            await stdout.WriteLineAsync(line);
+        }
+
+        store.Update(settings => ExternalConsent.Grant(settings.FindExtractor(extractor.Name)!, DateTimeOffset.UtcNow));
+        store.Flush();
+        await stdout.WriteLineAsync($"The consent for '{extractor.Name}' was recorded in {store.FilePath}.");
         return ExitCodes.Success;
     }
 

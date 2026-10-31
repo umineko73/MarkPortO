@@ -44,6 +44,7 @@
               <ContextMenu>
                 <MenuItem Header="{DynamicResource Ext_TemplateMarkItDown}" Command="{Binding AddMarkItDownCommand}" />
                 <MenuItem Header="{DynamicResource Ext_TemplateDocling}" Command="{Binding AddDoclingCommand}" />
+                <MenuItem Header="{DynamicResource Ext_TemplatePandoc}" Command="{Binding AddPandocCommand}" />
               </ContextMenu>
             </Button.ContextMenu>
           </Button>

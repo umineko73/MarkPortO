@@ -77,6 +77,42 @@ public static class ExternalConsent
 
     public static void Revoke(ConnectionProfile connection) => connection.ExternalConsent = null;
 
+    /// <summary>The same for an extractor (FR-110): needed when the profile says that the command sends documents outside.</summary>
+    public static ConsentState StateOf(ExtractorProfile extractor)
+    {
+        if (!extractor.SendsExternally)
+        {
+            return ConsentState.NotRequired;
+        }
+
+        return extractor.ExternalConsent switch
+        {
+            null => ConsentState.Missing,
+            { NoticeVersion: var v } when v == CurrentNoticeVersion => ConsentState.Granted,
+            _ => ConsentState.Outdated,
+        };
+    }
+
+    public static void Grant(ExtractorProfile extractor, DateTimeOffset now)
+    {
+        if (!extractor.SendsExternally)
+        {
+            throw new InvalidOperationException("This extractor does not send documents outside and needs no consent.");
+        }
+
+        extractor.ExternalConsent = new ConsentRecord { At = now, NoticeVersion = CurrentNoticeVersion };
+    }
+
+    public static void Revoke(ExtractorProfile extractor) => extractor.ExternalConsent = null;
+
+    /// <summary>The notice the user agrees to for an extractor: what is sent, the terms of the service, the cost.</summary>
+    public static IReadOnlyList<string> Notice(ExtractorProfile extractor) =>
+    [
+        Loc.T("The extractor '{0}' sends the content of your documents (text, tables, images) to a service outside the PC.", extractor.Name),
+        Loc.T("The terms of the service decide how it is handled. Usage charges may apply."),
+        Loc.T("Do not use it for confidential documents."),
+    ];
+
     /// <summary>Where the page images go: the service behind the command, or the host of the address.</summary>
     public static string Destination(ConnectionProfile connection)
     {

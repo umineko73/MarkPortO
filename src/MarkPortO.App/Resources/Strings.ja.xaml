@@ -98,6 +98,7 @@
   <sys:String x:Key="Ext_Template">ひな形…</sys:String>
   <sys:String x:Key="Ext_TemplateMarkItDown">MarkItDown</sys:String>
   <sys:String x:Key="Ext_TemplateDocling">Docling</sys:String>
+  <sys:String x:Key="Ext_TemplatePandoc">Pandoc</sys:String>
   <sys:String x:Key="Main_Cond_OptionsOffTip">外部コマンドを選んでいるので、このオプションは使えません(Markdownは外部コマンドが書きます)。</sys:String>
   <sys:String x:Key="Main_Col_Output">出力先</sys:String>
   <sys:String x:Key="Main_OpenFolder">出力フォルダを開く</sys:String>

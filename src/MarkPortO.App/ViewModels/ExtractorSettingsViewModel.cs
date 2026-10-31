@@ -320,6 +320,7 @@ public sealed class ExtractorSettingsViewModel : ObservableObject
         AddCommand = new RelayCommand(() => AddAsync(null));
         AddMarkItDownCommand = new RelayCommand(() => AddAsync(MarkItDown));
         AddDoclingCommand = new RelayCommand(() => AddAsync(Docling));
+        AddPandocCommand = new RelayCommand(() => AddAsync(Pandoc));
         RemoveCommand = new RelayCommand(RemoveAsync, () => Selected is not null);
     }
 
@@ -348,6 +349,8 @@ public sealed class ExtractorSettingsViewModel : ObservableObject
 
     public RelayCommand AddDoclingCommand { get; }
 
+    public RelayCommand AddPandocCommand { get; }
+
     // The usual way to call two tools that are known (they are not bundled: the user installs them). The arguments differ between versions; "Try" shows it.
     private static ExtractorProfile MarkItDown() => new() { Name = "markitdown", Command = "markitdown", Args = ["{input}", "-o", "{output}"] };
 
@@ -357,6 +360,15 @@ public sealed class ExtractorSettingsViewModel : ObservableObject
         Command = "docling",
         Args = ["{input}", "--to", "md", "--image-export-mode", "placeholder", "--output", "{outdir}"],
         TimeoutSeconds = 600,
+    };
+
+    // Pandoc reads docx and pptx (and xlsx, as a grid of cells), not PDF.
+    private static ExtractorProfile Pandoc() => new()
+    {
+        Name = "pandoc",
+        Command = "pandoc",
+        Args = ["{input}", "-t", "gfm", "--wrap=none", "-o", "{output}"],
+        TimeoutSeconds = 120,
     };
 
     private ExtractorEditorViewModel Wrap(ExtractorProfile profile) => new(profile, _store, () => { });

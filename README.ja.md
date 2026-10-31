@@ -101,11 +101,11 @@ markporto check-connection --settings settings.json
 
 ### 実験: 外部コマンドにMarkdownを書かせる
 
-ファイルの種類ごとに、自分で入れたプログラム(MarkItDown、Docling、Pandoc など)にMarkdownを書かせられます。MarkPortOは、そのプログラムをインストールも更新もしません。与えた引数で、シェルを通さずに実行するだけです。結果は、コマンドが書いた文書全体のMarkdownで、**ページの区切りも、ページ画像の参照もありません**(ページ画像は `images/` に保存され、VLMの結果は `名前_vlm.md` に書かれます)。その種類での、MarkPortOの機能(複数ページの表、結合セル、太字・斜体など)は効きません。実験機能なので、設定の書き方は変わることがあります。また、**まだ正常に動作しないことがあります**。MarkItDown と Docling で、いくつかのサンプルを試しただけで、すべてのツール・版・文書では確かめていません。ツールによって結果も違います。出てきたMarkdownを確認してください(設定の「試す…」で、1つの文書に実行できます)。
+ファイルの種類ごとに、自分で入れたプログラム(MarkItDown、Docling、Pandoc など)にMarkdownを書かせられます。MarkPortOは、そのプログラムをインストールも更新もしません。与えた引数で、シェルを通さずに実行するだけです。結果は、コマンドが書いた文書全体のMarkdownで、**ページの区切りも、ページ画像の参照もありません**(ページ画像は `images/` に保存され、VLMの結果は `名前_vlm.md` に書かれます)。その種類での、MarkPortOの機能(複数ページの表、結合セル、太字・斜体など)は効きません。実験機能なので、設定の書き方は変わることがあります。また、**まだ正常に動作しないことがあります**。MarkItDown・Docling・Pandoc で、いくつかのサンプルを試しただけで、すべてのツール・版・文書では確かめていません。ツールによって結果も違います。出てきたMarkdownを確認してください(設定の「試す…」で、1つの文書に実行できます)。
 
 コマンドを使うときのStepの動き: Step1は、ページ画像を(いつもどおり)保存し、テキストはコマンドが書きます。Step2は、コマンドのMarkdownには画像を差し込みません。Step3は、いつもどおりページ画像を読み、結果は `名前_vlm.md` に書きます。種類の横のオプション(非表示のシート、シートの範囲など)は内蔵の抽出用で、コマンドを選んでいる間は灰色になります。
 
-コマンドは、メニューの「設定 > 抽出コマンドの設定(実験)」で登録します(名前、コマンド、引数、タイムアウト、環境変数、文書を外へ送ることへの同意、「試す…」で1つの文書に実行、「ひな形…」でMarkItDown・Doclingの通常の設定を追加)。下の例のように `settings.json` に書いても同じです。ファイルの種類ごとに選びます(条件の「抽出(実験)」。コマンドがあると出ます。または `--extractor-docx|xlsx|pptx|pdf <名前>`。`builtin` は内蔵)。
+コマンドは、メニューの「設定 > 抽出コマンドの設定(実験)」で登録します(名前、コマンド、引数、タイムアウト、環境変数、文書を外へ送ることへの同意、「試す…」で1つの文書に実行、「ひな形…」でMarkItDown・Docling・Pandocの通常の設定を追加)。下の例のように `settings.json` に書いても同じです。ファイルの種類ごとに選びます(条件の「抽出(実験)」。コマンドがあると出ます。または `--extractor-docx|xlsx|pptx|pdf <名前>`。`builtin` は内蔵)。
 
 ```json
 "extractors": [
@@ -115,7 +115,7 @@ markporto check-connection --settings settings.json
 "input": { "extractors": { "pdf": "docling" } }
 ```
 
-`{input}` は入力のファイル、`{output}` は書き出すMarkdownのファイル、`{outdir}` はコマンド用のフォルダです(`{outdir}` だけを渡したときは、コマンドがそこに書いた `.md` を読みます)。`"output": "stdout"` なら、標準出力を読みます。コマンドは `PATH` から探します(フルパスでも可)。たとえば `uv tool install "markitdown[all]"` や `uv tool install docling` で入れたあとです。引数はツールの版で違うので、先に手で試してください。文書をPCの外へ送るコマンドは、`"sendsExternally": true` と同意(`"externalConsent": { "at": "2026-10-31T00:00:00+09:00", "noticeVersion": 2 }`)が要ります。
+`{input}` は入力のファイル、`{output}` は書き出すMarkdownのファイル、`{outdir}` はコマンド用のフォルダです(`{outdir}` だけを渡したときは、コマンドがそこに書いた `.md` を読みます)。`"output": "stdout"` なら、標準出力を読みます。コマンドは `PATH` から探します(フルパスでも可)。たとえば `uv tool install "markitdown[all]"` 、`uv tool install docling`、`winget install JohnMacFarlane.Pandoc` で入れたあとです。Pandocは、docx と pptx はよく読みますが、PDFは読めず、xlsx のシートは、マス目のままの表にします。引数はツールの版で違うので、先に手で試してください。文書をPCの外へ送るコマンドは、`"sendsExternally": true` と同意が要ります。抽出コマンドの設定の「同意...」を押すか、`markporto consent <名前>` を実行します(`--revoke` で取り消し)。
 
 ### `claude`・`codex`・`opencode` で読み取る
 

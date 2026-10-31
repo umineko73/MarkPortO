@@ -244,7 +244,7 @@ public sealed class ConvertService
                 ?? throw new ConvertStartException(Loc.T("The extractor '{0}' is not in the settings.", name)) { Item = ConvertStartException.ExtractorItem };
             var problem = ExtractorRunner.Validate(profile)
                 ?? (ExtractorRunner.FindProgram(profile.Command) is null ? Loc.T("The command '{0}' of the extractor '{1}' was not found.", profile.Command, profile.Name) : null)
-                ?? (profile.SendsExternally && profile.ExternalConsent is null ? Loc.T("The extractor '{0}' sends documents outside; it needs your consent first.", profile.Name) : null);
+                ?? (ExternalConsent.StateOf(profile) is ConsentState.Missing or ConsentState.Outdated ? Loc.T("The extractor '{0}' sends documents outside; it needs your consent first (markporto consent {0}).", profile.Name) : null);
             if (problem is not null)
             {
                 throw new ConvertStartException(problem) { Item = ConvertStartException.ExtractorItem };
