@@ -19,7 +19,7 @@ using MarkPortO.Core.Localization;
 namespace MarkPortO.Core.Settings;
 
 /// <summary>
-/// The conditions of the folded part of the main window (the kinds of file, the sub-folders, the engine, the DPI, bold and italic) in one line (FR-102).
+/// The conditions of the folded part of the main window (the kinds of file with the extractor that is chosen for each, the sub-folders, the engine, the DPI, bold and italic) in one line (FR-102).
 /// It is shown when the part is closed, so that the choices can be seen without opening it. The steps, the connection and the page range are
 /// not in it: they are always on the screen.
 /// </summary>
@@ -32,7 +32,13 @@ public static class ConditionSummary
     {
         var parts = new List<string>();
 
-        var types = settings.Input.Types.Distinct().OrderBy(t => t).Select(t => t.ToString().ToLowerInvariant()).ToList();
+        // A kind that an extractor writes (FR-111) shows its name: docx(pandoc).
+        var types = settings.Input.Types.Distinct().OrderBy(t => t).Select(t =>
+        {
+            var name = t.ToString().ToLowerInvariant();
+            var extractor = settings.Input.Extractors.For(t);
+            return extractor.Length > 0 ? $"{name}({extractor})" : name;
+        }).ToList();
         parts.Add(types.Count > 0 ? string.Join(' ', types) : Loc.T("No kind of file"));
 
         if (settings.Input.Recurse)

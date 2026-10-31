@@ -76,6 +76,30 @@ public class ConditionSummaryTests
     }
 
     [Fact]
+    public void AKindWithAnExtractor_ShowsItsName()
+    {
+        var settings = Settings(s =>
+        {
+            s.Input.Extractors.Docx = "pandoc";
+            s.Input.Extractors.Pdf = " docling ";
+        });
+
+        Assert.Equal("docx(pandoc) xlsx pptx pdf(docling) | Sub-folders | LibreOffice | 150 DPI", Build(settings, "en"));
+    }
+
+    [Fact]
+    public void AnExtractorOfAKindThatIsNotChosen_IsNotShown()
+    {
+        var settings = Settings(s =>
+        {
+            s.Input.Types = [DocumentKind.Docx];
+            s.Input.Extractors.Pdf = "docling";
+        });
+
+        Assert.Equal("docx | Sub-folders | LibreOffice | 150 DPI", Build(settings, "en"));
+    }
+
+    [Fact]
     public void NoKindOfFile_IsSaid()
     {
         Assert.StartsWith("対象の種類なし | ", Build(Settings(s => s.Input.Types = []), "ja"));

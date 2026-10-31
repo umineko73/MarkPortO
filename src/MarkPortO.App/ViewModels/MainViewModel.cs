@@ -80,7 +80,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(Recurse) or nameof(TypeDocx) or nameof(TypeXlsx) or nameof(TypePptx) or nameof(TypePdf)
-                or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis))
+                or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis)
+                or nameof(ExtractorDocx) or nameof(ExtractorXlsx) or nameof(ExtractorPptx) or nameof(ExtractorPdf))
             {
                 Raise(nameof(ConditionSummaryText));
             }
