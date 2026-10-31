@@ -53,6 +53,8 @@
   <sys:String x:Key="Main_Cond_HiddenSheets">非表示のシートを含める</sys:String>
   <sys:String x:Key="Main_Cond_HiddenSlides">非表示のスライドを含める</sys:String>
   <sys:String x:Key="Main_Cond_Recurse">サブフォルダも対象にする</sys:String>
+  <sys:String x:Key="Main_Cond_Fold">対象と変換</sys:String>
+  <sys:String x:Key="Main_Cond_FoldTip">種類・サブフォルダ・変換エンジン・DPI などの条件を、たたんだり開いたりします。たたむと、いまの選択を1行で見せます。Step の行は、いつも見えます。</sys:String>
   <sys:String x:Key="Main_Cond_Emphasis">太字・斜体を書く</sys:String>
   <sys:String x:Key="Main_Cond_EmphasisTip">文中の太字を ** で、斜体を * で囲んで書きます（Word・PowerPoint・Excel）。段落（セル）の全体が太字（斜体）のもの、見出し、スライドのタイトルには付けません。</sys:String>
   <sys:String x:Key="Main_Cond_OffSlide">スライド外の文字を含める</sys:String>

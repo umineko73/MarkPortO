@@ -114,7 +114,7 @@ public sealed class ConvertService
         var availability = _engine.CheckAvailability();
         if (!availability.IsAvailable)
         {
-            throw new ConvertStartException(availability.Reason ?? Loc.T("The conversion engine is not available."));
+            throw new ConvertStartException(availability.Reason ?? Loc.T("The conversion engine is not available.")) { Item = ConvertStartException.EngineItem };
         }
 
         var documents = new List<DocumentRecord>();
@@ -321,7 +321,7 @@ public sealed class ConvertService
         var availability = request.Inputs.All(i => OoxmlPackage.KindOf(i.Path) == DocumentKind.Pdf) ? EngineAvailability.Available : _engine.CheckAvailability();
         if (!availability.IsAvailable)
         {
-            throw new ConvertStartException(availability.Reason ?? Loc.T("The conversion engine is not available."));
+            throw new ConvertStartException(availability.Reason ?? Loc.T("The conversion engine is not available.")) { Item = ConvertStartException.EngineItem };
         }
     }
 

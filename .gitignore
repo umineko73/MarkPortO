@@ -23,3 +23,6 @@ Thumbs.db
 
 # The specifications are private: they stay on disk and are not committed or pushed
 /specs/
+
+# Temporary project files of the WPF build (made next to the project while it builds)
+*_wpftmp.csproj

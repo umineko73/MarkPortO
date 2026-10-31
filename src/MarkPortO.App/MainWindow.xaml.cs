@@ -39,6 +39,19 @@ public partial class MainWindow : Window
             ShowPrompts = ShowPrompts,
         };
         DataContext = _viewModel;
+
+        // A value of the folded part was refused while it was closed: it is open now, and the item has the focus (FR-102).
+        _viewModel.ConditionItemRejected += item => Dispatcher.BeginInvoke(() =>
+        {
+            System.Windows.Controls.Control? target = item switch
+            {
+                "dpi" => DpiBox,
+                "engine" => EngineBox,
+                "types" => DocxBox,
+                _ => null,
+            };
+            target?.Focus();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private bool _closeConfirmed;

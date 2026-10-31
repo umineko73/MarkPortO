@@ -466,4 +466,13 @@
   <data name="A page range can be used only when one file is converted." xml:space="preserve">
     <value>ページの範囲は、ファイルを1つだけ変換するときに使えます。</value>
   </data>
+  <data name="No kind of file" xml:space="preserve">
+    <value>対象の種類なし</value>
+  </data>
+  <data name="Sub-folders" xml:space="preserve">
+    <value>サブフォルダ</value>
+  </data>
+  <data name="No bold or italic" xml:space="preserve">
+    <value>太字・斜体なし</value>
+  </data>
 </root>

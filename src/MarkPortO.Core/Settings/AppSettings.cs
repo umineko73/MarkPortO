@@ -298,6 +298,9 @@ public sealed class UiSettings
 
     /// <summary><c>system</c>, <c>light</c> or <c>dark</c>.</summary>
     public string Theme { get; set; } = SystemTheme;
+
+    /// <summary>The part of the conditions that can be folded (the kinds of file and the conversion) is open (FR-102).</summary>
+    public bool ConditionsExpanded { get; set; } = true;
 }
 
 public sealed class EngineSettings

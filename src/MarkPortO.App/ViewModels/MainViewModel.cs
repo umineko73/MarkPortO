@@ -71,9 +71,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             var before = _statusSource;
             _statusSource = () => messages.Count > 0 ? $"{before()} / {engineNote()}" : engineNote();
+            ConditionsExpanded = true; // the engine is in the folded part: the message is about it
         }
 
         _status = _statusSource();
+
+        // The line of the folded part is made again when one of its items changes (FR-102).
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(Recurse) or nameof(TypeDocx) or nameof(TypeXlsx) or nameof(TypePptx) or nameof(TypePdf)
+                or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis))
+            {
+                Raise(nameof(ConditionSummaryText));
+            }
+        };
 
         StartCommand = new RelayCommand(StartAsync, CanStart);
         InterruptCommand = new RelayCommand(InterruptAsync, () => IsRunning);
@@ -132,6 +143,45 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         _statusSource = source;
         Status = source();
+    }
+
+    // ---- the folded part of the conditions (FR-102) ----
+
+    /// <summary>The part with the kinds of file and the conversion is open. It is kept in the settings.</summary>
+    public bool ConditionsExpanded
+    {
+        get => _store.Current.Ui.ConditionsExpanded;
+        set
+        {
+            if (value == _store.Current.Ui.ConditionsExpanded)
+            {
+                return;
+            }
+
+            _store.Update(s => s.Ui.ConditionsExpanded = value);
+            Raise();
+            Raise(nameof(ConditionsCollapsedVisibility));
+        }
+    }
+
+    /// <summary>The line of the choices is shown when the part is closed.</summary>
+    public System.Windows.Visibility ConditionsCollapsedVisibility => ConditionsExpanded ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+
+    /// <summary>What is chosen in the folded part, in one line.</summary>
+    public string ConditionSummaryText => ConditionSummary.Build(_store.Current);
+
+    /// <summary>An item of the folded part (<c>dpi</c>, <c>engine</c>, <c>types</c>) was refused while the part was closed: the part is open now, the screen puts the focus on the item.</summary>
+    public event Action<string>? ConditionItemRejected;
+
+    private void OpenCondition(string item)
+    {
+        if (ConditionsExpanded)
+        {
+            return; // it is on the screen already
+        }
+
+        ConditionsExpanded = true;
+        ConditionItemRejected?.Invoke(item);
     }
 
     // ---- what can be changed (FR-066) ----
@@ -389,6 +439,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(LanguageIsEnglish));
         Raise(nameof(LanguageIsSystem));
         Raise(nameof(ConnectionInUse));
+        Raise(nameof(ConditionSummaryText));
         Status = _statusSource();
         if (!IsRunning)
         {
@@ -451,6 +502,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 var kept = _store.Current.Images.Dpi;
                 SetStatus(() => UiText.Get("Status_DpiInvalid", SettingsLimits.MinDpi, SettingsLimits.MaxDpi, kept));
+                OpenCondition("dpi");
             }
         }
     }
@@ -813,6 +865,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (errors.Count > 0)
         {
             SetStatus(() => UiText.Get("Status_CheckSettings", string.Join(" / ", errors)));
+            if (snapshot.Input.Types.Count == 0)
+            {
+                OpenCondition("types");
+            }
+            else if (snapshot.Images.Dpi is < SettingsLimits.MinDpi or > SettingsLimits.MaxDpi)
+            {
+                OpenCondition("dpi");
+            }
+
             return;
         }
 
@@ -859,6 +920,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         catch (ConvertStartException ex)
         {
             SetStatus(() => ex.Message);
+            if (ex.Item == ConvertStartException.EngineItem)
+            {
+                OpenCondition("engine");
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

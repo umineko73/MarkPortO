@@ -100,15 +100,30 @@
             </Style.Triggers>
           </Style>
         </GroupBox.Resources>
-        <Grid>
+        <StackPanel>
+          <!-- The folded part: the kinds of file and the conversion (FR-102). Closed, the line says what is chosen. Steps are always shown. -->
+          <Expander x:Name="ConditionsExpander" IsExpanded="{Binding ConditionsExpanded, Mode=TwoWay}" HorizontalContentAlignment="Stretch" Margin="0,0,0,6"
+                    ToolTip="{DynamicResource Main_Cond_FoldTip}">
+            <Expander.Header>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{DynamicResource Main_Cond_Fold}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding ConditionSummaryText, Mode=OneWay}" ToolTip="{Binding ConditionSummaryText, Mode=OneWay}"
+                           Visibility="{Binding ConditionsCollapsedVisibility}" Margin="14,0,8,0" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" Foreground="{DynamicResource SubtleTextBrush}" />
+              </Grid>
+            </Expander.Header>
+
+          <!-- The folded part itself: the Expander shows it when it is open. -->
+          <Grid Margin="0,6,0,0">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="120" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -122,16 +137,16 @@
             <CheckBox Content="{DynamicResource Main_Cond_Recurse}" IsChecked="{Binding Recurse}" VerticalAlignment="Center" Margin="0,0,20,0" />
             <CheckBox Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Engine}" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <ComboBox ItemsSource="{Binding EngineChoices}" DisplayMemberPath="Name" SelectedValuePath="Kind"
+            <ComboBox x:Name="EngineBox" ItemsSource="{Binding EngineChoices}" DisplayMemberPath="Name" SelectedValuePath="Kind"
                       SelectedValue="{Binding SelectedEngine}" Width="170" Margin="0,0,20,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Dpi}" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <TextBox Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="56" VerticalContentAlignment="Center" />
+            <TextBox x:Name="DpiBox" Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="56" VerticalContentAlignment="Center" />
           </StackPanel>
 
           <!-- One row for each kind of file: whether it is converted, and the options that are only for it -->
           <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_RowDocx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
-            <CheckBox Content="docx" IsChecked="{Binding TypeDocx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <CheckBox x:Name="DocxBox" Content="docx" IsChecked="{Binding TypeDocx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,16,0" />
           </StackPanel>
 
           <TextBlock Grid.Row="2" Text="{DynamicResource Main_Cond_RowXlsx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
@@ -164,18 +179,33 @@
             </StackPanel>
           </StackPanel>
 
+          </Grid>
+          </Expander>
+
+          <!-- Steps: always shown, also when the part above is folded (FR-102) -->
+          <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
           <!-- Step1 always runs: it is shown, and it cannot be changed (FR-039) -->
-          <TextBlock Grid.Row="5" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+          <TextBlock Grid.Row="0" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
             <CheckBox Content="{DynamicResource Main_Cond_Step1}" IsChecked="True" IsEnabled="False" VerticalAlignment="Center" Margin="0,0,10,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Step1Always}" VerticalAlignment="Center" Foreground="{DynamicResource SubtleTextBrush}" />
           </StackPanel>
 
-          <TextBlock Grid.Row="6" Text="Step2" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <CheckBox Grid.Row="6" Grid.Column="1" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <TextBlock Grid.Row="1" Text="Step2" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <CheckBox Grid.Row="1" Grid.Column="1" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,0,6" />
 
-          <TextBlock Grid.Row="7" Text="Step3" VerticalAlignment="Center" />
-          <WrapPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal">
+          <TextBlock Grid.Row="2" Text="Step3" VerticalAlignment="Center" />
+          <WrapPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
             <CheckBox Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
             <CheckBox Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Connection}" VerticalAlignment="Center" Margin="0,0,4,0" />
@@ -188,7 +218,8 @@
               <TextBox Text="{Binding PageRangeText, UpdateSourceTrigger=PropertyChanged}" Width="110" VerticalContentAlignment="Center" />
             </StackPanel>
           </WrapPanel>
-        </Grid>
+          </Grid>
+        </StackPanel>
       </GroupBox>
 
       <!-- Actions -->
@@ -205,7 +236,7 @@
 
       <Grid Grid.Row="4">
         <Grid.RowDefinitions>
-          <RowDefinition Height="2*" MinHeight="90" />
+          <RowDefinition Height="*" MinHeight="90" />
           <RowDefinition Height="Auto" />
           <RowDefinition Height="*" MinHeight="90" />
         </Grid.RowDefinitions>

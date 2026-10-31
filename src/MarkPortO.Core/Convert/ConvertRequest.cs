@@ -106,7 +106,13 @@ public static class DocumentRecordExtensions
 }
 
 /// <summary>The run cannot start (a bad setting, an engine that is not available ...). Nothing has been written.</summary>
-public class ConvertStartException(string message) : Exception(message);
+public class ConvertStartException(string message) : Exception(message)
+{
+    /// <summary>Which item of the conditions the message is about, when there is one (<c>engine</c>): the screen opens it (FR-102).</summary>
+    public string? Item { get; init; }
+
+    public const string EngineItem = "engine";
+}
 
 /// <summary>There is no job to resume (none in the output folder, or the named one does not exist or cannot be resumed).</summary>
 public sealed class JobNotFoundException(string message) : ConvertStartException(message);
