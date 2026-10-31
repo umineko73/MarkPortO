@@ -198,6 +198,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>"Write the results to a separate file" has a meaning only when Step 3 is on.</summary>
     public bool CanEditVlmSeparate => !IsRunning && Step3;
 
+    public bool CanEditStep1Tables => !IsRunning && Step3;
+
     /// <summary>The pages that Step3 reads, as written (FR-097). Not kept in the settings: it is for the one file that is converted.</summary>
     public string PageRangeText
     {
@@ -225,6 +227,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(HasPrevious));
         Raise(nameof(CanEditNewRun));
         Raise(nameof(CanEditVlmSeparate));
+        Raise(nameof(CanEditStep1Tables));
         Raise(nameof(CanEditPages));
         Raise(nameof(PagesTip));
         Raise(nameof(LockedTip));
@@ -553,6 +556,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Leave out the tables of the VLM result where the text of the page has a table (FR-105).</summary>
+    public bool Step1Tables
+    {
+        get => _store.Current.Steps.Step1Tables;
+        set
+        {
+            _store.Update(s => s.Steps.Step1Tables = value);
+            Raise();
+        }
+    }
+
     /// <summary>Step 3: read the page images with the VLM.</summary>
     public bool Step3
     {
@@ -561,6 +575,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             _store.Update(s => s.Steps.Step3 = value);
             Raise(nameof(CanEditVlmSeparate));
+            Raise(nameof(CanEditStep1Tables));
             Raise(nameof(PagesTip));
             Raise(nameof(PdfHintVisibility));
             Raise();
@@ -824,6 +839,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Step2 = snapshot.Steps.Step2,
                 Step3 = snapshot.Steps.Step3,
                 VlmSeparate = snapshot.Steps.VlmSeparate,
+                Step1Tables = snapshot.Steps.Step1Tables,
             },
             token));
     }

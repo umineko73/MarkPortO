@@ -38,5 +38,7 @@ public sealed class ResumeRequest
 
     public bool? VlmSeparate { get; init; }
 
+    public bool? Step1Tables { get; init; }
+
     public string? Connection { get; init; }
 }

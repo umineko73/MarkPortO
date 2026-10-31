@@ -42,7 +42,7 @@ internal static partial class VlmTableJoiner
         var paragraphContinuation = new HashSet<int>();
         for (var i = 0; i < document.Blocks.Count; i++)
         {
-            if (document.Blocks[i] is { Kind: BlockKind.Table or BlockKind.SheetTable, JoinedToPage: not null })
+            if (document.Blocks[i] is { Kind: BlockKind.Table or BlockKind.SheetTable, JoinedToPage: not null } && !document.Step1Tables)
             {
                 continuation.Add(effectivePages[i]);
             }

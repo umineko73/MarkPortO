@@ -128,12 +128,15 @@ public sealed class ConvertService
         var step2Before = job.Options.Step2;
         var step3Before = job.Options.Step3;
         var separateBefore = job.Options.VlmSeparate;
+        var tablesBefore = job.Options.Step1Tables;
         job.Options.Step2 = request.Step2 ?? job.Options.Step2;
         job.Options.Step3 = request.Step3 ?? job.Options.Step3;
         job.Options.VlmSeparate = request.VlmSeparate ?? job.Options.VlmSeparate;
+        job.Options.Step1Tables = request.Step1Tables ?? job.Options.Step1Tables;
         foreach (var document in documents)
         {
             document.VlmSeparate = job.Options.VlmSeparate;
+            document.Step1Tables = job.Options.Step1Tables;
         }
 
         job.Options.Connection = request.Connection ?? job.Options.Connection;
@@ -158,7 +161,7 @@ public sealed class ConvertService
         }
 
         // A step switched off or on changes the Markdown of finished files (image references, VLM results).
-        if (step2Before != job.Options.Step2 || step3Before != job.Options.Step3 || separateBefore != job.Options.VlmSeparate)
+        if (step2Before != job.Options.Step2 || step3Before != job.Options.Step3 || separateBefore != job.Options.VlmSeparate || tablesBefore != job.Options.Step1Tables)
         {
             foreach (var document in documents.Where(d => d.Step1 == StepStatus.Done && !toRun.Contains(d)))
             {
@@ -366,6 +369,7 @@ public sealed class ConvertService
                 Step2 = options.Step2 ? StepStatus.Pending : StepStatus.NotApplicable,
                 Step3 = options.Step3 ? StepStatus.Pending : StepStatus.NotApplicable,
                 VlmSeparate = options.VlmSeparate,
+                Step1Tables = options.Step1Tables,
             };
 
             try

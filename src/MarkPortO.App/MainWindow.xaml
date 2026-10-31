@@ -208,6 +208,7 @@
           <WrapPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
             <CheckBox Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
             <CheckBox Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <CheckBox Content="{DynamicResource Main_Cond_Step1Tables}" IsChecked="{Binding Step1Tables}" IsEnabled="{Binding CanEditStep1Tables}" VerticalAlignment="Center" Margin="0,0,16,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Connection}" VerticalAlignment="Center" Margin="0,0,4,0" />
             <TextBlock Text="{Binding ConnectionInUse, Mode=OneWay}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,8,0" />
             <Button Content="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" Padding="8,2" />

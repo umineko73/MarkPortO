@@ -65,6 +65,11 @@ public static class MarkdownRenderer
         var effectivePages = DocxPageAssigner.EffectivePages(document.Blocks, document.Pages.Count);
         var blockTexts = JoinTableParts(document.Blocks, effectivePages, language);
         var vlmTexts = includeVlm ? VlmTableJoiner.Join(document, effectivePages, language) : new Dictionary<int, string>();
+        if (includeVlm && document.Step1Tables)
+        {
+            vlmTexts = Step1Tables.Apply(document, effectivePages, vlmTexts, language);
+        }
+
         foreach (var page in document.Pages.OrderBy(p => p.Index))
         {
             builder.Append('\n');

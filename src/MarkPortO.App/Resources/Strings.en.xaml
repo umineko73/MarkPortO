@@ -64,6 +64,7 @@
   <sys:String x:Key="Main_Cond_Step1">Convert the text to Markdown and save an image of every page</sys:String>
   <sys:String x:Key="Main_Cond_Step1Always">(always)</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Put the images into the Markdown</sys:String>
+  <sys:String x:Key="Main_Cond_Step1Tables">Use the tables of the extracted text (leave out those of the VLM)</sys:String>
   <sys:String x:Key="Main_Cond_VlmSeparate">Write the results to a separate file (name__vlm.md)</sys:String>
   <sys:String x:Key="Main_Cond_Step3">Read the text from the images with the VLM</sys:String>
   <sys:String x:Key="Main_Cond_Pages">Pages:</sys:String>

@@ -70,6 +70,7 @@ public sealed class ConvertRequest
         Step2 = settings.Steps.Step2,
         Step3 = settings.Steps.Step3,
         VlmSeparate = settings.Steps.VlmSeparate,
+        Step1Tables = settings.Steps.Step1Tables,
         Connection = settings.Steps.Step3 ? settings.Vlm.Selected : null,
         MarkdownLanguage = LanguageResolver.Resolve(settings.Ui.Language),
     };

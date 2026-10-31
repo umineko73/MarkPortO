@@ -138,6 +138,9 @@ public sealed class DocumentRecord
     /// <summary>The VLM results are written to <c>name_vlm.md</c>, not into the Markdown of the document (FR-058).</summary>
     public bool VlmSeparate { get; set; }
 
+    /// <summary>The tables of the VLM result are left out where the text of the page has a table (FR-105).</summary>
+    public bool Step1Tables { get; set; }
+
     public List<PageRecord> Pages { get; set; } = [];
 
     public List<Block> Blocks { get; set; } = [];
@@ -203,6 +206,8 @@ public sealed class OptionsSnapshot
     public bool Step3 { get; set; }
 
     public bool VlmSeparate { get; set; }
+
+    public bool Step1Tables { get; set; }
 
     public string? Connection { get; set; }
 
