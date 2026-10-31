@@ -99,6 +99,10 @@ public static class CliApp
         var step3 = new Option<string?>("--step3") { Description = "on or off: read the page images with the VLM." };
         var vlmSeparate = new Option<string?>("--vlm-separate") { Description = "on or off: write the results of Step 3 to a separate file, name_vlm.md." };
         var step1Tables = new Option<string?>("--step1-tables") { Description = "off, replace or omit: where the text of a page has a table, replace the tables of the VLM result by it (replace), or leave them out (omit)." };
+        var extractorDocx = new Option<string?>("--extractor-docx") { Description = "Experimental. The extractor (a name in settings.json) that writes the Markdown of docx files; builtin is the built-in one." };
+        var extractorXlsx = new Option<string?>("--extractor-xlsx") { Description = "Experimental. The extractor that writes the Markdown of xlsx files." };
+        var extractorPptx = new Option<string?>("--extractor-pptx") { Description = "Experimental. The extractor that writes the Markdown of pptx files." };
+        var extractorPdf = new Option<string?>("--extractor-pdf") { Description = "Experimental. The extractor that writes the Markdown of pdf files." };
         var connection = new Option<string?>("--connection") { Description = "Name of the VLM connection in settings.json." };
         var maxPages = new Option<int?>("--max-pages") { Description = "Stop after this many pages have been read by Step 3 (default: the setting of the connection; empty is no limit)." };
         var maxCost = new Option<double?>("--max-cost") { Description = "Stop after Step 3 has cost this many US dollars, when the command says what it costs." };
@@ -114,7 +118,7 @@ public static class CliApp
         foreach (var option in new Option[]
         {
             settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, engine, dpi, excelRange, step2, step3, vlmSeparate,
-            pages, step1Tables, connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
+            pages, step1Tables, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
         })
         {
             convert.Options.Add(option);
@@ -144,6 +148,10 @@ public static class CliApp
                 Step3 = parse.GetValue(step3),
                 VlmSeparate = parse.GetValue(vlmSeparate),
                 Step1Tables = parse.GetValue(step1Tables),
+                ExtractorDocx = parse.GetValue(extractorDocx),
+                ExtractorXlsx = parse.GetValue(extractorXlsx),
+                ExtractorPptx = parse.GetValue(extractorPptx),
+                ExtractorPdf = parse.GetValue(extractorPdf),
                 Connection = parse.GetValue(connection),
                 MaxPages = parse.GetValue(maxPages),
                 MaxCost = parse.GetValue(maxCost),
@@ -332,7 +340,7 @@ public static class CliApp
         var engine = EngineFactory.Create(settings.Engine);
         using var engineLifetime = engine as IDisposable;
         await PrintSendingNoteAsync(vlm, stdout);
-        var service = new ConvertService(engine, vlm: vlm);
+        var service = new ConvertService(engine, vlm: vlm, extractors: settings.Extractors);
         var progress = new ConsoleProgress(stdout, args.Quiet);
         service.DocumentChanged += progress.Report;
 
@@ -400,7 +408,7 @@ public static class CliApp
         var engine = EngineFactory.Create(settings.Engine);
         using var engineLifetime = engine as IDisposable;
         await PrintSendingNoteAsync(vlm, stdout);
-        var service = new ConvertService(engine, vlm: vlm);
+        var service = new ConvertService(engine, vlm: vlm, extractors: settings.Extractors);
         var progress = new ConsoleProgress(stdout, args.Quiet);
         service.DocumentChanged += progress.Report;
         service.DocumentSkipped += progress.Skipped;

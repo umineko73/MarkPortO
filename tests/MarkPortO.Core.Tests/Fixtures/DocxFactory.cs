@@ -87,6 +87,30 @@ public static class DocxFactory
         Finish(body);
     }
 
+    /// <summary>
+    /// Two items of a list whose numbering is in the style ("List Bullet": the paragraphs have no numbering of their own), a paragraph whose style turns
+    /// the numbering off (<c>numId</c> 0), and a plain paragraph.
+    /// </summary>
+    public static void CreateStyleNumbered(string path)
+    {
+        using var document = NewDocument(path, out var body);
+        var main = document.MainDocumentPart!;
+        var styles = main.AddNewPart<StyleDefinitionsPart>();
+        var listBullet = Style("ListBullet", "List Bullet", basedOn: "Normal");
+        listBullet.AppendChild(new StyleParagraphProperties(new NumberingProperties(new NumberingId { Val = 1 })));
+        var listBulletTwo = Style("ListBullet2", "List Bullet 2", basedOn: "ListBullet");
+        var noList = Style("NoList", "No List", basedOn: "ListBullet");
+        noList.AppendChild(new StyleParagraphProperties(new NumberingProperties(new NumberingId { Val = 0 })));
+        styles.Styles = new Styles(Style("Normal", "Normal", isDefault: true), listBullet, listBulletTwo, noList);
+        AddBulletNumbering(main);
+
+        body.AppendChild(Styled("ListBullet", "first item"));
+        body.AppendChild(Styled("ListBullet2", "second item"));
+        body.AppendChild(Styled("NoList", "not a list"));
+        body.AppendChild(Plain("plain"));
+        Finish(body);
+    }
+
     /// <summary>A heading, two bullet items, a paragraph, and a 2 x 2 table.</summary>
     public static void CreateStructured(string path)
     {

@@ -42,7 +42,7 @@ public static class MarkdownRenderer
     {
         var includeImages = document.Step2 == StepStatus.Done && !vlmFile;
         var hasVlm = document.Step3 != StepStatus.NotApplicable;
-        var includeVlm = hasVlm && (vlmFile || !document.VlmSeparate);
+        var includeVlm = hasVlm && (vlmFile || !document.VlmInSeparateFile);
         var fileName = Path.GetFileName(document.SourcePath);
         var language = document.MarkdownLanguage;
         var name = Path.GetFileNameWithoutExtension(document.SourcePath);
@@ -51,7 +51,7 @@ public static class MarkdownRenderer
         builder.Append("# ").Append(MarkdownText.Escape(fileName).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
         AppendStructureNote(builder, fileName, document.Kind, includeImages, includeVlm, document.Pages.Any(p => p.Bands > 1),
             document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), language,
-            vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmSeparate ? VlmFileName(name) : null);
+            vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmInSeparateFile ? VlmFileName(name) : null);
 
         if (includeVlm && TryUsageLine(document.Pages, language) is { } usageLine)
         {
@@ -323,10 +323,13 @@ public static class MarkdownRenderer
     {
         var name = Path.GetFileNameWithoutExtension(document.SourcePath);
         var path = Path.Combine(document.OutputFolder, MarkdownFileName(name));
-        AtomicFile.WriteAllText(path, Render(document));
+        if (document.Extractor is null)
+        {
+            AtomicFile.WriteAllText(path, Render(document));
+        }
 
         var vlmPath = Path.Combine(document.OutputFolder, VlmFileName(name));
-        if (document.VlmSeparate && document.Step3 != StepStatus.NotApplicable)
+        if (document.VlmInSeparateFile && document.Step3 != StepStatus.NotApplicable)
         {
             AtomicFile.WriteAllText(vlmPath, RenderVlm(document));
         }

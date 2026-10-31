@@ -97,6 +97,22 @@ Exit codes: `0` success, `1` some files failed, `2` invalid arguments or setting
 
 The location can be changed with the environment variable `MARKPORTO_SETTINGS`. Write the *name* of an environment variable (`apiKeyEnv`) rather than a key; a key typed in the app is stored so that only the current Windows user can decrypt it (DPAPI), and never appears in logs or output.
 
+### Experimental: an external command writes the Markdown
+
+For a kind of file, the Markdown can be written by a program that you installed yourself (MarkItDown, Docling, Pandoc and so on). MarkPortO does not install or update it; it only runs it, without a shell, with the arguments that you give. The result is the Markdown of the whole document, as the command wrote it, **with no page marks and no page image references** (the page images are still saved in `images/`, and the results of the VLM go to `name_vlm.md`). The features of MarkPortO for that kind of file (tables over several pages, merged cells, bold and italic, and so on) do not apply. This is an experimental feature: how it is set may change.
+
+Write the commands in `settings.json`, and choose one for each kind of file (the field **Extractor (experimental)** of the conditions, which appears when there are commands, or `--extractor-docx|xlsx|pptx|pdf <name>`; `builtin` is the built-in one):
+
+```json
+"extractors": [
+  { "name": "markitdown", "command": "C:\\tools\\venv\\Scripts\\markitdown.exe", "args": ["{input}", "-o", "{output}"] },
+  { "name": "docling", "command": "docling", "args": ["{input}", "--to", "md", "--image-export-mode", "placeholder", "--output", "{outdir}"], "timeoutSeconds": 600 }
+],
+"input": { "extractors": { "pdf": "docling" } }
+```
+
+`{input}` is the file, `{output}` the Markdown file to write, `{outdir}` a folder for the command (when only `{outdir}` is given, the `.md` file that the command writes there is read). `"output": "stdout"` reads the standard output. The arguments differ between versions of a tool: try the command by hand first. A command that sends your documents outside the PC needs `"sendsExternally": true` and a consent (`"externalConsent": { "at": "2026-10-31T00:00:00+09:00", "noticeVersion": 2 }`).
+
 ### Reading with `claude`, `codex` or `opencode`
 
 ```json

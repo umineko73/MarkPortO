@@ -64,6 +64,9 @@
   <sys:String x:Key="Main_Cond_Step1">Convert the text to Markdown and save an image of every page</sys:String>
   <sys:String x:Key="Main_Cond_Step1Always">(always)</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Put the images into the Markdown</sys:String>
+  <sys:String x:Key="Main_Cond_Extractor">Extractor (experimental):</sys:String>
+  <sys:String x:Key="Main_Cond_ExtractorBuiltIn">built-in</sys:String>
+  <sys:String x:Key="Main_Cond_ExtractorTip">An external command that is written in settings.json writes the Markdown (an experimental feature). There are no pages marks, and the VLM results go to a file of their own.</sys:String>
   <sys:String x:Key="Main_Cond_Tables">Tables:</sys:String>
   <sys:String x:Key="Main_Cond_TablesVlm">use the VLM result</sys:String>
   <sys:String x:Key="Main_Cond_TablesReplace">use the extracted text</sys:String>

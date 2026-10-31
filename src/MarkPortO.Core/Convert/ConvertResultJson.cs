@@ -52,7 +52,7 @@ public static class ConvertResultJson
         Source = document.SourcePath,
         OutputFolder = document.OutputFolder,
         Markdown = Markdown.MarkdownRenderer.MarkdownFileName(Path.GetFileNameWithoutExtension(document.SourcePath)),
-        VlmMarkdown = document.VlmSeparate && document.Step3 != StepStatus.NotApplicable
+        VlmMarkdown = document.VlmInSeparateFile && document.Step3 != StepStatus.NotApplicable
             ? Markdown.MarkdownRenderer.VlmFileName(Path.GetFileNameWithoutExtension(document.SourcePath))
             : null,
         State = StateOf(document),

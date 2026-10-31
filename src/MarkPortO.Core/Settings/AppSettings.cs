@@ -40,6 +40,12 @@ public sealed class AppSettings
 
     public VlmSettings Vlm { get; set; } = new();
 
+    /// <summary>External commands that write Markdown for a file (FR-110, experimental).</summary>
+    public List<ExtractorProfile> Extractors { get; set; } = [];
+
+    public ExtractorProfile? FindExtractor(string name) =>
+        Extractors.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
+
     public static AppSettings CreateDefault() => new();
 
     /// <summary>
@@ -241,6 +247,9 @@ public static class SettingsLimits
 public sealed class InputSettings
 {
     public List<string> Paths { get; set; } = [];
+
+    /// <summary>The extractor for each kind of file; empty is the built-in one (FR-111, experimental).</summary>
+    public ExtractorChoice Extractors { get; set; } = new();
 
     public bool Recurse { get; set; }
 

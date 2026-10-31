@@ -51,10 +51,13 @@ public static partial class PagePreview
         var markdown = SplitPages(ReadOrEmpty(Path.Combine(document.OutputFolder, MarkdownRenderer.MarkdownFileName(name))));
         var vlmFile = SplitPages(ReadOrEmpty(Path.Combine(document.OutputFolder, MarkdownRenderer.VlmFileName(name))));
 
+        // The Markdown of an extractor has no pages: the whole of it is shown with every page, and it stays where it is when the page changes (FR-114).
+        var whole = document.Extractor is null ? null : ReadOrEmpty(Path.Combine(document.OutputFolder, MarkdownRenderer.MarkdownFileName(name))).Trim();
+
         var result = new List<PreviewPage>();
         foreach (var page in document.Pages)
         {
-            var text = markdown.GetValueOrDefault(page.Index, string.Empty);
+            var text = whole ?? markdown.GetValueOrDefault(page.Index, string.Empty);
             string? vlm = null;
             if (vlmFile.TryGetValue(page.Index, out var separate))
             {

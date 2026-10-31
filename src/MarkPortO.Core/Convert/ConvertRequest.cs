@@ -58,6 +58,7 @@ public sealed class ConvertRequest
     public static OptionsSnapshot OptionsFrom(AppSettings settings) => new()
     {
         Types = [.. settings.Input.Types],
+        Extractors = settings.Input.Extractors.Clone(),
         Recurse = settings.Input.Recurse,
         Dpi = settings.Images.Dpi,
         ExcelRange = settings.Images.ExcelRange,
@@ -113,6 +114,9 @@ public class ConvertStartException(string message) : Exception(message)
     public string? Item { get; init; }
 
     public const string EngineItem = "engine";
+
+    /// <summary>The extractor chosen for a kind of file cannot be used (FR-111).</summary>
+    public const string ExtractorItem = "extractor";
 }
 
 /// <summary>There is no job to resume (none in the output folder, or the named one does not exist or cannot be resumed).</summary>

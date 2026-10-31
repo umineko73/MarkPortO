@@ -60,6 +60,16 @@ public sealed class JobContext(
     /// <summary>How many pages are read at the same time (FR-044).</summary>
     public int Step3Parallel { get; init; } = 1;
 
+    /// <summary>The external commands that write Markdown (FR-110); with their environment values, which are not in the state of the job.</summary>
+    public IReadOnlyList<ExtractorProfile> Extractors { get; init; } = [];
+
+    /// <summary>The extractor chosen for a kind of file in this run; <c>null</c> for the built-in one (FR-111).</summary>
+    public ExtractorProfile? ExtractorFor(DocumentKind kind)
+    {
+        var name = Options.Extractors.For(kind);
+        return name.Length == 0 ? null : Extractors.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>The scratch folder of a document (temporary copies and the PDF).</summary>
     public string WorkDirectory(DocumentRecord document) => Store.WorkDirectory(Job.JobId, document.DocId);
 

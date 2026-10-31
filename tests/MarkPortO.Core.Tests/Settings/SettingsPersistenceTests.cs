@@ -75,6 +75,16 @@ public class SettingsPersistenceTests
                 connection.BaseUrl = "https://example.test/v1"; // must stay a valid URL
                 property.SetValue(target, new List<ConnectionProfile> { connection });
             }
+            else if (type == typeof(Dictionary<string, string>))
+            {
+                property.SetValue(target, new Dictionary<string, string> { [$"KEY_{counter}"] = $"value-{counter}" });
+            }
+            else if (type == typeof(List<ExtractorProfile>))
+            {
+                var extractor = new ExtractorProfile();
+                FillWithNonDefaults(extractor, ref counter);
+                property.SetValue(target, new List<ExtractorProfile> { extractor });
+            }
             else if (type == typeof(int?))
             {
                 property.SetValue(target, counter);
@@ -126,6 +136,7 @@ public class SettingsPersistenceTests
                 s.Steps = changed.Steps;
                 s.Ui = changed.Ui;
                 s.Vlm = changed.Vlm;
+                s.Extractors = changed.Extractors;
             });
         } // disposing saves
 

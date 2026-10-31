@@ -62,6 +62,14 @@ public sealed record ConvertArgs
 
     public string? Step1Tables { get; init; }
 
+    public string? ExtractorDocx { get; init; }
+
+    public string? ExtractorXlsx { get; init; }
+
+    public string? ExtractorPptx { get; init; }
+
+    public string? ExtractorPdf { get; init; }
+
     public string? Connection { get; init; }
 
     /// <summary>The most pages Step 3 reads in a job; overrides the connection (FR-057).</summary>
@@ -195,6 +203,14 @@ public static class ConvertArgsResolver
         ApplyOnOff("--step2", args.Step2, value => settings.Steps.Step2 = value, errors);
         ApplyOnOff("--step3", args.Step3, value => settings.Steps.Step3 = value, errors);
         ApplyOnOff("--vlm-separate", args.VlmSeparate, value => settings.Steps.VlmSeparate = value, errors);
+        foreach (var (kind, value) in new[] { (DocumentKind.Docx, args.ExtractorDocx), (DocumentKind.Xlsx, args.ExtractorXlsx), (DocumentKind.Pptx, args.ExtractorPptx), (DocumentKind.Pdf, args.ExtractorPdf) })
+        {
+            if (value is not null)
+            {
+                settings.Input.Extractors.Set(kind, value.Equals("builtin", StringComparison.OrdinalIgnoreCase) ? string.Empty : value);
+            }
+        }
+
         if (args.Step1Tables is not null)
         {
             if (TryStep1Tables(args.Step1Tables) is { } tables)

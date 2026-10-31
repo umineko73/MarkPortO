@@ -23,7 +23,7 @@ namespace MarkPortO.Core.Pdf;
 
 /// <summary>
 /// The text layer of a PDF page as paragraphs (FR-076). Only the lines are put together: the words on the same baseline are a line, lines that
-/// stand close are a paragraph. Tables, columns and headings are not rebuilt; the image of the page tells them.
+/// stand close are a paragraph (a line that starts indented starts a new one). Tables and headings are not rebuilt; the columns are read one after the other (FR-108); the image of the page tells the rest.
 /// </summary>
 public static class PdfParagraphExtractor
 {
@@ -59,11 +59,20 @@ public static class PdfParagraphExtractor
                 }
             }
 
+            // The line pitch of the block (the small gaps; the gap of a paragraph is larger) and its left edge, from the lines of the block (FR-108).
+            var pitches = lines.Zip(lines.Skip(1), (above, below) => above.Baseline - below.Baseline).Where(d => d > 0).OrderBy(d => d).ToList();
+            var pitch = pitches.Count >= 3 ? pitches[(pitches.Count - 1) / 4] : 0.0; // a few lines say nothing about the pitch
+            // The left edge is the middle of the lines' starts (one line at the margin, a page number, must not move it).
+            var starts = lines.Select(l => (double)l.Words.Min(w => w.BoundingBox.Left)).OrderBy(x => x).ToList();
+            var left = starts.Count > 0 ? starts[starts.Count / 2] : 0.0;
+
             Line? previous = null;
             foreach (var line in lines)
             {
                 var text = LineText(line);
-                if (previous is not null && previous.Baseline - line.Baseline > 2.0 * Math.Max(previous.Height, line.Height))
+                var gap = previous is null ? 0.0 : previous.Baseline - line.Baseline;
+                var indented = previous is not null && line.Words.Min(w => (double)w.BoundingBox.Left) - left >= Math.Max(0.7 * Math.Max(1.0, line.Height), 0.5 * pitch);
+                if (previous is not null && (gap > Math.Max(2.0 * Math.Max(previous.Height, line.Height), 1.5 * pitch) || indented))
                 {
                     Flush();
                 }
@@ -121,7 +130,7 @@ public static class PdfParagraphExtractor
 
         // Every column must have lines of its own, or the strip was a gap in a table or a list, not a space between columns.
         var height = Median(letters.Select(l => (double)l.BoundingBox.Height));
-        if (columns.Any(c => c.Select(l => Math.Round((double)l.StartBaseLine.Y / Math.Max(1.0, 0.8 * height))).Distinct().Count() < MinimumLines))
+        if (columns.Any(c => c.Count < MinimumShare * letters.Count || c.Select(l => Math.Round((double)l.StartBaseLine.Y / Math.Max(1.0, 0.8 * height))).Distinct().Count() < MinimumLines))
         {
             return [words];
         }
@@ -131,6 +140,9 @@ public static class PdfParagraphExtractor
 
     private const int MinimumLetters = 40;
     private const int MinimumLines = 6;
+
+    /// <summary>The share of the letters that every column has at least (a few words beside a text are not a column).</summary>
+    private const double MinimumShare = 0.15;
 
     private static double Middle(Letter letter) => (double)(letter.BoundingBox.Left + letter.BoundingBox.Right) / 2;
 
@@ -158,8 +170,12 @@ public static class PdfParagraphExtractor
             }
         }
 
-        var allowed = Math.Max(1, (int)(0.01 * letters.Count));
-        var minimumGap = Math.Max(6.0, 1.5 * Median(letters.Select(l => (double)l.BoundingBox.Width)));
+        // A strip between columns is crossed by few lines: a title over the columns, the noise of a scan (a column of a scan is crossed by up to a quarter of the lines).
+        // The measure is the lines, not the letters: 1% of the letters is most of the lines of a page of one column. A text of one column has no such strip that is wide.
+        var lineHeight = Math.Max(1.0, 0.8 * Median(letters.Select(l => (double)l.BoundingBox.Height)));
+        var lineCount = letters.Select(l => Math.Round((double)l.StartBaseLine.Y / lineHeight)).Distinct().Count();
+        var allowed = Math.Max(1, (int)(0.3 * lineCount));
+        var minimumGap = Math.Max(8.0, 2.5 * Median(letters.Select(l => (double)l.BoundingBox.Width)));
         var cuts = new List<double>();
         var running = 0;
         var runStart = -1;

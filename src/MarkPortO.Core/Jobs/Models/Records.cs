@@ -15,6 +15,7 @@
 
 using System.Text.Json.Serialization;
 using MarkPortO.Core.Localization;
+using MarkPortO.Core.Settings;
 
 namespace MarkPortO.Core.Jobs.Models;
 
@@ -141,6 +142,14 @@ public sealed class DocumentRecord
     /// <summary>What is done with the tables of the VLM result where the text of the page has a table (FR-105).</summary>
     public Step1TablesMode Step1Tables { get; set; }
 
+    /// <summary>The name of the extractor that wrote the Markdown of the document (FR-112); <c>null</c> for the built-in one.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Extractor { get; set; }
+
+    /// <summary>The VLM results are in their own file: the choice, or always for a document that an extractor wrote (FR-112).</summary>
+    [JsonIgnore]
+    public bool VlmInSeparateFile => VlmSeparate || Extractor is not null;
+
     public List<PageRecord> Pages { get; set; } = [];
 
     public List<Block> Blocks { get; set; } = [];
@@ -159,6 +168,9 @@ public sealed class DocumentRecord
 public sealed class OptionsSnapshot
 {
     public List<DocumentKind> Types { get; set; } = [];
+
+    /// <summary>The extractor for each kind of file (the names only; FR-111).</summary>
+    public ExtractorChoice Extractors { get; set; } = new();
 
     public bool Recurse { get; set; }
 

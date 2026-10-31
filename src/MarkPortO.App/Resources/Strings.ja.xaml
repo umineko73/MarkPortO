@@ -64,6 +64,9 @@
   <sys:String x:Key="Main_Cond_Step1">テキストをMarkdownにし、全ページの画像を保存する</sys:String>
   <sys:String x:Key="Main_Cond_Step1Always">（常に実行）</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Markdownに画像を入れる</sys:String>
+  <sys:String x:Key="Main_Cond_Extractor">抽出（実験）:</sys:String>
+  <sys:String x:Key="Main_Cond_ExtractorBuiltIn">内蔵</sys:String>
+  <sys:String x:Key="Main_Cond_ExtractorTip">Markdownへの抽出を、settings.json に登録した外部コマンドに任せます（実験機能）。ページの区切りはなくなり、VLMの結果は別ファイルになります。</sys:String>
   <sys:String x:Key="Main_Cond_Tables">表:</sys:String>
   <sys:String x:Key="Main_Cond_TablesVlm">VLMの結果を採用</sys:String>
   <sys:String x:Key="Main_Cond_TablesReplace">抽出テキストを採用</sys:String>

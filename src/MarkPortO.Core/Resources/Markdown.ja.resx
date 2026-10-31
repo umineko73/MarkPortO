@@ -94,6 +94,9 @@
   <data name="The tables of this page are not repeated here; the tables of the text of the document are the ones to use." xml:space="preserve">
     <value>このページの表は、ここには書きません。文書の抽出テキストの表を使ってください。</value>
   </data>
+  <data name="This Markdown was written by the extractor `{0}`. It has no page marks and no references to the page images." xml:space="preserve">
+    <value>このMarkdownは、抽出コマンド `{0}` が作りました。ページの区切りも、ページ画像の参照もありません。</value>
+  </data>
   <data name="The rows of this table are joined to the table on page {0}." xml:space="preserve">
     <value>この表の行は、ページ{0}の表に結合しました。</value>
   </data>

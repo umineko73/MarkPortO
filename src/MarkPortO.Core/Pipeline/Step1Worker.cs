@@ -18,11 +18,13 @@ using MarkPortO.Core.Localization;
 using Microsoft.Extensions.Logging;
 using MarkPortO.Core.Convert;
 using MarkPortO.Core.Engines;
+using MarkPortO.Core.Extraction;
 using MarkPortO.Core.IO;
 using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Markdown;
 using MarkPortO.Core.Ooxml;
 using MarkPortO.Core.Pdf;
+using MarkPortO.Core.Settings;
 
 namespace MarkPortO.Core.Pipeline;
 
@@ -113,6 +115,12 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
 
             await BuildPagesAsync(document, layout, context.Options.Dpi, cancellationToken).ConfigureAwait(false);
 
+            // The pages (and their images) are made as always, for Step2, Step3 and the preview; the Markdown is the one of the extractor (FR-112).
+            if (context.ExtractorFor(document.Kind) is { } extractor)
+            {
+                await ExtractAsync(document, extractor, workDirectory, cancellationToken).ConfigureAwait(false);
+            }
+
             document.Step1 = StepStatus.Done;
             MarkdownRenderer.Write(document);
             context.Save(document);
@@ -135,6 +143,36 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         {
             TryDeleteDirectory(workDirectory);
         }
+    }
+
+    // ---- an extractor: an external command writes the Markdown of the whole document, without pages (FR-110 to FR-112; experimental) ----
+
+    private static async Task ExtractAsync(DocumentRecord document, ExtractorProfile extractor, string workDirectory, CancellationToken cancellationToken)
+    {
+        var result = await ExtractorRunner.RunAsync(extractor, document.SourcePath, Path.Combine(workDirectory, "extractor"), cancellationToken).ConfigureAwait(false);
+        var note = "> " + Loc.M("This Markdown was written by the extractor `{0}`. It has no page marks and no references to the page images.", document.MarkdownLanguage, extractor.Name);
+        var name = Path.GetFileNameWithoutExtension(document.SourcePath);
+        AtomicFile.WriteAllText(Path.Combine(document.OutputFolder, MarkdownRenderer.MarkdownFileName(name)), note + "\n\n" + result.Markdown.TrimEnd() + "\n");
+
+        // The other files of the command (the pictures that the Markdown refers to) go to the output folder with the same relative paths; nothing is overwritten.
+        foreach (var file in Directory.EnumerateFiles(result.OutputFolder, "*", SearchOption.AllDirectories))
+        {
+            if (string.Equals(file, result.MarkdownFile, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var target = Path.Combine(document.OutputFolder, Path.GetRelativePath(result.OutputFolder, file));
+            if (File.Exists(target))
+            {
+                continue;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Move(file, target);
+        }
+
+        document.Extractor = extractor.Name;
     }
 
     // ---- docx: one PDF, one page per PDF page, text placed by the PDF text ----

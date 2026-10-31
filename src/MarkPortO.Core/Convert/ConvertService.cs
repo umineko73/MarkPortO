@@ -17,7 +17,9 @@ using MarkPortO.Core.Localization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MarkPortO.Core.Engines;
+using MarkPortO.Core.Extraction;
 using MarkPortO.Core.Jobs;
+using MarkPortO.Core.Settings;
 using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Ooxml;
 using MarkPortO.Core.Pipeline;
@@ -35,11 +37,14 @@ public sealed class ConvertService
     private readonly ILogger _logger;
     private readonly TimeSpan _engineTimeout;
     private readonly VlmSetup? _vlm;
+    private readonly IReadOnlyList<ExtractorProfile> _extractors;
 
     /// <param name="vlm">The VLM connection, needed when step 3 is on. It is not disposed by this class.</param>
-    public ConvertService(IDocumentEngine engine, ILogger? logger = null, TimeSpan? engineTimeout = null, VlmSetup? vlm = null)
+    /// <param name="extractors">The external commands that can write Markdown (FR-110, experimental).</param>
+    public ConvertService(IDocumentEngine engine, ILogger? logger = null, TimeSpan? engineTimeout = null, VlmSetup? vlm = null, IReadOnlyList<ExtractorProfile>? extractors = null)
     {
         _vlm = vlm;
+        _extractors = extractors ?? [];
         _engine = engine;
         _logger = logger ?? NullLogger.Instance;
         _engineTimeout = engineTimeout ?? PdfExportRequest.DefaultTimeout;
@@ -201,6 +206,7 @@ public sealed class ConvertService
             MaxImageSide = _vlm?.MaxImageSide ?? 0,
             Governor = governor,
             Step3Parallel = _vlm?.Parallel ?? 1,
+            Extractors = _extractors,
         };
         var works = toRun.Select(d => new DocumentWork(d, context)).ToList();
 
@@ -222,6 +228,29 @@ public sealed class ConvertService
         vlm.Connection is { } c
             ? new Step3ConnectionInfo(c.Kind.ToString().ToLowerInvariant(), c.Command?.ToString().ToLowerInvariant(), vlm.CommandVersion, string.IsNullOrWhiteSpace(c.Model) ? null : c.Model)
             : null;
+
+    /// <summary>The extractors that are chosen must be there, be complete, have a program that is found, and have the consent when they send documents outside (FR-110, FR-111).</summary>
+    private void CheckExtractors(ExtractorChoice choice)
+    {
+        foreach (var kind in new[] { DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx, DocumentKind.Pdf })
+        {
+            var name = choice.For(kind);
+            if (name.Length == 0)
+            {
+                continue;
+            }
+
+            var profile = _extractors.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase))
+                ?? throw new ConvertStartException(Loc.T("The extractor '{0}' is not in the settings.", name)) { Item = ConvertStartException.ExtractorItem };
+            var problem = ExtractorRunner.Validate(profile)
+                ?? (ExtractorRunner.FindProgram(profile.Command) is null ? Loc.T("The command '{0}' of the extractor '{1}' was not found.", profile.Command, profile.Name) : null)
+                ?? (profile.SendsExternally && profile.ExternalConsent is null ? Loc.T("The extractor '{0}' sends documents outside; it needs your consent first.", profile.Name) : null);
+            if (problem is not null)
+            {
+                throw new ConvertStartException(problem) { Item = ConvertStartException.ExtractorItem };
+            }
+        }
+    }
 
     private IReadOnlyList<IPipelineStep<DocumentWork>> BuildSteps(bool step3)
     {
@@ -284,6 +313,7 @@ public sealed class ConvertService
 
     private void CheckCanStart(ConvertRequest request)
     {
+        CheckExtractors(request.Options.Extractors);
         if (request.Inputs.Count == 0)
         {
             throw new ConvertStartException(Loc.T("There are no documents to convert."));

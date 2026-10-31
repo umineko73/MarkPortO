@@ -294,6 +294,32 @@ public static partial class DocxReader
         public (int? HeadingLevel, bool IsTitle) StyleOf(string? styleId) =>
             styleId is not null && _styles.TryGetValue(styleId, out var style) ? style : (null, false);
 
+        /// <summary>
+        /// The numbering of a paragraph: its own, or the one of its style (a style such as "List Bullet" carries the numbering, and the paragraphs
+        /// that use it have none of their own). <c>numId</c> 0 is "no numbering". <c>null</c> when the paragraph is not in a list.
+        /// </summary>
+        public NumberingProperties? NumberingOf(ParagraphProperties? properties)
+        {
+            var own = properties?.NumberingProperties;
+            if (own is not null)
+            {
+                return own.NumberingId?.Val?.Value == 0 ? null : own;
+            }
+
+            var styleId = properties?.ParagraphStyleId?.Val?.Value;
+            for (var depth = 0; styleId is not null && depth < 20 && _styleDefinitions.TryGetValue(styleId, out var style); depth++)
+            {
+                if (style.StyleParagraphProperties?.NumberingProperties is { } fromStyle)
+                {
+                    return fromStyle.NumberingId?.Val?.Value == 0 ? null : fromStyle;
+                }
+
+                styleId = style.BasedOn?.Val?.Value;
+            }
+
+            return null;
+        }
+
         public bool IsBullet(NumberingProperties numbering)
         {
             var numberId = numbering.NumberingId?.Val?.Value;
@@ -403,7 +429,7 @@ public static partial class DocxReader
                 var title = escaped.Replace("  \n", " ", StringComparison.Ordinal);
                 blocks.Add(New(BlockKind.Heading, $"{new string('#', level)} {(number is null ? string.Empty : number + " ")}{title}", text));
             }
-            else if (properties?.NumberingProperties is { } numbering)
+            else if (context.NumberingOf(properties) is { } numbering)
             {
                 var depth = numbering.NumberingLevelReference?.Val?.Value ?? 0;
                 var marker = context.IsBullet(numbering) ? "-" : "1.";

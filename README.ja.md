@@ -97,6 +97,22 @@ markporto check-connection --settings settings.json
 
 場所は、環境変数 `MARKPORTO_SETTINGS` で変えられます。アクセスキーは、値ではなく環境変数の*名前*（`apiKeyEnv`）を書きます。画面で入力したキーは、現在のWindowsユーザーだけが読める形（DPAPI）で保存し、ログや出力には出ません。
 
+### 実験: 外部コマンドにMarkdownを書かせる
+
+ファイルの種類ごとに、自分で入れたプログラム（MarkItDown、Docling、Pandoc など）にMarkdownを書かせられます。MarkPortOは、そのプログラムをインストールも更新もしません。与えた引数で、シェルを通さずに実行するだけです。結果は、コマンドが書いた文書全体のMarkdownで、**ページの区切りも、ページ画像の参照もありません**（ページ画像は `images/` に保存され、VLMの結果は `名前_vlm.md` に書かれます）。その種類での、MarkPortOの機能（複数ページの表、結合セル、太字・斜体など）は効きません。実験機能なので、設定の書き方は変わることがあります。
+
+コマンドを `settings.json` に書き、ファイルの種類ごとに選びます（条件の「抽出（実験）」。コマンドがあると出ます。または `--extractor-docx|xlsx|pptx|pdf <名前>`。`builtin` は内蔵）。
+
+```json
+"extractors": [
+  { "name": "markitdown", "command": "C:\\tools\\venv\\Scripts\\markitdown.exe", "args": ["{input}", "-o", "{output}"] },
+  { "name": "docling", "command": "docling", "args": ["{input}", "--to", "md", "--image-export-mode", "placeholder", "--output", "{outdir}"], "timeoutSeconds": 600 }
+],
+"input": { "extractors": { "pdf": "docling" } }
+```
+
+`{input}` は入力のファイル、`{output}` は書き出すMarkdownのファイル、`{outdir}` はコマンド用のフォルダです（`{outdir}` だけを渡したときは、コマンドがそこに書いた `.md` を読みます）。`"output": "stdout"` なら、標準出力を読みます。引数はツールの版で違うので、先に手で試してください。文書をPCの外へ送るコマンドは、`"sendsExternally": true` と同意（`"externalConsent": { "at": "2026-10-31T00:00:00+09:00", "noticeVersion": 2 }`）が要ります。
+
 ### `claude`・`codex`・`opencode` で読み取る
 
 ```json

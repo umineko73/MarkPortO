@@ -23,6 +23,19 @@ namespace MarkPortO.Core.Tests.Ooxml;
 public class DocxReaderTests
 {
     [Fact]
+    public void Read_ListWhoseNumberingIsInTheStyle_IsAList_AndNumIdZeroIsNot()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("style-list.docx");
+        DocxFactory.CreateStyleNumbered(path);
+
+        var blocks = DocxReader.Read(path);
+
+        Assert.Equal(["- first item", "- second item", "not a list", "plain"], blocks.Select(b => b.Block.Markdown));
+        Assert.Equal([BlockKind.ListItem, BlockKind.ListItem, BlockKind.Paragraph, BlockKind.Paragraph], blocks.Select(b => b.Block.Kind));
+    }
+
+    [Fact]
     public void Read_StructuredDocument_ProducesHeadingsListsParagraphsAndATable()
     {
         using var dir = new TempDir();

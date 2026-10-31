@@ -475,4 +475,13 @@
   <data name="No bold or italic" xml:space="preserve">
     <value>太字・斜体なし</value>
   </data>
+  <data name="The extractor '{0}' is not in the settings." xml:space="preserve">
+    <value>抽出コマンド「{0}」が、設定にありません。</value>
+  </data>
+  <data name="The command '{0}' of the extractor '{1}' was not found." xml:space="preserve">
+    <value>抽出コマンド「{1}」のコマンド「{0}」が見つかりません。</value>
+  </data>
+  <data name="The extractor '{0}' sends documents outside; it needs your consent first." xml:space="preserve">
+    <value>抽出コマンド「{0}」は文書を外部へ送ります。先に同意が必要です。</value>
+  </data>
 </root>

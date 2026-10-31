@@ -312,6 +312,71 @@ public class PdfInputTests
         Assert.Equal("read from the image", document.Pages[0].VlmText);
     }
 
+    // FR-108: lines at an even pitch that is wide for the size of the letters (a scan with an OCR layer) are one paragraph, and a line that starts indented is a new one.
+    [Fact]
+    public void LinesAtAnEvenPitch_AreOneParagraph_EvenWhenThePitchIsWideForTheLetters()
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        var page = builder.AddPage(PageSize.A4);
+        for (var i = 0; i < 6; i++)
+        {
+            page.AddText($"line number {i + 1} of one paragraph", 8, new PdfPoint(40, 780 - (i * 20)), font);
+        }
+
+        using var document = UglyToad.PdfPig.PdfDocument.Open(builder.Build());
+
+        var paragraphs = PdfParagraphExtractor.GetParagraphs(document, 0);
+
+        Assert.Single(paragraphs);
+        Assert.StartsWith("line number 1 of one paragraph line number 2", paragraphs[0]);
+    }
+
+    // FR-108: a page with one column of text, whose lines differ in length (a ragged right edge), has no columns.
+    [Fact]
+    public void ALongTextOfOneColumn_IsNotCutIntoColumns()
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        var page = builder.AddPage(PageSize.A4);
+        var random = new Random(7);
+        var words = new[] { "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa" };
+        for (var i = 0; i < 40; i++)
+        {
+            var line = string.Join(' ', Enumerable.Range(0, 4 + random.Next(0, 9)).Select(_ => words[random.Next(words.Length)]));
+            page.AddText($"{i + 1:00} {line}", 11, new PdfPoint(40, 800 - (i * 16)), font);
+        }
+
+        using var document = UglyToad.PdfPig.PdfDocument.Open(builder.Build());
+
+        var paragraphs = PdfParagraphExtractor.GetParagraphs(document, 0);
+
+        var text = string.Join(' ', paragraphs);
+        Assert.Single(paragraphs);
+        Assert.True(text.IndexOf("01 ", StringComparison.Ordinal) < text.IndexOf("20 ", StringComparison.Ordinal) && text.IndexOf("20 ", StringComparison.Ordinal) < text.IndexOf("40 ", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ALineThatStartsIndented_StartsANewParagraph()
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        var page = builder.AddPage(PageSize.A4);
+        for (var i = 0; i < 6; i++)
+        {
+            // the third and the fifth line start a paragraph: they are indented by about one letter of the size 12
+            page.AddText($"line number {i + 1} of the text", 12, new PdfPoint(i is 2 or 4 ? 54 : 40, 780 - (i * 16)), font);
+        }
+
+        using var document = UglyToad.PdfPig.PdfDocument.Open(builder.Build());
+
+        var paragraphs = PdfParagraphExtractor.GetParagraphs(document, 0);
+
+        Assert.Equal(3, paragraphs.Count);
+        Assert.StartsWith("line number 3", paragraphs[1]);
+        Assert.StartsWith("line number 5", paragraphs[2]);
+    }
+
     [Fact]
     public void TheTextOfAPage_CannotBreakTheStructureOfTheMarkdown()
     {

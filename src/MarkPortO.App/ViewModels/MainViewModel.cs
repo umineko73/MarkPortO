@@ -275,6 +275,28 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public bool TypePdf { get => HasType(DocumentKind.Pdf); set => SetType(DocumentKind.Pdf, value); }
 
+    // The extractor for each kind of file (FR-111; experimental): the external commands are written in settings.json. The choices are shown only when there are some.
+    public sealed record ExtractorItem(string Name, string Display);
+
+    public IReadOnlyList<ExtractorItem> ExtractorChoices =>
+        [new(string.Empty, UiText.Get("Main_Cond_ExtractorBuiltIn")), .. _store.Current.Extractors.Select(e => new ExtractorItem(e.Name, e.Name))];
+
+    public System.Windows.Visibility ExtractorVisibility => _store.Current.Extractors.Count > 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+
+    public string ExtractorDocx { get => _store.Current.Input.Extractors.Docx; set => SetExtractor(DocumentKind.Docx, value); }
+
+    public string ExtractorXlsx { get => _store.Current.Input.Extractors.Xlsx; set => SetExtractor(DocumentKind.Xlsx, value); }
+
+    public string ExtractorPptx { get => _store.Current.Input.Extractors.Pptx; set => SetExtractor(DocumentKind.Pptx, value); }
+
+    public string ExtractorPdf { get => _store.Current.Input.Extractors.Pdf; set => SetExtractor(DocumentKind.Pdf, value); }
+
+    private void SetExtractor(DocumentKind kind, string? name)
+    {
+        _store.Update(s => s.Input.Extractors.Set(kind, name ?? string.Empty));
+        Raise(kind switch { DocumentKind.Docx => nameof(ExtractorDocx), DocumentKind.Xlsx => nameof(ExtractorXlsx), DocumentKind.Pptx => nameof(ExtractorPptx), _ => nameof(ExtractorPdf) });
+    }
+
     /// <summary>Use the text layer of a PDF next to its page images (FR-076).</summary>
     public bool UsePdfText
     {
@@ -912,7 +934,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         var engine = EngineFactory.Create(snapshot.Engine);
-        var service = new ConvertService(engine, vlm: vlm);
+        var service = new ConvertService(engine, vlm: vlm, extractors: snapshot.Extractors);
         using var feed = new FileStatusFeed();
         feed.Updated += rows => _dispatcher.BeginInvoke(() => Apply(rows));
         service.Planned += documents =>
