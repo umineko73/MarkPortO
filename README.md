@@ -16,6 +16,8 @@ MarkPortO converts Word, Excel, PowerPoint and PDF documents (docx, xlsx, pptx, 
 
 - **Markdown and page images.** The text becomes Markdown and every page is saved as a PNG, referred to from the Markdown. The structure is read from the file itself (merged cells, footnotes, links, charts, SmartArt, speaker notes, the numbers of headings).
 - **Tables and paragraphs that follow the pages.** A table or a paragraph that runs over several pages is one table or paragraph in the Markdown, with a note on the later pages. A sheet laid out like a page is cut into one table per block.
+- **Bold and italic.** Bold text is written between `**` and italic text between `*` (docx, pptx, xlsx), not when a whole paragraph or cell is bold, nor in headings. It can be turned off (**Bold and italic**, `--no-emphasis`).
+- **Numbers of figures and tables (Word).** With Word as the engine, the text is read from a copy in which Word has updated the fields, so that the automatic numbers of figures and tables are the ones you see in Word.
 - **Excel.** All columns of a sheet go on one image (even a very wide one, at a higher DPI), or all rows, or the print setup of the sheet (**Sheet range**, `--excel-range`).
 - **PDF.** Each page becomes an image, and the VLM (Step3) reads it. The text layer of the PDF, if it has one, only helps: it is the text of the page, and it is sent with the image. Turn it off (**Use the extracted text as a help**, `--pdf-text off`) for a PDF whose text is garbled. No Office or LibreOffice is needed.
 - **PowerPoint.** Text of shapes outside the slide (memos on the pasteboard) is written as `> **Off-slide**: …`; it can be left out.
@@ -45,9 +47,9 @@ To build from source: `dotnet build MarkPortO.slnx` (.NET 10 SDK).
 
 ### Desktop app
 
-Add files or a folder (or drop them on the list), choose an output folder, and press **Start**. The **Conditions** have a row of common options (sub-folders, engine, DPI), a row for each kind of file (convert it or not, and the options only for it), and the steps. The list of files and the list of pages share the height; drag the bar between them to change it. The values are saved to `%APPDATA%\MarkPortO\settings.json` and restored at the next start.
+Add files or a folder (or drop them on the list), choose an output folder, and press **Start**. The **Conditions** have a row of common options (sub-folders, engine, DPI), a row for each kind of file (convert it or not, and the options only for it), and the steps. The part of the file kinds and the conversion can be folded (a line then says what is chosen; the steps stay in view). The list of files and the list of pages share the height; drag the bar between them to change it. For one file, a **page range** (like `3-5,8`) limits the pages that Step3 reads. The values are saved to `%APPDATA%\MarkPortO\settings.json` and restored at the next start.
 
-**Preview** (double-click a file): choose which of the page image, the extracted text and the VLM result to show, side by side or stacked, drawn or as source. **Follow** shows the page read last. Arrow keys and the mouse wheel change the page; dragging with the right button scrolls.
+**Preview** (double-click a file): choose which of the page image, the extracted text and the VLM result to show, side by side or stacked, drawn or as source. **Follow** shows the page read last. The zoom and the scroll position are kept when the page changes or a new result arrives. Arrow keys and the mouse wheel change the page (the wheel stops at the end of a page first); dragging with the right button scrolls.
 
 ![The preview window](docs/images/preview.png)
 
