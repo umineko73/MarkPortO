@@ -96,5 +96,6 @@ public sealed class ExtractorChoice
 
     public ExtractorChoice Clone() => new() { Docx = Docx, Xlsx = Xlsx, Pptx = Pptx, Pdf = Pdf };
 
-    public bool IsAny => Docx.Length + Xlsx.Length + Pptx.Length + Pdf.Length > 0;
+    /// <summary>A method, not a property: it is not a setting, so it does not go to the file.</summary>
+    public bool HasAny() => Docx.Length + Xlsx.Length + Pptx.Length + Pdf.Length > 0;
 }

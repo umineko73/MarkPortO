@@ -177,7 +177,7 @@ public class ExtractorRunnerTests
 
         Assert.Equal("Docling", choice.For(DocumentKind.Pdf));
         Assert.Equal(string.Empty, choice.For(DocumentKind.Docx));
-        Assert.True(choice.IsAny);
-        Assert.False(new ExtractorChoice().IsAny);
+        Assert.True(choice.HasAny());
+        Assert.False(new ExtractorChoice().HasAny());
     }
 }

@@ -7,7 +7,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
     <SatelliteResourceLanguages>en;ja</SatelliteResourceLanguages>
-    <Version>0.1.6</Version>
+    <Version>0.2.0</Version>
     <Authors>umineko73</Authors>
     <Copyright>Copyright (C) 2026 umineko73</Copyright>
     <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
