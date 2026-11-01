@@ -296,11 +296,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public string ExtractorPdf { get => _store.Current.Input.Extractors.Pdf; set => SetExtractor(DocumentKind.Pdf, value); }
 
     // The options beside a kind are for the built-in extraction; they do nothing to the Markdown of an extractor, so they are off while one is chosen.
-    public bool XlsxOptionsEnabled => TypeXlsx && ExtractorXlsx.Length == 0;
+    public bool XlsxOptionsEnabled => ExtractorXlsx.Length == 0;
 
-    public bool PptxOptionsEnabled => TypePptx && ExtractorPptx.Length == 0;
+    public bool PptxOptionsEnabled => ExtractorPptx.Length == 0;
 
-    public bool PdfOptionsEnabled => TypePdf && ExtractorPdf.Length == 0;
+    public bool PdfOptionsEnabled => ExtractorPdf.Length == 0;
 
     public string XlsxOptionsTip => ExtractorXlsx.Length == 0 ? string.Empty : UiText.Get("Main_Cond_OptionsOffTip");
 

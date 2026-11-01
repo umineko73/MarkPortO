@@ -472,9 +472,6 @@
   <data name="Sub-folders" xml:space="preserve">
     <value>サブフォルダ</value>
   </data>
-  <data name="No bold or italic" xml:space="preserve">
-    <value>太字・斜体なし</value>
-  </data>
   <data name="The extractor '{0}' is not in the settings." xml:space="preserve">
     <value>抽出コマンド「{0}」が、設定にありません。</value>
   </data>

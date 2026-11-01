@@ -51,17 +51,17 @@ public class ConditionSummaryTests
     [Fact]
     public void TheChoices_AreInOneLine_InJapanese()
     {
-        Assert.Equal("docx xlsx pptx pdf | サブフォルダ | LibreOffice | 150 DPI", Build(Settings(), "ja"));
+        Assert.Equal("docx xlsx pptx pdf | サブフォルダ", Build(Settings(), "ja"));
     }
 
     [Fact]
     public void TheChoices_AreInOneLine_InEnglish()
     {
-        Assert.Equal("docx xlsx pptx pdf | Sub-folders | LibreOffice | 150 DPI", Build(Settings(), "en"));
+        Assert.Equal("docx xlsx pptx pdf | Sub-folders", Build(Settings(), "en"));
     }
 
     [Fact]
-    public void ThingsThatAreOff_AreLeftOutOrSaid()
+    public void SubFoldersThatAreOff_AreLeftOut()
     {
         var settings = Settings(s =>
         {
@@ -72,7 +72,7 @@ public class ConditionSummaryTests
             s.Input.Emphasis = false;
         });
 
-        Assert.Equal("docx pdf | Microsoft Office | 300 DPI | 太字・斜体なし", Build(settings, "ja"));
+        Assert.Equal("docx pdf", Build(settings, "ja"));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class ConditionSummaryTests
             s.Input.Extractors.Pdf = " docling ";
         });
 
-        Assert.Equal("docx(pandoc) xlsx pptx pdf(docling) | Sub-folders | LibreOffice | 150 DPI", Build(settings, "en"));
+        Assert.Equal("docx(pandoc) xlsx pptx pdf(docling) | Sub-folders", Build(settings, "en"));
     }
 
     [Fact]
@@ -96,7 +96,17 @@ public class ConditionSummaryTests
             s.Input.Extractors.Pdf = "docling";
         });
 
-        Assert.Equal("docx | Sub-folders | LibreOffice | 150 DPI", Build(settings, "en"));
+        Assert.Equal("docx | Sub-folders", Build(settings, "en"));
+    }
+
+    [Fact]
+    public void TheEngineTheDpiAndTheEmphasis_AreNotInTheLine()
+    {
+        var line = Build(Settings(s => { s.Engine.Kind = EngineKind.Office; s.Images.Dpi = 300; s.Input.Emphasis = false; }), "ja");
+
+        Assert.DoesNotContain("Office", line, StringComparison.Ordinal);
+        Assert.DoesNotContain("DPI", line, StringComparison.Ordinal);
+        Assert.DoesNotContain("太字", line, StringComparison.Ordinal);
     }
 
     [Fact]

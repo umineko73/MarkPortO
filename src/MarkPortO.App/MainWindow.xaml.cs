@@ -29,6 +29,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // The default is tall enough for the list of pages under the conditions; a small screen gets what it has.
+        Height = Math.Min(Height, SystemParameters.WorkArea.Height);
         Title = "MarkPortO " + AboutWindow.Version;
 
         _viewModel = new MainViewModel(_store, Dispatcher)

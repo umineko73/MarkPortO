@@ -42,7 +42,8 @@
   <sys:String x:Key="Main_Browse">参照…</sys:String>
   <sys:String x:Key="Main_Conditions">条件</sys:String>
   <sys:String x:Key="Main_Cond_TypesNote">(フォルダを指定したときに使います)</sys:String>
-  <sys:String x:Key="Main_Cond_Common">共通</sys:String>
+  <sys:String x:Key="Main_Cond_Targets">フォルダ内の対象</sys:String>
+  <sys:String x:Key="Main_Cond_OptionsRow">抽出オプション</sys:String>
   <sys:String x:Key="Main_Cond_RowDocx">Word</sys:String>
   <sys:String x:Key="Main_Cond_RowXlsx">Excel</sys:String>
   <sys:String x:Key="Main_Cond_RowPptx">PowerPoint</sys:String>
@@ -59,12 +60,12 @@
   <sys:String x:Key="Main_Cond_EmphasisTip">文中の太字を ** で、斜体を * で囲んで書きます(Word・PowerPoint・Excel)。段落(セル)の全体が太字(斜体)のもの、見出し、スライドのタイトルには付けません。</sys:String>
   <sys:String x:Key="Main_Cond_OffSlide">スライド外の文字を含める</sys:String>
   <sys:String x:Key="Main_Cond_OffSlideTip">PowerPoint: スライドの外に置いたシェイプ(メモ)の文字を、「Off-slide」の引用として書きます。スライドの画像には写りません。</sys:String>
-  <sys:String x:Key="Main_Cond_Engine">変換エンジン:</sys:String>
-  <sys:String x:Key="Main_Cond_Dpi">画像のDPI:</sys:String>
+  <sys:String x:Key="Main_Cond_Engine">印刷エンジン:</sys:String>
+  <sys:String x:Key="Main_Cond_Dpi">DPI:</sys:String>
   <sys:String x:Key="Main_Cond_Step1">印刷イメージ保存、テキスト抽出する(内蔵、外部)</sys:String>
   <sys:String x:Key="Main_Cond_Step1Always">(常に実行)</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Markdownに印刷イメージ差し込み(内蔵選択時のみ)</sys:String>
-  <sys:String x:Key="Main_Cond_Extractor">抽出(実験):</sys:String>
+  <sys:String x:Key="Main_Cond_Extractor">抽出方法(実験):</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorBuiltIn">内蔵</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorTip">Markdownへの抽出を、settings.json に登録した外部コマンドに任せます(実験機能)。ページの区切りはなくなり、VLMの結果は別ファイルになります。</sys:String>
   <sys:String x:Key="Ext_Title">抽出コマンドの設定(実験)</sys:String>

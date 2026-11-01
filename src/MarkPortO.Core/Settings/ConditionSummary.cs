@@ -19,9 +19,9 @@ using MarkPortO.Core.Localization;
 namespace MarkPortO.Core.Settings;
 
 /// <summary>
-/// The conditions of the folded part of the main window (the kinds of file with the extractor that is chosen for each, the sub-folders, the engine, the DPI, bold and italic) in one line (FR-102).
+/// The conditions of the folded part of the main window (the kinds of file with the extractor that is chosen for each, and the sub-folders) in one line (FR-102).
 /// It is shown when the part is closed, so that the choices can be seen without opening it. The steps, the connection and the page range are
-/// not in it: they are always on the screen.
+/// not in it: they are always on the screen, and so are the engine, the DPI and bold and italic (they are in the row of Step1).
 /// </summary>
 public static class ConditionSummary
 {
@@ -44,14 +44,6 @@ public static class ConditionSummary
         if (settings.Input.Recurse)
         {
             parts.Add(Loc.T("Sub-folders"));
-        }
-
-        parts.Add(settings.Engine.Kind == EngineKind.Office ? "Microsoft Office" : "LibreOffice");
-        parts.Add($"{settings.Images.Dpi} DPI");
-
-        if (!settings.Input.Emphasis)
-        {
-            parts.Add(Loc.T("No bold or italic"));
         }
 
         return string.Join(Separator, parts);
