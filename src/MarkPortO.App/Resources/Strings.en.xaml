@@ -216,7 +216,7 @@
   <sys:String x:Key="Conn_LastRun"> (last run: {0})</sys:String>
   <sys:String x:Key="Conn_Waiting">Waiting for a response... ({0} s elapsed. A local model can take a while)</sys:String>
   <sys:String x:Key="Prompts_Title">VLM prompt settings</sys:String>
-  <sys:String x:Key="Prompts_Note">The instruction sent to the VLM in Step3 to read the text from an image. It is set for each type of document. It is saved when you leave the box. If you empty it, the default text comes back.</sys:String>
+  <sys:String x:Key="Prompts_Note">The instruction sent to the VLM in Step3 to read the text from an image. Each type of document can have several prompts with a name; the one chosen in "Prompt in use" is sent (the standard one cannot be renamed or deleted). It is saved when you leave the box. If you empty the standard one, the default text comes back.</sys:String>
   <sys:String x:Key="Prompts_PageText">{pagetext} in a prompt is replaced by the text taken from the page of the document (it is sent to the VLM with the image; without it, no text is sent).</sys:String>
   <sys:String x:Key="Prompts_InsertPageText">Insert {pagetext}</sys:String>
   <sys:String x:Key="Prompts_Reset">Reset the shown prompt to the default</sys:String>

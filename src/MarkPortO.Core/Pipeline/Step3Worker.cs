@@ -162,7 +162,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
     /// (not <see cref="Step1TablesMode.Off"/>), such a page has nothing for the VLM to add, so it is not sent. With the VLM tables
     /// (<see cref="Step1TablesMode.Off"/>) the rows are read from the image and joined afterwards, so the page is read.
     /// </summary>
-    private static void MarkJoinedTableOnly(DocumentRecord document)
+    internal static void MarkJoinedTableOnly(DocumentRecord document)
     {
         var onlyJoined = new HashSet<int>();
         if (document.Step1Tables != Step1TablesMode.Off)
