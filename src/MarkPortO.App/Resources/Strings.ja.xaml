@@ -57,7 +57,8 @@
   <sys:String x:Key="Main_Cond_Fold">対象と変換</sys:String>
   <sys:String x:Key="Main_Cond_FoldTip">種類・サブフォルダ・変換エンジン・DPI などの条件を、たたんだり開いたりします。たたむと、いまの選択を1行で見せます。Step の行は、いつも見えます。</sys:String>
   <sys:String x:Key="Main_Cond_Emphasis">太字・斜体を書く</sys:String>
-  <sys:String x:Key="Main_Cond_EmphasisTip">文中の太字を ** で、斜体を * で囲んで書きます(Word・PowerPoint・Excel)。段落(セル)の全体が太字(斜体)のもの、見出し、スライドのタイトルには付けません。</sys:String>
+  <sys:String x:Key="Main_Cond_EmphasisNote">（他のツールで、ノイズになる場合があります）</sys:String>
+  <sys:String x:Key="Main_Cond_EmphasisTip">文中の太字を ** で、斜体を * で囲んで書きます(Word・PowerPoint・Excel)。段落(セル)の全体が太字(斜体)のもの、見出し、スライドのタイトルには付けません。知識グラフを作るツールなど、他のツールに Markdown を渡すときは、** や * がノイズになることがあります。</sys:String>
   <sys:String x:Key="Main_Cond_OffSlide">スライド外の文字を含める</sys:String>
   <sys:String x:Key="Main_Cond_OffSlideTip">PowerPoint: スライドの外に置いたシェイプ(メモ)の文字を、「Off-slide」の引用として書きます。スライドの画像には写りません。</sys:String>
   <sys:String x:Key="Main_Cond_Engine">印刷エンジン:</sys:String>
