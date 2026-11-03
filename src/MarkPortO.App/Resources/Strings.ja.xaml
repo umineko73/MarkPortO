@@ -219,6 +219,7 @@
   <sys:String x:Key="Prompts_InsertPageText">{pagetext} を挿入</sys:String>
   <sys:String x:Key="Prompts_Reset">表示中のプロンプトを既定に戻す</sys:String>
   <sys:String x:Key="Prompts_Close">閉じる</sys:String>
+  <sys:String x:Key="Close_Title">終了の確認</sys:String>
   <sys:String x:Key="Close_RunningConfirm">変換中です。中断して終了しますか？（ここまでの結果は残り、あとで続きから再開できます。）</sys:String>
   <sys:String x:Key="About_Title">バージョン情報</sys:String>
   <sys:String x:Key="About_Product">製品名</sys:String>

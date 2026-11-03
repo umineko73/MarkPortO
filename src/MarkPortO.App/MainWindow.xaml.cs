@@ -71,7 +71,7 @@ public partial class MainWindow : Window
         }
 
         e.Cancel = true;
-        if (MessageBox.Show(this, UiText.Get("Close_RunningConfirm"), UiText.Get("Confirm_Title"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+        if (MessageBox.Show(this, UiText.Get("Close_RunningConfirm"), UiText.Get("Close_Title"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
         {
             return;
         }

@@ -219,6 +219,7 @@
   <sys:String x:Key="Prompts_InsertPageText">Insert {pagetext}</sys:String>
   <sys:String x:Key="Prompts_Reset">Reset the shown prompt to the default</sys:String>
   <sys:String x:Key="Prompts_Close">Close</sys:String>
+  <sys:String x:Key="Close_Title">Quit</sys:String>
   <sys:String x:Key="Close_RunningConfirm">A conversion is running. Stop it and quit? (The results so far are kept, and you can resume later.)</sys:String>
   <sys:String x:Key="About_Title">About MarkPortO</sys:String>
   <sys:String x:Key="About_Product">Product</sys:String>
