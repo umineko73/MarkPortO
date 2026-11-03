@@ -176,6 +176,13 @@ public sealed class SheetContent
             }
         }
 
+        // A paragraph of the sheet, on the page that its row is on.
+        void AddParagraph(int row, string text)
+        {
+            var page = rowPages is not null && row < rowPages.Count ? rowPages[row] : 0;
+            parts.Add(new SheetPart(page, MarkdownText.Escape(text).Replace("\r", string.Empty, StringComparison.Ordinal).Trim(), IsTable: false, page));
+        }
+
         if (StackedBlocks() is { } blocks)
         {
             foreach (var (first, last, table) in blocks)
@@ -184,7 +191,11 @@ public sealed class SheetContent
                 {
                     // The rows between the tables, without the empty rows at their top and bottom.
                     var filled = Enumerable.Range(first, last - first + 1).Where(r => !HiddenRows.Contains(r) && HasContent(r, fromIndex, toIndex)).ToList();
-                    if (filled.Count > 0)
+                    if (filled.Count == 1 && SingleTextCell(filled[0], fromIndex, toIndex) is { } title)
+                    {
+                        AddParagraph(filled[0], title);
+                    }
+                    else if (filled.Count > 0)
                     {
                         AddTable(filled[0], filled[^1], fromIndex, toIndex, hasHeader: false, skipEmptyRows: false, heading: null);
                     }
@@ -203,10 +214,33 @@ public sealed class SheetContent
         else if (!HasHeaderRow && Regions(0, Rows.Length - 1, fromIndex, toIndex) is { Count: > 1 } regions)
         {
             // Tables drawn on the sheet without the Excel table feature: each is written as a table of its own.
-            foreach (var r in JoinThinBlocks(regions))
+            // A block of one cell with text, such as a title or a note, is a paragraph, not a table of one cell. It also cuts the
+            // thin blocks before it from those after it: they are not the rows of one table.
+            var pending = new List<(int FirstRow, int LastRow, int From, int To)>();
+            void Flush()
             {
-                AddTable(r.FirstRow, r.LastRow, r.From, r.To, hasHeader: false, skipEmptyRows: r.Joined, heading: null);
+                foreach (var r in JoinThinBlocks(pending))
+                {
+                    AddTable(r.FirstRow, r.LastRow, r.From, r.To, hasHeader: false, skipEmptyRows: r.Joined, heading: null);
+                }
+
+                pending.Clear();
             }
+
+            foreach (var region in regions)
+            {
+                if (region.FirstRow == region.LastRow && SingleTextCell(region.FirstRow, region.From, region.To) is { } text)
+                {
+                    Flush();
+                    AddParagraph(region.FirstRow, text);
+                }
+                else
+                {
+                    pending.Add(region);
+                }
+            }
+
+            Flush();
         }
         else
         {
@@ -228,6 +262,36 @@ public sealed class SheetContent
         }
 
         return parts;
+    }
+
+    /// <summary>
+    /// The text of the row when it has one cell with text in the columns and that text is not a number: a title or a note, which is a sentence and
+    /// not a table. <c>null</c> otherwise (no text, more than one cell, a number, a hidden row).
+    /// </summary>
+    private string? SingleTextCell(int row, int fromIndex, int toIndex)
+    {
+        if (HiddenRows.Contains(row) || row >= Rows.Length)
+        {
+            return null;
+        }
+
+        string? found = null;
+        for (var c = fromIndex; c <= toIndex && c < Rows[row].Length; c++)
+        {
+            if (HiddenColumns.Contains(c) || Rows[row][c].Trim().Length == 0)
+            {
+                continue;
+            }
+
+            if (found is not null)
+            {
+                return null;
+            }
+
+            found = Rows[row][c];
+        }
+
+        return found is not null && !found.All(ch => "0123456789.,-+$%()¥ ".Contains(ch, StringComparison.Ordinal)) ? found : null;
     }
 
     private bool HasContent(int row, int fromIndex, int toIndex) =>

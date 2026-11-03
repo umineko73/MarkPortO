@@ -104,7 +104,39 @@ public class XlsxReaderTests
 
         var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
 
-        Assert.Equal("### Table1\n\n| h1 | h2 |\n|---|---|\n| a | b |\n\n### Table2\n\n| g1 | g2 |\n|---|---|\n| c | d |\n\n|  |  |\n|---|---|\n| note |  |", markdown);
+        Assert.Equal("### Table1\n\n| h1 | h2 |\n|---|---|\n| a | b |\n\n### Table2\n\n| g1 | g2 |\n|---|---|\n| c | d |\n\nnote", markdown);
+    }
+
+    [Fact]
+    public void Read_ATitleAndANote_AreSentencesAndNotTablesOfOneCell()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("t.xlsx");
+        XlsxFactory.Create(path, new SheetSpec(
+            "Data",
+            [["Report title", "", ""], ["", "", ""], ["h1", "h2", "h3"], ["a", "b", "c"], ["", "", ""], ["note: in yen", "", ""]]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.StartsWith("Report title\n\n", markdown, StringComparison.Ordinal);
+        Assert.EndsWith("\n\nnote: in yen", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("| Report title |", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("| note: in yen |", markdown, StringComparison.Ordinal);
+        Assert.Contains("| h1 | h2 | h3 |", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Read_ABlockOfOneNumber_StaysATable()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("t.xlsx");
+        XlsxFactory.Create(path, new SheetSpec(
+            "Data",
+            [["h1", "h2"], ["a", "b"], ["", ""], ["2024", ""]]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Contains("| 2024 |", markdown, StringComparison.Ordinal);
     }
 
     [Fact]
