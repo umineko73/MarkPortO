@@ -259,6 +259,8 @@ public static class FileStatusProjector
                 ? Loc.T("Blank page")
             : page.IsOutOfRange
                 ? Loc.T("Out of range")
+            : page.IsJoinedTableOnly
+                ? Loc.T("Joined table")
             : page.Step3 switch
             {
                 PageStep3Status.Running => Loc.T("Running"),

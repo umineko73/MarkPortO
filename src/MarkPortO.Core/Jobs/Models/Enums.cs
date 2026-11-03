@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MarkPortO.Core.Jobs.Models;
@@ -34,14 +35,14 @@ public enum EngineKind
 }
 
 /// <summary>How the pages of an Excel sheet are cut (FR-073).</summary>
-[JsonConverter(typeof(LowercaseEnumConverter<ExcelRange>))]
+[JsonConverter(typeof(ExcelRangeConverter))]
 public enum ExcelRange
 {
     /// <summary>All columns of the used range on the width of a page; the rows go on to more pages. A very wide sheet is still split (FR-011).</summary>
     Columns,
 
-    /// <summary>All rows of the used range on the height of a page; the columns go on to more pages.</summary>
-    Rows,
+    /// <summary>The whole used range of the sheet on one page (width and height); never split. The text gets small on a big sheet, so the DPI is raised.</summary>
+    Sheet,
 
     /// <summary>The print area and the page setup of the sheet, as they are saved in the workbook.</summary>
     PrintArea,
@@ -92,4 +93,27 @@ public enum BlockKind
     Table,
     SheetTable,
     SlideText,
+}
+
+/// <summary>Reads <see cref="ExcelRange"/> in any case; the old value <c>rows</c> (removed) is read as <see cref="ExcelRange.Columns"/>.</summary>
+public sealed class ExcelRangeConverter : JsonConverter<ExcelRange>
+{
+    public override ExcelRange Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var text = reader.GetString();
+        if (string.Equals(text, "rows", StringComparison.OrdinalIgnoreCase))
+        {
+            return ExcelRange.Columns;
+        }
+
+        if (text is not null && Enum.TryParse<ExcelRange>(text, ignoreCase: true, out var value) && Enum.IsDefined(value))
+        {
+            return value;
+        }
+
+        throw new JsonException($"'{text}' is not a valid {nameof(ExcelRange)}.");
+    }
+
+    public override void Write(Utf8JsonWriter writer, ExcelRange value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(value.ToString().ToLowerInvariant());
 }

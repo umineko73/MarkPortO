@@ -277,7 +277,7 @@ public class ExcelTempCopyTests
     }
 
     [Fact]
-    public void Create_ForTheRows_FitsOnePageTallAndAnyNumberWide()
+    public void Create_ForTheSheet_FitsTheWholeSheetOnOnePage()
     {
         using var dir = new TempDir();
         var source = dir.Combine("book.xlsx");
@@ -285,15 +285,15 @@ public class ExcelTempCopyTests
         var sheet = XlsxReader.Read(source, includeHidden: true).Single();
         var copy = dir.Combine("copy.xlsx");
 
-        ExcelTempCopy.Create(source, copy, sheet, ExcelUnitPlanner.Plan(sheet, ExcelRange.Rows).Single(), ExcelRange.Rows);
+        ExcelTempCopy.Create(source, copy, sheet, ExcelUnitPlanner.Plan(sheet, ExcelRange.Sheet).Single(), ExcelRange.Sheet);
 
         using var document = SpreadsheetDocument.Open(copy, false);
         var worksheet = ((WorksheetPart)document.WorkbookPart!.GetPartById(
             document.WorkbookPart.Workbook!.Sheets!.Elements<Sheet>().Single().Id!.Value!)).Worksheet!;
         var setup = worksheet.GetFirstChild<PageSetup>()!;
-        Assert.Equal(0u, setup.FitToWidth!.Value);
+        Assert.Equal(1u, setup.FitToWidth!.Value);
         Assert.Equal(1u, setup.FitToHeight!.Value);
-        Assert.Equal(OrientationValues.Portrait, setup.Orientation!.Value);
+        Assert.Equal(OrientationValues.Landscape, setup.Orientation!.Value);
     }
 
     [Fact]

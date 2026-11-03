@@ -501,10 +501,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set => ChooseExcelRange(value, ExcelRange.Columns);
     }
 
-    public bool ExcelRows
+    public bool ExcelSheet
     {
-        get => _store.Current.Images.ExcelRange == ExcelRange.Rows;
-        set => ChooseExcelRange(value, ExcelRange.Rows);
+        get => _store.Current.Images.ExcelRange == ExcelRange.Sheet;
+        set => ChooseExcelRange(value, ExcelRange.Sheet);
     }
 
     public bool ExcelPrintArea
@@ -519,7 +519,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             _store.Update(s => s.Images.ExcelRange = range);
             Raise(nameof(ExcelColumns));
-            Raise(nameof(ExcelRows));
+            Raise(nameof(ExcelSheet));
             Raise(nameof(ExcelPrintArea));
         }
     }

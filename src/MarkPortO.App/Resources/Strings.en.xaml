@@ -156,10 +156,10 @@
   <sys:String x:Key="Main_Cond_LockedTip">These cannot be changed while the previous conversion can be resumed. To change them, clear the previous conversion.</sys:String>
   <sys:String x:Key="Confirm_ClearPrevious">The previous conversion in the output folder ({0} done, {1} failed, {2} not finished) will be cleared.&#10;&#10;It can no longer be resumed or retried (the files already written stay).&#10;&#10;Clear it?</sys:String>
   <sys:String x:Key="Main_Cond_Excel">Sheet range:</sys:String>
-  <sys:String x:Key="Main_Cond_ExcelColumns">All columns on one page</sys:String>
+  <sys:String x:Key="Main_Cond_ExcelColumns">All columns on one page, as far as they stay readable</sys:String>
   <sys:String x:Key="Main_Cond_ExcelColumnsTip">Columns fit the width of a page and rows go on to more pages. A very wide sheet is still split, because it could not be read.</sys:String>
-  <sys:String x:Key="Main_Cond_ExcelRows">All rows on one page</sys:String>
-  <sys:String x:Key="Main_Cond_ExcelRowsTip">Rows fit the height of a page and columns go on to more pages. With many rows the text gets small.</sys:String>
+  <sys:String x:Key="Main_Cond_ExcelSheet">Whole sheet on one page</sys:String>
+  <sys:String x:Key="Main_Cond_ExcelSheetTip">The whole sheet goes on one page (one image) and is never split. A big sheet gets small text, so the DPI of the image is raised.</sys:String>
   <sys:String x:Key="Main_Cond_ExcelPrintArea">Follow the print setup</sys:String>
   <sys:String x:Key="Main_Cond_ExcelPrintAreaTip">Output as the print area and the page setup saved in the sheet say. Without a print area it is the whole sheet.</sys:String>
   <sys:String x:Key="Main_Preview">Preview</sys:String>
@@ -219,6 +219,7 @@
   <sys:String x:Key="Prompts_InsertPageText">Insert {pagetext}</sys:String>
   <sys:String x:Key="Prompts_Reset">Reset the shown prompt to the default</sys:String>
   <sys:String x:Key="Prompts_Close">Close</sys:String>
+  <sys:String x:Key="Close_RunningConfirm">A conversion is running. Stop it and quit? (The results so far are kept, and you can resume later.)</sys:String>
   <sys:String x:Key="About_Title">About MarkPortO</sys:String>
   <sys:String x:Key="About_Product">Product</sys:String>
   <sys:String x:Key="About_Version">Version</sys:String>

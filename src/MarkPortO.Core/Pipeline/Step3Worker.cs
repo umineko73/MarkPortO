@@ -50,6 +50,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
 
         cancellationToken.ThrowIfCancellationRequested();
         document.Step3 = StepStatus.Running;
+        document.VlmModel = ModelText(context.Job.Step3Connection);
         context.Save(document);
 
         try
@@ -62,6 +63,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             var furniture = document.Kind == DocumentKind.Docx && File.Exists(document.SourcePath) ? PageFurniture.Read(document.SourcePath) : [];
 
             MarkOutOfRange(document, context.Options.Pages);
+            MarkJoinedTableOnly(document);
             foreach (var page in document.Pages.Where(p => !p.ReadsInStep3))
             {
                 page.Step3 = PageStep3Status.Skipped; // a deleted page, a blank page and a page outside the range are never read
@@ -145,6 +147,44 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             document.Error = new DocumentError(3, SecretRedact(ex.Message));
             context.Save(document);
             throw;
+        }
+    }
+
+    /// <summary>The model for the comment in the Markdown: the command and the model (<c>claude haiku</c>), or the model of the server.</summary>
+    private static string? ModelText(Step3ConnectionInfo? connection) => connection is null
+        ? null
+        : string.Join(' ', new[] { connection.Kind == "command" ? connection.Command : null, connection.Model }.Where(s => !string.IsNullOrWhiteSpace(s))) is { Length: > 0 } text ? text : connection.Kind;
+
+    /// <summary>
+    /// Marks the pages whose only content is the rows of a table that runs over from an earlier page. When the tables of Step1 are used
+    /// (not <see cref="Step1TablesMode.Off"/>), such a page has nothing for the VLM to add, so it is not sent. With the VLM tables
+    /// (<see cref="Step1TablesMode.Off"/>) the rows are read from the image and joined afterwards, so the page is read.
+    /// </summary>
+    private static void MarkJoinedTableOnly(DocumentRecord document)
+    {
+        var onlyJoined = new HashSet<int>();
+        if (document.Step1Tables != Step1TablesMode.Off)
+        {
+            var effective = DocxPageAssigner.EffectivePages(document.Blocks, document.Pages.Count);
+            var other = new HashSet<int>();
+            for (var i = 0; i < document.Blocks.Count; i++)
+            {
+                if (document.Blocks[i] is { Kind: BlockKind.Table or BlockKind.SheetTable, JoinedToPage: not null })
+                {
+                    onlyJoined.Add(effective[i]);
+                }
+                else
+                {
+                    other.Add(effective[i]);
+                }
+            }
+
+            onlyJoined.ExceptWith(other);
+        }
+
+        foreach (var page in document.Pages)
+        {
+            page.IsJoinedTableOnly = onlyJoined.Contains(page.Index);
         }
     }
 

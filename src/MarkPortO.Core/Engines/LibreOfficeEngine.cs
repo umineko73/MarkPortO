@@ -56,6 +56,20 @@ public sealed class LibreOfficeEngine : IDocumentEngine, IDisposable
                     : Loc.T("LibreOffice was not found at '{0}'.", _configuredPath))
             : EngineAvailability.Available;
 
+    public string? Describe(DocumentKind kind)
+    {
+        try
+        {
+            var soffice = LibreOfficeLocator.Find(_configuredPath);
+            var version = soffice is null ? null : FileVersionInfo.GetVersionInfo(soffice).ProductVersion;
+            return string.IsNullOrWhiteSpace(version) ? "LibreOffice" : "LibreOffice " + version.Trim();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return "LibreOffice";
+        }
+    }
+
     public async Task ExportPdfAsync(PdfExportRequest request, CancellationToken cancellationToken)
     {
         var soffice = LibreOfficeLocator.Find(_configuredPath)

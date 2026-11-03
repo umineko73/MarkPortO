@@ -50,6 +50,48 @@ public sealed class OfficeEngine : IDocumentEngine, IFieldUpdatingEngine, IDispo
             : EngineAvailability.Unavailable(Loc.T("Microsoft Office is not installed ({0} not found). Choose LibreOffice.", string.Join(", ", missing)));
     }
 
+    public string? Describe(DocumentKind kind)
+    {
+        var (progId, name) = kind switch
+        {
+            DocumentKind.Docx => ("Word.Application", "Microsoft Word"),
+            DocumentKind.Xlsx => ("Excel.Application", "Microsoft Excel"),
+            DocumentKind.Pptx => ("PowerPoint.Application", "Microsoft PowerPoint"),
+            _ => (string.Empty, string.Empty),
+        };
+        if (progId.Length == 0)
+        {
+            return null;
+        }
+
+        // The version is read from the program file that the registry names for the application; the application itself is not started.
+        try
+        {
+            if (Type.GetTypeFromProgID(progId)?.GUID is { } clsid
+                && Microsoft.Win32.Registry.ClassesRoot.OpenSubKey($@"CLSID\{{{clsid}}}\LocalServer32")?.GetValue(null) is string server)
+            {
+                var exe = server.Trim().Trim('"');
+                var end = exe.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
+                if (end >= 0)
+                {
+                    exe = exe[..(end + 4)].Trim('"');
+                }
+
+                var version = File.Exists(exe) ? FileVersionInfo.GetVersionInfo(exe).ProductVersion : null;
+                if (!string.IsNullOrWhiteSpace(version))
+                {
+                    return name + " " + version.Trim();
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            // The version stays unknown.
+        }
+
+        return name;
+    }
+
     public async Task ExportPdfAsync(PdfExportRequest request, CancellationToken cancellationToken)
     {
         if (!File.Exists(request.SourcePath))

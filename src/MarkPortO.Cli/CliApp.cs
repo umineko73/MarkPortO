@@ -93,7 +93,7 @@ public static class CliApp
         var pdfText = new Option<string?>("--pdf-text") { Description = "on or off: use the text layer of a PDF as the text of its pages (the default is on)." };
         var engine = new Option<string?>("--engine") { Description = "office or libreoffice." };
         var dpi = new Option<int?>("--dpi") { Description = "Resolution of the page images (72-600)." };
-        var excelRange = new Option<string?>("--excel-range") { Description = "How the pages of an Excel sheet are cut: columns (all columns on the width of a page), rows (all rows on the height of a page) or print-area (follow the print setup of the sheet)." };
+        var excelRange = new Option<string?>("--excel-range") { Description = "How the pages of an Excel sheet are cut: columns (all columns on the width of a page, as far as they stay readable), sheet (the whole sheet on one page) or print-area (follow the print setup of the sheet)." };
         var pages = new Option<string?>("--pages") { Description = "The pages that Step 3 reads, like 3-5,8 (8- is from page 8, -4 is up to page 4; write --pages=-4). Only for one file; Step 1 still converts the whole file." };
         var step2 = new Option<string?>("--step2") { Description = "on or off: put image references in the Markdown." };
         var step3 = new Option<string?>("--step3") { Description = "on or off: read the page images with the VLM." };

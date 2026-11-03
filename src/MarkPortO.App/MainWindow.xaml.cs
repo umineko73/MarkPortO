@@ -71,6 +71,11 @@ public partial class MainWindow : Window
         }
 
         e.Cancel = true;
+        if (MessageBox.Show(this, UiText.Get("Close_RunningConfirm"), UiText.Get("Confirm_Title"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
         IsEnabled = false;
         await _viewModel.StopAsync(TimeSpan.FromSeconds(40));
         _closeConfirmed = true;

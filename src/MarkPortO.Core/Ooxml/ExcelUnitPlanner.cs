@@ -42,6 +42,18 @@ public static class ExcelUnitPlanner
     /// <summary>A3 landscape is 420 mm = 1190.55 points wide.</summary>
     public const double PaperWidthPoints = 1190.55;
 
+    /// <summary>A3 landscape is 297 mm = 841.89 points high.</summary>
+    public const double PaperHeightPoints = 841.89;
+
+    /// <summary>The height of a default row, for estimating the height of a sheet.</summary>
+    private const double DefaultRowHeightPoints = 15;
+
+    /// <summary>The height of the used range, estimated from the number of rows.</summary>
+    private static double EstimatedHeightPoints(SheetContent sheet) => Math.Max(0, sheet.LastRow - sheet.FirstRow + 1) * DefaultRowHeightPoints;
+
+    /// <summary>A sheet that is wider than it is high is printed on a landscape page, the others on a portrait page (only when the whole sheet goes on one page).</summary>
+    public static bool IsLandscape(SheetContent sheet) => sheet.TotalWidthPoints >= EstimatedHeightPoints(sheet);
+
     /// <summary>Left and right margin of 0.25 inch each.</summary>
     public const double MarginPoints = 18;
 
@@ -54,8 +66,21 @@ public static class ExcelUnitPlanner
     /// How many times the DPI of the page image of a part is raised: a part that Excel shrinks below <see cref="ComfortScale"/> to fit the
     /// page width gets <c>ComfortScale / scale</c> times the DPI, so that the text in the image is as large as before (1 for a part that is shrunk less).
     /// </summary>
-    public static double DpiFactor(SheetContent sheet, ExcelUnit unit)
+    public static double DpiFactor(SheetContent sheet, ExcelUnit unit, ExcelRange range = ExcelRange.Columns)
     {
+        if (range == ExcelRange.Sheet)
+        {
+            // The whole sheet on one page: shrunk by the width or by the height, whichever is more.
+            var landscape = IsLandscape(sheet);
+            var printableWidth = (landscape ? PaperWidthPoints : PaperHeightPoints) - (2 * MarginPoints);
+            var printableHeight = (landscape ? PaperHeightPoints : PaperWidthPoints) - (2 * MarginPoints);
+            var height = EstimatedHeightPoints(sheet);
+            var fit = Math.Min(1.0, Math.Min(
+                sheet.TotalWidthPoints <= 0 ? 1.0 : printableWidth / sheet.TotalWidthPoints,
+                height <= 0 ? 1.0 : printableHeight / height));
+            return fit >= ComfortScale ? 1.0 : ComfortScale / fit;
+        }
+
         var width = 0.0;
         for (var i = unit.FromColumnIndex; i <= unit.ToColumnIndex && i < sheet.ColumnWidthsPoints.Length; i++)
         {

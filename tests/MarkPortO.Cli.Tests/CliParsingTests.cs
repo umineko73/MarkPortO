@@ -268,7 +268,8 @@ public class CliParsingTests
 
     [Theory]
     [InlineData("columns", MarkPortO.Core.Jobs.Models.ExcelRange.Columns)]
-    [InlineData("rows", MarkPortO.Core.Jobs.Models.ExcelRange.Rows)]
+    [InlineData("sheet", MarkPortO.Core.Jobs.Models.ExcelRange.Sheet)]
+    [InlineData("rows", MarkPortO.Core.Jobs.Models.ExcelRange.Columns)]
     [InlineData("print-area", MarkPortO.Core.Jobs.Models.ExcelRange.PrintArea)]
     [InlineData("PrintArea", MarkPortO.Core.Jobs.Models.ExcelRange.PrintArea)]
     public void TheExcelRangeIsTakenFromTheCommandLine(string text, MarkPortO.Core.Jobs.Models.ExcelRange expected)

@@ -116,7 +116,7 @@ public static class ExcelTempCopy
         var worksheet = worksheetPart.Worksheet ?? throw new InvalidDocumentException(Loc.T("The sheet has no content."));
         if (range != ExcelRange.PrintArea)
         {
-            FitToPages(worksheet, range);
+            FitToPages(worksheet, range, sheet);
         }
 
         workbook.Save();
@@ -160,9 +160,9 @@ public static class ExcelTempCopy
         });
     }
 
-    private static void FitToPages(Worksheet worksheet, ExcelRange range)
+    private static void FitToPages(Worksheet worksheet, ExcelRange range, SheetContent sheet)
     {
-        // "Fit to page": one page wide and any number of pages tall (columns), or one page tall and any number wide (rows).
+        // "Fit to page": one page wide and any number of pages tall (columns), or the whole sheet on one page (sheet).
         // The page is only shrunk, never enlarged.
         var properties = worksheet.SheetProperties ??= new SheetProperties();
         properties.PageSetupProperties = new PageSetupProperties { FitToPage = true };
@@ -186,9 +186,9 @@ public static class ExcelTempCopy
         worksheet.AddChild(new PageSetup
         {
             PaperSize = PaperSizeA3,
-            Orientation = range == ExcelRange.Rows ? OrientationValues.Portrait : OrientationValues.Landscape,
-            FitToWidth = range == ExcelRange.Rows ? 0u : 1u,
-            FitToHeight = range == ExcelRange.Rows ? 1u : 0u,
+            Orientation = range == ExcelRange.Sheet && !ExcelUnitPlanner.IsLandscape(sheet) ? OrientationValues.Portrait : OrientationValues.Landscape,
+            FitToWidth = 1u,
+            FitToHeight = range == ExcelRange.Sheet ? 1u : 0u,
         });
     }
 }

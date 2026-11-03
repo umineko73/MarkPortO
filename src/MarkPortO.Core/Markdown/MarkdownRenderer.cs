@@ -53,6 +53,14 @@ public static class MarkdownRenderer
             document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), language,
             vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmInSeparateFile ? VlmFileName(name) : null);
 
+        if (document.Converter is not null)
+        {
+            // The tools that made this Markdown. A line of its own, so that it can be read by a program.
+            builder.Append("\n<!-- converter: ").Append(SafeComment(document.Converter))
+                .Append(document.VlmModel is null ? string.Empty : "; vlm: " + SafeComment(document.VlmModel))
+                .Append(" -->\n");
+        }
+
         if (includeVlm && TryUsageLine(document.Pages, language) is { } usageLine)
         {
             builder.Append('\n').Append(usageLine).Append('\n');
@@ -278,6 +286,9 @@ public static class MarkdownRenderer
                 break;
             case PageStep3Status.Skipped when page.IsOutOfRange:
                 builder.Append("\n<!-- vlm:skipped page=").Append(number).Append(" reason=\"out of range\" -->\n");
+                break;
+            case PageStep3Status.Skipped when page.IsJoinedTableOnly:
+                builder.Append("\n<!-- vlm:skipped page=").Append(number).Append(" reason=\"joined table\" -->\n");
                 break;
             case PageStep3Status.Done when page.VlmText is not null:
                 builder.Append("\n<!-- vlm:begin page=").Append(number)

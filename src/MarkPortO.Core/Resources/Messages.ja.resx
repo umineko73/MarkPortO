@@ -451,6 +451,9 @@
   <data name="Out of range" xml:space="preserve">
     <value>範囲外</value>
   </data>
+  <data name="Joined table" xml:space="preserve">
+    <value>表を結合済み</value>
+  </data>
   <data name="The page range '{0}' has no page of this document ({1} pages)." xml:space="preserve">
     <value>ページの範囲 '{0}' に、この文書のページ({1}ページ)がありません。</value>
   </data>

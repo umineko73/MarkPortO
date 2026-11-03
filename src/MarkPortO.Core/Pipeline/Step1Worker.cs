@@ -121,6 +121,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                 await ExtractAsync(document, extractor, workDirectory, cancellationToken).ConfigureAwait(false);
             }
 
+            document.Converter = ConverterText(document, work.Context);
             document.Step1 = StepStatus.Done;
             MarkdownRenderer.Write(document);
             context.Save(document);
@@ -143,6 +144,18 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         {
             TryDeleteDirectory(workDirectory);
         }
+    }
+
+    /// <summary>The program that made the Markdown: MarkPortO and its version, then the extractor, or the engine that made the PDF (not for a PDF file, which needs none).</summary>
+    private static string ConverterText(DocumentRecord document, JobContext context)
+    {
+        var text = "MarkPortO " + AppVersion.Current;
+        if (document.Extractor is not null)
+        {
+            return text + "; extractor: " + document.Extractor;
+        }
+
+        return document.Kind != DocumentKind.Pdf && context.Engine.Describe(document.Kind) is { Length: > 0 } engine ? text + "; engine: " + engine : text;
     }
 
     // ---- an extractor: an external command writes the Markdown of the whole document, without pages (FR-110 to FR-112; experimental) ----
@@ -348,7 +361,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                     layout.Pdf.Add(new PdfPageRef(pdf, i));
                     layout.Labels.Add(PageLabel.Sheet(sheet.Name));
                     layout.Sheets.Add(new SheetInfo(sheet.Name, unit.ColumnRange, unit.Part, unit.PartCount));
-                    if (work.Context.Options.ExcelRange == ExcelRange.Columns && ExcelUnitPlanner.DpiFactor(sheet, unit) is var factor and > 1.0)
+                    if (work.Context.Options.ExcelRange != ExcelRange.PrintArea && ExcelUnitPlanner.DpiFactor(sheet, unit, work.Context.Options.ExcelRange) is var factor and > 1.0)
                     {
                         layout.DpiFactors[layout.Pdf.Count - 1] = factor;
                     }

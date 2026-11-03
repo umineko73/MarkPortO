@@ -44,6 +44,9 @@ public interface IDocumentEngine
 
     EngineAvailability CheckAvailability();
 
+    /// <summary>The name and the version of the program that converts a document of this kind, for the comment in the Markdown (for example <c>Microsoft Excel 16.0.17928.20114</c>); <c>null</c> when they are not known.</summary>
+    string? Describe(DocumentKind kind) => null;
+
     /// <exception cref="EngineException">The document could not be converted.</exception>
     Task ExportPdfAsync(PdfExportRequest request, CancellationToken cancellationToken);
 }

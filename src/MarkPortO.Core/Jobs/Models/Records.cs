@@ -87,9 +87,15 @@ public sealed class PageRecord
     /// <summary>The page is outside the page range that the user gave (FR-097): the VLM does not read it. Its image and its text are made as for any page.</summary>
     public bool IsOutOfRange { get; set; }
 
-    /// <summary>Step 3 reads the page: it is not deleted, not blank and not outside the page range.</summary>
+    /// <summary>
+    /// The page has nothing left once the rows of its table are joined to the table of an earlier page, and the tables of Step1 are used instead of those of
+    /// the VLM: it is not sent to the VLM. Set by Step3 each time it runs, because the choice of the tables can change.
+    /// </summary>
+    public bool IsJoinedTableOnly { get; set; }
+
+    /// <summary>Step 3 reads the page: it is not deleted, not blank, not outside the page range and not a page of joined table rows only.</summary>
     [JsonIgnore]
-    public bool ReadsInStep3 => !IsDeleted && !IsBlank && !IsOutOfRange;
+    public bool ReadsInStep3 => !IsDeleted && !IsBlank && !IsOutOfRange && !IsJoinedTableOnly;
 
     public SheetInfo? Sheet { get; set; }
 
@@ -145,6 +151,14 @@ public sealed class DocumentRecord
     /// <summary>The name of the extractor that wrote the Markdown of the document (FR-112); <c>null</c> for the built-in one.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Extractor { get; set; }
+
+    /// <summary>What converted the document (MarkPortO and its version, the engine or the extractor), for the comment in the Markdown. <c>null</c> in a state written by an older version.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Converter { get; set; }
+
+    /// <summary>The model that read the pages (Step3), for the comment in the Markdown; <c>null</c> when Step3 did not run.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? VlmModel { get; set; }
 
     /// <summary>The VLM results are in their own file: the choice, or always for a document that an extractor wrote (FR-112).</summary>
     [JsonIgnore]

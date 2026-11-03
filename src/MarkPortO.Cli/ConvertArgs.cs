@@ -189,13 +189,17 @@ public static class ConvertArgsResolver
 
         if (args.ExcelRange is not null)
         {
-            if (Enum.TryParse<ExcelRange>(args.ExcelRange.Replace("-", string.Empty, StringComparison.Ordinal), ignoreCase: true, out var excelRange) && Enum.IsDefined(excelRange))
+            if (string.Equals(args.ExcelRange, "rows", StringComparison.OrdinalIgnoreCase))
+            {
+                settings.Images.ExcelRange = ExcelRange.Columns; // "rows" was removed
+            }
+            else if (Enum.TryParse<ExcelRange>(args.ExcelRange.Replace("-", string.Empty, StringComparison.Ordinal), ignoreCase: true, out var excelRange) && Enum.IsDefined(excelRange))
             {
                 settings.Images.ExcelRange = excelRange;
             }
             else
             {
-                errors.Add($"--excel-range: '{args.ExcelRange}' is not one of columns, rows, print-area.");
+                errors.Add($"--excel-range: '{args.ExcelRange}' is not one of columns, sheet, print-area.");
             }
         }
 

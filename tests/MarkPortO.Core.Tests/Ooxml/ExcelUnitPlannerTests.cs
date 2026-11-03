@@ -143,7 +143,7 @@ public class ExcelUnitPlannerTests
     }
 
     [Theory]
-    [InlineData(MarkPortO.Core.Jobs.Models.ExcelRange.Rows)]
+    [InlineData(MarkPortO.Core.Jobs.Models.ExcelRange.Sheet)]
     [InlineData(MarkPortO.Core.Jobs.Models.ExcelRange.PrintArea)]
     public void WhenTheRangeIsNotTheColumns_AWideSheetIsOneUnit(MarkPortO.Core.Jobs.Models.ExcelRange range)
     {
