@@ -99,7 +99,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         BrowseOutputCommand = new RelayCommand(BrowseOutputAsync, () => !IsRunning);
         ConnectionSettingsCommand = new RelayCommand(OpenConnectionSettingsAsync, () => !IsRunning);
         ExtractorSettingsCommand = new RelayCommand(OpenExtractorSettingsAsync, () => !IsRunning);
-        PromptsCommand = new RelayCommand(() => { ShowPrompts?.Invoke(); return Task.CompletedTask; }, () => !IsRunning);
+        PromptsCommand = new RelayCommand(() => { ShowPrompts?.Invoke(); RefreshPrompts(); return Task.CompletedTask; }, () => !IsRunning);
+        PromptChoices = [.. new[] { DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx, DocumentKind.Pdf }.Select(k => new PromptChoiceViewModel(k, _store))];
 
         InputPaths.CollectionChanged += (_, _) => UpdateRunCommands();
         _ = RefreshPreviousAsync(showFiles: true, appendToStatus: true); // the earlier run in the output folder (FR-013e)
@@ -111,6 +112,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public Action? ShowExtractorSettings { get; set; }
 
     public Action? ShowPrompts { get; set; }
+
+    /// <summary>The choice of the prompt for each kind of file (FR-115).</summary>
+    public IReadOnlyList<PromptChoiceViewModel> PromptChoices { get; } = [];
+
+    /// <summary>The prompts were changed in their window: the choices are shown again.</summary>
+    public void RefreshPrompts()
+    {
+        foreach (var choice in PromptChoices)
+        {
+            choice.Refresh();
+        }
+    }
+
+    public bool CanEditPrompts => CanEdit && Step3;
 
     // ---- what the view needs to show dialogs (set by the window) ----
 
@@ -232,6 +247,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(CanEditNewRun));
         Raise(nameof(CanEditVlmSeparate));
         Raise(nameof(CanEditStep1Tables));
+        Raise(nameof(CanEditPrompts));
         Raise(nameof(CanEditPages));
         Raise(nameof(PagesTip));
         Raise(nameof(LockedTip));
@@ -622,6 +638,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _store.Update(s => s.Steps.Step3 = value);
             Raise(nameof(CanEditVlmSeparate));
             Raise(nameof(CanEditStep1Tables));
+            Raise(nameof(CanEditPrompts));
             Raise(nameof(PagesTip));
             Raise(nameof(PdfHintVisibility));
             Raise();
@@ -832,7 +849,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 connection.MaxPages?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? none,
                 connection.MaxCostUsd?.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) ?? none);
         var prompts = settings.Vlm.Prompts;
-        if (new[] { prompts.Docx, prompts.Xlsx, prompts.Pptx }.Any(PromptSupplement.UsesPageText))
+        var language = LanguageResolver.Resolve(settings.Ui.Language);
+        bool SendsText(DocumentKind kind)
+        {
+            try
+            {
+                return PromptSupplement.UsesPageText(prompts.Resolve(kind, language, prompts.VariantsOf(kind).Selected));
+            }
+            catch (PromptNotFoundException)
+            {
+                return false; // the run stops with a message of its own
+            }
+        }
+
+        if (new[] { DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx }.Any(SendsText))
         {
             limits = UiText.Get("Confirm_StartExternalText") + limits;
         }

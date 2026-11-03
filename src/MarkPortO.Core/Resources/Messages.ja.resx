@@ -508,4 +508,19 @@
   <data name="The time-out of the extractor '{0}' must be 1 second or more." xml:space="preserve">
     <value>抽出コマンド「{0}」のタイムアウトは、1秒以上にしてください。</value>
   </data>
+  <data name="The prompt '{0}' of {1} was not found in the settings." xml:space="preserve">
+    <value>{1}のプロンプト「{0}」が設定にありません。</value>
+  </data>
+  <data name="vlm.prompts.{0}Variants: the name '{1}' cannot be used (empty, 'standard', a line break or '--')." xml:space="preserve">
+    <value>vlm.prompts.{0}Variants: 名前「{1}」は使えません（空、「standard」、改行、「--」は不可）。</value>
+  </data>
+  <data name="vlm.prompts.{0}Variants: the name '{1}' is used twice." xml:space="preserve">
+    <value>vlm.prompts.{0}Variants: 名前「{1}」が重複しています。</value>
+  </data>
+  <data name="vlm.prompts.{0}Variants: the prompt '{1}' must not be empty." xml:space="preserve">
+    <value>vlm.prompts.{0}Variants: プロンプト「{1}」の内容が空です。</value>
+  </data>
+  <data name="vlm.prompts.{0}Variants.selected: the prompt '{1}' was not found." xml:space="preserve">
+    <value>vlm.prompts.{0}Variants.selected: プロンプト「{1}」が見つかりません。</value>
+  </data>
 </root>

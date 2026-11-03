@@ -58,6 +58,7 @@ public static class MarkdownRenderer
             // The tools that made this Markdown. A line of its own, so that it can be read by a program.
             builder.Append("\n<!-- converter: ").Append(SafeComment(document.Converter))
                 .Append(document.VlmModel is null ? string.Empty : "; vlm: " + SafeComment(document.VlmModel))
+                .Append(document.VlmModel is null || document.VlmPrompt is null ? string.Empty : "; prompt: " + SafeComment(document.VlmPrompt))
                 .Append(" -->\n");
         }
 

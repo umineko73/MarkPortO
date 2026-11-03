@@ -99,6 +99,11 @@ public static class CliApp
         var step3 = new Option<string?>("--step3") { Description = "on or off: read the page images with the VLM." };
         var vlmSeparate = new Option<string?>("--vlm-separate") { Description = "on or off: write the results of Step 3 to a separate file, name_vlm.md." };
         var step1Tables = new Option<string?>("--step1-tables") { Description = "off, replace or omit: where the text of a page has a table, replace the tables of the VLM result by it (replace), or leave them out (omit)." };
+        var prompt = new Option<string?>("--prompt") { Description = "The name of the VLM prompt for every kind of file that has a prompt of this name (or 'standard'); a kind without it keeps its own choice. Not used with --resume." };
+        var promptDocx = new Option<string?>("--prompt-docx") { Description = "The name of the VLM prompt for Word files (or 'standard')." };
+        var promptXlsx = new Option<string?>("--prompt-xlsx") { Description = "The name of the VLM prompt for Excel files (or 'standard')." };
+        var promptPptx = new Option<string?>("--prompt-pptx") { Description = "The name of the VLM prompt for PowerPoint files (or 'standard')." };
+        var promptPdf = new Option<string?>("--prompt-pdf") { Description = "The name of the VLM prompt for PDF files (or 'standard')." };
         var extractorDocx = new Option<string?>("--extractor-docx") { Description = "Experimental. The extractor (a name in settings.json) that writes the Markdown of docx files; builtin is the built-in one." };
         var extractorXlsx = new Option<string?>("--extractor-xlsx") { Description = "Experimental. The extractor that writes the Markdown of xlsx files." };
         var extractorPptx = new Option<string?>("--extractor-pptx") { Description = "Experimental. The extractor that writes the Markdown of pptx files." };
@@ -118,7 +123,7 @@ public static class CliApp
         foreach (var option in new Option[]
         {
             settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, engine, dpi, excelRange, step2, step3, vlmSeparate,
-            pages, step1Tables, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
+            pages, step1Tables, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
         })
         {
             convert.Options.Add(option);
@@ -148,6 +153,11 @@ public static class CliApp
                 Step3 = parse.GetValue(step3),
                 VlmSeparate = parse.GetValue(vlmSeparate),
                 Step1Tables = parse.GetValue(step1Tables),
+                Prompt = parse.GetValue(prompt),
+                PromptDocx = parse.GetValue(promptDocx),
+                PromptXlsx = parse.GetValue(promptXlsx),
+                PromptPptx = parse.GetValue(promptPptx),
+                PromptPdf = parse.GetValue(promptPdf),
                 ExtractorDocx = parse.GetValue(extractorDocx),
                 ExtractorXlsx = parse.GetValue(extractorXlsx),
                 ExtractorPptx = parse.GetValue(extractorPptx),

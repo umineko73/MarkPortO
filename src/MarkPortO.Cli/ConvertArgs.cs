@@ -62,6 +62,17 @@ public sealed record ConvertArgs
 
     public string? Step1Tables { get; init; }
 
+    /// <summary>The name of the prompt for each kind that has it (FR-115).</summary>
+    public string? Prompt { get; init; }
+
+    public string? PromptDocx { get; init; }
+
+    public string? PromptXlsx { get; init; }
+
+    public string? PromptPptx { get; init; }
+
+    public string? PromptPdf { get; init; }
+
     public string? ExtractorDocx { get; init; }
 
     public string? ExtractorXlsx { get; init; }
@@ -227,6 +238,8 @@ public static class ConvertArgsResolver
             }
         }
 
+        ApplyPrompts(args, settings, errors);
+
         if (args.Connection is not null)
         {
             settings.Vlm.Selected = args.Connection;
@@ -257,6 +270,63 @@ public static class ConvertArgsResolver
 
         errors.AddRange(settings.ValidateForRun());
         return errors.Count == 0 ? (settings, errors) : (null, errors);
+    }
+
+    /// <summary>
+    /// <c>--prompt</c> names the prompt of every kind that has one of this name; <c>--prompt-xlsx</c> and the like name the prompt of one kind, which must have it (FR-115).
+    /// </summary>
+    private static void ApplyPrompts(ConvertArgs args, AppSettings settings, List<string> errors)
+    {
+        var prompts = settings.Vlm.Prompts;
+        if (args.Prompt is not null)
+        {
+            var any = false;
+            foreach (var kind in Enum.GetValues<DocumentKind>())
+            {
+                if (PromptPresets.IsStandardName(args.Prompt))
+                {
+                    prompts.VariantsOf(kind).Selected = string.Empty;
+                    any = true;
+                }
+                else if (prompts.VariantsOf(kind).Find(args.Prompt) is { } found)
+                {
+                    prompts.VariantsOf(kind).Selected = found.Name;
+                    any = true;
+                }
+            }
+
+            if (!any)
+            {
+                errors.Add($"--prompt: no kind of file has a prompt named '{args.Prompt}'.");
+            }
+        }
+
+        foreach (var (option, value, kind) in new[]
+        {
+            ("--prompt-docx", args.PromptDocx, DocumentKind.Docx),
+            ("--prompt-xlsx", args.PromptXlsx, DocumentKind.Xlsx),
+            ("--prompt-pptx", args.PromptPptx, DocumentKind.Pptx),
+            ("--prompt-pdf", args.PromptPdf, DocumentKind.Pdf),
+        })
+        {
+            if (value is null)
+            {
+                continue;
+            }
+
+            if (PromptPresets.IsStandardName(value))
+            {
+                prompts.VariantsOf(kind).Selected = string.Empty;
+            }
+            else if (prompts.VariantsOf(kind).Find(value) is { } found)
+            {
+                prompts.VariantsOf(kind).Selected = found.Name;
+            }
+            else
+            {
+                errors.Add($"{option}: there is no prompt named '{value}'.");
+            }
+        }
     }
 
     /// <summary><c>off</c>, <c>replace</c> or <c>omit</c> (<c>on</c> is <c>replace</c>); <c>null</c> for anything else.</summary>

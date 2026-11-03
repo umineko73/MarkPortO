@@ -56,7 +56,9 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
         try
         {
             var reader = context.Vlm ?? throw new InvalidOperationException("The VLM connection is not set up.");
-            var prompt = (context.Prompts ?? new Settings.PromptSettings()).For(document.Kind, document.MarkdownLanguage);
+            var promptName = context.Options.PromptNames.For(document.Kind);
+            var prompt = (context.Prompts ?? new Settings.PromptSettings()).Resolve(document.Kind, document.MarkdownLanguage, promptName);
+            document.VlmPrompt = Settings.PromptPresets.IsStandardName(promptName) ? "standard" : promptName.Trim();
             var governor = context.Governor ?? new Step3Governor();
 
             // The header, the footer and the page number of a Word document are in every page image; the result of the VLM is without them (FR-100).

@@ -160,6 +160,10 @@ public sealed class DocumentRecord
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? VlmModel { get; set; }
 
+    /// <summary>The name of the prompt that Step3 used (<c>standard</c> for the standard one), for the comment in the Markdown.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? VlmPrompt { get; set; }
+
     /// <summary>The VLM results are in their own file: the choice, or always for a document that an extractor wrote (FR-112).</summary>
     [JsonIgnore]
     public bool VlmInSeparateFile => VlmSeparate || Extractor is not null;
@@ -236,6 +240,9 @@ public sealed class OptionsSnapshot
     public Step1TablesMode Step1Tables { get; set; }
 
     public string? Connection { get; set; }
+
+    /// <summary>The names of the prompts that Step 3 uses, for each kind of file (FR-115); empty is the standard prompt. A job from before this setting used the standard ones.</summary>
+    public Settings.PromptNames PromptNames { get; set; } = new();
 
     /// <summary>The pages that Step 3 reads, as the user wrote them (<c>3-5,8</c>); empty or <c>null</c> for all (FR-097).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

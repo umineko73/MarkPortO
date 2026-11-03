@@ -142,9 +142,35 @@ public sealed class AppSettings
 
         foreach (var kind in Enum.GetValues<DocumentKind>())
         {
+            var kindName = kind.ToString().ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(Vlm.Prompts.For(kind)))
             {
-                errors.Add(Loc.T("vlm.prompts.{0}: must not be empty.", kind.ToString().ToLowerInvariant()));
+                errors.Add(Loc.T("vlm.prompts.{0}: must not be empty.", kindName));
+            }
+
+            var variants = Vlm.Prompts.VariantsOf(kind);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in variants.Items)
+            {
+                var name = item.Name.Trim();
+                if (name.Length == 0 || PromptPresets.IsStandardName(name) || name.Contains('\n', StringComparison.Ordinal) || name.Contains('\r', StringComparison.Ordinal) || name.Contains("--", StringComparison.Ordinal))
+                {
+                    errors.Add(Loc.T("vlm.prompts.{0}Variants: the name '{1}' cannot be used (empty, 'standard', a line break or '--').", kindName, item.Name));
+                }
+                else if (!seen.Add(name))
+                {
+                    errors.Add(Loc.T("vlm.prompts.{0}Variants: the name '{1}' is used twice.", kindName, item.Name));
+                }
+
+                if (item.Text.Trim().Length == 0 && item.Preset is null)
+                {
+                    errors.Add(Loc.T("vlm.prompts.{0}Variants: the prompt '{1}' must not be empty.", kindName, item.Name));
+                }
+            }
+
+            if (!PromptPresets.IsStandardName(variants.Selected) && variants.Find(variants.Selected) is null)
+            {
+                errors.Add(Loc.T("vlm.prompts.{0}Variants.selected: the prompt '{1}' was not found.", kindName, variants.Selected));
             }
         }
 
@@ -509,6 +535,39 @@ public sealed class PromptSettings
     public string Pptx { get; set; } = DefaultPptx;
 
     public string Pdf { get; set; } = DefaultPdf;
+
+    // The prompts with a name, besides the standard one above, and the one that is used (FR-115). A settings file without them gets the built-in examples.
+    public PromptVariants DocxVariants { get; set; } = PromptVariants.Seeded();
+
+    public PromptVariants XlsxVariants { get; set; } = PromptVariants.Seeded();
+
+    public PromptVariants PptxVariants { get; set; } = PromptVariants.Seeded();
+
+    public PromptVariants PdfVariants { get; set; } = PromptVariants.Seeded();
+
+    public PromptVariants VariantsOf(DocumentKind kind) => kind switch
+    {
+        DocumentKind.Docx => DocxVariants,
+        DocumentKind.Xlsx => XlsxVariants,
+        DocumentKind.Pptx => PptxVariants,
+        DocumentKind.Pdf => PdfVariants,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+    };
+
+    /// <summary>The prompt to send for the prompt with this name; empty (or <c>standard</c>) is the standard prompt.</summary>
+    /// <exception cref="PromptNotFoundException">No prompt of the kind has this name.</exception>
+    public string Resolve(DocumentKind kind, string language, string? name)
+    {
+        if (PromptPresets.IsStandardName(name))
+        {
+            return For(kind, language);
+        }
+
+        var found = VariantsOf(kind).Find(name!)
+            ?? throw new PromptNotFoundException(Loc.T("The prompt '{0}' of {1} was not found in the settings.", name!, kind.ToString().ToLowerInvariant()));
+        var text = found.TextIn(kind, language);
+        return text.Length > 0 ? text : For(kind, language);
+    }
 
     public string For(DocumentKind kind) => kind switch
     {

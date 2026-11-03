@@ -204,6 +204,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
           <!-- Step1 always runs: it is shown, and it cannot be changed (FR-039) -->
@@ -245,6 +246,24 @@
               <TextBox Text="{Binding PageRangeText, UpdateSourceTrigger=PropertyChanged}" Width="110" VerticalContentAlignment="Center" />
             </StackPanel>
           </WrapPanel>
+
+          <!-- The prompt of each kind of file that Step3 sends to the VLM (FR-115) -->
+          <TextBlock Grid.Row="3" Text="{DynamicResource Main_Cond_Prompt}" VerticalAlignment="Center" Margin="0,6,0,0" />
+          <ItemsControl Grid.Row="3" Grid.Column="1" ItemsSource="{Binding PromptChoices}" IsEnabled="{Binding CanEditPrompts}" Margin="0,6,0,0">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                  <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                  <ComboBox ItemsSource="{Binding Items}" SelectedIndex="{Binding SelectedIndex}" MinWidth="150" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
           </Grid>
         </StackPanel>
       </GroupBox>

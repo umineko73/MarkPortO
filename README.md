@@ -54,7 +54,7 @@ Add files or a folder (or drop them on the list), choose an output folder, and p
 
 ![The preview window](docs/images/preview.png)
 
-**VLM connections** and **prompts** are in the **Settings** menu. A prompt can contain `{pagetext}`, the text Step1 took from the page (it is sent with the image).
+**VLM connections** and **prompts** are in the **Settings** menu. Each kind of file can have several named prompts (a built-in one for a small local model and one for a cloud LLM are included); choose one on the main screen or with `--prompt <name>`. A prompt can contain `{pagetext}`, the text Step1 took from the page (it is sent with the image).
 
 ![VLM connection settings](docs/images/connections.png)
 

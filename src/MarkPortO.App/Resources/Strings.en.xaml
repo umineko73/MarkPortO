@@ -115,6 +115,8 @@
   <sys:String x:Key="Main_Cond_PagesTip">Write the pages that Step3 reads, like 3-5,8 (empty: all). Step1 still converts the whole file.</sys:String>
   <sys:String x:Key="Main_Cond_PagesOneFileTip">Pages can be chosen only when one file is converted.</sys:String>
   <sys:String x:Key="Main_Cond_PagesStep3OffTip">Step3 is off, so the pages are not used.</sys:String>
+  <sys:String x:Key="Main_Cond_Prompt">Prompt:</sys:String>
+  <sys:String x:Key="Prompt_Standard">Standard</sys:String>
   <sys:String x:Key="Main_Cond_Connection">Connection:</sys:String>
   <sys:String x:Key="Main_Start">Start</sys:String>
   <sys:String x:Key="Main_Interrupt">Interrupt</sys:String>
@@ -218,6 +220,16 @@
   <sys:String x:Key="Prompts_PageText">{pagetext} in a prompt is replaced by the text taken from the page of the document (it is sent to the VLM with the image; without it, no text is sent).</sys:String>
   <sys:String x:Key="Prompts_InsertPageText">Insert {pagetext}</sys:String>
   <sys:String x:Key="Prompts_Reset">Reset the shown prompt to the default</sys:String>
+  <sys:String x:Key="Prompts_UsedLabel">Prompt in use:</sys:String>
+  <sys:String x:Key="Prompts_Add">Duplicate and add...</sys:String>
+  <sys:String x:Key="Prompts_Rename">Rename...</sys:String>
+  <sys:String x:Key="Prompts_Delete">Delete</sys:String>
+  <sys:String x:Key="Prompts_DeleteConfirm">Delete the prompt "{0}"?</sys:String>
+  <sys:String x:Key="Prompts_NameLabel">Name of the prompt:</sys:String>
+  <sys:String x:Key="Prompts_NameInvalid">This name cannot be used (not empty, not "standard", no line break, no "--").</sys:String>
+  <sys:String x:Key="Prompts_NameDuplicate">A prompt with this name exists.</sys:String>
+  <sys:String x:Key="Prompts_Ok">OK</sys:String>
+  <sys:String x:Key="Prompts_Cancel">Cancel</sys:String>
   <sys:String x:Key="Prompts_Close">Close</sys:String>
   <sys:String x:Key="Close_Title">Quit</sys:String>
   <sys:String x:Key="Close_RunningConfirm">A conversion is running. Stop it and quit? (The results so far are kept, and you can resume later.)</sys:String>

@@ -75,6 +75,12 @@ public class SettingsPersistenceTests
                 connection.BaseUrl = "https://example.test/v1"; // must stay a valid URL
                 property.SetValue(target, new List<ConnectionProfile> { connection });
             }
+            else if (type == typeof(List<NamedPrompt>))
+            {
+                var prompt = new NamedPrompt();
+                FillWithNonDefaults(prompt, ref counter);
+                property.SetValue(target, new List<NamedPrompt> { prompt });
+            }
             else if (type == typeof(Dictionary<string, string>))
             {
                 property.SetValue(target, new Dictionary<string, string> { [$"KEY_{counter}"] = $"value-{counter}" });

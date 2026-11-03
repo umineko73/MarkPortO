@@ -317,4 +317,29 @@ public class CliParsingTests
         Assert.Null(settings);
         Assert.Contains(errors, e => e.Contains("--excel-range", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void ThePromptOption_ChoosesThePromptOfEveryKindThatHasIt()
+    {
+        var settings = Resolved(new ConvertArgs { Prompt = "cloud" }, FromFile());
+
+        foreach (var kind in Enum.GetValues<DocumentKind>())
+        {
+            Assert.Equal(PromptPresets.CloudName, settings.Vlm.Prompts.VariantsOf(kind).Selected);
+        }
+
+        var one = Resolved(new ConvertArgs { Prompt = "local", PromptXlsx = "standard" }, FromFile());
+        Assert.Equal(PromptPresets.LocalName, one.Vlm.Prompts.DocxVariants.Selected);
+        Assert.Equal(string.Empty, one.Vlm.Prompts.XlsxVariants.Selected);
+    }
+
+    [Fact]
+    public void APromptThatIsNotThere_IsAnError()
+    {
+        var (_, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { Prompt = "nothing" }, FromFile());
+        Assert.Contains(errors, e => e.Contains("--prompt", StringComparison.Ordinal));
+
+        var (_, kindErrors) = ConvertArgsResolver.Resolve(new ConvertArgs { PromptPdf = "nothing" }, FromFile());
+        Assert.Contains(kindErrors, e => e.Contains("--prompt-pdf", StringComparison.Ordinal));
+    }
 }

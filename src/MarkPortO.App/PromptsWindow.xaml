@@ -30,20 +30,7 @@
       <TextBlock TextWrapping="Wrap" Margin="0,0,0,4" Text="{DynamicResource Prompts_Note}" />
       <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Text="{DynamicResource Prompts_PageText}" />
     </StackPanel>
-    <TabControl Grid.Row="1" x:Name="Tabs">
-      <TabItem Header="Word (docx)">
-        <TextBox x:Name="DocxBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="6" />
-      </TabItem>
-      <TabItem Header="Excel (xlsx)">
-        <TextBox x:Name="XlsxBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="6" />
-      </TabItem>
-      <TabItem Header="PowerPoint (pptx)">
-        <TextBox x:Name="PptxBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="6" />
-      </TabItem>
-      <TabItem Header="PDF (pdf)">
-        <TextBox x:Name="PdfBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="6" />
-      </TabItem>
-    </TabControl>
+    <TabControl Grid.Row="1" x:Name="Tabs" />
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
       <Button Content="{DynamicResource Prompts_InsertPageText}" Click="OnInsertPageText" Padding="10,3" Margin="0,0,8,0" />
       <Button Content="{DynamicResource Prompts_Reset}" Click="OnResetCurrent" Padding="10,3" Margin="0,0,8,0" />

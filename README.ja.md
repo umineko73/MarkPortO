@@ -54,7 +54,7 @@ Word・Excel・PowerPoint・PDF の文書（docx・xlsx・pptx・pdf）を、Mar
 
 ![プレビュー画面](docs/images/preview.ja.png)
 
-**VLM接続** と **プロンプト** は、「設定」メニューにあります。プロンプトに `{pagetext}` を書くと、Step1がそのページから取ったテキストを、画像と一緒に送ります。
+**VLM接続** と **プロンプト** は、「設定」メニューにあります。プロンプトは、ファイルの種類ごとに名前を付けて複数持てます（小さいローカルモデル用とクラウドLLM用の例入り）。使うものはメイン画面か `--prompt <名前>` で選びます。プロンプトに `{pagetext}` を書くと、Step1がそのページから取ったテキストを、画像と一緒に送ります。
 
 ![VLM接続の設定](docs/images/connections.ja.png)
 

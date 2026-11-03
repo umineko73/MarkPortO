@@ -73,6 +73,13 @@ public sealed class ConvertRequest
         VlmSeparate = settings.Steps.VlmSeparate,
         Step1Tables = settings.Steps.Step1Tables,
         Connection = settings.Steps.Step3 ? settings.Vlm.Selected : null,
+        PromptNames = new Settings.PromptNames
+        {
+            Docx = settings.Vlm.Prompts.DocxVariants.Selected,
+            Xlsx = settings.Vlm.Prompts.XlsxVariants.Selected,
+            Pptx = settings.Vlm.Prompts.PptxVariants.Selected,
+            Pdf = settings.Vlm.Prompts.PdfVariants.Selected,
+        },
         MarkdownLanguage = LanguageResolver.Resolve(settings.Ui.Language),
     };
 }
