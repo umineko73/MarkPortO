@@ -136,6 +136,13 @@ public sealed class DocumentRecord
     /// <summary>The document folder (absolute path) under the output root.</summary>
     public string OutputFolder { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The document folder as the path from the output root (the folder with <c>.markporto</c>), so that the output can be opened after it was
+    /// moved (FR-120). <c>null</c> in a state written by an older version.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OutputFolderRel { get; set; }
+
     public StepStatus Step1 { get; set; } = StepStatus.Pending;
 
     public StepStatus Step2 { get; set; } = StepStatus.Pending;

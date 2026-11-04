@@ -17,6 +17,8 @@ using MarkPortO.App.Services;
 using System.Windows;
 using Microsoft.Win32;
 using MarkPortO.App.ViewModels;
+using MarkPortO.Core.Jobs;
+using MarkPortO.Core.Pipeline;
 using MarkPortO.Core.Settings;
 
 namespace MarkPortO.App;
@@ -147,6 +149,42 @@ public partial class MainWindow : Window
         window.Closed += (_, _) => _previews.Remove(item.FullPath);
         window.Show();
     }
+
+    // FR-119: the preview of an output of an earlier run, found from its folder. The windows are not tied to the conversion.
+    private void OnOpenPastClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog { Title = UiText.Get("Dialog_SelectFolder"), ClientGuid = PastFolderDialogId };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var root = PastOutputs.FindRoot(dialog.FolderName);
+        if (root is null)
+        {
+            MessageBox.Show(this, UiText.Get("Past_NotOutput"), UiText.Get("Past_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        new PastOutputsWindow(root, PastOutputs.Load(root), OpenPastPreview) { Owner = this }.Show();
+    }
+
+    private void OpenPastPreview(PastDocument past)
+    {
+        var key = past.Document.OutputFolder;
+        if (_previews.TryGetValue(key, out var open) && open.IsLoaded)
+        {
+            open.Activate();
+            return;
+        }
+
+        var window = new PreviewWindow(new FileItemViewModel(FileStatusProjector.Project(past.Document))) { Owner = this };
+        _previews[key] = window;
+        window.Closed += (_, _) => _previews.Remove(key);
+        window.Show();
+    }
+
+    private static readonly Guid PastFolderDialogId = new("5b7d1e90-2c4a-4f68-9d13-8e0a6c3f4b57");
 
     private void OnDragOver(object sender, DragEventArgs e)
     {

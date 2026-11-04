@@ -22,6 +22,9 @@
   <DockPanel>
     <!-- Menu bar (FR-032) -->
     <Menu DockPanel.Dock="Top">
+      <MenuItem Header="{DynamicResource Menu_File}">
+        <MenuItem Header="{DynamicResource Menu_OpenPast}" Click="OnOpenPastClick" />
+      </MenuItem>
       <MenuItem Header="{DynamicResource Menu_Settings}">
         <MenuItem Header="{DynamicResource Menu_Language}">
           <MenuItem Header="{DynamicResource Menu_Lang_System}" Tag="system" Click="OnLanguageClick" IsCheckable="True" IsChecked="{Binding LanguageIsSystem, Mode=OneWay}" />

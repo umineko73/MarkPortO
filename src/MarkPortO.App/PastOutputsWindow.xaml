@@ -1,0 +1,57 @@
+<!--
+  SPDX-License-Identifier: GPL-3.0-only
+  Copyright (C) 2026 umineko73
+
+  This file is part of MarkPortO.
+
+  MarkPortO is free software: you can redistribute it and/or modify it under the terms of
+  the GNU General Public License, version 3 only, as published by the Free Software Foundation.
+
+  MarkPortO is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+  See the GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License along with MarkPortO.
+  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
+-->
+<Window x:Class="MarkPortO.App.PastOutputsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="Assets/MarkPortO.ico" Title="{DynamicResource Past_Title}" Width="860" Height="420" MinWidth="560" MinHeight="260"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <Grid Margin="12">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <Grid Grid.Row="0" Margin="0,0,0,8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Margin="0,0,8,0" Text="{DynamicResource Past_Folder}" />
+      <TextBlock Grid.Column="1" x:Name="FolderText" TextTrimming="CharacterEllipsis" />
+    </Grid>
+    <DataGrid Grid.Row="1" x:Name="Grid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" CanUserAddRows="False"
+              HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionChanged="OnSelectionChanged" MouseDoubleClick="OnDoubleClick">
+      <DataGrid.Columns>
+        <DataGridTextColumn Binding="{Binding Name}" Width="3*" Header="{DynamicResource Past_Name}" />
+        <DataGridTextColumn Binding="{Binding DateText}" Width="130" Header="{DynamicResource Past_Date}" />
+        <DataGridTextColumn Binding="{Binding StateText}" Width="1.2*" Header="{DynamicResource Past_State}" />
+        <DataGridTextColumn Binding="{Binding Model}" Width="1.2*" Header="{DynamicResource Past_Model}" />
+        <DataGridTextColumn Binding="{Binding Prompt}" Width="90" Header="{DynamicResource Past_Prompt}" />
+      </DataGrid.Columns>
+    </DataGrid>
+    <StackPanel Grid.Row="2" x:Name="VersionsPanel" Orientation="Horizontal" Margin="0,8,0,0">
+      <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" Text="{DynamicResource Past_Version}" />
+      <ComboBox x:Name="Versions" MinWidth="300" SelectionChanged="OnVersionChanged" DisplayMemberPath="Text" />
+    </StackPanel>
+    <DockPanel Grid.Row="3" Margin="0,10,0,0" LastChildFill="False">
+      <TextBlock x:Name="CountText" DockPanel.Dock="Left" VerticalAlignment="Center" />
+      <Button DockPanel.Dock="Right" MinWidth="80" Margin="8,0,0,0" IsCancel="True" Content="{DynamicResource Past_Close}" Click="OnCloseClick" />
+      <Button DockPanel.Dock="Right" MinWidth="80" IsDefault="True" x:Name="OpenButton" Content="{DynamicResource Past_Open}" Click="OnOpenClick" />
+    </DockPanel>
+  </Grid>
+</Window>

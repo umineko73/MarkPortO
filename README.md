@@ -23,6 +23,7 @@ MarkPortO converts Word, Excel, PowerPoint and PDF documents (docx, xlsx, pptx, 
 - **Tables of the VLM or of the text.** Where the text of a page (Step1) has a table, you can choose which table goes into the VLM result: the table the VLM read (**Tables: use the VLM result**), the table of the extracted text (**use the extracted text**, exact when the VLM breaks a table), or none (`--step1-tables off|replace|omit`).
 - **PowerPoint.** Text of shapes outside the slide (memos on the pasteboard) is written as `> **Off-slide**: …`; it can be left out.
 - **Deleted and blank pages.** A page crossed out with a full-page "X" is a deleted page; a blank page is marked. Neither is sent to the VLM.
+- **Past outputs.** Open the output of an earlier run later and preview it (File > Open a past output...).
 - **Preview.** See the page image, the extracted text and the VLM result side by side while the conversion runs. `mermaid` blocks are drawn as diagrams.
 - **Optional VLM reading (Step3).** A VLM (a model that can read images), through an OpenAI-compatible server or a command you are logged in to (`claude`, `codex`, `opencode`), reads each page image and adds the text. Token usage and cost are recorded.
 - **Folders, interrupt and resume.** Convert a file or a folder; interrupt and continue later. Existing output is never overwritten.
@@ -53,6 +54,8 @@ Add files or a folder (or drop them on the list), choose an output folder, and p
 **Preview** (double-click a file): choose which of the page image, the extracted text and the VLM result to show, side by side or stacked, drawn or as source. **Follow** shows the page read last. The page image zooms with Ctrl and the wheel (Ctrl and 0 is 100%); the zoom and the scroll position are kept when the page changes or a new result arrives. Arrow keys and the mouse wheel change the page (the wheel stops at the end of a page first); dragging with the right button scrolls.
 
 ![The preview window](docs/images/preview.png)
+
+**Open a past output** (File > Open a past output...): choose the output folder (or the folder of one document). MarkPortO reads the state it keeps in `.markporto` and lists the documents, newest run first; a file converted more than once has its other results in a box below. Opening one shows the same preview. It only reads. The output folder can be moved or copied to another place and still opens, as long as `.markporto` goes with it.
 
 **VLM connections** and **prompts** are in the **Settings** menu. Each kind of file can have several named prompts (a built-in one for a small local model and one for a cloud LLM are included); choose one on the main screen or with `--prompt <name>`. A prompt can contain `{pagetext}`, the text Step1 took from the page (it is sent with the image).
 

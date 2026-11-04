@@ -270,4 +270,21 @@
   <sys:String x:Key="Confirm_StartExternal">{0} input(s) will be converted, and the page images will be sent outside the local network, to: {1}.&#10;&#10;Usage charges may apply.{2}&#10;&#10;Start?</sys:String>
   <sys:String x:Key="Confirm_StartExternalText">&#10;A prompt contains {pagetext}, so the text taken from the document is sent as well.</sys:String>
   <sys:String x:Key="Confirm_StartExternalLimits">&#10;Limits: pages {0}, cost {1}.</sys:String>
+  <sys:String x:Key="Menu_File">_File</sys:String>
+  <sys:String x:Key="Menu_OpenPast">Open a past output...</sys:String>
+  <sys:String x:Key="Past_Title">Past output</sys:String>
+  <sys:String x:Key="Past_Folder">Output folder</sys:String>
+  <sys:String x:Key="Past_Name">File</sys:String>
+  <sys:String x:Key="Past_Date">Converted</sys:String>
+  <sys:String x:Key="Past_State">State</sys:String>
+  <sys:String x:Key="Past_Model">VLM model</sys:String>
+  <sys:String x:Key="Past_Prompt">Prompt</sys:String>
+  <sys:String x:Key="Past_Version">Results of this file (newest first):</sys:String>
+  <sys:String x:Key="Past_Open">Open</sys:String>
+  <sys:String x:Key="Past_Close">Close</sys:String>
+  <sys:String x:Key="Past_NotOutput">This is not an output of MarkPortO (there is no .markporto).</sys:String>
+  <sys:String x:Key="Past_Empty">There is no document to preview in this output folder.</sys:String>
+  <sys:String x:Key="Past_Missing">The output folder was not found</sys:String>
+  <sys:String x:Key="Past_NoPages">No pages</sys:String>
+  <sys:String x:Key="Past_Count">{0} item(s)</sys:String>
 </ResourceDictionary>

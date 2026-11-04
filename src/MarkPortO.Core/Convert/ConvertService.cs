@@ -402,6 +402,8 @@ public sealed class ConvertService
                 Step1Tables = options.Step1Tables,
             };
 
+            record.OutputFolderRel = Path.GetRelativePath(outRoot, record.OutputFolder);
+
             try
             {
                 record.Fingerprint = StateStore.ComputeFingerprint(record.SourcePath);
