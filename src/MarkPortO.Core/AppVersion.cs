@@ -20,7 +20,7 @@ namespace MarkPortO.Core;
 /// <summary>The version of MarkPortO, for the comment in the Markdown it writes.</summary>
 public static class AppVersion
 {
-    /// <summary>For example <c>0.2.4</c> (without the build metadata after a <c>+</c>).</summary>
+    /// <summary>For example <c>0.2.5</c> (without the build metadata after a <c>+</c>).</summary>
     public static string Current { get; } = Read();
 
     private static string Read()

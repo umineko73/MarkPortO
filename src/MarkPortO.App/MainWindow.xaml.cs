@@ -40,6 +40,7 @@ public partial class MainWindow : Window
             PickFolder = PickFolder,
             PickFiles = PickFiles,
             Confirm = text => MessageBox.Show(this, text, UiText.Get("Confirm_Title"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes,
+            ShowStopped = text => MessageBox.Show(this, text, UiText.Get("Stopped_Title"), MessageBoxButton.OK, MessageBoxImage.Warning),
             ShowConnectionSettings = ShowConnectionSettings,
             ShowExtractorSettings = ShowExtractorSettings,
             ShowPrompts = ShowPrompts,

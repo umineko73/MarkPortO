@@ -136,6 +136,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>Asks a yes/no question with the given text; true for yes (set by the window).</summary>
     public Func<string, bool>? Confirm { get; set; }
 
+    /// <summary>Tells the user, in a dialog, why a conversion did not start or stopped because of the VLM (the status bar alone is easy to miss).</summary>
+    public Action<string>? ShowStopped { get; set; }
+
     // ---- state ----
 
     public ObservableCollection<string> InputPaths { get; }
@@ -1012,7 +1015,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var (setup, setupError) = VlmSetupFactory.Create(snapshot);
             if (setup is null && snapshot.Steps.Step3)
             {
-                SetStatus(() => setupError ?? UiText.Get("Status_VlmNotReady"));
+                var notReady = setupError ?? UiText.Get("Status_VlmNotReady");
+                SetStatus(() => notReady);
+                ShowStopped?.Invoke(notReady);
                 return;
             }
 
@@ -1035,11 +1040,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _scanVersion++; // a search for the earlier run that is still going is out of date
         IsRunning = true;
         SetStatus(() => UiText.Get("Status_Running"));
+        string? stoppedMessage = null;
         try
         {
             var result = await Task.Run(() => run(service, snapshot, _cancellation.Token));
             feed.Flush();
             SetStatus(() => Summary(result));
+            if (result.WasInterrupted && result.Job.StopReason is { } stopReason)
+            {
+                stoppedMessage = stopReason;
+            }
         }
         catch (JobNotFoundException ex)
         {
@@ -1051,6 +1061,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (ex.Item == ConvertStartException.EngineItem)
             {
                 OpenCondition("engine");
+            }
+            else if (snapshot.Steps.Step3)
+            {
+                stoppedMessage = ex.Message; // the check of the VLM connection (or the missing connection) is the reason
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -1069,6 +1083,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _cancellation = null;
             IsRunning = false;
             _runFinished?.TrySetResult();
+        }
+
+        if (stoppedMessage is not null)
+        {
+            ShowStopped?.Invoke(stoppedMessage);
         }
 
         // What can be resumed has changed with this run.

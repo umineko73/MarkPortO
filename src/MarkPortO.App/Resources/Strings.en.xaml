@@ -191,6 +191,7 @@
   <sys:String x:Key="Preview_VlmFailed">The VLM could not read this page.</sys:String>
   <sys:String x:Key="Preview_NoMarkdown">There is no Markdown for this page yet.</sys:String>
   <sys:String x:Key="Preview_NoWebView">The WebView2 runtime was not found, so the Markdown is shown as written.</sys:String>
+  <sys:String x:Key="Stopped_Title">The conversion stopped</sys:String>
   <sys:String x:Key="Confirm_Title">Start a new conversion</sys:String>
   <sys:String x:Key="Confirm_StartWithInterrupted">An interrupted conversion is left in the output folder ({0} done, {1} failed, {2} not finished).&#10;&#10;Start a new conversion anyway? The interrupted one can no longer be resumed (the files already written stay).&#10;To continue it, choose No and press Resume.</sys:String>
   <sys:String x:Key="Dialog_SelectFolder">Select a folder</sys:String>
