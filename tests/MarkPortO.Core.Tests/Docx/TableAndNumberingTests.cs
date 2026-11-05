@@ -43,6 +43,21 @@ public class TableAndNumberingTests
     }
 
     [Fact]
+    public void Assign_AJapaneseTableWithShortHeaderCells_IsPlacedByAHeaderCellWhenPdfReordersCells()
+    {
+        var table = TableBlock(
+            [["受付", "→", "測定", "→", "判定", "→", "報告"], ["受付票", "→", "測定値", "→", "判定票", "→", "報告書"]]);
+        DocxBlock[] blocks = [new(new Block { Kind = BlockKind.Paragraph }, "Introduction of the report"), table];
+
+        var warnings = DocxPageAssigner.Assign(
+            blocks,
+            ["Introduction of the report", "受付 測定 判定 報告 受付票 測定値 判定票 報告書"]);
+
+        Assert.Equal([1, 2], blocks.Select(b => b.Block.PageIndex).ToArray());
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
     public void Assign_TheTextOfAChartThatThePdfListsAfterThePageText_DoesNotMoveTheSearchForTheNextBlocks()
     {
         // A PDF lists the text of a chart, a SmartArt or a text box after the text of the page.

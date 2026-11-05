@@ -182,6 +182,17 @@ public static class DocxPageAssigner
             {
                 Add(cell);
             }
+
+            // Short Japanese/Chinese headers are meaningful lookup candidates even when they are only two characters
+            // (for example, "受付"). Keep these after the full row and longer cells to reduce accidental matches.
+            foreach (var cell in first)
+            {
+                var normalized = Normalize(cell);
+                if (normalized.Length == 2 && normalized.All(c => c > 0x7F) && !candidates.Contains(normalized))
+                {
+                    candidates.Add(normalized);
+                }
+            }
         }
 
         return candidates;
