@@ -72,6 +72,7 @@ public sealed class ConvertRequest
         Step3 = settings.Steps.Step3,
         VlmSeparate = settings.Steps.VlmSeparate,
         Step1Tables = settings.Steps.Step1Tables,
+        DropRepeatedTables = settings.Steps.DropRepeatedTables,
         Connection = settings.Steps.Step3 ? settings.Vlm.Selected : null,
         PromptNames = new Settings.PromptNames
         {

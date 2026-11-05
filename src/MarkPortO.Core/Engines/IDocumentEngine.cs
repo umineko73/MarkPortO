@@ -78,4 +78,7 @@ public class EngineException : Exception
     public bool IsPasswordProtected { get; init; }
 
     public bool TimedOut { get; init; }
+
+    /// <summary>The document is open in the user's program: it was not touched, and the user is asked to close it.</summary>
+    public bool IsOpenInProgram { get; init; }
 }

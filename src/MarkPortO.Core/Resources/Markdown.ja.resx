@@ -91,6 +91,9 @@
   <data name="**VLM cost**: {0} US dollars in total" xml:space="preserve">
     <value>**VLM費用**: 合計 {0} 米ドル</value>
   </data>
+  <data name="A table that repeats an earlier table of this page is left out here." xml:space="preserve">
+    <value>このページで前に書いた表と同じ内容の表は、ここには書きません。</value>
+  </data>
   <data name="The tables of this page are not repeated here; the tables of the text of the document are the ones to use." xml:space="preserve">
     <value>このページの表は、ここには書きません。文書の抽出テキストの表を使ってください。</value>
   </data>

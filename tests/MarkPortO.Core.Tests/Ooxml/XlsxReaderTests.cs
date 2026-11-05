@@ -250,6 +250,110 @@ public class XlsxReaderTests
             markdown);
     }
 
+    // FR-123: a file that another program holds open is reported as open, not as a broken file.
+    [Fact]
+    public void EnsureOpens_AFileHeldOpenByAnotherProgram_SaysItIsOpen()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("held.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [["A", "B"]]));
+        using var holder = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
+
+        var error = Assert.Throws<InvalidDocumentException>(() => OoxmlPackage.EnsureOpens(path, MarkPortO.Core.Jobs.Models.DocumentKind.Xlsx));
+
+        Assert.True(error.Message.Contains("open in a program", StringComparison.OrdinalIgnoreCase) || error.Message.Contains("開かれています", StringComparison.Ordinal), error.Message);
+    }
+
+    // FR-122: a bordered cell is part of a table even when it has no value, so a column that has no values yet does not cut a table in two.
+    [Fact]
+    public void Read_Markdown_ABorderedColumnWithoutValues_DoesNotCutATableInTwo()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("bordered-column.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [
+            ["A1", "", "C1"],
+            ["A2", "", "C2"],
+            ["A3", "", "C3"]], BorderedRanges: ["A1:C3"]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal("|  |  |  |\n|---|---|---|\n| A1 |  | C1 |\n| A2 |  | C2 |\n| A3 |  | C3 |", markdown);
+    }
+
+    [Fact]
+    public void Read_Markdown_WithoutBorders_AnEmptyColumnStillCutsTheTables()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("no-borders.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [
+            ["A1", "", "C1"],
+            ["A2", "", "C2"]]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal("|  |\n|---|\n| A1 |\n| A2 |\n\n|  |\n|---|\n| C1 |\n| C2 |", markdown);
+    }
+
+    [Fact]
+    public void Read_Markdown_ABorderedEmptyRow_DoesNotCutATableInTwo_AndTablesBesideEachOtherStaySeparate()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("bordered-row.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [
+            ["A1", "B1", "", "X1"],
+            ["", "", "", ""],
+            ["A3", "B3", "", "X3"]], BorderedRanges: ["A1:B3", "D1:D3"]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal("|  |  |\n|---|---|\n| A1 | B1 |\n|  |  |\n| A3 | B3 |\n\n|  |\n|---|\n| X1 |\n|  |\n| X3 |", markdown);
+    }
+
+    // A title or a note with no border, right above or below a bordered table, is a paragraph and not a row of the table.
+    [Fact]
+    public void Read_Markdown_UnborderedTitleAndNote_BesideABorderedTable_AreParagraphs()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("title-note.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [
+            ["Title", ""],
+            ["H1", "H2"],
+            ["a", "b"],
+            ["Note", ""]], BorderedRanges: ["A2:B3"]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal("Title\n\n|  |  |\n|---|---|\n| H1 | H2 |\n| a | b |\n\nNote", markdown);
+    }
+
+    // A legend of several cells with no border, above a bordered table, is one line of text and not a row of a table.
+    [Fact]
+    public void Read_Markdown_UnborderedLegendOfSeveralCells_IsOneLineOfText()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("legend.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [
+            ["Legend 1", "Legend 2"],
+            ["H1", "H2"],
+            ["a", "b"]], BorderedRanges: ["A2:B3"]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal("Legend 1　Legend 2\n\n|  |  |\n|---|---|\n| H1 | H2 |\n| a | b |", markdown);
+    }
+
+    [Fact]
+    public void Read_Bordered_HoldsTheCellsWithALine()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("bordered-cells.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [["A1", "", "C1"]], BorderedRanges: ["A1:B1"]));
+
+        var sheet = XlsxReader.Read(path, false).Single();
+
+        Assert.Equal([(0, 0), (0, 1)], sheet.Bordered.OrderBy(b => b.Column));
+    }
+
     [Fact]
     public void Read_Markdown_RowsOfOneRowEach_WithEmptyRowsBetween_AreOneTable_AndATableOfSeveralRowsStaysApart()
     {

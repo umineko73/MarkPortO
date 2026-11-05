@@ -75,6 +75,11 @@ public static class OoxmlPackage
         {
             throw;
         }
+        catch (IOException ex) when (IsSharingViolation(ex))
+        {
+            // Another program (Word, Excel, PowerPoint) has the file open: say so, not that the file is broken.
+            throw new InvalidDocumentException(Loc.T("The file is open in a program. Close it there, then convert it again."), ex);
+        }
         catch (Exception ex) when (ex is FileFormatException or IOException or InvalidDataException or NotSupportedException or UnauthorizedAccessException or ArgumentException or System.Xml.XmlException)
         {
             // An encrypted (password protected) document is an OLE file, not a zip package.
@@ -84,6 +89,9 @@ public static class OoxmlPackage
             throw new InvalidDocumentException(message, ex);
         }
     }
+
+    /// <summary>ERROR_SHARING_VIOLATION (32) and ERROR_LOCK_VIOLATION (33): the file is held open by another program.</summary>
+    private static bool IsSharingViolation(IOException ex) => (ex.HResult & 0xFFFF) is 32 or 33;
 
     private static bool LooksEncrypted(string path)
     {

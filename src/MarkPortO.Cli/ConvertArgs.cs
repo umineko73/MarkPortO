@@ -62,6 +62,8 @@ public sealed record ConvertArgs
 
     public string? Step1Tables { get; init; }
 
+    public string? DropRepeatedTables { get; init; }
+
     /// <summary>The name of the prompt for each kind that has it (FR-115).</summary>
     public string? Prompt { get; init; }
 
@@ -218,6 +220,7 @@ public static class ConvertArgsResolver
         ApplyOnOff("--step2", args.Step2, value => settings.Steps.Step2 = value, errors);
         ApplyOnOff("--step3", args.Step3, value => settings.Steps.Step3 = value, errors);
         ApplyOnOff("--vlm-separate", args.VlmSeparate, value => settings.Steps.VlmSeparate = value, errors);
+        ApplyOnOff("--drop-repeated-tables", args.DropRepeatedTables, value => settings.Steps.DropRepeatedTables = value, errors);
         foreach (var (kind, value) in new[] { (DocumentKind.Docx, args.ExtractorDocx), (DocumentKind.Xlsx, args.ExtractorXlsx), (DocumentKind.Pptx, args.ExtractorPptx), (DocumentKind.Pdf, args.ExtractorPdf) })
         {
             if (value is not null)

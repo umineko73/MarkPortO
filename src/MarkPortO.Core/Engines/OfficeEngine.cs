@@ -356,6 +356,38 @@ public sealed class OfficeEngine : IDocumentEngine, IFieldUpdatingEngine, IDispo
         };
     }
 
+    /// <summary>
+    /// PowerPoint is one program for everybody: a presentation that the user has open is returned when it is opened again, and closing it afterwards
+    /// would close it for the user, with its unsaved changes. So it is not opened here; the conversion fails with a message to close it first.
+    /// Word and Excel are started as programs of their own (a document that the user has open is not touched), so they need no such check.
+    /// </summary>
+    private static void EnsureNotOpen(dynamic items, string source)
+    {
+        var wanted = Path.GetFullPath(source);
+        var open = false;
+        try
+        {
+            foreach (dynamic item in items)
+            {
+                string full = item.FullName;
+                if (string.Equals(Path.GetFullPath(full), wanted, StringComparison.OrdinalIgnoreCase))
+                {
+                    open = true;
+                    break;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is COMException or InvalidCastException or ArgumentException or NotSupportedException or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+        {
+            // The list cannot be read: go on as before.
+        }
+
+        if (open)
+        {
+            throw new EngineException(Loc.T("The file is open in a program. Close it there, then convert it again.")) { IsOpenInProgram = true };
+        }
+    }
+
     private static void ExportWord(dynamic word, string source, string target)
     {
         dynamic? document = null;
@@ -422,6 +454,7 @@ public sealed class OfficeEngine : IDocumentEngine, IFieldUpdatingEngine, IDispo
         dynamic? presentation = null;
         try
         {
+            EnsureNotOpen(powerPoint.Presentations, source);
             presentation = powerPoint.Presentations.Open(
                 FileName: source,
                 ReadOnly: -1, // msoTrue
@@ -580,6 +613,9 @@ public sealed class OfficeEngine : IDocumentEngine, IFieldUpdatingEngine, IDispo
         foreach (var id in ids)
         {
             StartedProcesses[id] = processName;
+
+            // If MarkPortO is stopped hard, so that nothing below runs, Windows ends the Office program together with it.
+            MarkPortO.Core.Vlm.Command.ProcessJob.Assign(id);
         }
 
         if (Interlocked.Exchange(ref _exitHookInstalled, 1) == 0)

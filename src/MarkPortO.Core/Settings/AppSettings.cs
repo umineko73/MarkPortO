@@ -366,6 +366,9 @@ public sealed class StepSettings
 
     /// <summary>On a page whose text has a table (Step1), the tables of the VLM result are replaced by the tables of Step1 or left out (FR-105).</summary>
     public Step1TablesMode Step1Tables { get; set; }
+
+    /// <summary>Leave the tables that the VLM wrote again on a page out of the Markdown (FR-124).</summary>
+    public bool DropRepeatedTables { get; set; }
 }
 
 public sealed class VlmSettings

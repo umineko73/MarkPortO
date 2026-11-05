@@ -25,7 +25,6 @@
       <RowDefinition Height="*" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
-      <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
     <Grid Grid.Row="0" Margin="0,0,0,8">
       <Grid.ColumnDefinitions>
@@ -45,19 +44,16 @@
         <DataGridTextColumn Binding="{Binding Prompt}" Width="90" Header="{DynamicResource Past_Prompt}" />
       </DataGrid.Columns>
     </DataGrid>
-    <StackPanel Grid.Row="2" x:Name="VersionsPanel" Orientation="Horizontal" Margin="0,8,0,0">
-      <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" Text="{DynamicResource Past_Version}" />
-      <ComboBox x:Name="Versions" MinWidth="300" SelectionChanged="OnVersionChanged" DisplayMemberPath="Text" />
-    </StackPanel>
-    <DockPanel Grid.Row="3" x:Name="ResumePanel" Margin="0,8,0,0" LastChildFill="True">
-      <Button DockPanel.Dock="Right" MinWidth="80" Margin="8,0,0,0" x:Name="LoadButton" Content="{DynamicResource Past_Load}" Click="OnLoadClick" />
-      <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0" Text="{DynamicResource Past_Resumable}" />
-      <ComboBox x:Name="Resumable" DisplayMemberPath="Text" />
+    <DockPanel Grid.Row="2" Margin="0,8,0,0" LastChildFill="True">
+      <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0" Text="{DynamicResource Past_Version}" />
+      <ComboBox x:Name="Versions" SelectionChanged="OnVersionChanged" DisplayMemberPath="Text" />
     </DockPanel>
-    <DockPanel Grid.Row="4" Margin="0,10,0,0" LastChildFill="False">
+    <DockPanel Grid.Row="3" Margin="0,10,0,0" LastChildFill="False">
       <TextBlock x:Name="CountText" DockPanel.Dock="Left" VerticalAlignment="Center" />
       <Button DockPanel.Dock="Right" MinWidth="80" Margin="8,0,0,0" IsCancel="True" Content="{DynamicResource Past_Close}" Click="OnCloseClick" />
-      <Button DockPanel.Dock="Right" MinWidth="80" IsDefault="True" x:Name="OpenButton" Content="{DynamicResource Past_Open}" Click="OnOpenClick" />
+      <Button DockPanel.Dock="Right" MinWidth="80" Margin="8,0,0,0" x:Name="LoadButton" Content="{DynamicResource Past_Load}" Click="OnLoadClick" />
+      <Button DockPanel.Dock="Right" MinWidth="80" Margin="8,0,0,0" IsDefault="True" x:Name="OpenButton" Content="{DynamicResource Past_Open}" Click="OnOpenClick" />
+      <Button DockPanel.Dock="Right" MinWidth="80" x:Name="FolderButton" Content="{DynamicResource Past_OpenFolder}" Click="OnFolderClick" />
     </DockPanel>
   </Grid>
 </Window>

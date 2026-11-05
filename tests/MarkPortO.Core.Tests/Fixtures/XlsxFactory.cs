@@ -33,6 +33,7 @@ namespace MarkPortO.Core.Tests.Fixtures;
 /// <param name="Comments">Comments by cell reference (<c>B2</c> to its text).</param>
 /// <param name="HiddenRows">Rows that are hidden (1-based).</param>
 /// <param name="HiddenColumns">Columns that are hidden (1-based).</param>
+/// <param name="BorderedRanges">A1-style ranges whose cells have a thin border on every side, also the cells without a value.</param>
 public sealed record SheetSpec(
     string Name,
     string[][] Rows,
@@ -47,7 +48,8 @@ public sealed record SheetSpec(
     Dictionary<string, string>? Hyperlinks = null,
     Dictionary<string, string>? Comments = null,
     int[]? HiddenRows = null,
-    int[]? HiddenColumns = null);
+    int[]? HiddenColumns = null,
+    string[]? BorderedRanges = null);
 
 /// <summary>A drawn shape anchored to cells (0-based, as in the file): from the top left of (FromColumn, FromRow) to the top left of (ToColumn, ToRow).</summary>
 public sealed record CellShapeSpec(string Geometry, int FromColumn, int FromRow, int ToColumn, int ToRow, bool FlipH = false, bool FlipV = false);
@@ -208,11 +210,14 @@ public static class XlsxFactory
     }
 
     // One cell format for each number format code that the sheets use (index 0 is the default one).
+    private const string BorderStyleKey = "border-style";
+
     private static Dictionary<string, uint> AddStyles(WorkbookPart workbookPart, SheetSpec[] sheets)
     {
         var codes = sheets.SelectMany(s => s.NumberFormats?.Values.AsEnumerable() ?? Enumerable.Empty<string>()).Distinct().ToList();
         var result = new Dictionary<string, uint>();
-        if (codes.Count == 0)
+        var withBorders = sheets.Any(s => s.BorderedRanges is { Length: > 0 });
+        if (codes.Count == 0 && !withBorders)
         {
             return result;
         }
@@ -228,13 +233,27 @@ public static class XlsxFactory
             result[codes[i]] = (uint)(i + 1);
         }
 
+        var borders = new Borders(new Border()) { Count = 1 };
+        if (withBorders)
+        {
+            borders.AppendChild(new Border(
+                new LeftBorder { Style = BorderStyleValues.Thin },
+                new RightBorder { Style = BorderStyleValues.Thin },
+                new TopBorder { Style = BorderStyleValues.Thin },
+                new BottomBorder { Style = BorderStyleValues.Thin },
+                new DiagonalBorder()));
+            borders.Count = 2;
+            formats.AppendChild(new CellFormat { BorderId = 1, ApplyBorder = true });
+            result[BorderStyleKey] = (uint)(codes.Count + 1);
+        }
+
         numbering.Count = (uint)codes.Count;
-        formats.Count = (uint)(codes.Count + 1);
+        formats.Count = (uint)(codes.Count + (withBorders ? 2 : 1));
         stylesPart.Stylesheet = new Stylesheet(
             numbering,
             new Fonts(new Font()) { Count = 1 },
             new Fills(new Fill(new PatternFill { PatternType = PatternValues.None })) { Count = 1 },
-            new Borders(new Border()) { Count = 1 },
+            borders,
             new CellStyleFormats(new CellFormat()) { Count = 1 },
             formats);
         return result;
@@ -273,8 +292,14 @@ public static class XlsxFactory
             for (var c = 0; c < spec.Rows[r].Length; c++)
             {
                 var text = spec.Rows[r][c];
+                var bordered = spec.BorderedRanges?.Any(range => InRange(range, r + 1, c + 1)) == true;
                 if (text.Length == 0)
                 {
+                    if (bordered)
+                    {
+                        row.AppendChild(new Cell { CellReference = $"{ColumnName(c + 1)}{r + 1}", StyleIndex = styleOfCode[BorderStyleKey] });
+                    }
+
                     continue;
                 }
 
@@ -282,6 +307,10 @@ public static class XlsxFactory
                 if (spec.NumberFormats?.TryGetValue($"{ColumnName(c + 1)}{r + 1}", out var code) == true)
                 {
                     built.StyleIndex = styleOfCode[code];
+                }
+                else if (bordered)
+                {
+                    built.StyleIndex = styleOfCode[BorderStyleKey];
                 }
 
                 row.AppendChild(built);
@@ -330,6 +359,17 @@ public static class XlsxFactory
             DataType = CellValues.InlineString,
         };
     }
+
+    private static bool InRange(string range, int row, int column)
+    {
+        var corners = range.Split(':');
+        var (c1, r1) = (ColumnIndex(corners[0]), RowNumber(corners[0]));
+        var (c2, r2) = corners.Length == 2 ? (ColumnIndex(corners[1]), RowNumber(corners[1])) : (c1, r1);
+        return row >= r1 && row <= r2 && column >= c1 && column <= c2;
+    }
+
+    private static int RowNumber(string reference) =>
+        int.Parse(new string(reference.SkipWhile(char.IsLetter).ToArray()), System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>The 1-based column of a reference such as <c>C5</c>.</summary>
     private static int ColumnIndex(string reference)

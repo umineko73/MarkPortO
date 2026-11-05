@@ -124,6 +124,9 @@
   <data name="The file cannot be opened as a .{0} document. It looks like a password-protected document." xml:space="preserve">
     <value>このファイルは .{0} 文書として開けません。パスワード付きの文書のようです。</value>
   </data>
+  <data name="The file is open in a program. Close it there, then convert it again." xml:space="preserve">
+    <value>このファイルは、ほかのプログラムで開かれています。いったんそちらで閉じてから、もう一度変換してください。</value>
+  </data>
   <data name="The document has no main part." xml:space="preserve">
     <value>文書に本体の部分がありません。</value>
   </data>

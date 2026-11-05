@@ -106,6 +106,48 @@ public class OfficeEngineTests(ITestOutputHelper output)
         Assert.True(engine.CheckAvailability().IsAvailable);
     }
 
+    // FR-123: a presentation that the user has open is not opened again and not closed (PowerPoint is one program for everybody): closing it would
+    // lose the unsaved changes.
+    [OfficeFact]
+    public async Task Pptx_AlreadyOpenInPowerPoint_IsNotClosed_AndTheConversionAsksToCloseIt()
+    {
+        if (Count("POWERPNT") > 0)
+        {
+            return; // this PowerPoint may be the user's: the test would quit it
+        }
+
+        using var dir = new TempDir();
+        var source = dir.Combine("open.pptx");
+        PptxFactory.Create(source, new SlideSpec("First", ["one"]));
+        using var session = new StaSession();
+        dynamic? powerPoint = null;
+        await session.Run(() =>
+        {
+            powerPoint = Activator.CreateInstance(Type.GetTypeFromProgID("PowerPoint.Application")!);
+            powerPoint!.Presentations.Open(FileName: source, ReadOnly: -1, Untitled: 0, WithWindow: 0);
+            return 0;
+        });
+        try
+        {
+            using var engine = new OfficeEngine();
+
+            var error = await Assert.ThrowsAsync<EngineException>(
+                () => engine.ExportPdfAsync(Request(source, DocumentKind.Pptx, dir.Combine("out", "a.pdf")), CancellationToken.None));
+
+            Assert.True(error.IsOpenInProgram);
+            Assert.Equal(1, await session.Run(() => (int)powerPoint!.Presentations.Count));
+            Assert.False(File.Exists(dir.Combine("out", "a.pdf")));
+        }
+        finally
+        {
+            await session.Run(() =>
+            {
+                powerPoint?.Quit();
+                return 0;
+            });
+        }
+    }
+
     [OfficeFact]
     public async Task Docx_BecomesAPdfWithOnePagePerPageBreak()
     {

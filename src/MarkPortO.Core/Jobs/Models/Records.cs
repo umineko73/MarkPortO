@@ -155,6 +155,9 @@ public sealed class DocumentRecord
     /// <summary>What is done with the tables of the VLM result where the text of the page has a table (FR-105).</summary>
     public Step1TablesMode Step1Tables { get; set; }
 
+    /// <summary>The tables that the VLM wrote again on a page are left out of the Markdown (FR-124).</summary>
+    public bool DropRepeatedTables { get; set; }
+
     /// <summary>The name of the extractor that wrote the Markdown of the document (FR-112); <c>null</c> for the built-in one.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Extractor { get; set; }
@@ -245,6 +248,8 @@ public sealed class OptionsSnapshot
     public bool VlmSeparate { get; set; }
 
     public Step1TablesMode Step1Tables { get; set; }
+
+    public bool DropRepeatedTables { get; set; }
 
     public string? Connection { get; set; }
 

@@ -24,12 +24,13 @@ namespace MarkPortO.App;
 
 /// <summary>
 /// The documents of the earlier runs in an output folder, one row for each file with its newest run (FR-119). A file that was converted more than
-/// once has its other runs in the box below, to pick by the time. Only reads; the preview is opened by the caller.
+/// once has its runs in the box below, to pick by the time; the buttons act on the run that is chosen there (preview, open the folder, convert it again). Only reads; the preview is opened by the caller.
 /// </summary>
 public partial class PastOutputsWindow : Window
 {
     private readonly Action<PastDocument> _open;
     private readonly Func<PreviousRun, Task<bool>> _load;
+    private readonly Dictionary<Guid, PreviousRun> _resumable;
 
     /// <param name="outputRoot">The folder that has <c>.markporto</c>.</param>
     /// <param name="documents">What <see cref="PastOutputs.Load"/> found, newest run first.</param>
@@ -46,9 +47,7 @@ public partial class PastOutputsWindow : Window
         InitializeComponent();
         _open = open;
         _load = load;
-        Resumable.ItemsSource = resumable.Select(r => new ResumeItem(r)).ToList();
-        Resumable.SelectedIndex = resumable.Count > 0 ? 0 : -1;
-        ResumePanel.Visibility = resumable.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        _resumable = resumable.ToDictionary(r => r.Job.JobId);
         FolderText.Text = outputRoot;
         FolderText.ToolTip = outputRoot;
 
@@ -65,25 +64,26 @@ public partial class PastOutputsWindow : Window
             Grid.SelectedIndex = 0;
         }
 
-        UpdateOpenButton();
+        UpdateButtons();
     }
 
     private Row? SelectedRow => Grid.SelectedItem as Row;
 
     private PastDocument? Chosen => (Versions.SelectedItem as Version)?.Document;
 
+    // The run that is chosen in the box can be loaded to resume it when it is one of the runs that can be resumed (FR-121).
+    private PreviousRun? ChosenRun => Chosen is { } chosen && _resumable.TryGetValue(chosen.Job.JobId, out var run) ? run : null;
+
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         Versions.ItemsSource = SelectedRow?.Versions;
         Versions.SelectedIndex = SelectedRow is null ? -1 : 0;
-        // The box only matters for a file that was converted more than once.
-        VersionsPanel.Visibility = SelectedRow is { Versions.Count: > 1 } ? Visibility.Visible : Visibility.Collapsed;
-        UpdateOpenButton();
+        UpdateButtons();
     }
 
-    private void OnVersionChanged(object sender, SelectionChangedEventArgs e) => UpdateOpenButton();
+    private void OnVersionChanged(object sender, SelectionChangedEventArgs e) => UpdateButtons();
 
-    private void UpdateOpenButton()
+    private void UpdateButtons()
     {
         OpenButton.IsEnabled = Chosen is { CanPreview: true };
         OpenButton.ToolTip = Chosen switch
@@ -92,6 +92,12 @@ public partial class PastOutputsWindow : Window
             { CanPreview: false } => UiText.Get("Past_NoPages"),
             _ => null,
         };
+        FolderButton.IsEnabled = Chosen is { FolderFound: true };
+        LoadButton.IsEnabled = ChosenRun is not null;
+        LoadButton.ToolTip = ChosenRun is { } run
+            ? UiText.Get("Past_RunCounts", run.DoneCount, run.FailedCount, run.UnfinishedCount)
+                + (run.Job.Status == MarkPortO.Core.Jobs.Models.JobStatus.Abandoned ? "  " + UiText.Get("Past_Abandoned") : string.Empty)
+            : UiText.Get("Past_NotResumable");
     }
 
     private void OnDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -122,7 +128,7 @@ public partial class PastOutputsWindow : Window
 
     private async void OnLoadClick(object sender, RoutedEventArgs e)
     {
-        if ((Resumable.SelectedItem as ResumeItem)?.Run is not { } run)
+        if (ChosenRun is not { } run)
         {
             return;
         }
@@ -137,20 +143,27 @@ public partial class PastOutputsWindow : Window
         }
     }
 
+    private void OnFolderClick(object sender, RoutedEventArgs e)
+    {
+        if (Chosen is { FolderFound: true } chosen)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(chosen.Document.OutputFolder) { UseShellExecute = true });
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+            {
+                MessageBox.Show(this, ex.Message, UiText.Get("Past_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+    }
+
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
 
     private static string DateOf(PastDocument d) => d.Job.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 
     private static string StateOf(PastDocument d) =>
         d.FolderFound ? FileStatusProjector.Text(FileStatusProjector.StateOf(d.Document)) : UiText.Get("Past_Missing");
-
-    private sealed record ResumeItem(PreviousRun Run)
-    {
-        public string Text =>
-            Run.Job.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") + "  "
-            + UiText.Get("Past_RunCounts", Run.DoneCount, Run.FailedCount, Run.UnfinishedCount)
-            + (Run.Job.Status == MarkPortO.Core.Jobs.Models.JobStatus.Abandoned ? "  " + UiText.Get("Past_Abandoned") : string.Empty);
-    }
 
     private sealed record Version(PastDocument Document)
     {

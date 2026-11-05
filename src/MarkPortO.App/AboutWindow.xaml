@@ -20,30 +20,22 @@
         Icon="Assets/MarkPortO.ico" Title="{DynamicResource About_Title}" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <Grid Margin="20,16,20,14">
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="Auto" />
-      <ColumnDefinition Width="*" />
-    </Grid.ColumnDefinitions>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
-      <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
-    <TextBlock Grid.Row="0" Margin="0,0,16,6" Text="{DynamicResource About_Product}" />
-    <TextBlock Grid.Row="0" Grid.Column="1" Margin="0,0,0,6" Text="MarkPortO" FontWeight="SemiBold" />
-    <TextBlock Grid.Row="1" Margin="0,0,16,6" Text="{DynamicResource About_Version}" />
-    <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,0,0,6" x:Name="VersionText" />
-    <TextBlock Grid.Row="2" Margin="0,0,16,6" Text="{DynamicResource About_Author}" />
-    <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,0,0,6" x:Name="AuthorText" />
-    <TextBlock Grid.Row="3" Margin="0,0,16,6" Text="{DynamicResource About_License}" />
-    <TextBlock Grid.Row="3" Grid.Column="1" Margin="0,0,0,6" x:Name="LicenseText" />
-    <TextBlock Grid.Row="4" Margin="0,0,16,6" Text="{DynamicResource About_Link}" />
-    <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,0,0,6">
+    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+      <TextBlock Text="MarkPortO" FontWeight="SemiBold" />
+      <TextBlock Margin="8,0,0,0" x:Name="VersionText" />
+    </StackPanel>
+    <TextBlock Grid.Row="1" Margin="0,0,0,6" x:Name="AuthorText" />
+    <TextBlock Grid.Row="2" Margin="0,0,0,6" x:Name="LicenseText" />
+    <TextBlock Grid.Row="3" Margin="0,0,0,6">
       <Hyperlink Click="OnLinkClick"><Run x:Name="LinkText" /></Hyperlink>
     </TextBlock>
-    <Button Grid.Row="5" Grid.ColumnSpan="2" HorizontalAlignment="Right" Margin="0,10,0,0" MinWidth="80" IsDefault="True" IsCancel="True" Content="{DynamicResource About_Close}" Click="OnOkClick" />
+    <Button Grid.Row="4" HorizontalAlignment="Right" Margin="0,10,0,0" MinWidth="80" IsDefault="True" IsCancel="True" Content="{DynamicResource About_Close}" Click="OnOkClick" />
   </Grid>
 </Window>

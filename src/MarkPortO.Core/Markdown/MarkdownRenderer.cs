@@ -79,6 +79,11 @@ public static class MarkdownRenderer
             vlmTexts = Step1Tables.Apply(document, effectivePages, vlmTexts, language);
         }
 
+        if (includeVlm && document.DropRepeatedTables)
+        {
+            vlmTexts = VlmRepeatedTables.Apply(document, vlmTexts, language);
+        }
+
         foreach (var page in document.Pages.OrderBy(p => p.Index))
         {
             builder.Append('\n');

@@ -113,6 +113,12 @@ public sealed class SheetContent
     /// <summary>The columns (0-based in <see cref="Rows"/>) that are hidden (FR-070).</summary>
     public IReadOnlySet<int> HiddenColumns { get; init; } = new HashSet<int>();
 
+    /// <summary>
+    /// The cells (0-based row and column in <see cref="Rows"/>) that have a border on at least one side, with or without a value (FR-122). A bordered
+    /// cell is part of a table even when it is empty, so a column that has no values yet does not cut a table in two.
+    /// </summary>
+    public IReadOnlySet<(int Row, int Column)> Bordered { get; init; } = new HashSet<(int Row, int Column)>();
+
     /// <summary>The first row is the header row of an Excel table (FR-060). A sheet has no header otherwise.</summary>
     public bool HasHeaderRow { get; init; }
 
@@ -211,7 +217,7 @@ public sealed class SheetContent
                 }
             }
         }
-        else if (!HasHeaderRow && Regions(0, Rows.Length - 1, fromIndex, toIndex) is { Count: > 1 } regions)
+        else if (!HasHeaderRow && SplitByBorders(Regions(0, Rows.Length - 1, fromIndex, toIndex)) is { Count: > 1 } regions)
         {
             // Tables drawn on the sheet without the Excel table feature: each is written as a table of its own.
             // A block of one cell with text, such as a title or a note, is a paragraph, not a table of one cell. It also cuts the
@@ -229,7 +235,7 @@ public sealed class SheetContent
 
             foreach (var region in regions)
             {
-                if (region.FirstRow == region.LastRow && SingleTextCell(region.FirstRow, region.From, region.To) is { } text)
+                if (region.FirstRow == region.LastRow && (SingleTextCell(region.FirstRow, region.From, region.To) ?? LooseRowText(region.FirstRow, region.From, region.To)) is { } text)
                 {
                     Flush();
                     AddParagraph(region.FirstRow, text);
@@ -294,12 +300,31 @@ public sealed class SheetContent
         return found is not null && !found.All(ch => "0123456789.,-+$%()¥ ".Contains(ch, StringComparison.Ordinal)) ? found : null;
     }
 
+    /// <summary>
+    /// The cells of a row that has text and no border, on a sheet that draws its tables with borders (a legend, a note), as one line of text.
+    /// <c>null</c> when the row has a border, one cell only (see <see cref="SingleTextCell"/>) or nothing but numbers.
+    /// </summary>
+    private string? LooseRowText(int row, int fromIndex, int toIndex)
+    {
+        if (Bordered.Count == 0 || HiddenRows.Contains(row) || row >= Rows.Length || Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Any(c => Bordered.Contains((row, c))))
+        {
+            return null;
+        }
+
+        var cells = Enumerable.Range(fromIndex, toIndex - fromIndex + 1)
+            .Where(c => c < Rows[row].Length && !HiddenColumns.Contains(c) && Rows[row][c].Trim().Length > 0)
+            .Select(c => Rows[row][c].Trim())
+            .ToList();
+        return cells.Count > 1 && cells.Any(t => !t.All(ch => "0123456789.,-+$%()¥ ".Contains(ch, StringComparison.Ordinal))) ? string.Join("　", cells) : null;
+    }
+
     private bool HasContent(int row, int fromIndex, int toIndex) =>
         Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Any(c => c < Rows[row].Length && (Rows[row][c].Length > 0 || HiddenByMerge.ContainsKey((row, c))));
 
     private bool IsFilled(int row, int column) =>
         !HiddenRows.Contains(row) && !HiddenColumns.Contains(column)
-        && column < Rows[row].Length && (Rows[row][column].Length > 0 || HiddenByMerge.ContainsKey((row, column)) || Overflow.Contains((row, column)));
+        && column < Rows[row].Length
+        && (Rows[row][column].Length > 0 || HiddenByMerge.ContainsKey((row, column)) || Overflow.Contains((row, column)) || Bordered.Contains((row, column)));
 
     private HashSet<(int Row, int Column)>? overflow;
 
@@ -371,6 +396,73 @@ public sealed class SheetContent
                 }
             }
         }
+    }
+
+    // On a sheet that draws its tables with borders, a row with text and no border at all is not a row of the table beside it: it is a title or
+    // a note. A block is cut at such rows, and each of them is a block of one row (a paragraph when it is one cell of text).
+    private List<(int FirstRow, int LastRow, int From, int To)> SplitByBorders(List<(int FirstRow, int LastRow, int From, int To)> regions)
+    {
+        if (Bordered.Count == 0)
+        {
+            return regions;
+        }
+
+        var result = new List<(int FirstRow, int LastRow, int From, int To)>();
+        foreach (var (first, last, from, to) in regions)
+        {
+            var loose = Enumerable.Range(first, last - first + 1)
+                .Where(r => !HiddenRows.Contains(r) && HasContent(r, from, to) && !Enumerable.Range(from, to - from + 1).Any(c => Bordered.Contains((r, c))))
+                .ToHashSet();
+            if (loose.Count == 0)
+            {
+                result.Add((first, last, from, to));
+                continue;
+            }
+
+            var start = first;
+            for (var r = first; r <= last; r++)
+            {
+                if (!loose.Contains(r))
+                {
+                    continue;
+                }
+
+                if (r > start)
+                {
+                    result.Add((start, r - 1, from, to));
+                }
+
+                // The cells of the row, cut where the columns are empty: a title and a legend far from it are not one table row.
+                var segmentStart = -1;
+                for (var c = from; c <= to + 1; c++)
+                {
+                    var has = c <= to && !HiddenColumns.Contains(c) && c < Rows[r].Length && (Rows[r][c].Length > 0 || HiddenByMerge.ContainsKey((r, c)));
+                    if (has && segmentStart < 0)
+                    {
+                        segmentStart = c;
+                    }
+                    else if (!has && segmentStart >= 0 && c <= to && !HiddenColumns.Contains(c))
+                    {
+                        result.Add((r, r, segmentStart, c - 1));
+                        segmentStart = -1;
+                    }
+                }
+
+                if (segmentStart >= 0)
+                {
+                    result.Add((r, r, segmentStart, to));
+                }
+
+                start = r + 1;
+            }
+
+            if (start <= last)
+            {
+                result.Add((start, last, from, to));
+            }
+        }
+
+        return result;
     }
 
     // Blocks of one row each, one below the other with their columns overlapping (the rows of a table that has an empty row between them),
@@ -611,6 +703,7 @@ public static partial class XlsxReader
 
             var sharedStrings = ReadSharedStrings(workbookPart);
             var struckStyles = ReadStruckStyles(workbookPart);
+            var borderedStyles = ReadBorderedStyles(workbookPart);
             var dateStyles = ReadDateStyles(workbookPart);
             var numberFormats = ReadNumberFormats(workbookPart, dateStyles);
 
@@ -628,7 +721,7 @@ public static partial class XlsxReader
                     continue; // a chart sheet
                 }
 
-                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles));
+                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles, borderedStyles));
             }
 
             return result;
@@ -660,10 +753,12 @@ public static partial class XlsxReader
         IReadOnlyList<SharedItem> sharedStrings,
         IReadOnlySet<uint> dateStyles,
         IReadOnlyDictionary<uint, string> numberFormats,
-        IReadOnlySet<uint> struckStyles)
+        IReadOnlySet<uint> struckStyles,
+        IReadOnlySet<uint> borderedStyles)
     {
         var worksheet = part.Worksheet ?? throw new InvalidDocumentException(Loc.T("The sheet '{0}' has no content.", name));
         var cells = new Dictionary<(int Row, int Column), string>();
+        var bordered = new HashSet<(int Row, int Column)>();
         int minRow = int.MaxValue, maxRow = 0, minColumn = int.MaxValue, maxColumn = 0;
 
         void Extend(int row, int column)
@@ -693,6 +788,11 @@ public static partial class XlsxReader
             if (text.Length > 0)
             {
                 cells[(row, column)] = text;
+            }
+
+            if (cell.StyleIndex?.Value is { } styleIndex && borderedStyles.Contains(styleIndex))
+            {
+                bordered.Add((row, column));
             }
         }
 
@@ -796,6 +896,7 @@ public static partial class XlsxReader
             LastRow = maxRow,
             Rows = rows,
             HiddenByMerge = coveredByMerge,
+            Bordered = bordered.Select(b => (b.Row - minRow, b.Column - minColumn)).ToHashSet(),
             Tables = ReadTables(part, minRow, maxRow, minColumn, maxColumn),
             Notes = ReadNotes(part, minRow, maxRow, minColumn, maxColumn),
             Charts = [.. (part.DrawingsPart?.ChartParts ?? []).Select(ChartReader.Read).OfType<ChartInfo>()],
@@ -1087,6 +1188,36 @@ public static partial class XlsxReader
         {
             var fontId = format.FontId?.Value ?? 0;
             if (fontId < fontList.Count && fontList[(int)fontId].Elements<Strike>().FirstOrDefault() is { } strike && (strike.Val is null || strike.Val.Value))
+            {
+                result.Add(index);
+            }
+
+            index++;
+        }
+
+        return result;
+    }
+
+    /// <summary>Style indexes (positions in cellXfs) whose border has a line on at least one of the four sides (FR-122).</summary>
+    private static IReadOnlySet<uint> ReadBorderedStyles(WorkbookPart workbookPart)
+    {
+        var result = new HashSet<uint>();
+        var stylesheet = workbookPart.WorkbookStylesPart?.Stylesheet;
+        if (stylesheet?.CellFormats is not { } formats || stylesheet.Borders is not { } borders)
+        {
+            return result;
+        }
+
+        static bool Has(BorderPropertiesType? side) => side?.Style?.Value is { } style && style != BorderStyleValues.None;
+
+        var hasLine = borders.Elements<Border>()
+            .Select(b => Has(b.LeftBorder) || Has(b.RightBorder) || Has(b.TopBorder) || Has(b.BottomBorder))
+            .ToList();
+        uint index = 0;
+        foreach (var format in formats.Elements<CellFormat>())
+        {
+            var borderId = format.BorderId?.Value ?? 0;
+            if (borderId < hasLine.Count && hasLine[(int)borderId])
             {
                 result.Add(index);
             }

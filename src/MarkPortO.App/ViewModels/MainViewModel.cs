@@ -629,6 +629,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Leave the tables that the VLM wrote again on a page out of the Markdown (FR-124).</summary>
+    public bool DropRepeatedTables
+    {
+        get => _store.Current.Steps.DropRepeatedTables;
+        set
+        {
+            _store.Update(s => s.Steps.DropRepeatedTables = value);
+            Raise();
+        }
+    }
+
     /// <summary>Step 3: read the page images with the VLM.</summary>
     public bool Step3
     {
@@ -940,6 +951,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Step3 = snapshot.Steps.Step3,
                 VlmSeparate = snapshot.Steps.VlmSeparate,
                 Step1Tables = snapshot.Steps.Step1Tables,
+                DropRepeatedTables = snapshot.Steps.DropRepeatedTables,
             },
             token));
     }

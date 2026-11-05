@@ -41,5 +41,7 @@ public sealed class ResumeRequest
 
     public Step1TablesMode? Step1Tables { get; init; }
 
+    public bool? DropRepeatedTables { get; init; }
+
     public string? Connection { get; init; }
 }

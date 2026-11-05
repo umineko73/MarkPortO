@@ -20,7 +20,8 @@ namespace MarkPortO.Core.Vlm.Command;
 
 /// <summary>
 /// A Windows job object that ends its processes when MarkPortO ends, so that a command that is still running does not
-/// outlive MarkPortO (FR-044). The commands are put into it right after they start; a failure to do so is ignored,
+/// outlive MarkPortO (FR-044), also when MarkPortO is stopped hard (the task manager, a crash, the watchdog). It holds the commands of Step3,
+/// the extractors, LibreOffice and the Office programs that MarkPortO started. The commands are put into it right after they start; a failure to do so is ignored,
 /// because the runner also ends the tree of a command itself on a time out or a cancel.
 /// </summary>
 internal static class ProcessJob
@@ -50,6 +51,20 @@ internal static class ProcessJob
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or EntryPointNotFoundException)
         {
             // The process already ended, or the system does not allow it: nothing to do.
+        }
+    }
+
+    /// <summary>The same for a process that this program did not start itself but owns, such as the Office program that a COM call started.</summary>
+    public static void Assign(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            Assign(process);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            // The process is already gone.
         }
     }
 

@@ -178,6 +178,7 @@ public sealed class LibreOfficeEngine : IDocumentEngine, IDisposable
             throw new EngineException(Loc.T("LibreOffice could not be started: {0}", ex.Message), ex);
         }
 
+        MarkPortO.Core.Vlm.Command.ProcessJob.Assign(process);
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 

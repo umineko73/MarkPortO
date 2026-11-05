@@ -168,6 +168,7 @@ public static class ExtractorRunner
             throw new ExtractorException($"The command '{profile.Command}' could not be started: {ex.Message}");
         }
 
+        MarkPortO.Core.Vlm.Command.ProcessJob.Assign(process);
         process.StandardInput.Close();
         var output = new StringBuilder();
         var error = new StringBuilder();

@@ -134,14 +134,17 @@ public sealed class ConvertService
         var step3Before = job.Options.Step3;
         var separateBefore = job.Options.VlmSeparate;
         var tablesBefore = job.Options.Step1Tables;
+        var repeatedBefore = job.Options.DropRepeatedTables;
         job.Options.Step2 = request.Step2 ?? job.Options.Step2;
         job.Options.Step3 = request.Step3 ?? job.Options.Step3;
         job.Options.VlmSeparate = request.VlmSeparate ?? job.Options.VlmSeparate;
         job.Options.Step1Tables = request.Step1Tables ?? job.Options.Step1Tables;
+        job.Options.DropRepeatedTables = request.DropRepeatedTables ?? job.Options.DropRepeatedTables;
         foreach (var document in documents)
         {
             document.VlmSeparate = job.Options.VlmSeparate;
             document.Step1Tables = job.Options.Step1Tables;
+            document.DropRepeatedTables = job.Options.DropRepeatedTables;
         }
 
         job.Options.Connection = request.Connection ?? job.Options.Connection;
@@ -166,7 +169,7 @@ public sealed class ConvertService
         }
 
         // A step switched off or on changes the Markdown of finished files (image references, VLM results).
-        if (step2Before != job.Options.Step2 || step3Before != job.Options.Step3 || separateBefore != job.Options.VlmSeparate || tablesBefore != job.Options.Step1Tables)
+        if (step2Before != job.Options.Step2 || step3Before != job.Options.Step3 || separateBefore != job.Options.VlmSeparate || tablesBefore != job.Options.Step1Tables || repeatedBefore != job.Options.DropRepeatedTables)
         {
             foreach (var document in documents.Where(d => d.Step1 == StepStatus.Done && !toRun.Contains(d)))
             {
@@ -400,6 +403,7 @@ public sealed class ConvertService
                 Step3 = options.Step3 ? StepStatus.Pending : StepStatus.NotApplicable,
                 VlmSeparate = options.VlmSeparate,
                 Step1Tables = options.Step1Tables,
+                DropRepeatedTables = options.DropRepeatedTables,
             };
 
             record.OutputFolderRel = Path.GetRelativePath(outRoot, record.OutputFolder);
