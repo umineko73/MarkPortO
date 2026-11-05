@@ -1114,6 +1114,52 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         UpdateRunCommands();
     }
 
+    /// <summary>
+    /// Shows a run of an earlier time as "the previous conversion", so that "resume" and "retry failed only" work on it (FR-121). The output folder
+    /// of the screen is set to the folder of the run. Returns false when a conversion is running.
+    /// </summary>
+    public async Task<bool> LoadRunAsync(string outputRoot, Guid jobId)
+    {
+        if (IsRunning)
+        {
+            return false;
+        }
+
+        var version = ++_scanVersion;
+        if (!string.Equals(_store.Current.Output.Folder, outputRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            _store.Update(s => s.Output.Folder = outputRoot);
+            Raise(nameof(OutputFolder));
+        }
+
+        var run = await Task.Run(() =>
+        {
+            var store = new StateStore(outputRoot);
+            return store.LoadJob(jobId) is { } job ? PreviousRunFinder.ForJob(store, job) : null;
+        });
+        if (version != _scanVersion || IsRunning)
+        {
+            return false;
+        }
+
+        _previous = run;
+        Files.Clear();
+        if (run is not null)
+        {
+            foreach (var document in run.Documents)
+            {
+                Files.Add(new FileItemViewModel(FileStatusProjector.Project(document), OutputRoot));
+            }
+
+            SetStatus(() => run.CanResume
+                ? UiText.Get("Status_Previous_Resume", run.DoneCount, run.FailedCount, run.UnfinishedCount)
+                : UiText.Get("Status_Previous_Retry", run.DoneCount, run.FailedCount, run.UnfinishedCount));
+        }
+
+        UpdateRunCommands();
+        return run is not null;
+    }
+
     private static string Summary(ConvertResult result)
     {
         var done = result.Documents.Count(d => d.IsDone());

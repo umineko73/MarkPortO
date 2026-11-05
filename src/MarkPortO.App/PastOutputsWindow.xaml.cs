@@ -29,14 +29,26 @@ namespace MarkPortO.App;
 public partial class PastOutputsWindow : Window
 {
     private readonly Action<PastDocument> _open;
+    private readonly Func<PreviousRun, Task<bool>> _load;
 
     /// <param name="outputRoot">The folder that has <c>.markporto</c>.</param>
     /// <param name="documents">What <see cref="PastOutputs.Load"/> found, newest run first.</param>
     /// <param name="open">Opens the preview of a document.</param>
-    public PastOutputsWindow(string outputRoot, IReadOnlyList<PastDocument> documents, Action<PastDocument> open)
+    /// <param name="resumable">The runs that can be resumed or retried (FR-121).</param>
+    /// <param name="load">Shows a run on the main window as the previous conversion; false when that is not possible now.</param>
+    public PastOutputsWindow(
+        string outputRoot,
+        IReadOnlyList<PastDocument> documents,
+        Action<PastDocument> open,
+        IReadOnlyList<PreviousRun> resumable,
+        Func<PreviousRun, Task<bool>> load)
     {
         InitializeComponent();
         _open = open;
+        _load = load;
+        Resumable.ItemsSource = resumable.Select(r => new ResumeItem(r)).ToList();
+        Resumable.SelectedIndex = resumable.Count > 0 ? 0 : -1;
+        ResumePanel.Visibility = resumable.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         FolderText.Text = outputRoot;
         FolderText.ToolTip = outputRoot;
 
@@ -108,12 +120,37 @@ public partial class PastOutputsWindow : Window
         }
     }
 
+    private async void OnLoadClick(object sender, RoutedEventArgs e)
+    {
+        if ((Resumable.SelectedItem as ResumeItem)?.Run is not { } run)
+        {
+            return;
+        }
+
+        if (await _load(run))
+        {
+            Close();
+        }
+        else
+        {
+            MessageBox.Show(this, UiText.Get("Past_LoadFailed"), UiText.Get("Past_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
 
     private static string DateOf(PastDocument d) => d.Job.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 
     private static string StateOf(PastDocument d) =>
         d.FolderFound ? FileStatusProjector.Text(FileStatusProjector.StateOf(d.Document)) : UiText.Get("Past_Missing");
+
+    private sealed record ResumeItem(PreviousRun Run)
+    {
+        public string Text =>
+            Run.Job.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") + "  "
+            + UiText.Get("Past_RunCounts", Run.DoneCount, Run.FailedCount, Run.UnfinishedCount)
+            + (Run.Job.Status == MarkPortO.Core.Jobs.Models.JobStatus.Abandoned ? "  " + UiText.Get("Past_Abandoned") : string.Empty);
+    }
 
     private sealed record Version(PastDocument Document)
     {

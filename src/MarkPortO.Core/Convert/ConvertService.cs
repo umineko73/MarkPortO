@@ -102,7 +102,7 @@ public sealed class ConvertService
         if (request.JobId is { } id)
         {
             job = store.LoadJob(id) ?? throw new JobNotFoundException(Loc.T("The job {0} was not found in {1}.", id, request.OutputFolder));
-            if (!store.IsResumable(job, includeFinishedWithErrors: retry))
+            if (!store.IsResumable(job, includeFinishedWithErrors: retry, includeAbandoned: true))
             {
                 throw new JobNotFoundException(
                     retry

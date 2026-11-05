@@ -166,7 +166,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        new PastOutputsWindow(root, PastOutputs.Load(root), OpenPastPreview) { Owner = this }.Show();
+        new PastOutputsWindow(root, PastOutputs.Load(root), OpenPastPreview, PreviousRunFinder.Resumable(root), run => _viewModel.LoadRunAsync(root, run.Job.JobId)) { Owner = this }.Show();
     }
 
     private void OpenPastPreview(PastDocument past)

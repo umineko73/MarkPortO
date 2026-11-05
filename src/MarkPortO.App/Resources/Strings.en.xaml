@@ -287,4 +287,9 @@
   <sys:String x:Key="Past_Missing">The output folder was not found</sys:String>
   <sys:String x:Key="Past_NoPages">No pages</sys:String>
   <sys:String x:Key="Past_Count">{0} item(s)</sys:String>
+  <sys:String x:Key="Past_Resumable">Runs to resume:</sys:String>
+  <sys:String x:Key="Past_Load">Load to resume</sys:String>
+  <sys:String x:Key="Past_RunCounts">done {0}, failed {1}, not finished {2}</sys:String>
+  <sys:String x:Key="Past_Abandoned">(given up)</sys:String>
+  <sys:String x:Key="Past_LoadFailed">It cannot be loaded while a conversion is running. Try again when it has finished.</sys:String>
 </ResourceDictionary>

@@ -287,4 +287,9 @@
   <sys:String x:Key="Past_Missing">出力のフォルダが見つかりません</sys:String>
   <sys:String x:Key="Past_NoPages">ページがありません</sys:String>
   <sys:String x:Key="Past_Count">{0} 件</sys:String>
+  <sys:String x:Key="Past_Resumable">再開できる変換：</sys:String>
+  <sys:String x:Key="Past_Load">再開として読み込む</sys:String>
+  <sys:String x:Key="Past_RunCounts">完了 {0}・失敗 {1}・未完了 {2}</sys:String>
+  <sys:String x:Key="Past_Abandoned">（破棄済み）</sys:String>
+  <sys:String x:Key="Past_LoadFailed">変換中は読み込めません。変換が終わってから、もう一度お試しください。</sys:String>
 </ResourceDictionary>

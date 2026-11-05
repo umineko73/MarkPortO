@@ -124,11 +124,16 @@ public sealed class StateStore
         }
     }
 
-    public bool IsResumable(JobState job, bool includeFinishedWithErrors = false) => job.Status switch
+    /// <param name="includeAbandoned">
+    /// A job that was given up (FR-013g) is resumable too. Only a job that the user names (FR-121) is resumed like this; the search for the
+    /// earlier run of an output folder leaves it out.
+    /// </param>
+    public bool IsResumable(JobState job, bool includeFinishedWithErrors = false, bool includeAbandoned = false) => job.Status switch
     {
         JobStatus.Interrupted => !IsLocked(job.JobId),
         JobStatus.Running => !IsLocked(job.JobId), // the process that was running it is gone
         JobStatus.CompletedWithErrors => includeFinishedWithErrors && !IsLocked(job.JobId),
+        JobStatus.Abandoned => includeAbandoned && !IsLocked(job.JobId),
         _ => false,
     };
 

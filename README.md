@@ -55,7 +55,7 @@ Add files or a folder (or drop them on the list), choose an output folder, and p
 
 ![The preview window](docs/images/preview.png)
 
-**Open a past output** (File > Open a past output...): choose the output folder (or the folder of one document). MarkPortO reads the state it keeps in `.markporto` and lists the documents, newest run first; a file converted more than once has its other results in a box below. Opening one shows the same preview. It only reads. The output folder can be moved or copied to another place and still opens, as long as `.markporto` goes with it.
+**Open a past output** (File > Open a past output...): choose the output folder (or the folder of one document). MarkPortO reads the state it keeps in `.markporto` and lists the documents, newest run first; a file converted more than once has its other results in a box below. Opening one shows the same preview. It only reads. The output folder can be moved or copied to another place and still opens, as long as `.markporto` goes with it. The same window can also **resume an earlier run**: pick it in **Runs to resume** (an interrupted one, also one that was given up when a later conversion was started, or one with failures) and press **Load to resume**; the main window then shows it as the previous conversion, and **Resume** or **Retry failed** continue it.
 
 **VLM connections** and **prompts** are in the **Settings** menu. Each kind of file can have several named prompts (a built-in one for a small local model and one for a cloud LLM are included); choose one on the main screen or with `--prompt <name>`. A prompt can contain `{pagetext}`, the text Step1 took from the page (it is sent with the image).
 

@@ -69,28 +69,61 @@ public static class PreviousRunFinder
                 return null;
             }
 
-            var documents = new List<DocumentRecord>();
-            foreach (var docId in job.Documents)
-            {
-                // A job whose state is partly missing cannot be resumed, so it is not offered.
-                var document = store.LoadDocument(job.JobId, docId);
-                if (document is null)
-                {
-                    return null;
-                }
-
-                documents.Add(document);
-            }
-
-            return new PreviousRun(
-                job,
-                documents,
-                CanResume: store.IsResumable(job, includeFinishedWithErrors: false),
-                CanRetryFailed: documents.Any(d => d.IsFailed() || d.HasFailedPages()));
+            return ForJob(store, job);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             return null; // an output folder that cannot be read has no earlier run to show
+        }
+    }
+
+    /// <summary>
+    /// The run of one job, with its documents. <c>null</c> when the saved state of a document is missing (the job cannot be resumed). A job that was
+    /// given up can be resumed here too, because the caller names it (FR-121).
+    /// </summary>
+    public static PreviousRun? ForJob(StateStore store, JobState job)
+    {
+        var documents = new List<DocumentRecord>();
+        foreach (var docId in job.Documents)
+        {
+            // A job whose state is partly missing cannot be resumed, so it is not offered.
+            var document = store.LoadDocument(job.JobId, docId);
+            if (document is null)
+            {
+                return null;
+            }
+
+            documents.Add(document);
+        }
+
+        return new PreviousRun(
+            job,
+            documents,
+            CanResume: store.IsResumable(job, includeFinishedWithErrors: false, includeAbandoned: true),
+            CanRetryFailed: documents.Any(d => d.IsFailed() || d.HasFailedPages()));
+    }
+
+    /// <summary>
+    /// Every run of the output folder that can be resumed or retried, also the ones that were given up when a later run was started (FR-121),
+    /// newest first. A run that is running in another process is left out.
+    /// </summary>
+    public static IReadOnlyList<PreviousRun> Resumable(string outputFolder)
+    {
+        try
+        {
+            var store = new StateStore(outputFolder);
+            return
+            [
+                .. store.ListJobs()
+                    .Where(job => store.IsResumable(job, includeFinishedWithErrors: true, includeAbandoned: true))
+                    .Select(job => ForJob(store, job))
+                    .OfType<PreviousRun>()
+                    .Where(run => run.CanResume || run.CanRetryFailed),
+            ];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Text.Json.JsonException)
+        {
+            return [];
         }
     }
 }
