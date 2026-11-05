@@ -74,4 +74,42 @@ public class XlsxGridFoldTests
 
         Assert.Equal("|  |  |  |\n|---|---|---|\n| a | < | c |\n| d | x | f |", markdown);
     }
+
+    // FR-122 on a grid: a title and a note with no border stay outside, the merged bordered cells are folded as before.
+    [Fact]
+    public void ABorderedGrid_KeepsItsTable_WithTheTitleAndTheNoteOutside()
+    {
+        var markdown = Read(new SheetSpec("Grid",
+        [
+            ["Order form", "", "", "", "", "", "", ""],
+            ["No", "", "Item", "", "", "", "Qty", ""],
+            ["1", "", "Paper", "", "", "", "10", ""],
+            ["2", "", "Pen", "", "", "", "30", ""],
+            ["Note: thanks", "", "", "", "", "", "", ""],
+        ], Merges: ["A2:B2", "C2:F2", "G2:H2", "A3:B3", "C3:F3", "G3:H3", "A4:B4", "C4:F4", "G4:H4"], BorderedRanges: ["A2:H4"]));
+
+        Assert.Equal("Order form\n\n|  |  |  |\n|---|---|---|\n| No | Item | Qty |\n| 1 | Paper | 10 |\n| 2 | Pen | 30 |\n\nNote: thanks", markdown);
+    }
+
+    // A form whose labels have no border but whose fields do: the rows have a border, so the labels stay in the table.
+    [Fact]
+    public void AFormWithBorderedFieldsOnly_IsNotCutInTheRows()
+    {
+        var markdown = Read(new SheetSpec("Form",
+        [
+            ["Name", "", "Taro", "", ""],
+            ["Address", "", "Tokyo", "", ""],
+        ], Merges: ["A1:B1", "C1:E1", "A2:B2", "C2:E2"], BorderedRanges: ["C1:E2"]));
+
+        Assert.Equal("|  |  |\n|---|---|\n| Name | Taro |\n| Address | Tokyo |", markdown);
+    }
+
+    // A total row with no border, under a bordered table, goes on with the table (it is not a note).
+    [Fact]
+    public void ATotalRowWithoutBorder_UnderABorderedTable_StaysInTheTable()
+    {
+        var markdown = Read(new SheetSpec("Data", [["Item", "Price"], ["a", "1"], ["b", "2"], ["Total", "3"]], BorderedRanges: ["A1:B3"]));
+
+        Assert.Equal("|  |  |\n|---|---|\n| Item | Price |\n| a | 1 |\n| b | 2 |\n| Total | 3 |", markdown);
+    }
 }

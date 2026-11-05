@@ -318,6 +318,9 @@ public sealed class SheetContent
         return cells.Count > 1 && cells.Any(t => !t.All(ch => "0123456789.,-+$%()¥ ".Contains(ch, StringComparison.Ordinal))) ? string.Join("　", cells) : null;
     }
 
+    private int ContentCells(int row, int fromIndex, int toIndex) =>
+        Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Count(c => c < Rows[row].Length && !HiddenColumns.Contains(c) && Rows[row][c].Trim().Length > 0);
+
     private bool HasContent(int row, int fromIndex, int toIndex) =>
         Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Any(c => c < Rows[row].Length && (Rows[row][c].Length > 0 || HiddenByMerge.ContainsKey((row, c))));
 
@@ -410,8 +413,12 @@ public sealed class SheetContent
         var result = new List<(int FirstRow, int LastRow, int From, int To)>();
         foreach (var (first, last, from, to) in regions)
         {
+            // Below the first bordered row, only a row of one cell (a note) is cut off: a row of several cells there, such as a total row
+            // that has no border, goes on with the table. Above it (a title, a legend) every row with text is cut off.
+            var firstBordered = Enumerable.Range(first, last - first + 1).FirstOrDefault(r => Enumerable.Range(from, to - from + 1).Any(c => Bordered.Contains((r, c))), -1);
             var loose = Enumerable.Range(first, last - first + 1)
-                .Where(r => !HiddenRows.Contains(r) && HasContent(r, from, to) && !Enumerable.Range(from, to - from + 1).Any(c => Bordered.Contains((r, c))))
+                .Where(r => !HiddenRows.Contains(r) && HasContent(r, from, to) && !Enumerable.Range(from, to - from + 1).Any(c => Bordered.Contains((r, c)))
+                    && (firstBordered < 0 || r < firstBordered || ContentCells(r, from, to) == 1))
                 .ToHashSet();
             if (loose.Count == 0)
             {
