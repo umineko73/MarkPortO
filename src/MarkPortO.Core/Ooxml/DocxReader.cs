@@ -185,6 +185,25 @@ public static partial class DocxReader
         /// <summary>The notes that the paragraph being read refers to: written after it as <c>[^1]: text</c> (FR-071).</summary>
         public List<(string Label, string Text)> PendingNotes { get; } = [];
 
+        /// <summary>The comments that the paragraph being read refers to: written after it (and after its notes) as <c>&gt; **Comment**: text</c>.</summary>
+        public List<string> PendingComments { get; } = [];
+
+        /// <summary>Keeps the text of a comment for <see cref="PendingComments"/>; the mark of the comment is not written in the line.</summary>
+        public void CommentReference(string? id)
+        {
+            var comment = main.WordprocessingCommentsPart?.Comments?.Elements<Comment>().FirstOrDefault(c => c.Id?.Value == id);
+            if (comment is null)
+            {
+                return;
+            }
+
+            var text = string.Join(" ", comment.Elements<Paragraph>().Select(p => ParagraphText(p).Trim()).Where(t => t.Length > 0));
+            if (text.Length > 0)
+            {
+                PendingComments.Add(text);
+            }
+        }
+
         /// <summary>The pictures that float (are anchored, not in the line) in the paragraph being read: written after it, as lines of their own.</summary>
         public List<string> PendingPictures { get; } = [];
 
@@ -524,6 +543,13 @@ public static partial class DocxReader
         }
 
         context.PendingNotes.Clear();
+
+        foreach (var comment in context.PendingComments)
+        {
+            blocks.Add(New(BlockKind.Paragraph, "> **Comment**: " + MarkdownText.Escape(comment).Replace("\n", " ", StringComparison.Ordinal), string.Empty));
+        }
+
+        context.PendingComments.Clear();
     }
 
     // The text of a table cell: its paragraphs, and a table inside it written as lines of cells (FR-071).
@@ -657,6 +683,9 @@ public static partial class DocxReader
                     break;
                 case EndnoteReference note when markdown is not null:
                     builder.Append(markdown.NoteReference(note.Id?.Value, endnote: true));
+                    break;
+                case CommentReference reference when markdown is not null:
+                    markdown.CommentReference(reference.Id?.Value);
                     break;
                 case Drawing drawing when markdown is not null:
                     // A picture is written by its alternative text, without the image file (FR-071).

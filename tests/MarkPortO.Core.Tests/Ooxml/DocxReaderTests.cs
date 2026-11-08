@@ -82,6 +82,7 @@ public class DocxReaderTests
 
         Assert.Contains("See [the site](https://example.com/a%20b).", markdown);
         Assert.Contains("A fact[^1]\n\n[^1]: Source: a report", markdown);
+        Assert.Contains("A figure\n\n> **Comment**: Check this number", markdown);
         Assert.Contains("![A bar chart]", markdown);
         Assert.Contains("| Cell<br>x / y<br>z / w<br>tail | k |", markdown);
         // The plain text, which finds the page, has none of the marks.

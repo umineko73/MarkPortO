@@ -301,6 +301,14 @@ public static class DocxFactory
             new Footnote(new Paragraph(new Run(new FootnoteReferenceMark()), new Run(new Text(" Source: a report")))) { Id = 1 });
         body.AppendChild(new Paragraph(new Run(new Text("A fact")), new Run(new FootnoteReference { Id = 1 })));
 
+        var comments = main.AddNewPart<WordprocessingCommentsPart>();
+        comments.Comments = new Comments(new Comment(new Paragraph(new Run(new Text("Check this number")))) { Id = "0", Author = "a" });
+        body.AppendChild(new Paragraph(
+            new CommentRangeStart { Id = "0" },
+            new Run(new Text("A figure")),
+            new CommentRangeEnd { Id = "0" },
+            new Run(new CommentReference { Id = "0" })));
+
         var picture = new Drawing(new DocumentFormat.OpenXml.Drawing.Wordprocessing.Inline(
             new DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties { Id = 1, Name = "Picture 1", Description = "A bar chart" },
             new DocumentFormat.OpenXml.Drawing.Graphic(new DocumentFormat.OpenXml.Drawing.GraphicData(new DocumentFormat.OpenXml.Drawing.Blip()))));
