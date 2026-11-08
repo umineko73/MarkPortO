@@ -171,7 +171,8 @@ public class PdfInputTests
     {
         using var document = TwoColumns(3);
 
-        var text = string.Join(" ", PdfParagraphExtractor.GetParagraphs(document, 0));
+        // The two places of a line are kept in the line; a wide gap between them is a wide space (U+3000), which depends on the font of the machine.
+        var text = string.Join(" ", PdfParagraphExtractor.GetParagraphs(document, 0)).Replace('　', ' ');
 
         Assert.Contains("words right column line 1", text);
     }
