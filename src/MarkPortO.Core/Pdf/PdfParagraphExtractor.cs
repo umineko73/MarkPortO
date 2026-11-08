@@ -217,7 +217,9 @@ public static class PdfParagraphExtractor
         {
             if (before is not null)
             {
-                builder.Append(ParagraphJoin.Separator(before.Text, word.Text));
+                // A space wider than the letters is a gap between cells of a table (or a tab), not the space of a sentence: it stays as one.
+                var gap = (double)(word.BoundingBox.Left - before.BoundingBox.Right);
+                builder.Append(gap > Math.Max(1.0, line.Height) ? "　" : ParagraphJoin.Separator(before.Text, word.Text));
             }
 
             builder.Append(word.Text);

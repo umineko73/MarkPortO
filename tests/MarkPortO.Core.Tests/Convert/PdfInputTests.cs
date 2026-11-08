@@ -360,6 +360,23 @@ public class PdfInputTests
         Assert.StartsWith("paragraph 2 line 1", paragraphs[1]);
     }
 
+    [Fact]
+    public void AWideGapInALine_StaysAsASpace_SoTheCellsOfATableDoNotJoin()
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        var page = builder.AddPage(PageSize.A4);
+        page.AddText("Region", 10, new PdfPoint(40, 780), font);
+        page.AddText("Count", 10, new PdfPoint(140, 780), font);
+        page.AddText("Share of the total", 10, new PdfPoint(240, 780), font);
+
+        using var document = UglyToad.PdfPig.PdfDocument.Open(builder.Build());
+
+        var paragraphs = PdfParagraphExtractor.GetParagraphs(document, 0);
+
+        Assert.Equal(["Region　Count　Share of the total"], paragraphs);
+    }
+
     // FR-108: a page with one column of text, whose lines differ in length (a ragged right edge), has no columns.
     [Fact]
     public void ALongTextOfOneColumn_IsNotCutIntoColumns()
