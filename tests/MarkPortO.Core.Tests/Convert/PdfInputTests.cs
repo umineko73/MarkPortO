@@ -332,6 +332,34 @@ public class PdfInputTests
         Assert.StartsWith("line number 1 of one paragraph line number 2", paragraphs[0]);
     }
 
+    [Fact]
+    public void ASpaceOfAFewPointsAfterEachParagraph_StartsANewParagraph()
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        var page = builder.AddPage(PageSize.A4);
+
+        // Lines of 15 pt pitch, paragraphs of 3 lines with 6 pt more between them (a gap of 1.4 times the pitch).
+        var y = 780.0;
+        for (var paragraph = 1; paragraph <= 3; paragraph++)
+        {
+            for (var line = 1; line <= 3; line++)
+            {
+                page.AddText($"paragraph {paragraph} line {line}", 10, new PdfPoint(40, y), font);
+                y -= 15;
+            }
+
+            y -= 6;
+        }
+
+        using var document = UglyToad.PdfPig.PdfDocument.Open(builder.Build());
+
+        var paragraphs = PdfParagraphExtractor.GetParagraphs(document, 0);
+
+        Assert.Equal(3, paragraphs.Count);
+        Assert.StartsWith("paragraph 2 line 1", paragraphs[1]);
+    }
+
     // FR-108: a page with one column of text, whose lines differ in length (a ragged right edge), has no columns.
     [Fact]
     public void ALongTextOfOneColumn_IsNotCutIntoColumns()

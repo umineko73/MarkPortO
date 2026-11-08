@@ -72,7 +72,10 @@ public static class PdfParagraphExtractor
                 var text = LineText(line);
                 var gap = previous is null ? 0.0 : previous.Baseline - line.Baseline;
                 var indented = previous is not null && line.Words.Min(w => (double)w.BoundingBox.Left) - left >= Math.Max(0.7 * Math.Max(1.0, line.Height), 0.5 * pitch);
-                if (previous is not null && (gap > Math.Max(2.0 * Math.Max(previous.Height, line.Height), 1.5 * pitch) || indented))
+                // With the pitch of the block known, a gap of 1.3 times it starts a paragraph (a space of 4-6 pt after a paragraph is common);
+                // else (a few lines) a gap of twice the height of a line.
+                var limit = pitch > 0 ? 1.3 * pitch : 2.0 * Math.Max(previous?.Height ?? 0, line.Height);
+                if (previous is not null && (gap > limit || indented))
                 {
                     Flush();
                 }

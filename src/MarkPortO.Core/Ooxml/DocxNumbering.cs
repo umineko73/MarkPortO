@@ -109,6 +109,39 @@ internal sealed partial class DocxNumbering
         return label.Trim().Length == 0 ? null : label.Trim();
     }
 
+    /// <summary>
+    /// The left indent (twips) of a list paragraph: its own, else its style's, else the one of its level in the list. Word nests a list by a style such as
+    /// "List Bullet 2", which is a list of its own at level 0 that is indented more, not a deeper level of the same list.
+    /// </summary>
+    public int ListIndent(Paragraph paragraph)
+    {
+        if (ToInt(paragraph.ParagraphProperties?.Indentation?.Left?.Value) is { } own)
+        {
+            return own;
+        }
+
+        var styleId = paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value;
+        foreach (var style in StyleChain(styleId))
+        {
+            if (ToInt(style.StyleParagraphProperties?.Indentation?.Left?.Value) is { } fromStyle)
+            {
+                return fromStyle;
+            }
+        }
+
+        var (numberId, level) = Resolve(paragraph);
+        var instance = _numbering?.Elements<NumberingInstance>().FirstOrDefault(n => n.NumberID?.Value == numberId);
+        var abstractNum = _numbering?.Elements<AbstractNum>().FirstOrDefault(a => a.AbstractNumberId?.Value == instance?.AbstractNumId?.Val?.Value);
+        if (instance is null || abstractNum is null)
+        {
+            return 0;
+        }
+
+        return ToInt(LevelOf(instance, abstractNum, Math.Clamp(level, 0, Levels - 1))?.PreviousParagraphProperties?.Indentation?.Left?.Value) ?? 0;
+    }
+
+    private static int? ToInt(string? twips) => int.TryParse(twips, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
+
     // The list and the level of a paragraph: its own, else its style's, else the style it is based on.
     private (int? NumberId, int Level) Resolve(Paragraph paragraph)
     {

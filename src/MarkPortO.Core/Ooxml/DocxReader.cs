@@ -179,6 +179,9 @@ public static partial class DocxReader
         /// <summary>The automatic numbers ("1.2", "第3章") of the paragraphs; every paragraph of the body is passed to it in order.</summary>
         public DocxNumbering Numbering { get; } = new(main);
 
+        /// <summary>The left indents of the list items that are open (one for each depth) while a run of list items goes on; it is cleared by any other paragraph.</summary>
+        public List<int> ListIndents { get; } = [];
+
         /// <summary>The notes that the paragraph being read refers to: written after it as <c>[^1]: text</c> (FR-071).</summary>
         public List<(string Label, string Text)> PendingNotes { get; } = [];
 
@@ -320,6 +323,32 @@ public static partial class DocxReader
             return null;
         }
 
+        /// <summary>
+        /// The depth of a list item: the level of the list, and, when the list has no deeper levels in use (every item at level 0), the step that a larger
+        /// left indent makes inside a run of list items.
+        /// </summary>
+        public int ListDepth(Paragraph paragraph, int level)
+        {
+            var indent = Numbering.ListIndent(paragraph);
+            if (level > 0)
+            {
+                ListIndents.Clear();
+                return level;
+            }
+
+            while (ListIndents.Count > 0 && ListIndents[^1] > indent)
+            {
+                ListIndents.RemoveAt(ListIndents.Count - 1);
+            }
+
+            if (ListIndents.Count == 0 || ListIndents[^1] < indent)
+            {
+                ListIndents.Add(indent);
+            }
+
+            return ListIndents.Count - 1;
+        }
+
         public bool IsBullet(NumberingProperties numbering)
         {
             var numberId = numbering.NumberingId?.Val?.Value;
@@ -431,12 +460,17 @@ public static partial class DocxReader
             }
             else if (context.NumberingOf(properties) is { } numbering)
             {
-                var depth = numbering.NumberingLevelReference?.Val?.Value ?? 0;
-                var marker = context.IsBullet(numbering) ? "-" : "1.";
-                blocks.Add(New(BlockKind.ListItem, $"{new string(' ', depth * 2)}{marker} {escaped}", text));
+                var level = numbering.NumberingLevelReference?.Val?.Value ?? 0;
+                var depth = context.ListDepth(paragraph, level);
+                var numbered = !context.IsBullet(numbering);
+
+                // A number is kept when Markdown can show it (1. 2.), so that a list that goes on after another list goes on in the text too.
+                var marker = numbered ? (number is not null && Regex.IsMatch(number, @"^\d{1,4}\.$") ? number : "1.") : "-";
+                blocks.Add(New(BlockKind.ListItem, $"{new string(' ', depth * (numbered ? 3 : 2))}{marker} {escaped}", text));
             }
             else
             {
+                context.ListIndents.Clear();
                 blocks.Add(New(BlockKind.Paragraph, escaped, text) with { Splittable = markdown == text });
             }
         }

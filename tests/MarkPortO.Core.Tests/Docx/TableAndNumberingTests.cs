@@ -162,6 +162,40 @@ public class TableAndNumberingTests
         Assert.Equal(["# 1. Overview", "## 1.1 Purpose", "## 1.2 Scope", "# 2. Data", "## 2.1 Table", "# 第一章 Appendix"], headings);
     }
 
+    [Fact]
+    public void Read_AListThatIsNestedByIndent_AndANumberedListThatGoesOn_KeepDepthAndNumber()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("lists.docx");
+        using (var document = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document))
+        {
+            var main = document.AddMainDocumentPart();
+            var numbering = main.AddNewPart<NumberingDefinitionsPart>();
+            static AbstractNum Abstract(int id, NumberFormatValues format, string text, int left) =>
+                new(new Level(
+                    new StartNumberingValue { Val = 1 },
+                    new NumberingFormat { Val = format },
+                    new LevelText { Val = text },
+                    new PreviousParagraphProperties(new Indentation { Left = left.ToString() })) { LevelIndex = 0 }) { AbstractNumberId = id };
+            numbering.Numbering = new Numbering(
+                Abstract(0, NumberFormatValues.Bullet, "•", 360),
+                Abstract(1, NumberFormatValues.Bullet, "o", 720),
+                Abstract(2, NumberFormatValues.Decimal, "%1.", 360),
+                new NumberingInstance(new AbstractNumId { Val = 0 }) { NumberID = 1 },
+                new NumberingInstance(new AbstractNumId { Val = 1 }) { NumberID = 2 },
+                new NumberingInstance(new AbstractNumId { Val = 2 }) { NumberID = 3 });
+
+            static Paragraph Item(int numberId, string text) =>
+                new(new ParagraphProperties(new NumberingProperties(new NumberingLevelReference { Val = 0 }, new NumberingId { Val = numberId })), new Run(new Text(text)));
+
+            main.Document = new Document(new Body(Item(3, "first"), Item(1, "bullet"), Item(2, "nested"), Item(3, "second")));
+        }
+
+        var items = DocxReader.Read(path).Select(b => b.Block).Where(b => b.Kind == BlockKind.ListItem).Select(b => b.Markdown).ToArray();
+
+        Assert.Equal(["1. first", "- bullet", "  - nested", "2. second"], items);
+    }
+
     // A multilevel list linked to Heading 1 and 2 by their styles (the numbers are not in the paragraphs), and a heading
     // that has its own list "第%1章" counted in Japanese.
     private static void CreateNumbered(string path)
