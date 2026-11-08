@@ -682,7 +682,20 @@ public static partial class DocxReader
                     builder.Append(text.Text);
                     break;
                 case TabChar:
-                    builder.Append(' ');
+                    // A tab between texts is the gap between the columns of a table that is made of tabs: it stays visible as one wide space.
+                    if (builder.Length > 0 && builder[^1] != '　' && !char.IsWhiteSpace(builder[^1]))
+                    {
+                        builder.Append('　');
+                    }
+                    else if (builder.Length == 0 || !char.IsWhiteSpace(builder[^1]))
+                    {
+                        builder.Append(' ');
+                    }
+
+                    break;
+                case DocumentFormat.OpenXml.Math.OfficeMath math:
+                    // An equation is written as the text of its parts, in the order of the file (the shape of a fraction or a root is not kept).
+                    builder.Append(math.InnerText);
                     break;
                 case Break lineBreak when !IsPageOrColumnBreak(lineBreak):
                     builder.Append('\n');

@@ -269,6 +269,7 @@ public static class PptxReader
             && placeholderType != PlaceholderValues.Footer && placeholderType != PlaceholderValues.DateAndTime;
 
         var lines = new List<string>();
+        var listLine = new List<bool>();
         foreach (var paragraph in textBody.Elements<A.Paragraph>())
         {
             var text = ParagraphText(paragraph, part, allowEmphasis: !isTitle).Trim();
@@ -277,18 +278,24 @@ public static class PptxReader
                 continue;
             }
 
+            // A text box has a bullet only when the paragraph says so (a bullet character or a number of its own).
+            var bulleted = paragraph.ParagraphProperties?.GetFirstChild<A.CharacterBullet>() is not null
+                || paragraph.ParagraphProperties?.GetFirstChild<A.AutoNumberedBullet>() is not null;
             if (isTitle)
             {
                 lines.Add(text);
+                listLine.Add(false);
             }
-            else if (isBody)
+            else if (isBody || bulleted)
             {
                 var level = paragraph.ParagraphProperties?.Level?.Value ?? 0;
                 lines.Add($"{new string(' ', level * 2)}- {MarkdownText.Escape(text).Replace("\n", " ", StringComparison.Ordinal)}");
+                listLine.Add(true);
             }
             else
             {
                 lines.Add(MarkdownText.Escape(text).Replace("\n", "  \n", StringComparison.Ordinal));
+                listLine.Add(false);
             }
         }
 
@@ -303,7 +310,14 @@ public static class PptxReader
         }
         else
         {
-            body.Add(string.Join('\n', lines));
+            // The paragraphs of a text box are paragraphs (a blank line between them: one newline joins them in Markdown); the items of a list go together.
+            var text = new StringBuilder(lines[0]);
+            for (var i = 1; i < lines.Count; i++)
+            {
+                text.Append(listLine[i] && listLine[i - 1] ? "\n" : "\n\n").Append(lines[i]);
+            }
+
+            body.Add(text.ToString());
         }
     }
 

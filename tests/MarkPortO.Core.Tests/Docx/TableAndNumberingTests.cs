@@ -196,6 +196,26 @@ public class TableAndNumberingTests
         Assert.Equal(["1. first", "- bullet", "  - nested", "2. second"], items);
     }
 
+    [Fact]
+    public void Read_AnEquation_IsWrittenAsItsText_AndATabBetweenTextsStaysAWideSpace()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("equation.docx");
+        using (var document = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document))
+        {
+            var main = document.AddMainDocumentPart();
+            var equation = new Paragraph(
+                new Run(new Text("Area: ") { Space = SpaceProcessingModeValues.Preserve }),
+                new DocumentFormat.OpenXml.Math.OfficeMath(new DocumentFormat.OpenXml.Math.Run(new DocumentFormat.OpenXml.Math.Text("S=a+b"))));
+            var tabs = new Paragraph(new Run(new Text("Name")), new Run(new TabChar()), new Run(new Text("Price")), new Run(new TabChar()), new Run(new TabChar()), new Run(new Text("Qty")));
+            main.Document = new Document(new Body(equation, tabs));
+        }
+
+        var paragraphs = DocxReader.Read(path).Select(b => b.Block.Markdown).ToArray();
+
+        Assert.Equal(["Area: S=a+b", "Name　Price　Qty"], paragraphs);
+    }
+
     // A multilevel list linked to Heading 1 and 2 by their styles (the numbers are not in the paragraphs), and a heading
     // that has its own list "第%1章" counted in Japanese.
     private static void CreateNumbered(string path)

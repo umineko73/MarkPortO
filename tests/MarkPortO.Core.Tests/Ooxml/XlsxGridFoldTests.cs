@@ -112,4 +112,41 @@ public class XlsxGridFoldTests
 
         Assert.Equal("|  |  |\n|---|---|\n| Item | Price |\n| a | 1 |\n| b | 2 |\n| Total | 3 |", markdown);
     }
+
+    // A table with no border at all, on a sheet where another table has borders, is still a table (not lines of text); a merged title over it
+    // is cut off without leaving its empty columns to the table.
+    [Fact]
+    public void ATableWithoutBorders_BesideABorderedTable_StaysATable_WithoutTheColumnsOfAMergedTitle()
+    {
+        var markdown = Read(new SheetSpec("Data",
+        [
+            ["Item", "Price", "", "", ""],
+            ["a", "1", "", "", ""],
+            ["b", "2", "", "", ""],
+            ["", "", "", "", ""],
+            ["Second table", "", "", "", ""],
+            ["H1", "H2", "H3", "", ""],
+            ["x", "1", "2", "", ""],
+            ["y", "3", "4", "", ""],
+            ["z", "5", "6", "", ""],
+        ], Merges: ["A5:E5"], BorderedRanges: ["A1:B3"]));
+
+        Assert.Contains("Second table\n\n|  |  |  |\n|---|---|---|\n| H1 | H2 | H3 |\n| x | 1 | 2 |", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("H1　H2", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TextInAHiddenColumn_DoesNotMakeATableOfItsOwn()
+    {
+        var markdown = Read(new SheetSpec("Data",
+        [
+            ["Item", "Price", "", "secret", "more"],
+            ["a", "1", "", "", ""],
+            ["b", "2", "", "", ""],
+        ], BorderedRanges: ["A1:B3"], HiddenColumns: [4, 5]));
+
+        Assert.DoesNotContain("secret", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("more", markdown, StringComparison.Ordinal);
+        Assert.Single(markdown.Split("\n\n")); // one table, not a second one made of the hidden cells
+    }
 }

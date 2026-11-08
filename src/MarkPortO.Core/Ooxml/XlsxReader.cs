@@ -240,7 +240,7 @@ public sealed class SheetContent
                     Flush();
                     AddParagraph(region.FirstRow, text);
                 }
-                else
+                else if (HasText(region.FirstRow, region.LastRow, region.From, region.To))
                 {
                     pending.Add(region);
                 }
@@ -318,11 +318,16 @@ public sealed class SheetContent
         return cells.Count > 1 && cells.Any(t => !t.All(ch => "0123456789.,-+$%()¥ ".Contains(ch, StringComparison.Ordinal))) ? string.Join("　", cells) : null;
     }
 
+    // A block with no text and no border (what is left of cells that the sheet does not show) is not a table.
+    private bool HasText(int firstRow, int lastRow, int fromIndex, int toIndex) =>
+        Enumerable.Range(firstRow, lastRow - firstRow + 1).Any(r => HasContent(r, fromIndex, toIndex)
+            || Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Any(c => Bordered.Contains((r, c))));
+
     private int ContentCells(int row, int fromIndex, int toIndex) =>
         Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Count(c => c < Rows[row].Length && !HiddenColumns.Contains(c) && Rows[row][c].Trim().Length > 0);
 
     private bool HasContent(int row, int fromIndex, int toIndex) =>
-        Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Any(c => c < Rows[row].Length && (Rows[row][c].Length > 0 || HiddenByMerge.ContainsKey((row, c))));
+        !HiddenRows.Contains(row) && Enumerable.Range(fromIndex, toIndex - fromIndex + 1).Any(c => c < Rows[row].Length && !HiddenColumns.Contains(c) && (Rows[row][c].Length > 0 || HiddenByMerge.ContainsKey((row, c))));
 
     private bool IsFilled(int row, int column) =>
         !HiddenRows.Contains(row) && !HiddenColumns.Contains(column)
@@ -416,9 +421,12 @@ public sealed class SheetContent
             // Below the first bordered row, only a row of one cell (a note) is cut off: a row of several cells there, such as a total row
             // that has no border, goes on with the table. Above it (a title, a legend) every row with text is cut off.
             var firstBordered = Enumerable.Range(first, last - first + 1).FirstOrDefault(r => Enumerable.Range(from, to - from + 1).Any(c => Bordered.Contains((r, c))), -1);
+            // A block with no border at all, whose rows have several cells for three rows or more, is a table that is drawn without borders:
+            // it is not cut into lines (only a row of one cell in it, a title or a note, is).
+            var withoutBorders = firstBordered < 0 && Enumerable.Range(first, last - first + 1).Count(r => !HiddenRows.Contains(r) && ContentCells(r, from, to) > 1) < 3;
             var loose = Enumerable.Range(first, last - first + 1)
                 .Where(r => !HiddenRows.Contains(r) && HasContent(r, from, to) && !Enumerable.Range(from, to - from + 1).Any(c => Bordered.Contains((r, c)))
-                    && (firstBordered < 0 || r < firstBordered || ContentCells(r, from, to) == 1))
+                    && (withoutBorders || r < firstBordered || ContentCells(r, from, to) == 1))
                 .ToHashSet();
             if (loose.Count == 0)
             {
@@ -436,7 +444,7 @@ public sealed class SheetContent
 
                 if (r > start)
                 {
-                    result.Add((start, r - 1, from, to));
+                    result.Add(TrimColumns(start, r - 1, from, to));
                 }
 
                 // The cells of the row, cut where the columns are empty: a title and a legend far from it are not one table row.
@@ -465,11 +473,28 @@ public sealed class SheetContent
 
             if (start <= last)
             {
-                result.Add((start, last, from, to));
+                result.Add(TrimColumns(start, last, from, to));
             }
         }
 
         return result;
+    }
+
+    // The columns of a block that is left of a cut: the empty ones at its two ends (that a merged title of the cut-off row reached) go.
+    private (int FirstRow, int LastRow, int From, int To) TrimColumns(int firstRow, int lastRow, int from, int to)
+    {
+        bool Used(int column) => Enumerable.Range(firstRow, lastRow - firstRow + 1).Any(r => IsFilled(r, column));
+        while (from < to && !Used(from))
+        {
+            from++;
+        }
+
+        while (to > from && !Used(to))
+        {
+            to--;
+        }
+
+        return (firstRow, lastRow, from, to);
     }
 
     // Blocks of one row each, one below the other with their columns overlapping (the rows of a table that has an empty row between them),

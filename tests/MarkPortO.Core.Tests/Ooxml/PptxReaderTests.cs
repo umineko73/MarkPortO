@@ -35,6 +35,37 @@ public class PptxReaderTests
         Assert.Equal("## Plan\n\n- first point\n- second point", slide.Markdown);
     }
 
+    // The paragraphs of a plain text box are paragraphs (a blank line between them, else Markdown joins them into one); a paragraph with a bullet is a list item.
+    [Fact]
+    public void Read_TheParagraphsOfATextBox_AreSeparatedByABlankLine_AndBulletsAreItems()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("box.pptx");
+        PptxFactory.Create(path, new SlideSpec("Plan"));
+        using (var document = DocumentFormat.OpenXml.Packaging.PresentationDocument.Open(path, true))
+        {
+            var slide = document.PresentationPart!.SlideParts.First().Slide!;
+            var tree = slide.CommonSlideData!.ShapeTree!;
+            static DocumentFormat.OpenXml.Drawing.Paragraph Para(string text, bool bullet) =>
+                new(bullet ? new DocumentFormat.OpenXml.Drawing.ParagraphProperties(new DocumentFormat.OpenXml.Drawing.CharacterBullet { Char = "•" }) : new DocumentFormat.OpenXml.Drawing.ParagraphProperties(),
+                    new DocumentFormat.OpenXml.Drawing.Run(new DocumentFormat.OpenXml.Drawing.Text(text)));
+            tree.AppendChild(new DocumentFormat.OpenXml.Presentation.Shape(
+                new DocumentFormat.OpenXml.Presentation.NonVisualShapeProperties(
+                    new DocumentFormat.OpenXml.Presentation.NonVisualDrawingProperties { Id = 99, Name = "Box" },
+                    new DocumentFormat.OpenXml.Presentation.NonVisualShapeDrawingProperties(),
+                    new DocumentFormat.OpenXml.Presentation.ApplicationNonVisualDrawingProperties()),
+                new DocumentFormat.OpenXml.Presentation.ShapeProperties(),
+                new DocumentFormat.OpenXml.Presentation.TextBody(
+                    new DocumentFormat.OpenXml.Drawing.BodyProperties(),
+                    Para("first", false), Para("second", false), Para("item a", true), Para("item b", true))));
+            slide.Save();
+        }
+
+        var markdown = Assert.Single(PptxReader.Read(path, includeHidden: false)).Markdown;
+
+        Assert.Contains("first\n\nsecond\n\n- item a\n- item b", markdown, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Read_NotesLinksPicturesChartsAndDiagrams_AreWritten()
     {
