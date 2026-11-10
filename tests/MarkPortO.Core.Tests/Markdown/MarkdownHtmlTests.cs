@@ -33,6 +33,17 @@ public class MarkdownHtmlTests
         Assert.DoesNotContain("page: 1", html);
     }
 
+    // The wide spaces that indent a line (an indented line of an Excel sheet) are shown, as in other Markdown viewers.
+    [Fact]
+    public void Render_KeepsTheWideSpacesAtTheStartOfAParagraph()
+    {
+        var html = MarkdownHtml.Render("Top\n\n　　Second\n\n```\n　code\n```\n");
+
+        Assert.Contains("<p>　　Second</p>", html);
+        Assert.Contains("　code", html); // a fenced code block is left as it is
+        Assert.DoesNotContain("&amp;#x3000;", html);
+    }
+
     [Fact]
     public void Render_LeavesOutALineThatIsOnlyAPicture_UnlessAskedToShowIt()
     {

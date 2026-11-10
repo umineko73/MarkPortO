@@ -50,6 +50,44 @@ public static partial class MarkdownHtml
     private static partial Regex ImageLine();
 
     /// <summary>
+    /// The wide spaces (U+3000) at the start of a line, which indent it (an indented line of an Excel sheet), are written as character
+    /// references: Markdig strips the white space at the start of a paragraph, also these, but not a reference, which it reads later.
+    /// The lines of a fenced code block are left as they are.
+    /// </summary>
+    private static string KeepLeadingWideSpaces(string text)
+    {
+        if (!text.Contains('　', StringComparison.Ordinal))
+        {
+            return text;
+        }
+
+        var lines = text.Split('\n');
+        var fenced = false;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (line.TrimStart().StartsWith("```", StringComparison.Ordinal) || line.TrimStart().StartsWith("~~~", StringComparison.Ordinal))
+            {
+                fenced = !fenced;
+                continue;
+            }
+
+            var count = 0;
+            while (!fenced && count < line.Length && line[count] == '　')
+            {
+                count++;
+            }
+
+            if (count > 0)
+            {
+                lines[i] = string.Concat(Enumerable.Repeat("&#x3000;", count)) + line[count..];
+            }
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    /// <summary>
     /// The page of HTML. The comments of the Markdown (page, sheet, VLM marks) are not shown. A line that is only a picture is left
     /// out unless <paramref name="showImages"/> is set: the preview shows the image of the page above the text.
     /// </summary>
@@ -61,7 +99,7 @@ public static partial class MarkdownHtml
             text = ImageLine().Replace(text, string.Empty);
         }
 
-        text = text.Replace("<br>", BreakToken, StringComparison.OrdinalIgnoreCase);
+        text = KeepLeadingWideSpaces(text.Replace("<br>", BreakToken, StringComparison.OrdinalIgnoreCase));
         var body = Markdig.Markdown.ToHtml(text, Pipeline).Replace(BreakToken, "<br>", StringComparison.Ordinal);
         return "<!doctype html><html><head><meta charset=\"utf-8\">"
             + "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src https://" + Host + " data:; style-src 'unsafe-inline'; script-src " + MermaidScript + "\">"
