@@ -34,6 +34,7 @@ namespace MarkPortO.Core.Tests.Fixtures;
 /// <param name="HiddenRows">Rows that are hidden (1-based).</param>
 /// <param name="HiddenColumns">Columns that are hidden (1-based).</param>
 /// <param name="BorderedRanges">A1-style ranges whose cells have a thin border on every side, also the cells without a value.</param>
+/// <param name="Indents">The indent of the alignment of cells, by reference (<c>A2</c> to <c>2</c>).</param>
 public sealed record SheetSpec(
     string Name,
     string[][] Rows,
@@ -49,7 +50,8 @@ public sealed record SheetSpec(
     Dictionary<string, string>? Comments = null,
     int[]? HiddenRows = null,
     int[]? HiddenColumns = null,
-    string[]? BorderedRanges = null);
+    string[]? BorderedRanges = null,
+    Dictionary<string, int>? Indents = null);
 
 /// <summary>A drawn shape anchored to cells (0-based, as in the file): from the top left of (FromColumn, FromRow) to the top left of (ToColumn, ToRow).</summary>
 public sealed record CellShapeSpec(string Geometry, int FromColumn, int FromRow, int ToColumn, int ToRow, bool FlipH = false, bool FlipV = false);
@@ -211,13 +213,15 @@ public static class XlsxFactory
 
     // One cell format for each number format code that the sheets use (index 0 is the default one).
     private const string BorderStyleKey = "border-style";
+    private const string IndentStyleKey = "indent-";
 
     private static Dictionary<string, uint> AddStyles(WorkbookPart workbookPart, SheetSpec[] sheets)
     {
         var codes = sheets.SelectMany(s => s.NumberFormats?.Values.AsEnumerable() ?? Enumerable.Empty<string>()).Distinct().ToList();
         var result = new Dictionary<string, uint>();
         var withBorders = sheets.Any(s => s.BorderedRanges is { Length: > 0 });
-        if (codes.Count == 0 && !withBorders)
+        var indents = sheets.SelectMany(s => s.Indents?.Values.AsEnumerable() ?? Enumerable.Empty<int>()).Distinct().ToList();
+        if (codes.Count == 0 && !withBorders && indents.Count == 0)
         {
             return result;
         }
@@ -247,8 +251,14 @@ public static class XlsxFactory
             result[BorderStyleKey] = (uint)(codes.Count + 1);
         }
 
+        foreach (var indent in indents)
+        {
+            formats.AppendChild(new CellFormat(new Alignment { Indent = (uint)indent }) { ApplyAlignment = true });
+            result[IndentStyleKey + indent] = (uint)(formats.ChildElements.Count - 1);
+        }
+
         numbering.Count = (uint)codes.Count;
-        formats.Count = (uint)(codes.Count + (withBorders ? 2 : 1));
+        formats.Count = (uint)formats.ChildElements.Count;
         stylesPart.Stylesheet = new Stylesheet(
             numbering,
             new Fonts(new Font()) { Count = 1 },
@@ -307,6 +317,10 @@ public static class XlsxFactory
                 if (spec.NumberFormats?.TryGetValue($"{ColumnName(c + 1)}{r + 1}", out var code) == true)
                 {
                     built.StyleIndex = styleOfCode[code];
+                }
+                else if (spec.Indents?.TryGetValue($"{ColumnName(c + 1)}{r + 1}", out var indent) == true)
+                {
+                    built.StyleIndex = styleOfCode[IndentStyleKey + indent];
                 }
                 else if (bordered)
                 {

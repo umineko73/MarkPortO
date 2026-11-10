@@ -135,6 +135,40 @@ public class XlsxGridFoldTests
         Assert.DoesNotContain("H1　H2", markdown, StringComparison.Ordinal);
     }
 
+    // Lines of text that start one column further right each (a list laid out in columns) keep their steps, as wide spaces.
+    [Fact]
+    public void LinesThatStartFurtherRight_AreIndented()
+    {
+        var markdown = Read(new SheetSpec("Data",
+        [
+            ["Item", "Price", ""],
+            ["a", "1", ""],
+            ["", "", ""],
+            ["Top", "", ""],
+            ["", "Second", ""],
+            ["", "", "Third"],
+            ["Back", "", ""],
+        ], BorderedRanges: ["A1:B2"]));
+
+        Assert.EndsWith("Top\n\n　　Second\n\n　　　　Third\n\nBack", markdown, StringComparison.Ordinal);
+    }
+
+    // The indent of the format of a cell (Format Cells > Alignment > Indent) is kept the same way.
+    [Fact]
+    public void TheIndentOfTheFormatOfACell_IsKept()
+    {
+        var markdown = Read(new SheetSpec("Data",
+        [
+            ["Item", "Price"],
+            ["a", "1"],
+            ["", ""],
+            ["Top", ""],
+            ["Second", ""],
+        ], BorderedRanges: ["A1:B2"], Indents: new() { ["A5"] = 2 }));
+
+        Assert.EndsWith("Top\n\n　　　　Second", markdown, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void TextInAHiddenColumn_DoesNotMakeATableOfItsOwn()
     {

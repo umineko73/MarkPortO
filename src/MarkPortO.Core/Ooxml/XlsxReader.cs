@@ -119,6 +119,9 @@ public sealed class SheetContent
     /// </summary>
     public IReadOnlySet<(int Row, int Column)> Bordered { get; init; } = new HashSet<(int Row, int Column)>();
 
+    /// <summary>The indent of the cells (0-based row and column in <see cref="Rows"/>) whose format indents the text (Format Cells &gt; Alignment &gt; Indent).</summary>
+    public IReadOnlyDictionary<(int Row, int Column), int> Indents { get; init; } = new Dictionary<(int Row, int Column), int>();
+
     /// <summary>The first row is the header row of an Excel table (FR-060). A sheet has no header otherwise.</summary>
     public bool HasHeaderRow { get; init; }
 
@@ -182,10 +185,16 @@ public sealed class SheetContent
             }
         }
 
+        // The paragraphs of the sheet, with the column and the format indent of their first cell (see IndentParagraphs).
+        var paragraphs = new List<(int Part, int Column, int Indent)>();
+
         // A paragraph of the sheet, on the page that its row is on.
         void AddParagraph(int row, string text)
         {
             var page = rowPages is not null && row < rowPages.Count ? rowPages[row] : 0;
+            var column = Enumerable.Range(fromIndex, toIndex - fromIndex + 1)
+                .FirstOrDefault(c => row < Rows.Length && c < Rows[row].Length && !HiddenColumns.Contains(c) && Rows[row][c].Trim().Length > 0, fromIndex);
+            paragraphs.Add((parts.Count, column, Indents.TryGetValue((row, column), out var indent) ? indent : 0));
             parts.Add(new SheetPart(page, MarkdownText.Escape(text).Replace("\r", string.Empty, StringComparison.Ordinal).Trim(), IsTable: false, page));
         }
 
@@ -253,6 +262,8 @@ public sealed class SheetContent
             AddTable(0, Rows.Length - 1, fromIndex, toIndex, HasHeaderRow, skipEmptyRows: false, heading: null);
         }
 
+        IndentParagraphs(parts, paragraphs);
+
         var notes = Notes
             .Where(n => n.Column >= fromIndex && n.Column <= toIndex && !HiddenRows.Contains(n.Row) && !HiddenColumns.Contains(n.Column))
             .Select(n => "> **" + ExcelColumn.Name(FirstColumn + n.Column) + (FirstRow + n.Row).ToString(CultureInfo.InvariantCulture) + "**: " + MarkdownText.EscapeCell(n.Text))
@@ -268,6 +279,38 @@ public sealed class SheetContent
         }
 
         return parts;
+    }
+
+    /// <summary>
+    /// Indents the paragraphs that no table cuts from each other: by how many columns right of the leftmost of them their text starts (a list laid
+    /// out in columns), and by the indent of the format of the cell. Each step is two wide spaces (U+3000): spaces or a tab would make a code block.
+    /// </summary>
+    private static void IndentParagraphs(List<SheetPart> parts, List<(int Part, int Column, int Indent)> paragraphs)
+    {
+        var start = 0;
+        while (start < paragraphs.Count)
+        {
+            var end = start;
+            while (end + 1 < paragraphs.Count
+                && Enumerable.Range(paragraphs[end].Part + 1, paragraphs[end + 1].Part - paragraphs[end].Part - 1).All(i => !parts[i].IsTable))
+            {
+                end++;
+            }
+
+            var group = paragraphs.GetRange(start, end - start + 1);
+            var left = group.Min(p => p.Column);
+            foreach (var (part, column, indent) in group)
+            {
+                var steps = column - left + indent;
+                if (steps > 0 && parts[part].Markdown.Length > 0)
+                {
+                    var prefix = string.Concat(Enumerable.Repeat("　　", steps));
+                    parts[part] = parts[part] with { Markdown = prefix + parts[part].Markdown.Replace("\n", "\n" + prefix, StringComparison.Ordinal) };
+                }
+            }
+
+            start = end + 1;
+        }
     }
 
     /// <summary>
@@ -736,6 +779,7 @@ public static partial class XlsxReader
             var sharedStrings = ReadSharedStrings(workbookPart);
             var struckStyles = ReadStruckStyles(workbookPart);
             var borderedStyles = ReadBorderedStyles(workbookPart);
+            var indentedStyles = ReadIndentedStyles(workbookPart);
             var dateStyles = ReadDateStyles(workbookPart);
             var numberFormats = ReadNumberFormats(workbookPart, dateStyles);
 
@@ -753,7 +797,7 @@ public static partial class XlsxReader
                     continue; // a chart sheet
                 }
 
-                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles, borderedStyles));
+                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles, borderedStyles, indentedStyles));
             }
 
             return result;
@@ -786,11 +830,13 @@ public static partial class XlsxReader
         IReadOnlySet<uint> dateStyles,
         IReadOnlyDictionary<uint, string> numberFormats,
         IReadOnlySet<uint> struckStyles,
-        IReadOnlySet<uint> borderedStyles)
+        IReadOnlySet<uint> borderedStyles,
+        IReadOnlyDictionary<uint, int> indentedStyles)
     {
         var worksheet = part.Worksheet ?? throw new InvalidDocumentException(Loc.T("The sheet '{0}' has no content.", name));
         var cells = new Dictionary<(int Row, int Column), string>();
         var bordered = new HashSet<(int Row, int Column)>();
+        var indents = new Dictionary<(int Row, int Column), int>();
         int minRow = int.MaxValue, maxRow = 0, minColumn = int.MaxValue, maxColumn = 0;
 
         void Extend(int row, int column)
@@ -825,6 +871,11 @@ public static partial class XlsxReader
             if (cell.StyleIndex?.Value is { } styleIndex && borderedStyles.Contains(styleIndex))
             {
                 bordered.Add((row, column));
+            }
+
+            if (text.Length > 0 && cell.StyleIndex?.Value is { } indentStyle && indentedStyles.TryGetValue(indentStyle, out var indent))
+            {
+                indents[(row, column)] = indent;
             }
         }
 
@@ -929,6 +980,7 @@ public static partial class XlsxReader
             Rows = rows,
             HiddenByMerge = coveredByMerge,
             Bordered = bordered.Select(b => (b.Row - minRow, b.Column - minColumn)).ToHashSet(),
+            Indents = indents.ToDictionary(i => (i.Key.Row - minRow, i.Key.Column - minColumn), i => i.Value),
             Tables = ReadTables(part, minRow, maxRow, minColumn, maxColumn),
             Notes = ReadNotes(part, minRow, maxRow, minColumn, maxColumn),
             Charts = [.. (part.DrawingsPart?.ChartParts ?? []).Select(ChartReader.Read).OfType<ChartInfo>()],
@@ -1222,6 +1274,24 @@ public static partial class XlsxReader
             if (fontId < fontList.Count && fontList[(int)fontId].Elements<Strike>().FirstOrDefault() is { } strike && (strike.Val is null || strike.Val.Value))
             {
                 result.Add(index);
+            }
+
+            index++;
+        }
+
+        return result;
+    }
+
+    /// <summary>Style indexes (positions in cellXfs) whose alignment indents the text, with the indent (a number of steps).</summary>
+    private static IReadOnlyDictionary<uint, int> ReadIndentedStyles(WorkbookPart workbookPart)
+    {
+        var result = new Dictionary<uint, int>();
+        uint index = 0;
+        foreach (var format in workbookPart.WorkbookStylesPart?.Stylesheet?.CellFormats?.Elements<CellFormat>() ?? [])
+        {
+            if (format.Alignment?.Indent?.Value is { } indent and > 0)
+            {
+                result[index] = (int)Math.Min(indent, 15u);
             }
 
             index++;
