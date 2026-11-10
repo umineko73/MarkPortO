@@ -46,7 +46,7 @@ public class InterruptTests
     /// <summary>The files below a folder with a fingerprint of their content (state files excluded).</summary>
     private static Dictionary<string, string> Tree(string root) =>
         Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
-            .Where(f => !f.Contains(".markporto", StringComparison.Ordinal))
+            .Where(f => !f.Contains(".markporto", StringComparison.Ordinal) && !f.EndsWith(".log", StringComparison.Ordinal)) // the log has the times of the run
             .ToDictionary(
                 f => Path.GetRelativePath(root, f).Replace('\\', '/'),
                 f => System.Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(f))));

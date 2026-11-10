@@ -137,6 +137,7 @@ For each page image the command is run once, in an empty temporary folder, **wit
 out/report/
 ├── report.md          # starts with the source file name and a description of the structure
 ├── report_vlm.md      # only with --vlm-separate on: the results of Step3
+├── report.log         # what was made of each page (size, image, deleted or blank page), the warnings and the failures
 └── images/
     ├── page-001.png
     └── page-002.png

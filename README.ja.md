@@ -137,6 +137,7 @@ markporto check-connection --settings settings.json
 out/report/
 ├── report.md          # 元のファイル名と、構造の説明から始まります
 ├── report_vlm.md      # --vlm-separate on のときだけ: Step3の結果
+├── report.log         # ページごとの記録(大きさ、画像、削除ページ・空白ページ)、警告、失敗
 └── images/
     ├── page-001.png
     └── page-002.png

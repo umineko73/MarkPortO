@@ -288,6 +288,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             page.Step3 = PageStep3Status.Failed;
             page.Error = SecretRedact(ex.Message);
             document.Warnings.Add(new Warning("VlmPageFailed", $"{PageLabel.Text(page.SourceLabel, CultureInfo.CurrentUICulture)}: {page.Error}", page.Index));
+            DocumentLog.Write(document, $"page {page.Index} ({page.SourceLabel}): Step3 failed: {page.Error}");
             return new PageOutcome(false, (ex as VlmException)?.Kind ?? VlmFailureKind.Unknown, page.Error);
         }
     }

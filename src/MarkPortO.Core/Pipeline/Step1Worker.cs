@@ -85,6 +85,8 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         context.Save(document);
 
         var workDirectory = context.WorkDirectory(document);
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        DocumentLog.Write(document, $"Step1 start: {document.SourcePath} ({document.Kind}), {context.Options.Dpi} dpi");
         try
         {
             if (document.Kind == DocumentKind.Pdf)
@@ -125,11 +127,16 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             document.Step1 = StepStatus.Done;
             MarkdownRenderer.Write(document);
             context.Save(document);
+            DocumentLog.Write(document, [
+                .. document.Warnings.Select(w => $"warning {w.Code}: {w.Message}"),
+                $"Step1 done: {document.Pages.Count} pages, {started.Elapsed.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture)} s ({document.Converter})",
+            ]);
         }
         catch (OperationCanceledException)
         {
             document.Step1 = StepStatus.Interrupted;
             context.Save(document);
+            DocumentLog.Write(document, "Step1 interrupted");
             throw;
         }
         catch (Exception ex)
@@ -137,6 +144,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             document.Step1 = StepStatus.Failed;
             document.Error = new DocumentError(1, ex.Message);
             context.Save(document);
+            DocumentLog.Write(document, $"Step1 failed after {started.Elapsed.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture)} s: {ex.GetType().Name}: {ex.Message}");
             context.Logger.LogWarning("Step 1 failed for {Source}: {Message}", document.SourcePath, ex.Message);
             throw;
         }
@@ -525,6 +533,11 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                     page.IsBlank = true;
                     page.Step3 = PageStep3Status.Skipped;
                 }
+
+                DocumentLog.Write(document, $"page {index} ({page.SourceLabel}): {rendered.Width} x {rendered.Height} px at {pageDpi} dpi"
+                    + $" ({DocumentLog.PageSize(rendered.Width, rendered.Height, pageDpi)}), {imageFile}"
+                    + (page.IsDeleted ? "; deleted page (a × over the whole page): its text is left out and the VLM does not read it" : string.Empty)
+                    + (page.IsBlank ? (document.Kind == DocumentKind.Docx ? "; blank page (nothing but the header and the footer): the VLM does not read it" : "; blank page: the VLM does not read it") : string.Empty));
             }
             catch (PageTooLargeException ex)
             {
@@ -532,6 +545,12 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                 page.ImageFile = string.Empty;
                 page.Error = ex.Message;
                 layout.Warnings.Add(new Warning("ImageFailed", ex.Message, index));
+                DocumentLog.Write(document, $"page {index} ({page.SourceLabel}): no image: {ex.Message}");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                DocumentLog.Write(document, $"page {index} ({page.SourceLabel}): the image could not be made: {ex.GetType().Name}: {ex.Message}");
+                throw;
             }
 
             page.TextLines = TextLinesOf(layout.Pdf[i], textSources);

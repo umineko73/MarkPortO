@@ -59,6 +59,24 @@ public class PdfInputTests
         Assert.Contains("<!-- page: 2 -->\n\n![ページ 2](images/page-002.png)\n\nSecond page text", markdown);
     }
 
+    // The log beside the Markdown says what was made of each page, so that a page that came out wrong can be explained later.
+    [Fact]
+    public async Task TheLogOfADocument_HasALineForEachPage()
+    {
+        using var dir = new TempDir();
+        var source = PdfFactory.Create(dir.Combine("in", "a.pdf"), PageSize.A4, "One", "Two");
+
+        var result = await RunAsync(dir, Request(dir.Combine("out"), PdfOptions(), source));
+
+        var document = Assert.Single(result.Documents);
+        var log = File.ReadAllText(Path.Combine(document.OutputFolder, "a.log"));
+        Assert.Contains("Step1 start: ", log, StringComparison.Ordinal);
+        Assert.Contains("page 1 (page:1): ", log, StringComparison.Ordinal);
+        Assert.Contains("(210 x 297 mm), images/page-001.png", log, StringComparison.Ordinal);
+        Assert.Contains("page 2 (page:2): ", log, StringComparison.Ordinal);
+        Assert.Contains("Step1 done: 2 pages", log, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task WithTheTextOff_OnlyTheImagesAreMade()
     {
