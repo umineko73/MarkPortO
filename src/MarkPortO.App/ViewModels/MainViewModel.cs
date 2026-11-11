@@ -359,6 +359,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Start converts only the files that changed since their last conversion (FR-126).</summary>
+    public bool ChangedOnly
+    {
+        get => _store.Current.Input.ChangedOnly;
+        set
+        {
+            _store.Update(s => s.Input.ChangedOnly = value);
+            Raise();
+        }
+    }
+
     public bool IncludeOffSlideText
     {
         get => _store.Current.Input.IncludeOffSlideText;
@@ -915,17 +926,66 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             throw new ConvertStartException(UiText.Get("Status_NoDocuments", reasons));
         }
 
-        return await service.RunAsync(
-            new ConvertRequest
-            {
-                Inputs = found.Inputs,
-                GivenInputs = snapshot.Input.Paths,
-                InputFolder = found.InputFolder,
-                OutputFolder = snapshot.Output.Folder,
-                Options = WithPages(ConvertRequest.OptionsFrom(snapshot)),
-            },
-            token);
+        var request = new ConvertRequest
+        {
+            Inputs = found.Inputs,
+            GivenInputs = snapshot.Input.Paths,
+            InputFolder = found.InputFolder,
+            OutputFolder = snapshot.Output.Folder,
+            Options = WithPages(ConvertRequest.OptionsFrom(snapshot)),
+        };
+
+        // Only the files that changed since their last conversion, written to their earlier folders (FR-126).
+        if (snapshot.Input.ChangedOnly)
+        {
+            request = PreviousOutputs.Load(snapshot.Output.Folder).ChangedOnly(request)
+                ?? throw new ConvertStartException(UiText.Get("Status_NothingChanged", found.Inputs.Count));
+        }
+
+        return await service.RunAsync(request, token);
     }, outputFolder => new StateStore(outputFolder).Abandon(replaced));
+
+    /// <summary>
+    /// Converts the chosen files of the list again with the conditions on the screen (FR-127). Each goes back to the folder of its earlier
+    /// conversion: its Markdown and page images are replaced, so the paths stay the same.
+    /// </summary>
+    public Task ReconvertAsync(IReadOnlyList<FileItemViewModel> items) =>
+        ReconvertAsync([.. items.Select(i => i.Source).OfType<DocumentRecord>()]);
+
+    /// <param name="documents">The earlier conversions of the files (their folders are written again).</param>
+    public Task ReconvertAsync(IReadOnlyList<DocumentRecord> documents)
+    {
+        if (IsRunning || documents.Count == 0 || !ConfirmSending())
+        {
+            return Task.CompletedTask;
+        }
+
+        if (Confirm is { } confirm && !confirm(UiText.Get("Confirm_Reconvert", documents.Count)))
+        {
+            return Task.CompletedTask;
+        }
+
+        return RunAsync((service, snapshot, token) =>
+        {
+            var previous = new Dictionary<string, PreviousOutput>(StringComparer.OrdinalIgnoreCase);
+            foreach (var document in documents.Where(d => Directory.Exists(d.OutputFolder)))
+            {
+                previous[Path.GetFullPath(document.SourcePath)] = new PreviousOutput(document.OutputFolder, document.DisplayName);
+            }
+
+            var paths = documents.Select(d => d.SourcePath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            return service.RunAsync(
+                new ConvertRequest
+                {
+                    Inputs = [.. paths.Select(p => new PlannedInput(p))],
+                    GivenInputs = paths,
+                    OutputFolder = snapshot.Output.Folder,
+                    Options = ConvertRequest.OptionsFrom(snapshot),
+                    Previous = previous,
+                },
+                token);
+        });
+    }
 
     /// <summary>Puts the page range in the options when it can be used (one file); otherwise it is left out.</summary>
     private OptionsSnapshot WithPages(OptionsSnapshot options)
@@ -1146,12 +1206,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Shows a run of an earlier time as "the previous conversion", so that "resume" and "retry failed only" work on it (FR-121). The output folder
-    /// of the screen is set to the folder of the run. Returns false when a conversion is running.
+    /// Opens files of the window of past outputs (FR-121, FR-128): their source files become the inputs, their earlier conversions fill the
+    /// list of files, and the output folder of the screen becomes <paramref name="outputRoot"/>. Nothing is converted; the user starts it.
+    /// When <paramref name="resumeJobId"/> is given (one file whose run can be resumed), that run is "the previous conversion", so that "resume"
+    /// and "retry failed only" work on it. Returns false when a conversion is running.
     /// </summary>
-    public async Task<bool> LoadRunAsync(string outputRoot, Guid jobId)
+    public async Task<bool> OpenPastAsync(string outputRoot, IReadOnlyList<DocumentRecord> documents, Guid? resumeJobId = null)
     {
-        if (IsRunning)
+        if (IsRunning || documents.Count == 0)
         {
             return false;
         }
@@ -1163,32 +1225,44 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Raise(nameof(OutputFolder));
         }
 
+        InputPaths.Clear();
+        foreach (var path in documents.Select(d => d.SourcePath).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            InputPaths.Add(path);
+        }
+
+        SaveInputs();
+        Files.Clear();
+        foreach (var document in documents)
+        {
+            Files.Add(new FileItemViewModel(FileStatusProjector.Project(document), OutputRoot));
+        }
+
+        // The run that "resume" acts on: the chosen one, or else the one the output folder has (as when the folder is chosen).
         var run = await Task.Run(() =>
         {
             var store = new StateStore(outputRoot);
-            return store.LoadJob(jobId) is { } job ? PreviousRunFinder.ForJob(store, job) : null;
+            return resumeJobId is { } id && store.LoadJob(id) is { } job ? PreviousRunFinder.ForJob(store, job) : PreviousRunFinder.Find(outputRoot);
         });
         if (version != _scanVersion || IsRunning)
         {
-            return false;
+            return true;
         }
 
         _previous = run;
-        Files.Clear();
-        if (run is not null)
+        var count = documents.Count;
+        SetStatus(() =>
         {
-            foreach (var document in run.Documents)
+            var opened = UiText.Get("Status_PastOpened", count);
+            return run switch
             {
-                Files.Add(new FileItemViewModel(FileStatusProjector.Project(document), OutputRoot));
-            }
-
-            SetStatus(() => run.CanResume
-                ? UiText.Get("Status_Previous_Resume", run.DoneCount, run.FailedCount, run.UnfinishedCount)
-                : UiText.Get("Status_Previous_Retry", run.DoneCount, run.FailedCount, run.UnfinishedCount));
-        }
-
+                { CanResume: true } => opened + " / " + UiText.Get("Status_Previous_Resume", run.DoneCount, run.FailedCount, run.UnfinishedCount),
+                { CanRetryFailed: true } => opened + " / " + UiText.Get("Status_Previous_Retry", run.DoneCount, run.FailedCount, run.UnfinishedCount),
+                _ => opened,
+            };
+        });
         UpdateRunCommands();
-        return run is not null;
+        return true;
     }
 
     private static string Summary(ConvertResult result)

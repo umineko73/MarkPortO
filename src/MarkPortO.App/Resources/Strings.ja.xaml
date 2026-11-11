@@ -125,6 +125,10 @@
   <sys:String x:Key="Main_Interrupt">中断</sys:String>
   <sys:String x:Key="Main_Resume">再開</sys:String>
   <sys:String x:Key="Main_RetryFailed">失敗のみ再試行</sys:String>
+  <sys:String x:Key="Main_ChangedOnly">変更されたファイルだけ</sys:String>
+  <sys:String x:Key="Main_ChangedOnlyTip">「開始」で、出力先での前回の変換から変わったファイル、まだ変換していないファイル、前回終わらなかったファイルだけを変換します。出力は前回と同じフォルダに書きます。条件を変えただけでは、変換し直しません。</sys:String>
+  <sys:String x:Key="Main_Reconvert">選択したファイルを再変換</sys:String>
+  <sys:String x:Key="Main_ReconvertTip">選択したファイルを、画面の条件で変換し直します。出力は前回と同じフォルダに書きます（Markdown とページ画像は置き換わります）。Ctrl＋クリック、Shift＋クリックで複数選べます。</sys:String>
   <sys:String x:Key="Main_Col_File">ファイル</sys:String>
   <sys:String x:Key="Main_Col_Type">種類</sys:String>
   <sys:String x:Key="Main_Col_State">状態</sys:String>
@@ -145,6 +149,8 @@
   <sys:String x:Key="Status_DpiInvalid">DPIは {0}〜{1} の整数で指定してください(今の値: {2})。</sys:String>
   <sys:String x:Key="Conn_None">(未選択)</sys:String>
   <sys:String x:Key="Status_NoDocuments">変換できる文書が見つかりませんでした。{0}</sys:String>
+  <sys:String x:Key="Status_NothingChanged">{0} 件のファイルは、どれも前回の変換から変わっていません。すべて変換するときは、「変更されたファイルだけ」を外してください。</sys:String>
+  <sys:String x:Key="Status_PastOpened">過去の出力から {0} 件のファイルを開きました。「開始」で変換します。前と同じフォルダに書き直すときは、一覧で選んで右クリックの「選択したファイルを再変換」を使います。</sys:String>
   <sys:String x:Key="Status_Interrupting">中断しています…処理中のファイルは区切りの良いところで止まります。</sys:String>
   <sys:String x:Key="Status_CheckSettings">設定を確認してください: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">VLMの接続を準備できませんでした。</sys:String>
@@ -159,6 +165,7 @@
   <sys:String x:Key="Status_Summary">{0}: 完了 {1}、失敗 {2}、未完了 {3}。出力先: {4}</sys:String>
   <sys:String x:Key="Main_ClearPrevious">前回の変換をクリア</sys:String>
   <sys:String x:Key="Main_Cond_LockedTip">前回の変換の続きでは変えられません。変えるには、前回の変換をクリアしてください。</sys:String>
+  <sys:String x:Key="Confirm_Reconvert">{0} 件のファイルを、画面の条件で変換し直します。&#10;&#10;出力先の Markdown とページ画像は置き換わります。&#10;&#10;再変換しますか？</sys:String>
   <sys:String x:Key="Confirm_ClearPrevious">出力先にある前回の変換(完了 {0} 件、失敗 {1} 件、未完了 {2} 件)をクリアします。&#10;&#10;再開・失敗のみ再試行はできなくなります(出力済みのファイルは消えません)。&#10;&#10;クリアしますか？</sys:String>
   <sys:String x:Key="Main_Cond_Excel">シートの範囲:</sys:String>
   <sys:String x:Key="Main_Cond_ExcelColumns">すべての列をできるだけ1ページに収める</sys:String>
@@ -285,10 +292,11 @@
   <sys:String x:Key="Past_Missing">出力のフォルダが見つかりません</sys:String>
   <sys:String x:Key="Past_NoPages">ページがありません</sys:String>
   <sys:String x:Key="Past_Count">{0} 件</sys:String>
-  <sys:String x:Key="Past_Load">再変換</sys:String>
-  <sys:String x:Key="Past_OpenFolder">フォルダを開く</sys:String>
-  <sys:String x:Key="Past_NotResumable">この変換は、再変換できません（すべて完了している、または破棄後に別の変換があります）。</sys:String>
-  <sys:String x:Key="Past_RunCounts">完了 {0}・失敗 {1}・未完了 {2}</sys:String>
+  <sys:String x:Key="Past_Load">開く</sys:String>
+  <sys:String x:Key="Past_OpenFolder">エクスプローラで開く</sys:String>
+  <sys:String x:Key="Past_OpenTip">選択したファイルを、メイン画面の「変換するファイル・フォルダ」とファイルの一覧に設定し、出力先をこの出力先にします。変換は始めません。</sys:String>
+  <sys:String x:Key="Past_RunCounts">この変換は「再開」できます（完了 {0}・失敗 {1}・未完了 {2}）</sys:String>
   <sys:String x:Key="Past_Abandoned">（破棄済み）</sys:String>
-  <sys:String x:Key="Past_LoadFailed">変換中は読み込めません。変換が終わってから、もう一度お試しください。</sys:String>
+  <sys:String x:Key="Past_PreviewOne">プレビューは、ファイルを1つだけ選んだときに使えます。</sys:String>
+  <sys:String x:Key="Past_LoadFailed">変換中は開けません。変換が終わってから、もう一度お試しください。</sys:String>
 </ResourceDictionary>

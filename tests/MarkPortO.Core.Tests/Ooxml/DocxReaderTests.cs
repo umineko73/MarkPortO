@@ -117,6 +117,23 @@ public class DocxReaderTests
         Assert.StartsWith("|  |  |  |\n|---|---|---|\n| Title |", MarkdownText.ResolveMarks(table.Block.Markdown), StringComparison.Ordinal);
     }
 
+    // A column numbered by Word has its numbers only in the list, not in the text of the cells; the count goes on after the table.
+    [Fact]
+    public void Read_Table_KeepsTheNumbersThatWordGivesToTheCells()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("numbered.docx");
+        DocxFactory.CreateNumberedTable(path);
+
+        var blocks = DocxReader.Read(path);
+        var table = blocks.Single(b => b.Block.Kind == BlockKind.Table);
+
+        Assert.Equal(
+            "|  |  |\n|---|---|\n| 1. | A |\n| 2. | B |\n| 3. | C |",
+            MarkdownText.ResolveMarks(table.Block.Markdown));
+        Assert.Contains(blocks, b => b.Block.Markdown == "4. After");
+    }
+
     [Fact]
     public void Read_SearchTextHasNoMarkdownMarks()
     {

@@ -34,7 +34,7 @@
       <TextBlock Margin="0,0,8,0" Text="{DynamicResource Past_Folder}" />
       <TextBlock Grid.Column="1" x:Name="FolderText" TextTrimming="CharacterEllipsis" />
     </Grid>
-    <DataGrid Grid.Row="1" x:Name="Grid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" CanUserAddRows="False"
+    <DataGrid Grid.Row="1" x:Name="Grid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" CanUserAddRows="False"
               HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionChanged="OnSelectionChanged" MouseDoubleClick="OnDoubleClick">
       <DataGrid.Columns>
         <DataGridTextColumn Binding="{Binding Name}" Width="3*" Header="{DynamicResource Past_Name}" />

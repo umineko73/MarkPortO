@@ -238,7 +238,7 @@ public static class ResumePlanner
     }
 
     /// <summary>Removes the Markdown file and page images this job wrote for the document. Nothing else is touched.</summary>
-    private static void DeleteOwnOutput(DocumentRecord document)
+    internal static void DeleteOwnOutput(DocumentRecord document)
     {
         try
         {

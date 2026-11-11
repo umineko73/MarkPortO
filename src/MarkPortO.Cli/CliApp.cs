@@ -116,6 +116,7 @@ public static class CliApp
         var resume = new Option<bool>("--resume") { Description = "Resume an interrupted run." };
         var job = new Option<string?>("--job") { Description = "With --resume: the job to resume." };
         var retryFailed = new Option<bool>("--retry-failed") { Description = "With --resume: run the failed files again." };
+        var changedOnly = new Option<bool>("--changed-only") { Description = "Convert only the files that changed since their last conversion in the output folder, were never converted, or did not finish; they are written to their earlier folders." };
         var result = new Option<string?>("--result") { Description = "Write the result as JSON to this file." };
         var quiet = new Option<bool>("--quiet") { Description = "Show less progress." };
 
@@ -124,7 +125,7 @@ public static class CliApp
         foreach (var option in new Option[]
         {
             settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, engine, dpi, excelRange, step2, step3, vlmSeparate,
-            pages, step1Tables, dropRepeated, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, result, quiet,
+            pages, step1Tables, dropRepeated, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, result, quiet,
         })
         {
             convert.Options.Add(option);
@@ -171,6 +172,7 @@ public static class CliApp
                 Resume = parse.GetValue(resume),
                 Job = parse.GetValue(job),
                 RetryFailed = parse.GetValue(retryFailed),
+                ChangedOnly = parse.GetValue(changedOnly),
                 ResultPath = parse.GetValue(result),
                 Quiet = parse.GetValue(quiet),
             };
@@ -333,6 +335,23 @@ public static class CliApp
             OutputFolder = settings.Output.Folder,
             Options = options,
         };
+
+        // Only the files that changed since their last conversion, written to their earlier folders (FR-126).
+        if (args.ChangedOnly)
+        {
+            if (PreviousOutputs.Load(settings.Output.Folder).ChangedOnly(request) is not { } changed)
+            {
+                await stdout.WriteLineAsync("No file has changed since its last conversion.");
+                return ExitCodes.Success;
+            }
+
+            if (!args.Quiet)
+            {
+                await stdout.WriteLineAsync($"{changed.Inputs.Count} of {request.Inputs.Count} files changed since their last conversion.");
+            }
+
+            request = changed;
+        }
 
         // 4. run
         VlmSetup? vlm = null;

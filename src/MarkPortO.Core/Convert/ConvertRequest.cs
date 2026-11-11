@@ -26,6 +26,9 @@ namespace MarkPortO.Core.Convert;
 /// </param>
 public sealed record PlannedInput(string Path, string RelativeDirectory = "");
 
+/// <summary>Where a document was written by an earlier conversion, and the name the file list showed for it.</summary>
+public sealed record PreviousOutput(string OutputFolder, string DisplayName);
+
 /// <summary>What to convert and how (the input of <see cref="ConvertService"/>).</summary>
 public sealed class ConvertRequest
 {
@@ -48,6 +51,15 @@ public sealed class ConvertRequest
         var name = Path.GetFileName(trimmed);
         return name.Length > 0 ? name : trimmed.TrimEnd(':');
     }
+
+    /// <summary>
+    /// Documents that are converted again (FR-126, FR-127), by the full path of the file: they are written to the folder of their earlier
+    /// conversion, which is emptied of the Markdown and the page images first, so that the paths of the output stay the same.
+    /// </summary>
+    public IReadOnlyDictionary<string, PreviousOutput>? Previous { get; init; }
+
+    /// <summary>For a folder run: the output folder of an earlier run of the same folder, used instead of a new one (FR-126).</summary>
+    public string? OutputRootFolder { get; init; }
 
     /// <summary>The folder chosen by the user (<c>--out</c>).</summary>
     public required string OutputFolder { get; init; }

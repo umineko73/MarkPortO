@@ -279,6 +279,9 @@ public sealed class InputSettings
 
     public bool Recurse { get; set; }
 
+    /// <summary>Start converts only the files that changed since their last conversion in the output folder (FR-126).</summary>
+    public bool ChangedOnly { get; set; }
+
     public List<DocumentKind> Types { get; set; } = [DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx, DocumentKind.Pdf];
 
     /// <summary>

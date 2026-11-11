@@ -125,6 +125,10 @@
   <sys:String x:Key="Main_Interrupt">Interrupt</sys:String>
   <sys:String x:Key="Main_Resume">Resume</sys:String>
   <sys:String x:Key="Main_RetryFailed">Retry failed only</sys:String>
+  <sys:String x:Key="Main_ChangedOnly">Changed files only</sys:String>
+  <sys:String x:Key="Main_ChangedOnlyTip">Start converts only the files that changed since their last conversion in the output folder, were never converted, or did not finish. They are written to the folders of their earlier conversion. A change of the conditions alone does not convert a file again.</sys:String>
+  <sys:String x:Key="Main_Reconvert">Convert the selected files again</sys:String>
+  <sys:String x:Key="Main_ReconvertTip">Converts the selected files again with the conditions on the screen, into the folders of their earlier conversion (their Markdown and page images are replaced). Ctrl+click or Shift+click selects several files.</sys:String>
   <sys:String x:Key="Main_Col_File">File</sys:String>
   <sys:String x:Key="Main_Col_Type">Type</sys:String>
   <sys:String x:Key="Main_Col_State">State</sys:String>
@@ -145,6 +149,8 @@
   <sys:String x:Key="Status_DpiInvalid">Enter a whole number from {0} to {1} for the DPI (now: {2}).</sys:String>
   <sys:String x:Key="Conn_None">(none)</sys:String>
   <sys:String x:Key="Status_NoDocuments">No documents to convert were found. {0}</sys:String>
+  <sys:String x:Key="Status_NothingChanged">None of the {0} files has changed since its last conversion. To convert them anyway, clear "Changed files only".</sys:String>
+  <sys:String x:Key="Status_PastOpened">{0} files of a past output were opened. Press Start to convert them. To write them again into the same folders, select them in the list and right-click Convert the selected files again.</sys:String>
   <sys:String x:Key="Status_Interrupting">Interrupting… the file being processed stops at a safe point.</sys:String>
   <sys:String x:Key="Status_CheckSettings">Check the settings: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">The VLM connection could not be prepared.</sys:String>
@@ -159,6 +165,7 @@
   <sys:String x:Key="Status_Summary">{0}: {1} done, {2} failed, {3} not finished. Output: {4}</sys:String>
   <sys:String x:Key="Main_ClearPrevious">Clear the previous conversion</sys:String>
   <sys:String x:Key="Main_Cond_LockedTip">These cannot be changed while the previous conversion can be resumed. To change them, clear the previous conversion.</sys:String>
+  <sys:String x:Key="Confirm_Reconvert">{0} files will be converted again with the conditions on the screen.&#10;&#10;Their Markdown and page images in the output folder are replaced.&#10;&#10;Convert them again?</sys:String>
   <sys:String x:Key="Confirm_ClearPrevious">The previous conversion in the output folder ({0} done, {1} failed, {2} not finished) will be cleared.&#10;&#10;It can no longer be resumed or retried (the files already written stay).&#10;&#10;Clear it?</sys:String>
   <sys:String x:Key="Main_Cond_Excel">Sheet range:</sys:String>
   <sys:String x:Key="Main_Cond_ExcelColumns">All columns on one page, as far as they stay readable</sys:String>
@@ -285,10 +292,11 @@
   <sys:String x:Key="Past_Missing">The output folder was not found</sys:String>
   <sys:String x:Key="Past_NoPages">No pages</sys:String>
   <sys:String x:Key="Past_Count">{0} item(s)</sys:String>
-  <sys:String x:Key="Past_Load">Convert again</sys:String>
-  <sys:String x:Key="Past_OpenFolder">Open folder</sys:String>
-  <sys:String x:Key="Past_NotResumable">This run cannot be converted again (everything is done, or another run came after it was given up).</sys:String>
-  <sys:String x:Key="Past_RunCounts">done {0}, failed {1}, not finished {2}</sys:String>
+  <sys:String x:Key="Past_Load">Open</sys:String>
+  <sys:String x:Key="Past_OpenFolder">Open in Explorer</sys:String>
+  <sys:String x:Key="Past_OpenTip">Puts the selected files in the inputs and the file list of the main window, and makes this the output folder. It does not start a conversion.</sys:String>
+  <sys:String x:Key="Past_RunCounts">This run can be resumed (done {0}, failed {1}, not finished {2})</sys:String>
   <sys:String x:Key="Past_Abandoned">(given up)</sys:String>
-  <sys:String x:Key="Past_LoadFailed">It cannot be loaded while a conversion is running. Try again when it has finished.</sys:String>
+  <sys:String x:Key="Past_PreviewOne">Select one file to preview it.</sys:String>
+  <sys:String x:Key="Past_LoadFailed">It cannot be opened while a conversion is running. Try again when it has finished.</sys:String>
 </ResourceDictionary>

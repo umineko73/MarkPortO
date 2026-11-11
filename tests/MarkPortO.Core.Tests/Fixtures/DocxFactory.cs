@@ -359,6 +359,48 @@ public static class DocxFactory
         Finish(body);
     }
 
+    /// <summary>
+    /// A table whose first column is numbered by Word (1. 2. 3.: empty paragraphs of a numbered list), and a paragraph of the same list after it.
+    /// </summary>
+    public static void CreateNumberedTable(string path)
+    {
+        using var document = NewDocument(path, out var body);
+        var part = document.MainDocumentPart!.AddNewPart<NumberingDefinitionsPart>();
+        part.Numbering = new Numbering(
+            new AbstractNum(
+                new Level(
+                    new StartNumberingValue { Val = 1 },
+                    new NumberingFormat { Val = NumberFormatValues.Decimal },
+                    new LevelText { Val = "%1." },
+                    new ParagraphProperties(new Indentation { Left = "440", Hanging = "440" }))
+                { LevelIndex = 0 })
+            { AbstractNumberId = 0 },
+            new NumberingInstance(new AbstractNumId { Val = 0 }) { NumberID = 1 });
+
+        Paragraph Numbered(string text)
+        {
+            var paragraph = new Paragraph(new ParagraphProperties(
+                new ParagraphStyleId { Val = "ListParagraph" },
+                new NumberingProperties(new NumberingLevelReference { Val = 0 }, new NumberingId { Val = 1 })));
+            if (text.Length > 0)
+            {
+                paragraph.AppendChild(new Run(new Text(text)));
+            }
+
+            return paragraph;
+        }
+
+        var table = new Table(new TableProperties(new TableLook { Val = "0400" }), new TableGrid(new GridColumn { Width = "3000" }, new GridColumn { Width = "3000" }));
+        foreach (var letter in new[] { "A", "B", "C" })
+        {
+            table.AppendChild(new TableRow(new TableCell(Numbered(string.Empty)), new TableCell(Plain(letter))));
+        }
+
+        body.AppendChild(table);
+        body.AppendChild(Numbered("After"));
+        Finish(body);
+    }
+
     private static Table NewTable(string[][] rows)
     {
         var table = new Table(new TableProperties(

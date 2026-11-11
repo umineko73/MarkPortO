@@ -111,6 +111,10 @@ public partial class MainWindow : Window
     // The folder and the Markdown files of the chosen document: the shell opens them (the folder in Explorer, a file in the program set for .md).
     private void OnOpenFolderClick(object sender, RoutedEventArgs e) => OpenWithShell(_viewModel.Selected is { HasOutputFolder: true } item ? item.OutputFolderPath : null);
 
+    // FR-127: the files chosen in the list are converted again, into the folders of their earlier conversion.
+    private async void OnReconvertClick(object sender, RoutedEventArgs e) =>
+        await _viewModel.ReconvertAsync([.. FileGrid.SelectedItems.OfType<FileItemViewModel>()]);
+
     private void OnOpenMarkdownClick(object sender, RoutedEventArgs e) => OpenWithShell(_viewModel.Selected is { HasMarkdown: true } item ? item.MarkdownPath : null);
 
     private void OnOpenVlmClick(object sender, RoutedEventArgs e) => OpenWithShell(_viewModel.Selected is { HasVlm: true } item ? item.VlmPath : null);
@@ -167,7 +171,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        new PastOutputsWindow(root, PastOutputs.Load(root), OpenPastPreview, PreviousRunFinder.Resumable(root), run => _viewModel.LoadRunAsync(root, run.Job.JobId)) { Owner = this }.Show();
+        new PastOutputsWindow(
+            root,
+            PastOutputs.Load(root),
+            OpenPastPreview,
+            PreviousRunFinder.Resumable(root),
+            (documents, resumeJobId) => _viewModel.OpenPastAsync(root, [.. documents.Select(d => d.Document)], resumeJobId))
+        { Owner = this }.Show();
     }
 
     private void OpenPastPreview(PastDocument past)

@@ -372,7 +372,9 @@ public sealed class ConvertService
 
         var allocator = new OutputNamer.Allocator();
         var outputRoot = request.InputFolder is { } inputFolder
-            ? allocator.Allocate(outRoot, ConvertRequest.FolderName(inputFolder))
+            ? request.OutputRootFolder is { } earlierRoot && Directory.Exists(earlierRoot)
+                ? Path.GetFullPath(earlierRoot)
+                : allocator.Allocate(outRoot, ConvertRequest.FolderName(inputFolder))
             : outRoot;
 
         var options = request.Options;
@@ -389,16 +391,24 @@ public sealed class ConvertService
                 ? outputRoot
                 : Path.Combine([outputRoot, .. input.RelativeDirectory.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries).Select(OutputNamer.Sanitize)]);
 
+            // A document converted again goes to the folder of its earlier conversion (FR-126, FR-127).
+            PreviousOutput? previous = null;
+            request.Previous?.TryGetValue(Path.GetFullPath(input.Path), out previous);
+
             var record = new DocumentRecord
             {
                 DocId = $"d{i + 1:0000}",
                 SourcePath = Path.GetFullPath(input.Path),
                 MarkdownLanguage = options.MarkdownLanguage,
-                DisplayName = input.RelativeDirectory.Length == 0
-                    ? Path.GetFileName(input.Path)
-                    : Path.Combine(input.RelativeDirectory.Replace('/', '\\'), Path.GetFileName(input.Path)),
+                DisplayName = previous?.DisplayName is { Length: > 0 } earlierName
+                    ? earlierName
+                    : input.RelativeDirectory.Length == 0
+                        ? Path.GetFileName(input.Path)
+                        : Path.Combine(input.RelativeDirectory.Replace('/', '\\'), Path.GetFileName(input.Path)),
                 Kind = OoxmlPackage.KindOf(input.Path)!.Value,
-                OutputFolder = allocator.Allocate(parent, Path.GetFileNameWithoutExtension(input.Path)),
+                OutputFolder = previous is not null
+                    ? Path.GetFullPath(previous.OutputFolder)
+                    : allocator.Allocate(parent, Path.GetFileNameWithoutExtension(input.Path)),
                 Step2 = options.Step2 ? StepStatus.Pending : StepStatus.NotApplicable,
                 Step3 = options.Step3 ? StepStatus.Pending : StepStatus.NotApplicable,
                 VlmSeparate = options.VlmSeparate,
@@ -407,6 +417,10 @@ public sealed class ConvertService
             };
 
             record.OutputFolderRel = Path.GetRelativePath(outRoot, record.OutputFolder);
+            if (previous is not null)
+            {
+                ResumePlanner.DeleteOwnOutput(record); // the pages of the earlier result are not left beside the new ones
+            }
 
             try
             {

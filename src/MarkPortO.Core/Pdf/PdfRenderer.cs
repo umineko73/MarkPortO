@@ -43,10 +43,30 @@ public static class PdfRenderer
     /// <summary>The Windows renderer measures a page in 1/96 inch units.</summary>
     private const double DeviceUnitsPerInch = 96.0;
 
+    /// <remarks>
+    /// The PDF is read into memory first: a document opened from the file keeps the file open until it is collected, so a PDF given as input
+    /// could not be saved again (and converted again) while MarkPortO runs.
+    /// </remarks>
     public static async Task<PdfDocument> OpenAsync(string pdfPath)
     {
-        var file = await StorageFile.GetFileFromPathAsync(System.IO.Path.GetFullPath(pdfPath)).AsTask().ConfigureAwait(false);
-        return await PdfDocument.LoadFromFileAsync(file).AsTask().ConfigureAwait(false);
+        byte[] bytes;
+        await using (var file = new FileStream(System.IO.Path.GetFullPath(pdfPath), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+        {
+            bytes = new byte[file.Length];
+            await file.ReadExactlyAsync(bytes).ConfigureAwait(false);
+        }
+
+        var stream = new InMemoryRandomAccessStream();
+        using (var writer = new DataWriter(stream.GetOutputStreamAt(0)))
+        {
+            writer.WriteBytes(bytes);
+            await writer.StoreAsync().AsTask().ConfigureAwait(false);
+            await writer.FlushAsync().AsTask().ConfigureAwait(false);
+            writer.DetachStream();
+        }
+
+        stream.Seek(0);
+        return await PdfDocument.LoadFromStreamAsync(stream).AsTask().ConfigureAwait(false);
     }
 
     public static async Task<int> GetPageCountAsync(string pdfPath)

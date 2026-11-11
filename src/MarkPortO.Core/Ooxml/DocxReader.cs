@@ -553,7 +553,8 @@ public static partial class DocxReader
     }
 
     // The text of a table cell: its paragraphs, and a table inside it written as lines of cells (FR-071).
-    private static string CellText(TableCell cell, Context context)
+    // The plain text of its paragraphs (with the numbers that Word gives them) is added to plainLines, to find the page of the row.
+    private static string CellText(TableCell cell, Context context, List<string>? plainLines = null)
     {
         var parts = new List<string>();
         foreach (var child in Flatten(cell.ChildElements))
@@ -561,7 +562,12 @@ public static partial class DocxReader
             switch (child)
             {
                 case Paragraph paragraph:
-                    parts.Add(ParagraphText(paragraph, context).Trim());
+                    // A cell numbered by Word (1. 2. 3.) has its number only in the list, not in its text; the count goes on through the cells.
+                    var number = context.Numbering.Label(paragraph);
+                    var cellText = ParagraphText(paragraph, context).Trim();
+                    parts.Add(number is null ? cellText : (number + " " + cellText).TrimEnd());
+                    var plain = ParagraphText(paragraph).Trim();
+                    plainLines?.Add(number is null ? plain : (number + " " + plain).TrimEnd());
                     break;
                 case Table inner:
                     parts.AddRange(inner.Elements<TableRow>().Select(row =>
@@ -584,12 +590,13 @@ public static partial class DocxReader
             var plainCells = new List<string>();
             foreach (var cell in row.Elements<TableCell>())
             {
-                var text = CellText(cell, context);
-                plainCells.Add(string.Concat(cell.Elements<Paragraph>().Select(p => ParagraphText(p).Trim())));
+                var plainLines = new List<string>();
+                var text = CellText(cell, context, plainLines);
+                plainCells.Add(string.Concat(plainLines));
                 if (firstCell is null && text.Length > 0)
                 {
                     // The page of the table is found by plain text, not by the Markdown (links, note marks).
-                    firstCell = string.Join('\n', cell.Elements<Paragraph>().Select(p => ParagraphText(p).Trim()).Where(t => t.Length > 0));
+                    firstCell = string.Join('\n', plainLines.Where(t => t.Length > 0));
                     if (firstCell.Length == 0)
                     {
                         firstCell = null;

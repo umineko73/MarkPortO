@@ -100,6 +100,9 @@ public sealed record ConvertArgs
 
     public bool RetryFailed { get; init; }
 
+    /// <summary>Convert only the files that changed since their last conversion in the output folder (FR-126).</summary>
+    public bool ChangedOnly { get; init; }
+
     public string? ResultPath { get; init; }
 
     public bool Quiet { get; init; }

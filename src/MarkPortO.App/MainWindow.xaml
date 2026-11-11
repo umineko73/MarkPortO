@@ -283,6 +283,8 @@
         <Button x:Name="PreviewButton" Content="{DynamicResource Main_Preview}" Click="OnPreviewClick" MinWidth="100" Padding="6"
                 IsEnabled="{Binding Selected.CanPreview, FallbackValue=False, TargetNullValue=False}"
                 ToolTip="{DynamicResource Main_PreviewTip}" ToolTipService.ShowOnDisabled="True" />
+        <CheckBox Content="{DynamicResource Main_ChangedOnly}" IsChecked="{Binding ChangedOnly}" VerticalAlignment="Center" Margin="12,0,0,0"
+                  ToolTip="{DynamicResource Main_ChangedOnlyTip}" IsEnabled="{Binding CanEdit}" />
       </StackPanel>
 
       <Grid Grid.Row="4">
@@ -292,8 +294,8 @@
           <RowDefinition Height="*" MinHeight="90" />
         </Grid.RowDefinitions>
         <!-- File list -->
-        <DataGrid Grid.Row="0" ItemsSource="{Binding Files}" SelectedItem="{Binding Selected}"
-                  AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MouseDoubleClick="OnFileDoubleClick"
+        <DataGrid x:Name="FileGrid" Grid.Row="0" ItemsSource="{Binding Files}" SelectedItem="{Binding Selected}"
+                  AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" MouseDoubleClick="OnFileDoubleClick"
                   CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
           <DataGrid.ContextMenu>
             <ContextMenu>
@@ -302,6 +304,9 @@
               <MenuItem Header="{DynamicResource Main_OpenFolder}" Click="OnOpenFolderClick" IsEnabled="{Binding Selected.HasOutputFolder, FallbackValue=False, TargetNullValue=False}" />
               <MenuItem Header="{DynamicResource Main_OpenMarkdown}" Click="OnOpenMarkdownClick" IsEnabled="{Binding Selected.HasMarkdown, FallbackValue=False, TargetNullValue=False}" />
               <MenuItem Header="{DynamicResource Main_OpenVlm}" Click="OnOpenVlmClick" IsEnabled="{Binding Selected.HasVlm, FallbackValue=False, TargetNullValue=False}" />
+              <Separator />
+              <MenuItem Header="{DynamicResource Main_Reconvert}" Click="OnReconvertClick" ToolTip="{DynamicResource Main_ReconvertTip}"
+                        IsEnabled="{Binding CanEdit}" />
             </ContextMenu>
           </DataGrid.ContextMenu>
           <DataGrid.RowStyle>

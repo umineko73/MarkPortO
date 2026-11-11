@@ -24,25 +24,29 @@ namespace MarkPortO.App;
 
 /// <summary>
 /// The documents of the earlier runs in an output folder, one row for each file with its newest run (FR-119). A file that was converted more than
-/// once has its runs in the box below, to pick by the time; the buttons act on the run that is chosen there (preview, open the folder, convert it again). Only reads; the preview is opened by the caller.
+/// once has its runs in the box below, to pick by the time; the buttons act on the run that is chosen there (preview, open the folder in Explorer, open it on the main window). With several files
+/// chosen, each file's newest run is used and there is no preview (FR-128). Only reads; the preview and the main window are the caller's.
 /// </summary>
 public partial class PastOutputsWindow : Window
 {
     private readonly Action<PastDocument> _open;
-    private readonly Func<PreviousRun, Task<bool>> _load;
+    private readonly Func<IReadOnlyList<PastDocument>, Guid?, Task<bool>> _load;
     private readonly Dictionary<Guid, PreviousRun> _resumable;
 
     /// <param name="outputRoot">The folder that has <c>.markporto</c>.</param>
     /// <param name="documents">What <see cref="PastOutputs.Load"/> found, newest run first.</param>
     /// <param name="open">Opens the preview of a document.</param>
     /// <param name="resumable">The runs that can be resumed or retried (FR-121).</param>
-    /// <param name="load">Shows a run on the main window as the previous conversion; false when that is not possible now.</param>
+    /// <param name="load">
+    /// Puts the documents in the inputs and the file list of the main window, without converting; the second value is the run to resume, when
+    /// one file of a run that can be resumed is chosen. False when that is not possible now (a conversion runs).
+    /// </param>
     public PastOutputsWindow(
         string outputRoot,
         IReadOnlyList<PastDocument> documents,
         Action<PastDocument> open,
         IReadOnlyList<PreviousRun> resumable,
-        Func<PreviousRun, Task<bool>> load)
+        Func<IReadOnlyList<PastDocument>, Guid?, Task<bool>> load)
     {
         InitializeComponent();
         _open = open;
@@ -67,9 +71,14 @@ public partial class PastOutputsWindow : Window
         UpdateButtons();
     }
 
-    private Row? SelectedRow => Grid.SelectedItem as Row;
+    private Row? SelectedRow => Grid.SelectedItems.Count == 1 ? Grid.SelectedItem as Row : null;
 
-    private PastDocument? Chosen => (Versions.SelectedItem as Version)?.Document;
+    // FR-128: several files are chosen; the folder and "open" act on the newest run of each.
+    private IReadOnlyList<Row> SelectedRows => [.. Grid.SelectedItems.OfType<Row>()];
+
+    private bool IsMultiple => Grid.SelectedItems.Count > 1;
+
+    private PastDocument? Chosen => IsMultiple ? null : (Versions.SelectedItem as Version)?.Document;
 
     // The run that is chosen in the box can be loaded to resume it when it is one of the runs that can be resumed (FR-121).
     private PreviousRun? ChosenRun => Chosen is { } chosen && _resumable.TryGetValue(chosen.Job.JobId, out var run) ? run : null;
@@ -78,6 +87,7 @@ public partial class PastOutputsWindow : Window
     {
         Versions.ItemsSource = SelectedRow?.Versions;
         Versions.SelectedIndex = SelectedRow is null ? -1 : 0;
+        Versions.IsEnabled = !IsMultiple;
         UpdateButtons();
     }
 
@@ -85,6 +95,17 @@ public partial class PastOutputsWindow : Window
 
     private void UpdateButtons()
     {
+        if (IsMultiple)
+        {
+            // The preview is of one file; the folders are opened, and the files put on the main window, for each file.
+            OpenButton.IsEnabled = false;
+            OpenButton.ToolTip = UiText.Get("Past_PreviewOne");
+            FolderButton.IsEnabled = SelectedRows.Any(r => r.Latest.FolderFound);
+            LoadButton.IsEnabled = true;
+            LoadButton.ToolTip = UiText.Get("Past_OpenTip");
+            return;
+        }
+
         OpenButton.IsEnabled = Chosen is { CanPreview: true };
         OpenButton.ToolTip = Chosen switch
         {
@@ -93,11 +114,11 @@ public partial class PastOutputsWindow : Window
             _ => null,
         };
         FolderButton.IsEnabled = Chosen is { FolderFound: true };
-        LoadButton.IsEnabled = ChosenRun is not null;
-        LoadButton.ToolTip = ChosenRun is { } run
-            ? UiText.Get("Past_RunCounts", run.DoneCount, run.FailedCount, run.UnfinishedCount)
+        LoadButton.IsEnabled = Chosen is not null;
+        LoadButton.ToolTip = UiText.Get("Past_OpenTip") + (ChosenRun is { } run
+            ? Environment.NewLine + UiText.Get("Past_RunCounts", run.DoneCount, run.FailedCount, run.UnfinishedCount)
                 + (run.Job.Status == MarkPortO.Core.Jobs.Models.JobStatus.Abandoned ? "  " + UiText.Get("Past_Abandoned") : string.Empty)
-            : UiText.Get("Past_NotResumable");
+            : string.Empty);
     }
 
     private void OnDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -128,12 +149,14 @@ public partial class PastOutputsWindow : Window
 
     private async void OnLoadClick(object sender, RoutedEventArgs e)
     {
-        if (ChosenRun is not { } run)
+        // Several files: the newest run of each (FR-128). One file: the run chosen in the box, and that run is resumed when it can be (FR-121).
+        IReadOnlyList<PastDocument> documents = IsMultiple ? [.. SelectedRows.Select(r => r.Latest)] : Chosen is { } chosen ? [chosen] : [];
+        if (documents.Count == 0)
         {
             return;
         }
 
-        if (await _load(run))
+        if (await _load(documents, IsMultiple ? null : ChosenRun?.Job.JobId))
         {
             Close();
         }
@@ -145,15 +168,19 @@ public partial class PastOutputsWindow : Window
 
     private void OnFolderClick(object sender, RoutedEventArgs e)
     {
-        if (Chosen is { FolderFound: true } chosen)
+        var folders = IsMultiple
+            ? SelectedRows.Where(r => r.Latest.FolderFound).Select(r => r.Latest.Document.OutputFolder).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+            : Chosen is { FolderFound: true } chosen ? [chosen.Document.OutputFolder] : [];
+        foreach (var folder in folders)
         {
             try
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(chosen.Document.OutputFolder) { UseShellExecute = true });
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(folder) { UseShellExecute = true });
             }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
             {
                 MessageBox.Show(this, ex.Message, UiText.Get("Past_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
         }
     }
