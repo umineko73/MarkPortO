@@ -35,6 +35,8 @@ namespace MarkPortO.Core.Tests.Fixtures;
 /// <param name="HiddenColumns">Columns that are hidden (1-based).</param>
 /// <param name="BorderedRanges">A1-style ranges whose cells have a thin border on every side, also the cells without a value.</param>
 /// <param name="Indents">The indent of the alignment of cells, by reference (<c>A2</c> to <c>2</c>).</param>
+/// <param name="FilledRanges">A1-style ranges whose cells are filled with a colour and have a thin border.</param>
+/// <param name="BoldRanges">A1-style ranges whose cells are written in bold and have a thin border.</param>
 public sealed record SheetSpec(
     string Name,
     string[][] Rows,
@@ -51,7 +53,9 @@ public sealed record SheetSpec(
     int[]? HiddenRows = null,
     int[]? HiddenColumns = null,
     string[]? BorderedRanges = null,
-    Dictionary<string, int>? Indents = null);
+    Dictionary<string, int>? Indents = null,
+    string[]? FilledRanges = null,
+    string[]? BoldRanges = null);
 
 /// <summary>A drawn shape anchored to cells (0-based, as in the file): from the top left of (FromColumn, FromRow) to the top left of (ToColumn, ToRow).</summary>
 public sealed record CellShapeSpec(string Geometry, int FromColumn, int FromRow, int ToColumn, int ToRow, bool FlipH = false, bool FlipV = false);
@@ -214,12 +218,15 @@ public static class XlsxFactory
     // One cell format for each number format code that the sheets use (index 0 is the default one).
     private const string BorderStyleKey = "border-style";
     private const string IndentStyleKey = "indent-";
+    private const string FilledStyleKey = "filled-style";
+    private const string BoldStyleKey = "bold-style";
 
     private static Dictionary<string, uint> AddStyles(WorkbookPart workbookPart, SheetSpec[] sheets)
     {
         var codes = sheets.SelectMany(s => s.NumberFormats?.Values.AsEnumerable() ?? Enumerable.Empty<string>()).Distinct().ToList();
         var result = new Dictionary<string, uint>();
-        var withBorders = sheets.Any(s => s.BorderedRanges is { Length: > 0 });
+        var withHeaderFormats = sheets.Any(s => s.FilledRanges is { Length: > 0 } || s.BoldRanges is { Length: > 0 });
+        var withBorders = withHeaderFormats || sheets.Any(s => s.BorderedRanges is { Length: > 0 });
         var indents = sheets.SelectMany(s => s.Indents?.Values.AsEnumerable() ?? Enumerable.Empty<int>()).Distinct().ToList();
         if (codes.Count == 0 && !withBorders && indents.Count == 0)
         {
@@ -257,12 +264,23 @@ public static class XlsxFactory
             result[IndentStyleKey + indent] = (uint)(formats.ChildElements.Count - 1);
         }
 
+        if (withHeaderFormats)
+        {
+            formats.AppendChild(new CellFormat { FillId = 2, BorderId = 1, ApplyFill = true, ApplyBorder = true });
+            result[FilledStyleKey] = (uint)(formats.ChildElements.Count - 1);
+            formats.AppendChild(new CellFormat { FontId = 1, BorderId = 1, ApplyFont = true, ApplyBorder = true });
+            result[BoldStyleKey] = (uint)(formats.ChildElements.Count - 1);
+        }
+
         numbering.Count = (uint)codes.Count;
         formats.Count = (uint)formats.ChildElements.Count;
         stylesPart.Stylesheet = new Stylesheet(
             numbering,
-            new Fonts(new Font()) { Count = 1 },
-            new Fills(new Fill(new PatternFill { PatternType = PatternValues.None })) { Count = 1 },
+            new Fonts(new Font(), new Font(new Bold())) { Count = 2 },
+            new Fills(
+                new Fill(new PatternFill { PatternType = PatternValues.None }),
+                new Fill(new PatternFill { PatternType = PatternValues.Gray125 }),
+                new Fill(new PatternFill(new ForegroundColor { Rgb = "FFD9E1F2" }) { PatternType = PatternValues.Solid })) { Count = 3 },
             borders,
             new CellStyleFormats(new CellFormat()) { Count = 1 },
             formats);
@@ -321,6 +339,14 @@ public static class XlsxFactory
                 else if (spec.Indents?.TryGetValue($"{ColumnName(c + 1)}{r + 1}", out var indent) == true)
                 {
                     built.StyleIndex = styleOfCode[IndentStyleKey + indent];
+                }
+                else if (spec.FilledRanges?.Any(range => InRange(range, r + 1, c + 1)) == true)
+                {
+                    built.StyleIndex = styleOfCode[FilledStyleKey];
+                }
+                else if (spec.BoldRanges?.Any(range => InRange(range, r + 1, c + 1)) == true)
+                {
+                    built.StyleIndex = styleOfCode[BoldStyleKey];
                 }
                 else if (bordered)
                 {

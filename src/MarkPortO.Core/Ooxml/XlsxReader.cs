@@ -119,6 +119,12 @@ public sealed class SheetContent
     /// </summary>
     public IReadOnlySet<(int Row, int Column)> Bordered { get; init; } = new HashSet<(int Row, int Column)>();
 
+    /// <summary>The cells (0-based row and column in <see cref="Rows"/>) whose format fills them with a colour other than white (FR-132).</summary>
+    public IReadOnlySet<(int Row, int Column)> Filled { get; init; } = new HashSet<(int Row, int Column)>();
+
+    /// <summary>The cells (0-based row and column in <see cref="Rows"/>) whose format writes them in bold (FR-132).</summary>
+    public IReadOnlySet<(int Row, int Column)> Bold { get; init; } = new HashSet<(int Row, int Column)>();
+
     /// <summary>The indent of the cells (0-based row and column in <see cref="Rows"/>) whose format indents the text (Format Cells &gt; Alignment &gt; Indent).</summary>
     public IReadOnlyDictionary<(int Row, int Column), int> Indents { get; init; } = new Dictionary<(int Row, int Column), int>();
 
@@ -153,6 +159,7 @@ public sealed class SheetContent
         // One table of the sheet, as one piece for each page that its rows are on.
         void AddTable(int firstRow, int lastRow, int from, int to, bool hasHeader, bool skipEmptyRows, string? heading)
         {
+            hasHeader = hasHeader || HasFormattedHeader(firstRow, lastRow, from, to);
             var groups = new List<(int First, int Last, int Page)>();
             var previous = 0;
             for (var r = firstRow; r <= lastRow && r < Rows.Length; r++)
@@ -189,15 +196,21 @@ public sealed class SheetContent
         var paragraphs = new List<(int Part, int Column, int Indent)>();
 
         // A paragraph of the sheet, on the page that its row is on.
-        void AddParagraph(int row, string text)
+        void AddParagraph(int row, string text, bool indented = true)
         {
             var page = rowPages is not null && row < rowPages.Count ? rowPages[row] : 0;
             var column = Enumerable.Range(fromIndex, toIndex - fromIndex + 1)
                 .FirstOrDefault(c => row < Rows.Length && c < Rows[row].Length && !HiddenColumns.Contains(c) && Rows[row][c].Trim().Length > 0, fromIndex);
-            paragraphs.Add((parts.Count, column, Indents.TryGetValue((row, column), out var indent) ? indent : 0));
+            if (indented)
+            {
+                paragraphs.Add((parts.Count, column, Indents.TryGetValue((row, column), out var indent) ? indent : 0));
+            }
+
             parts.Add(new SheetPart(page, MarkdownText.Escape(text).Replace("\r", string.Empty, StringComparison.Ordinal).Trim(), IsTable: false, page));
         }
 
+        // The notes beside a bordered table (FR-131): lines of text, not indented by how far right of the other lines they are.
+        var sideNotes = new HashSet<(int FirstRow, int LastRow, int From, int To)>();
         if (StackedBlocks() is { } blocks)
         {
             foreach (var (first, last, table) in blocks)
@@ -226,7 +239,7 @@ public sealed class SheetContent
                 }
             }
         }
-        else if (!HasHeaderRow && SplitByBorders(Regions(0, Rows.Length - 1, fromIndex, toIndex)) is { Count: > 1 } regions)
+        else if (!HasHeaderRow && SplitByBorders(Regions(0, Rows.Length - 1, fromIndex, toIndex), sideNotes) is { Count: > 1 } regions)
         {
             // Tables drawn on the sheet without the Excel table feature: each is written as a table of its own.
             // A block of one cell with text, such as a title or a note, is a paragraph, not a table of one cell. It also cuts the
@@ -247,7 +260,7 @@ public sealed class SheetContent
                 if (region.FirstRow == region.LastRow && (SingleTextCell(region.FirstRow, region.From, region.To) ?? LooseRowText(region.FirstRow, region.From, region.To)) is { } text)
                 {
                     Flush();
-                    AddParagraph(region.FirstRow, text);
+                    AddParagraph(region.FirstRow, text, indented: !sideNotes.Contains(region));
                 }
                 else if (HasText(region.FirstRow, region.LastRow, region.From, region.To))
                 {
@@ -311,6 +324,50 @@ public sealed class SheetContent
 
             start = end + 1;
         }
+    }
+
+    /// <summary>
+    /// The first row of a table drawn on the sheet is its header when the format says so (FR-132): every cell with text in it is filled with
+    /// a colour, or every one is bold, and no cell with text in the next row is. Only a clear case counts: without a difference in the
+    /// format, with a second row formatted the same way (a header of two rows, a filled first column), or with a cell of the first row merged
+    /// into the rows below, the table has no header row, as before.
+    /// </summary>
+    private bool HasFormattedHeader(int firstRow, int lastRow, int from, int to)
+    {
+        if (Filled.Count == 0 && Bold.Count == 0)
+        {
+            return false;
+        }
+
+        var rows = Enumerable.Range(firstRow, Math.Min(lastRow, Rows.Length - 1) - firstRow + 1).Where(r => !HiddenRows.Contains(r)).ToList();
+        if (rows.Count < 2 || !HasContent(rows[0], from, to))
+        {
+            return false;
+        }
+
+        var head = rows[0];
+        var next = rows.Skip(1).FirstOrDefault(r => ContentCells(r, from, to) > 0, -1);
+        if (next < 0)
+        {
+            return false;
+        }
+
+        var columns = Enumerable.Range(from, to - from + 1).Where(c => !HiddenColumns.Contains(c)).ToList();
+        List<int> WithText(int row) => [.. columns.Where(c => c < Rows[row].Length && Rows[row][c].Trim().Length > 0)];
+
+        // A cell of the first row that goes on in the rows below (or comes from the rows above) is not a header of one row.
+        if (columns.Any(c => HiddenByMerge.TryGetValue((head, c), out var mark) && !mark.FirstRow)
+            || rows.Skip(1).Any(r => columns.Any(c => HiddenByMerge.TryGetValue((r, c), out var mark) && mark.OriginRow == head)))
+        {
+            return false;
+        }
+
+        var headCells = WithText(head);
+        var nextCells = WithText(next);
+        bool Only(IReadOnlySet<(int Row, int Column)> format) =>
+            headCells.Count > 0 && headCells.All(c => format.Contains((head, c))) && !nextCells.Any(c => format.Contains((next, c)));
+
+        return Only(Filled) || Only(Bold);
     }
 
     /// <summary>
@@ -451,12 +508,88 @@ public sealed class SheetContent
 
     // On a sheet that draws its tables with borders, a row with text and no border at all is not a row of the table beside it: it is a title or
     // a note. A block is cut at such rows, and each of them is a block of one row (a paragraph when it is one cell of text).
-    private List<(int FirstRow, int LastRow, int From, int To)> SplitByBorders(List<(int FirstRow, int LastRow, int From, int To)> regions)
+    private List<(int FirstRow, int LastRow, int From, int To)> SplitByBorders(
+        List<(int FirstRow, int LastRow, int From, int To)> regions,
+        HashSet<(int FirstRow, int LastRow, int From, int To)> sideNotes)
     {
         if (Bordered.Count == 0)
         {
             return regions;
         }
+
+        return [.. SplitRowsByBorders(regions).SelectMany(region => SplitSideNotes(region, sideNotes))];
+    }
+
+    /// <summary>
+    /// The text with no border, left or right of the bordered columns of a table and right against them, is not a column of the table when it
+    /// is beside fewer than half of the bordered rows: notes written beside the table (FR-131). Each of its rows is cut off as a block of one
+    /// row (a line of text), the ones on the left before the table and the ones on the right after it. Text beside half of the rows or more
+    /// stays in the table: the labels of a form whose fields only have a border, or a column of the table that has no border.
+    /// When the bordered columns have a header row that the format shows (FR-132) and the text beside it has no part in that format, the text
+    /// is notes however many rows it is beside: a column of the table would have its cell in the header row.
+    /// </summary>
+    private IEnumerable<(int FirstRow, int LastRow, int From, int To)> SplitSideNotes(
+        (int FirstRow, int LastRow, int From, int To) region,
+        HashSet<(int FirstRow, int LastRow, int From, int To)> sideNotes)
+    {
+        var (first, last, from, to) = region;
+        var rows = Enumerable.Range(first, last - first + 1).Where(r => !HiddenRows.Contains(r)).ToList();
+        var columns = Enumerable.Range(from, to - from + 1).Where(c => !HiddenColumns.Contains(c)).ToList();
+        var borderedRows = rows.Count(r => columns.Any(c => Bordered.Contains((r, c))));
+        var borderedColumns = columns.Where(c => rows.Any(r => Bordered.Contains((r, c)))).ToList();
+        var header = borderedColumns.Count > 0 && rows.Count > 0 && HasFormattedHeader(first, last, borderedColumns[0], borderedColumns[^1]);
+        if (borderedColumns.Count == 0 || (borderedRows < 3 && !header))
+        {
+            yield return region;
+            yield break;
+        }
+
+        // The rows of one side that have text, when that side is notes: few rows, and no merged cell (it may reach into the table).
+        List<int> Notes(int sideFrom, int sideTo)
+        {
+            var side = columns.Where(c => c >= sideFrom && c <= sideTo).ToList();
+            if (side.Count == 0 || rows.Any(r => side.Any(c => HiddenByMerge.ContainsKey((r, c)))))
+            {
+                return [];
+            }
+
+            var withText = rows.Where(r => side.Any(c => c < Rows[r].Length && Rows[r][c].Trim().Length > 0)).ToList();
+            if (header && !side.Any(c => Filled.Contains((rows[0], c)) || Bold.Contains((rows[0], c))))
+            {
+                return withText;
+            }
+
+            return borderedRows >= 3 && withText.Count * 2 < borderedRows ? withText : [];
+        }
+
+        var left = Notes(from, borderedColumns[0] - 1);
+        var right = Notes(borderedColumns[^1] + 1, to);
+        if (left.Count == 0 && right.Count == 0)
+        {
+            yield return region;
+            yield break;
+        }
+
+        var tableFrom = left.Count > 0 ? borderedColumns[0] : from;
+        var tableTo = right.Count > 0 ? borderedColumns[^1] : to;
+        foreach (var r in left)
+        {
+            var note = (r, r, from, tableFrom - 1);
+            sideNotes.Add(note);
+            yield return note;
+        }
+
+        yield return (first, last, tableFrom, tableTo);
+        foreach (var r in right)
+        {
+            var note = (r, r, tableTo + 1, to);
+            sideNotes.Add(note);
+            yield return note;
+        }
+    }
+
+    private List<(int FirstRow, int LastRow, int From, int To)> SplitRowsByBorders(List<(int FirstRow, int LastRow, int From, int To)> regions)
+    {
 
         var result = new List<(int FirstRow, int LastRow, int From, int To)>();
         foreach (var (first, last, from, to) in regions)
@@ -779,6 +912,7 @@ public static partial class XlsxReader
             var sharedStrings = ReadSharedStrings(workbookPart);
             var struckStyles = ReadStruckStyles(workbookPart);
             var borderedStyles = ReadBorderedStyles(workbookPart);
+            var (filledStyles, boldStyles) = ReadHeaderStyles(workbookPart);
             var indentedStyles = ReadIndentedStyles(workbookPart);
             var dateStyles = ReadDateStyles(workbookPart);
             var numberFormats = ReadNumberFormats(workbookPart, dateStyles);
@@ -797,7 +931,7 @@ public static partial class XlsxReader
                     continue; // a chart sheet
                 }
 
-                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles, borderedStyles, indentedStyles));
+                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles, borderedStyles, indentedStyles, filledStyles, boldStyles));
             }
 
             return result;
@@ -831,11 +965,15 @@ public static partial class XlsxReader
         IReadOnlyDictionary<uint, string> numberFormats,
         IReadOnlySet<uint> struckStyles,
         IReadOnlySet<uint> borderedStyles,
-        IReadOnlyDictionary<uint, int> indentedStyles)
+        IReadOnlyDictionary<uint, int> indentedStyles,
+        IReadOnlySet<uint> filledStyles,
+        IReadOnlySet<uint> boldStyles)
     {
         var worksheet = part.Worksheet ?? throw new InvalidDocumentException(Loc.T("The sheet '{0}' has no content.", name));
         var cells = new Dictionary<(int Row, int Column), string>();
         var bordered = new HashSet<(int Row, int Column)>();
+        var filled = new HashSet<(int Row, int Column)>();
+        var bold = new HashSet<(int Row, int Column)>();
         var indents = new Dictionary<(int Row, int Column), int>();
         int minRow = int.MaxValue, maxRow = 0, minColumn = int.MaxValue, maxColumn = 0;
 
@@ -871,6 +1009,19 @@ public static partial class XlsxReader
             if (cell.StyleIndex?.Value is { } styleIndex && borderedStyles.Contains(styleIndex))
             {
                 bordered.Add((row, column));
+            }
+
+            if (cell.StyleIndex?.Value is { } formatIndex)
+            {
+                if (filledStyles.Contains(formatIndex))
+                {
+                    filled.Add((row, column));
+                }
+
+                if (boldStyles.Contains(formatIndex))
+                {
+                    bold.Add((row, column));
+                }
             }
 
             if (text.Length > 0 && cell.StyleIndex?.Value is { } indentStyle && indentedStyles.TryGetValue(indentStyle, out var indent))
@@ -980,6 +1131,8 @@ public static partial class XlsxReader
             Rows = rows,
             HiddenByMerge = coveredByMerge,
             Bordered = bordered.Select(b => (b.Row - minRow, b.Column - minColumn)).ToHashSet(),
+            Filled = filled.Select(b => (b.Row - minRow, b.Column - minColumn)).ToHashSet(),
+            Bold = bold.Select(b => (b.Row - minRow, b.Column - minColumn)).ToHashSet(),
             Indents = indents.ToDictionary(i => (i.Key.Row - minRow, i.Key.Column - minColumn), i => i.Value),
             Tables = ReadTables(part, minRow, maxRow, minColumn, maxColumn),
             Notes = ReadNotes(part, minRow, maxRow, minColumn, maxColumn),
@@ -1328,6 +1481,56 @@ public static partial class XlsxReader
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Style indexes (positions in cellXfs) that fill the cell with a colour other than white, and those that write it in bold (FR-132): the
+    /// two formats that tell the header row of a table from its other rows.
+    /// </summary>
+    private static (IReadOnlySet<uint> Filled, IReadOnlySet<uint> Bold) ReadHeaderStyles(WorkbookPart workbookPart)
+    {
+        var filled = new HashSet<uint>();
+        var bold = new HashSet<uint>();
+        var stylesheet = workbookPart.WorkbookStylesPart?.Stylesheet;
+        if (stylesheet?.CellFormats is not { } formats)
+        {
+            return (filled, bold);
+        }
+
+        // White (written as a colour, or the first colour of the theme without a tint) looks like no fill.
+        static bool IsWhite(ColorType? color) =>
+            color is null
+            || color.Rgb?.Value is { } rgb && rgb.EndsWith("FFFFFF", StringComparison.OrdinalIgnoreCase)
+            || (color.Theme?.Value == 0 && (color.Tint?.Value ?? 0) >= 0)
+            || color.Indexed?.Value is 1 or 9 or 64 or 65;
+
+        var hasColour = (stylesheet.Fills?.Elements<Fill>() ?? [])
+            .Select(f => f.PatternFill is { } pattern
+                && pattern.PatternType?.Value is { } type && type != PatternValues.None && type != PatternValues.Gray125
+                && !IsWhite(pattern.ForegroundColor))
+            .ToList();
+        var isBold = (stylesheet.Fonts?.Elements<Font>() ?? [])
+            .Select(f => f.Bold is { } b && (b.Val?.Value ?? true))
+            .ToList();
+        uint index = 0;
+        foreach (var format in formats.Elements<CellFormat>())
+        {
+            var fillId = format.FillId?.Value ?? 0;
+            if (fillId < hasColour.Count && hasColour[(int)fillId])
+            {
+                filled.Add(index);
+            }
+
+            var fontId = format.FontId?.Value ?? 0;
+            if (fontId < isBold.Count && isBold[(int)fontId])
+            {
+                bold.Add(index);
+            }
+
+            index++;
+        }
+
+        return (filled, bold);
     }
 
     /// <summary>Style indexes (positions in cellXfs) whose number format shows a date or a time.</summary>

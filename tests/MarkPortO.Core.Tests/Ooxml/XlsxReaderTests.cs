@@ -326,6 +326,97 @@ public class XlsxReaderTests
         Assert.Equal("Title\n\n|  |  |\n|---|---|\n| H1 | H2 |\n| a | b |\n\nNote", markdown);
     }
 
+    // FR-131: notes with no border, written beside a few rows of a bordered table, are lines of text (left: before the table, right: after it).
+    [Fact]
+    public void Read_Markdown_UnborderedNotesBesideABorderedTable_AreParagraphs_NotColumnsOfTheTable()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("side-notes.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [
+            ["left", "H1", "H2", "", ""],
+            ["", "a", "1", "* note", "B"],
+            ["", "b", "2", "", ""],
+            ["", "c", "3", "", ""],
+            ["", "d", "4", "", ""]], BorderedRanges: ["B1:C5"]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal("left\n\n|  |  |\n|---|---|\n| H1 | H2 |\n| a | 1 |\n| b | 2 |\n| c | 3 |\n| d | 4 |\n\n\\* note　B", markdown);
+    }
+
+    // Text with no border beside half of the rows or more is a column of the table (a column that has no border), not notes.
+    [Fact]
+    public void Read_Markdown_AnUnborderedColumnBesideMostRowsOfABorderedTable_StaysInTheTable()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("side-column.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [
+            ["H1", "H2", "Remark"],
+            ["a", "1", "x"],
+            ["b", "2", "y"],
+            ["c", "3", ""]], BorderedRanges: ["A1:B4"]));
+
+        var markdown = XlsxReader.Read(path, false).Single().ToMarkdown();
+
+        Assert.Equal("|  |  |  |\n|---|---|---|\n| H1 | H2 | Remark |\n| a | 1 | x |\n| b | 2 | y |\n| c | 3 |  |", markdown);
+    }
+
+    private static string MarkdownOf(SheetSpec spec)
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("header.xlsx");
+        XlsxFactory.Create(path, spec);
+        return XlsxReader.Read(path, false).Single().ToMarkdown();
+    }
+
+    // FR-132: the first row of a drawn table is its header when only that row is filled with a colour, or only that row is bold.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Read_Markdown_AFirstRowThatAloneIsFilledOrBold_IsTheHeaderRow(bool filled)
+    {
+        string[] header = ["A1:B1"];
+        var markdown = MarkdownOf(new SheetSpec("Data", [["Item", "Price"], ["a", "1"], ["b", "2"]],
+            BorderedRanges: ["A1:B3"], FilledRanges: filled ? header : null, BoldRanges: filled ? null : header));
+
+        Assert.Equal("| Item | Price |\n|---|---|\n| a | 1 |\n| b | 2 |", markdown);
+    }
+
+    // FR-131 with FR-132: beside a table whose header row the format shows, text with no border and no part in that format is notes, also
+    // when it is beside half of the rows or more.
+    [Fact]
+    public void Read_Markdown_NotesBesideATableWithAFormattedHeader_AreCutOff_HoweverManyRows()
+    {
+        var markdown = MarkdownOf(new SheetSpec("Data", [
+            ["n1", "Item", "Price"],
+            ["n2", "a", "1"],
+            ["n3", "b", "2"]], BorderedRanges: ["B1:C3"], FilledRanges: ["B1:C1"]));
+
+        Assert.Equal("n1\n\nn2\n\nn3\n\n| Item | Price |\n|---|---|\n| a | 1 |\n| b | 2 |", markdown);
+    }
+
+    // Not a clear case: the second row has the same format (a header of two rows, or every row filled), or a first column that is filled too.
+    [Fact]
+    public void Read_Markdown_WhenTheNextRowHasTheSameFormat_TheTableHasNoHeaderRow()
+    {
+        var twoRows = MarkdownOf(new SheetSpec("Data", [["Item", "Price"], ["(name)", "(yen)"], ["a", "1"]], BorderedRanges: ["A1:B3"], FilledRanges: ["A1:B2"]));
+        var firstColumn = MarkdownOf(new SheetSpec("Data", [["Item", "Price"], ["a", "1"], ["b", "2"]], BorderedRanges: ["A1:B3"], FilledRanges: ["A1:B1", "A2:A3"]));
+
+        Assert.StartsWith("|  |  |\n|---|---|\n| Item | Price |", twoRows, StringComparison.Ordinal);
+        Assert.StartsWith("|  |  |\n|---|---|\n| Item | Price |", firstColumn, StringComparison.Ordinal);
+    }
+
+    // Not a clear case: only some cells of the first row are filled, or a cell of the first row is merged into the rows below.
+    [Fact]
+    public void Read_Markdown_WhenTheFirstRowIsPartlyFilledOrMergedDown_TheTableHasNoHeaderRow()
+    {
+        var partly = MarkdownOf(new SheetSpec("Data", [["Item", "Price"], ["a", "1"], ["b", "2"]], BorderedRanges: ["A1:B3"], FilledRanges: ["A1:A1"]));
+        var mergedDown = MarkdownOf(new SheetSpec("Data", [["Item", "Price"], ["", "1"], ["b", "2"]], Merges: ["A1:A2"], BorderedRanges: ["A1:B3"], FilledRanges: ["A1:B1"]));
+
+        Assert.StartsWith("|  |  |\n|---|---|\n| Item | Price |", partly, StringComparison.Ordinal);
+        Assert.StartsWith("|  |  |\n|---|---|\n| Item | Price |", mergedDown, StringComparison.Ordinal);
+    }
+
     // A legend of several cells with no border, above a bordered table, is one line of text and not a row of a table.
     [Fact]
     public void Read_Markdown_UnborderedLegendOfSeveralCells_IsOneLineOfText()
