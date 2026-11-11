@@ -103,6 +103,9 @@ public sealed record ConvertArgs
     /// <summary>Convert only the files that changed since their last conversion in the output folder (FR-126).</summary>
     public bool ChangedOnly { get; init; }
 
+    /// <summary>Write each file into the folder of its earlier conversion in the output folder, when it has one (FR-129).</summary>
+    public string? SameFolder { get; init; }
+
     public string? ResultPath { get; init; }
 
     public bool Quiet { get; init; }
@@ -224,6 +227,7 @@ public static class ConvertArgsResolver
         ApplyOnOff("--step3", args.Step3, value => settings.Steps.Step3 = value, errors);
         ApplyOnOff("--vlm-separate", args.VlmSeparate, value => settings.Steps.VlmSeparate = value, errors);
         ApplyOnOff("--drop-repeated-tables", args.DropRepeatedTables, value => settings.Steps.DropRepeatedTables = value, errors);
+        ApplyOnOff("--same-folder", args.SameFolder, value => settings.Output.SameFolder = value, errors);
         foreach (var (kind, value) in new[] { (DocumentKind.Docx, args.ExtractorDocx), (DocumentKind.Xlsx, args.ExtractorXlsx), (DocumentKind.Pptx, args.ExtractorPptx), (DocumentKind.Pdf, args.ExtractorPdf) })
         {
             if (value is not null)

@@ -17,6 +17,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using MarkPortO.App.Services;
+using MarkPortO.Core.Convert;
 using MarkPortO.Core.Jobs;
 using MarkPortO.Core.Pipeline;
 
@@ -156,7 +157,7 @@ public partial class PastOutputsWindow : Window
             return;
         }
 
-        if (await _load(documents, IsMultiple ? null : ChosenRun?.Job.JobId))
+        if (await _load(documents, IsMultiple ? RunToResume(documents) : ChosenRun?.Job.JobId))
         {
             Close();
         }
@@ -165,6 +166,16 @@ public partial class PastOutputsWindow : Window
             MessageBox.Show(this, UiText.Get("Past_LoadFailed"), UiText.Get("Past_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
+
+    // Several files: when one of them did not finish in a run that can be resumed, that run (the newest such) is the one "resume" acts on.
+    private Guid? RunToResume(IReadOnlyList<PastDocument> documents) =>
+        documents
+            .Where(d => !d.Document.IsDone() && !d.Document.IsFailed())
+            .Select(d => _resumable.TryGetValue(d.Job.JobId, out var run) ? run : null)
+            .OfType<PreviousRun>()
+            .Where(run => run.CanResume)
+            .OrderByDescending(run => run.Job.UpdatedAt)
+            .FirstOrDefault()?.Job.JobId;
 
     private void OnFolderClick(object sender, RoutedEventArgs e)
     {

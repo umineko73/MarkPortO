@@ -87,7 +87,7 @@
   <sys:String x:Key="Ext_ConsentNotNeeded">Not needed (the command is treated as one that keeps documents on the PC).</sys:String>
   <sys:String x:Key="Ext_ConsentMissing">Not agreed yet. The command cannot be used until you agree.</sys:String>
   <sys:String x:Key="Ext_ConsentTitle">Sending documents outside</sys:String>
-  <sys:String x:Key="Ext_ConsentNotice">The extractor '{0}' sends the content of your documents (text, tables, images) to a service outside the PC.&#10;The terms of the service decide how it is handled. Usage charges may apply.&#10;Do not use it for confidential documents.</sys:String>
+  <sys:String xml:space="preserve" x:Key="Ext_ConsentNotice">The extractor '{0}' sends the content of your documents (text, tables, images) to a service outside the PC.&#10;The terms of the service decide how it is handled. Usage charges may apply.&#10;Do not use it for confidential documents.</sys:String>
   <sys:String x:Key="Ext_NotFound">The command '{0}' was not found. Check that it is installed, and the PATH or the full path.</sys:String>
   <sys:String x:Key="Ext_Try">Try…</sys:String>
   <sys:String x:Key="Ext_TryTip">Pick one document, extract it with this command and show the head of the Markdown (nothing is saved).</sys:String>
@@ -123,11 +123,21 @@
   <sys:String x:Key="Main_Cond_Connection">Connection:</sys:String>
   <sys:String x:Key="Main_Start">Start</sys:String>
   <sys:String x:Key="Main_Interrupt">Interrupt</sys:String>
-  <sys:String x:Key="Main_Resume">Resume</sys:String>
-  <sys:String x:Key="Main_RetryFailed">Retry failed only</sys:String>
-  <sys:String x:Key="Main_ChangedOnly">Changed files only</sys:String>
-  <sys:String x:Key="Main_ChangedOnlyTip">Start converts only the files that changed since their last conversion in the output folder, were never converted, or did not finish. They are written to the folders of their earlier conversion. A change of the conditions alone does not convert a file again.</sys:String>
+  <sys:String x:Key="Main_Resume">Resume where it stopped</sys:String>
+  <sys:String x:Key="Main_ResumeTip">Goes on with the previous conversion: the files that did not finish or, when only failures are left, the files and pages that failed. It uses the conditions of that conversion. It can be pressed when a file of the list is not done.</sys:String>
+  <sys:String x:Key="Main_RedoAll">Redo all</sys:String>
+  <sys:String x:Key="Main_RedoAllTip">Converts every file of the inputs again with the conditions on the screen. Where a file with an earlier folder is written is chosen on the right (When a file has an earlier folder). It can be pressed when the list has files.</sys:String>
+  <sys:String x:Key="Main_Existing">When a file has an earlier folder:</sys:String>
+  <sys:String x:Key="Main_ExistingNew">Make a new one</sys:String>
+  <sys:String x:Key="Main_ExistingSame">Overwrite</sys:String>
+  <sys:String xml:space="preserve" x:Key="Main_ExistingTip">Where Start and Redo all write a file that was converted before.&#10;Make a new one: a new folder such as "name (2)" (the earlier folder stays).&#10;Overwrite: the folder of the earlier conversion (its Markdown and page images are replaced).&#10;Convert changed files only, Resume where it stopped and Convert again always write into the earlier folder.</sys:String>
+  <sys:String x:Key="Status_Previous_Done">Showing the previous conversion of the output folder: {0} done. Convert with Convert changed files only or Redo all.</sys:String>
+  <sys:String x:Key="Status_Previous_Other">The output folder has a conversion of other inputs that did not finish or has failures. To continue it, use File - Open a past output...</sys:String>
+  <sys:String x:Key="Main_StartTip">Converts every file of the inputs. It can be pressed when the list of files is empty (the output folder has no earlier conversion).</sys:String>
+  <sys:String x:Key="Main_ChangedOnly">Convert changed files only</sys:String>
+  <sys:String x:Key="Main_ChangedOnlyTip">Converts only the files that changed since their last conversion in the output folder or were never converted. They are written to the folders of their earlier conversion. A change of the conditions alone does not convert a file again. It can be pressed when every file of the list is done.</sys:String>
   <sys:String x:Key="Main_Reconvert">Convert the selected files again</sys:String>
+  <sys:String x:Key="Main_ReconvertButton">Convert again</sys:String>
   <sys:String x:Key="Main_ReconvertTip">Converts the selected files again with the conditions on the screen, into the folders of their earlier conversion (their Markdown and page images are replaced). Ctrl+click or Shift+click selects several files.</sys:String>
   <sys:String x:Key="Main_Col_File">File</sys:String>
   <sys:String x:Key="Main_Col_Type">Type</sys:String>
@@ -149,13 +159,13 @@
   <sys:String x:Key="Status_DpiInvalid">Enter a whole number from {0} to {1} for the DPI (now: {2}).</sys:String>
   <sys:String x:Key="Conn_None">(none)</sys:String>
   <sys:String x:Key="Status_NoDocuments">No documents to convert were found. {0}</sys:String>
-  <sys:String x:Key="Status_NothingChanged">None of the {0} files has changed since its last conversion. To convert them anyway, clear "Changed files only".</sys:String>
-  <sys:String x:Key="Status_PastOpened">{0} files of a past output were opened. Press Start to convert them. To write them again into the same folders, select them in the list and right-click Convert the selected files again.</sys:String>
+  <sys:String x:Key="Status_NothingChanged">None of the {0} files has changed since its last conversion. To convert them anyway, press Redo all.</sys:String>
+  <sys:String x:Key="Status_PastOpened">{0} files of a past output were opened. Press Redo all to convert them. To write only some of them again, select them in the list and press Convert again.</sys:String>
   <sys:String x:Key="Status_Interrupting">Interrupting… the file being processed stops at a safe point.</sys:String>
   <sys:String x:Key="Status_CheckSettings">Check the settings: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">The VLM connection could not be prepared.</sys:String>
-  <sys:String x:Key="Status_Previous_Resume">An earlier conversion was found in the output folder: {0} done, {1} failed, {2} not finished. Press Resume to continue it.</sys:String>
-  <sys:String x:Key="Status_Previous_Retry">An earlier conversion with failures was found in the output folder: {0} done, {1} failed, {2} not finished. Press Retry failed only to run the failures again.</sys:String>
+  <sys:String x:Key="Status_Previous_Resume">An earlier conversion was found in the output folder: {0} done, {1} failed, {2} not finished. Press Resume where it stopped to continue it.</sys:String>
+  <sys:String x:Key="Status_Previous_Retry">An earlier conversion with failures was found in the output folder: {0} done, {1} failed, {2} not finished. Press Resume where it stopped to run the failures again.</sys:String>
   <sys:String x:Key="Status_Running">Converting…</sys:String>
   <sys:String x:Key="Status_NothingToResume">There is no conversion to resume. {0}</sys:String>
   <sys:String x:Key="Status_CouldNotStart">The conversion could not be started: {0}</sys:String>
@@ -163,10 +173,7 @@
   <sys:String x:Key="Status_Head_DoneWithFailures">Finished (with failures)</sys:String>
   <sys:String x:Key="Status_Head_Done">Finished</sys:String>
   <sys:String x:Key="Status_Summary">{0}: {1} done, {2} failed, {3} not finished. Output: {4}</sys:String>
-  <sys:String x:Key="Main_ClearPrevious">Clear the previous conversion</sys:String>
-  <sys:String x:Key="Main_Cond_LockedTip">These cannot be changed while the previous conversion can be resumed. To change them, clear the previous conversion.</sys:String>
-  <sys:String x:Key="Confirm_Reconvert">{0} files will be converted again with the conditions on the screen.&#10;&#10;Their Markdown and page images in the output folder are replaced.&#10;&#10;Convert them again?</sys:String>
-  <sys:String x:Key="Confirm_ClearPrevious">The previous conversion in the output folder ({0} done, {1} failed, {2} not finished) will be cleared.&#10;&#10;It can no longer be resumed or retried (the files already written stay).&#10;&#10;Clear it?</sys:String>
+  <sys:String xml:space="preserve" x:Key="Confirm_Reconvert">{0} files will be converted again with the conditions on the screen.&#10;&#10;Their Markdown and page images in the output folder are replaced.&#10;&#10;Convert them again?</sys:String>
   <sys:String x:Key="Main_Cond_Excel">Sheet range:</sys:String>
   <sys:String x:Key="Main_Cond_ExcelColumns">All columns on one page, as far as they stay readable</sys:String>
   <sys:String x:Key="Main_Cond_ExcelColumnsTip">Columns fit the width of a page and rows go on to more pages. A very wide sheet is still split, because it could not be read.</sys:String>
@@ -200,7 +207,6 @@
   <sys:String x:Key="Preview_NoWebView">The WebView2 runtime was not found, so the Markdown is shown as written.</sys:String>
   <sys:String x:Key="Stopped_Title">The conversion stopped</sys:String>
   <sys:String x:Key="Confirm_Title">Start a new conversion</sys:String>
-  <sys:String x:Key="Confirm_StartWithInterrupted">An interrupted conversion is left in the output folder ({0} done, {1} failed, {2} not finished).&#10;&#10;Start a new conversion anyway? The interrupted one can no longer be resumed (the files already written stay).&#10;To continue it, choose No and press Resume.</sys:String>
   <sys:String x:Key="Dialog_SelectFolder">Select a folder</sys:String>
   <sys:String x:Key="Dialog_SelectFiles">Select files to convert</sys:String>
   <sys:String x:Key="Dialog_Filter">Office and PDF documents (*.docx;*.xlsx;*.pptx;*.pdf)|*.docx;*.xlsx;*.pptx;*.pdf|All files (*.*)|*.*</sys:String>
@@ -261,7 +267,7 @@
   <sys:String x:Key="Conn_MaxImageSide">Longer side of the image sent, px (0: as it is)</sys:String>
   <sys:String x:Key="Conn_MaxImageSideTip">The page image is scaled down to this size before it is sent, which lowers the tokens. The saved image does not change. A small value can make small text unreadable.</sys:String>
   <sys:String x:Key="Conn_MaxLines">Lines read at a time (0: the whole page)</sys:String>
-  <sys:String x:Key="Conn_LimitsTip">A conversion stops when a limit is reached, and Resume goes on. The cost limit works only for commands that tell their cost.</sys:String>
+  <sys:String x:Key="Conn_LimitsTip">A conversion stops when a limit is reached, and Resume where it stopped goes on. The cost limit works only for commands that tell their cost.</sys:String>
   <sys:String x:Key="Conn_Consent">Sending images outside</sys:String>
   <sys:String x:Key="Conn_ConsentNotNeeded">Not needed (this address is inside the local network).</sys:String>
   <sys:String x:Key="Conn_ConsentGranted">Agreed on {0}.</sys:String>
@@ -272,9 +278,9 @@
   <sys:String x:Key="Conn_ConsentTitle">Sending page images outside</sys:String>
   <sys:String x:Key="Conn_ConsentQuestion">Do you agree?</sys:String>
   <sys:String x:Key="Conn_LimitNone">none</sys:String>
-  <sys:String x:Key="Confirm_StartExternal">{0} input(s) will be converted, and the page images will be sent outside the local network, to: {1}.&#10;&#10;Usage charges may apply.{2}&#10;&#10;Start?</sys:String>
-  <sys:String x:Key="Confirm_StartExternalText">&#10;A prompt contains {pagetext}, so the text taken from the document is sent as well.</sys:String>
-  <sys:String x:Key="Confirm_StartExternalLimits">&#10;Limits: pages {0}, cost {1}.</sys:String>
+  <sys:String xml:space="preserve" x:Key="Confirm_StartExternal">{0} input(s) will be converted, and the page images will be sent outside the local network, to: {1}.&#10;&#10;Usage charges may apply.{2}&#10;&#10;Start?</sys:String>
+  <sys:String xml:space="preserve" x:Key="Confirm_StartExternalText">&#10;A prompt contains {pagetext}, so the text taken from the document is sent as well.</sys:String>
+  <sys:String xml:space="preserve" x:Key="Confirm_StartExternalLimits">&#10;Limits: pages {0}, cost {1}.</sys:String>
   <sys:String x:Key="Menu_File">_File</sys:String>
   <sys:String x:Key="Menu_OpenPast">Open a past output...</sys:String>
   <sys:String x:Key="Past_Title">Past output</sys:String>

@@ -34,12 +34,13 @@ public sealed record PreviousRun(JobState Job, IReadOnlyList<DocumentRecord> Doc
 
 /// <summary>
 /// Looks in an output folder for the newest run that can be resumed or has failures (none when the newest run finished without failures), so the screen can show it when it
-/// starts and enable "resume" and "retry failed only" only when they can run (FR-013d, FR-013e). The input list of the
-/// screen plays no part (FR-013f).
+/// starts and enable "resume" and "retry failed only" only when they can run (FR-013d, FR-013e). When inputs are given, only the runs of
+/// those same inputs count (FR-130: the list of the screen shows the earlier conversion of the inputs of the screen); without them, every run
+/// of the folder counts (FR-013f).
 /// </summary>
 public static class PreviousRunFinder
 {
-    public static PreviousRun? Find(string? outputFolder)
+    public static PreviousRun? Find(string? outputFolder, IReadOnlyCollection<string>? inputs = null)
     {
         if (string.IsNullOrWhiteSpace(outputFolder))
         {
@@ -56,14 +57,14 @@ public static class PreviousRunFinder
             var store = new StateStore(outputFolder);
             // The newest run decides: when it finished without a failure, the earlier runs that were interrupted or had failures are
             // done with (a later run of other files has gone through), and nothing is shown.
-            if (store.ListJobs().FirstOrDefault(j => j.Status != JobStatus.Abandoned) is { Status: JobStatus.Completed })
+            if (store.ListJobs().FirstOrDefault(j => j.Status != JobStatus.Abandoned && HasInputs(j, inputs)) is { Status: JobStatus.Completed })
             {
                 return null;
             }
 
             // An interrupted run comes first; without one, the newest run that finished with failures.
-            var job = store.FindResumableJobs(null, includeFinishedWithErrors: false).FirstOrDefault()
-                ?? store.FindResumableJobs(null, includeFinishedWithErrors: true).FirstOrDefault();
+            var job = store.FindResumableJobs(inputs, includeFinishedWithErrors: false).FirstOrDefault()
+                ?? store.FindResumableJobs(inputs, includeFinishedWithErrors: true).FirstOrDefault();
             if (job is null)
             {
                 return null;
@@ -76,6 +77,40 @@ public static class PreviousRunFinder
             return null; // an output folder that cannot be read has no earlier run to show
         }
     }
+
+    /// <summary>
+    /// The newest run of the output folder when it finished without a failure (the case in which <see cref="Find"/> has nothing): the screen
+    /// shows its files, so that what was converted is seen and "changed files only" can be chosen (FR-129). Nothing of it can be resumed.
+    /// </summary>
+    public static PreviousRun? LatestCompleted(string? outputFolder, IReadOnlyCollection<string>? inputs = null)
+    {
+        if (string.IsNullOrWhiteSpace(outputFolder))
+        {
+            return null;
+        }
+
+        try
+        {
+            if (!Directory.Exists(outputFolder))
+            {
+                return null;
+            }
+
+            var store = new StateStore(outputFolder);
+            return store.ListJobs().FirstOrDefault(j => j.Status != JobStatus.Abandoned && HasInputs(j, inputs)) is { Status: JobStatus.Completed } job
+                ? ForJob(store, job)
+                : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The job is a run of these inputs (every job, when no inputs are given).</summary>
+    private static bool HasInputs(JobState job, IReadOnlyCollection<string>? inputs) =>
+        inputs is not { Count: > 0 }
+        || StateStore.NormalizeInputs(job.Inputs).SequenceEqual(StateStore.NormalizeInputs(inputs), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// The run of one job, with its documents. <c>null</c> when the saved state of a document is missing (the job cannot be resumed). A job that was

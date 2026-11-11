@@ -322,6 +322,13 @@ public sealed class InputSettings
 public sealed class OutputSettings
 {
     public string Folder { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What a conversion of every file does with a file that was converted before (FR-129): true writes into the folder of that conversion
+    /// (its Markdown and page images are replaced), false makes a new folder with another name. "Changed files only", a resume and
+    /// "convert the selected files again" always write into the earlier folder.
+    /// </summary>
+    public bool SameFolder { get; set; }
 }
 
 /// <summary>The language and the theme of the screen (FR-033, FR-035). <c>system</c> follows the operating system.</summary>

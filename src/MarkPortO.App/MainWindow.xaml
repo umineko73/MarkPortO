@@ -18,7 +18,7 @@
 <Window x:Class="MarkPortO.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Icon="Assets/MarkPortO.ico" Title="MarkPortO" Height="1000" Width="1280" MinHeight="640" MinWidth="780">
+        Icon="Assets/MarkPortO.ico" Title="MarkPortO" Height="1000" Width="1360" MinHeight="640" MinWidth="780">
   <DockPanel>
     <!-- Menu bar (FR-032) -->
     <Menu DockPanel.Dock="Top">
@@ -135,7 +135,7 @@
 
           <!-- The kinds of file that are converted when a folder is given -->
           <TextBlock Grid.Row="0" Text="{DynamicResource Main_Cond_Targets}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
-          <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
+          <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}">
             <CheckBox x:Name="DocxBox" Content="docx" IsChecked="{Binding TypeDocx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,20,0" />
             <CheckBox Content="xlsx" IsChecked="{Binding TypeXlsx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,20,0" />
             <CheckBox Content="pptx" IsChecked="{Binding TypePptx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,20,0" />
@@ -147,7 +147,7 @@
           <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_Extractor}" VerticalAlignment="Center" Margin="0,0,0,6" ToolTip="{DynamicResource Main_Cond_ExtractorTip}"
                      Visibility="{Binding ExtractorVisibility}" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" Visibility="{Binding ExtractorVisibility}"
-                      IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
+                      IsEnabled="{Binding CanEditNewRun}">
             <TextBlock Text="{DynamicResource Main_Cond_RowDocx}" VerticalAlignment="Center" Margin="0,0,6,0" />
             <ComboBox ItemsSource="{Binding ExtractorChoices}" DisplayMemberPath="Display" SelectedValuePath="Name" SelectedValue="{Binding ExtractorDocx}" Width="120" Margin="0,0,16,0" />
             <TextBlock Text="{DynamicResource Main_Cond_RowXlsx}" VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -161,7 +161,7 @@
           <!-- The options of each kind. Always shown (a file that is given is converted whatever the boxes say); grey when an extractor is chosen.
                Word has none, so it has no row. -->
           <TextBlock Grid.Row="2" Text="{DynamicResource Main_Cond_OptionsRow}" VerticalAlignment="Top" Margin="0,2,0,6" IsEnabled="{Binding CanEditNewRun}" />
-          <Grid Grid.Row="2" Grid.Column="1" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
+          <Grid Grid.Row="2" Grid.Column="1" IsEnabled="{Binding CanEditNewRun}">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="100" />
               <ColumnDefinition Width="*" />
@@ -216,7 +216,7 @@
             <CheckBox Content="{DynamicResource Main_Cond_Step1}" IsChecked="True" IsEnabled="False" VerticalAlignment="Center" Margin="0,0,10,0" />
             <TextBlock Text="{DynamicResource Main_Cond_Step1Always}" VerticalAlignment="Center" Foreground="{DynamicResource SubtleTextBrush}" Margin="0,0,20,0" />
             <!-- The engine and the size of the print images, and the bold and italic of the text, are settings of Step1 -->
-            <StackPanel Orientation="Horizontal" IsEnabled="{Binding CanEditNewRun}" ToolTip="{Binding LockedTip}" ToolTipService.ShowOnDisabled="True">
+            <StackPanel Orientation="Horizontal" IsEnabled="{Binding CanEditNewRun}">
               <TextBlock Text="{DynamicResource Main_Cond_Engine}" VerticalAlignment="Center" Margin="0,0,6,0" />
               <ComboBox x:Name="EngineBox" ItemsSource="{Binding EngineChoices}" DisplayMemberPath="Name" SelectedValuePath="Kind"
                         SelectedValue="{Binding SelectedEngine}" Width="170" Margin="0,0,20,0" />
@@ -274,18 +274,66 @@
       </GroupBox>
 
       <!-- Actions -->
-      <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,10,0,10">
-        <Button Content="{DynamicResource Main_Start}" Command="{Binding StartCommand}" Width="100" Padding="6" Margin="0,0,8,0" FontWeight="SemiBold" />
-        <Button Content="{DynamicResource Main_Interrupt}" Command="{Binding InterruptCommand}" Width="100" Padding="6" Margin="0,0,8,0" />
-        <Button Content="{DynamicResource Main_Resume}" Command="{Binding ResumeCommand}" Width="100" Padding="6" Margin="0,0,8,0" />
-        <Button Content="{DynamicResource Main_RetryFailed}" Command="{Binding RetryFailedCommand}" MinWidth="130" Padding="6" Margin="0,0,8,0" />
-        <Button Content="{DynamicResource Main_ClearPrevious}" Command="{Binding ClearPreviousCommand}" MinWidth="170" Padding="6" Margin="0,0,8,0" />
-        <Button x:Name="PreviewButton" Content="{DynamicResource Main_Preview}" Click="OnPreviewClick" MinWidth="100" Padding="6"
-                IsEnabled="{Binding Selected.CanPreview, FallbackValue=False, TargetNullValue=False}"
-                ToolTip="{DynamicResource Main_PreviewTip}" ToolTipService.ShowOnDisabled="True" />
-        <CheckBox Content="{DynamicResource Main_ChangedOnly}" IsChecked="{Binding ChangedOnly}" VerticalAlignment="Center" Margin="12,0,0,0"
-                  ToolTip="{DynamicResource Main_ChangedOnlyTip}" IsEnabled="{Binding CanEdit}" />
-      </StackPanel>
+      <!-- Three groups, each in a frame: the conversion, where a file converted before is written, and the file chosen in the list. -->
+      <DockPanel Grid.Row="3" Margin="0,10,0,10" LastChildFill="False">
+        <DockPanel.Resources>
+          <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="VerticalAlignment" Value="Center" />
+          </Style>
+          <Style x:Key="ActionGroup" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="6,4" />
+          </Style>
+        </DockPanel.Resources>
+        <!-- The conversion (FR-129). The list of files decides which of the four can be pressed. -->
+        <Border DockPanel.Dock="Left" Style="{StaticResource ActionGroup}">
+          <StackPanel Orientation="Horizontal">
+            <Button Content="{DynamicResource Main_Start}" Command="{Binding StartCommand}" MinWidth="90" Padding="12,6" Margin="0,0,8,0" FontWeight="SemiBold"
+                    ToolTip="{DynamicResource Main_StartTip}" ToolTipService.ShowOnDisabled="True" />
+            <Button Content="{DynamicResource Main_Resume}" Command="{Binding ResumeCommand}" Padding="12,6" Margin="0,0,8,0"
+                    ToolTip="{DynamicResource Main_ResumeTip}" ToolTipService.ShowOnDisabled="True" />
+            <Button Content="{DynamicResource Main_RedoAll}" Command="{Binding RedoAllCommand}" Padding="12,6" Margin="0,0,8,0"
+                    ToolTip="{DynamicResource Main_RedoAllTip}" ToolTipService.ShowOnDisabled="True" />
+            <Button Content="{DynamicResource Main_ChangedOnly}" Command="{Binding StartChangedCommand}" Padding="12,6" Margin="0,0,16,0"
+                    ToolTip="{DynamicResource Main_ChangedOnlyTip}" ToolTipService.ShowOnDisabled="True" />
+            <Button Content="{DynamicResource Main_Interrupt}" Command="{Binding InterruptCommand}" MinWidth="90" Padding="12,6" />
+          </StackPanel>
+        </Border>
+        <!-- FR-129: what "Start" and "Redo all" do with a file that was converted before. -->
+        <Border DockPanel.Dock="Left" Style="{StaticResource ActionGroup}" Margin="10,0,0,0"
+                ToolTip="{DynamicResource Main_ExistingTip}" ToolTipService.ShowOnDisabled="True">
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" IsEnabled="{Binding CanEdit}">
+            <TextBlock Text="{DynamicResource Main_Existing}" VerticalAlignment="Center" Margin="2,0,8,0" />
+            <RadioButton GroupName="ExistingFolder" Content="{DynamicResource Main_ExistingNew}" IsChecked="{Binding NewFolder}" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <RadioButton GroupName="ExistingFolder" Content="{DynamicResource Main_ExistingSame}" IsChecked="{Binding SameFolder}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Border>
+        <!-- The file chosen in the list (FR-127: "Convert again" is the same as "Convert the selected files again" of the list's context menu). -->
+        <Border DockPanel.Dock="Right" Style="{StaticResource ActionGroup}" Margin="10,0,0,0">
+          <StackPanel Orientation="Horizontal">
+            <Button x:Name="PreviewButton" Content="{DynamicResource Main_Preview}" Click="OnPreviewClick" MinWidth="90" Padding="6"
+                    IsEnabled="{Binding Selected.CanPreview, FallbackValue=False, TargetNullValue=False}"
+                    ToolTip="{DynamicResource Main_PreviewTip}" ToolTipService.ShowOnDisabled="True" />
+            <Button Content="{DynamicResource Main_ReconvertButton}" Click="OnReconvertClick" MinWidth="90" Padding="6" Margin="8,0,0,0"
+                    ToolTip="{DynamicResource Main_ReconvertTip}" ToolTipService.ShowOnDisabled="True">
+              <Button.Style>
+                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                  <Setter Property="VerticalAlignment" Value="Center" />
+                  <Setter Property="IsEnabled" Value="{Binding CanEdit}" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding Selected}" Value="{x:Null}">
+                      <Setter Property="IsEnabled" Value="False" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Button.Style>
+            </Button>
+          </StackPanel>
+        </Border>
+      </DockPanel>
 
       <Grid Grid.Row="4">
         <Grid.RowDefinitions>

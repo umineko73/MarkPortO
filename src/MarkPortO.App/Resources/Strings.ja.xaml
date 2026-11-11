@@ -87,7 +87,7 @@
   <sys:String x:Key="Ext_ConsentNotNeeded">不要です(文書をPCの外へ送らないコマンドとして扱います)。</sys:String>
   <sys:String x:Key="Ext_ConsentMissing">未同意です。同意するまで、このコマンドは使えません。</sys:String>
   <sys:String x:Key="Ext_ConsentTitle">文書の外部への送信</sys:String>
-  <sys:String x:Key="Ext_ConsentNotice">抽出コマンド「{0}」は、文書の内容(本文・表・画像)を、PCの外にあるサービスへ送ります。&#10;送られた内容の扱いは、そのサービスの規約によります。利用料金がかかることもあります。&#10;機密の文書には使わないでください。</sys:String>
+  <sys:String xml:space="preserve" x:Key="Ext_ConsentNotice">抽出コマンド「{0}」は、文書の内容(本文・表・画像)を、PCの外にあるサービスへ送ります。&#10;送られた内容の扱いは、そのサービスの規約によります。利用料金がかかることもあります。&#10;機密の文書には使わないでください。</sys:String>
   <sys:String x:Key="Ext_NotFound">コマンド「{0}」が見つかりません。インストールされているか、PATHやフルパスを確認してください。</sys:String>
   <sys:String x:Key="Ext_Try">試す…</sys:String>
   <sys:String x:Key="Ext_TryTip">文書を1つ選び、このコマンドで抽出して、Markdownの先頭を表示します(結果は保存しません)。</sys:String>
@@ -123,11 +123,21 @@
   <sys:String x:Key="Main_Cond_Connection">接続:</sys:String>
   <sys:String x:Key="Main_Start">開始</sys:String>
   <sys:String x:Key="Main_Interrupt">中断</sys:String>
-  <sys:String x:Key="Main_Resume">再開</sys:String>
-  <sys:String x:Key="Main_RetryFailed">失敗のみ再試行</sys:String>
-  <sys:String x:Key="Main_ChangedOnly">変更されたファイルだけ</sys:String>
-  <sys:String x:Key="Main_ChangedOnlyTip">「開始」で、出力先での前回の変換から変わったファイル、まだ変換していないファイル、前回終わらなかったファイルだけを変換します。出力は前回と同じフォルダに書きます。条件を変えただけでは、変換し直しません。</sys:String>
+  <sys:String x:Key="Main_Resume">中断したところから再開</sys:String>
+  <sys:String x:Key="Main_ResumeTip">前回の変換の続きを実行します。未完了のファイルがあればその続き、失敗だけが残っていれば失敗したファイルとページをやり直します。条件は前回の変換のものを使います。ファイルの一覧に完了以外が残っているときに押せます。</sys:String>
+  <sys:String x:Key="Main_RedoAll">すべてやり直し</sys:String>
+  <sys:String x:Key="Main_RedoAllTip">入力のファイルを、画面の条件ですべて変換し直します。前回のフォルダがあるファイルの書き先は、右の「前回のフォルダがあるとき」で選びます。ファイルの一覧にファイルがあるときに押せます。</sys:String>
+  <sys:String x:Key="Main_Existing">前回のフォルダがあるとき:</sys:String>
+  <sys:String x:Key="Main_ExistingNew">別名で新しく作る</sys:String>
+  <sys:String x:Key="Main_ExistingSame">上書きする</sys:String>
+  <sys:String xml:space="preserve" x:Key="Main_ExistingTip">「開始」「すべてやり直し」で、前に変換したファイルをどこに書くかを選びます。&#10;別名で新しく作る: 「名前 (2)」のような新しいフォルダに書きます（前回のフォルダは残ります）。&#10;上書きする: 前回と同じフォルダに書きます（Markdown とページ画像は置き換わります）。&#10;「変更されたファイルのみ変換」「中断したところから再開」「再変換」は、いつも前回と同じフォルダに書きます。</sys:String>
+  <sys:String x:Key="Status_Previous_Done">出力先の前回の変換を表示しています: 完了 {0} 件。「変更されたファイルのみ変換」か「すべてやり直し」で変換できます。</sys:String>
+  <sys:String x:Key="Status_Previous_Other">出力先に、別の入力の変換（未完了または失敗あり）が残っています。続きは「ファイル」→「過去の出力を開く…」から再開できます。</sys:String>
+  <sys:String x:Key="Main_StartTip">入力のファイルをすべて変換します。ファイルの一覧が空のときに押せます（出力先に前回の変換がないとき）。</sys:String>
+  <sys:String x:Key="Main_ChangedOnly">変更されたファイルのみ変換</sys:String>
+  <sys:String x:Key="Main_ChangedOnlyTip">出力先での前回の変換から変わったファイル、まだ変換していないファイルだけを変換します。出力は前回と同じフォルダに書きます。条件を変えただけでは、変換し直しません。ファイルの一覧がすべて完了のときに押せます。</sys:String>
   <sys:String x:Key="Main_Reconvert">選択したファイルを再変換</sys:String>
+  <sys:String x:Key="Main_ReconvertButton">再変換</sys:String>
   <sys:String x:Key="Main_ReconvertTip">選択したファイルを、画面の条件で変換し直します。出力は前回と同じフォルダに書きます（Markdown とページ画像は置き換わります）。Ctrl＋クリック、Shift＋クリックで複数選べます。</sys:String>
   <sys:String x:Key="Main_Col_File">ファイル</sys:String>
   <sys:String x:Key="Main_Col_Type">種類</sys:String>
@@ -149,13 +159,13 @@
   <sys:String x:Key="Status_DpiInvalid">DPIは {0}〜{1} の整数で指定してください(今の値: {2})。</sys:String>
   <sys:String x:Key="Conn_None">(未選択)</sys:String>
   <sys:String x:Key="Status_NoDocuments">変換できる文書が見つかりませんでした。{0}</sys:String>
-  <sys:String x:Key="Status_NothingChanged">{0} 件のファイルは、どれも前回の変換から変わっていません。すべて変換するときは、「変更されたファイルだけ」を外してください。</sys:String>
-  <sys:String x:Key="Status_PastOpened">過去の出力から {0} 件のファイルを開きました。「開始」で変換します。前と同じフォルダに書き直すときは、一覧で選んで右クリックの「選択したファイルを再変換」を使います。</sys:String>
+  <sys:String x:Key="Status_NothingChanged">{0} 件のファイルは、どれも前回の変換から変わっていません。すべて変換するときは、「すべてやり直し」を押してください。</sys:String>
+  <sys:String x:Key="Status_PastOpened">過去の出力から {0} 件のファイルを開きました。「すべてやり直し」で変換します。一部だけ書き直すときは、一覧で選んで「再変換」を押します。</sys:String>
   <sys:String x:Key="Status_Interrupting">中断しています…処理中のファイルは区切りの良いところで止まります。</sys:String>
   <sys:String x:Key="Status_CheckSettings">設定を確認してください: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">VLMの接続を準備できませんでした。</sys:String>
-  <sys:String x:Key="Status_Previous_Resume">出力先に前回の変換があります: 完了 {0}、失敗 {1}、未完了 {2}。「再開」で続きを実行できます。</sys:String>
-  <sys:String x:Key="Status_Previous_Retry">出力先に、失敗を含む前回の変換があります: 完了 {0}、失敗 {1}、未完了 {2}。「失敗のみ再試行」で失敗分をもう一度実行できます。</sys:String>
+  <sys:String x:Key="Status_Previous_Resume">出力先に前回の変換があります: 完了 {0}、失敗 {1}、未完了 {2}。「中断したところから再開」で続きを実行できます。</sys:String>
+  <sys:String x:Key="Status_Previous_Retry">出力先に、失敗を含む前回の変換があります: 完了 {0}、失敗 {1}、未完了 {2}。「中断したところから再開」で失敗分をもう一度実行できます。</sys:String>
   <sys:String x:Key="Status_Running">変換しています…</sys:String>
   <sys:String x:Key="Status_NothingToResume">再開できる変換がありません。{0}</sys:String>
   <sys:String x:Key="Status_CouldNotStart">変換を始められませんでした: {0}</sys:String>
@@ -163,10 +173,7 @@
   <sys:String x:Key="Status_Head_DoneWithFailures">完了しました(失敗あり)</sys:String>
   <sys:String x:Key="Status_Head_Done">完了しました</sys:String>
   <sys:String x:Key="Status_Summary">{0}: 完了 {1}、失敗 {2}、未完了 {3}。出力先: {4}</sys:String>
-  <sys:String x:Key="Main_ClearPrevious">前回の変換をクリア</sys:String>
-  <sys:String x:Key="Main_Cond_LockedTip">前回の変換の続きでは変えられません。変えるには、前回の変換をクリアしてください。</sys:String>
-  <sys:String x:Key="Confirm_Reconvert">{0} 件のファイルを、画面の条件で変換し直します。&#10;&#10;出力先の Markdown とページ画像は置き換わります。&#10;&#10;再変換しますか？</sys:String>
-  <sys:String x:Key="Confirm_ClearPrevious">出力先にある前回の変換(完了 {0} 件、失敗 {1} 件、未完了 {2} 件)をクリアします。&#10;&#10;再開・失敗のみ再試行はできなくなります(出力済みのファイルは消えません)。&#10;&#10;クリアしますか？</sys:String>
+  <sys:String xml:space="preserve" x:Key="Confirm_Reconvert">{0} 件のファイルを、画面の条件で変換し直します。&#10;&#10;出力先の Markdown とページ画像は置き換わります。&#10;&#10;再変換しますか？</sys:String>
   <sys:String x:Key="Main_Cond_Excel">シートの範囲:</sys:String>
   <sys:String x:Key="Main_Cond_ExcelColumns">すべての列をできるだけ1ページに収める</sys:String>
   <sys:String x:Key="Main_Cond_ExcelColumnsTip">列は1ページの幅に収め、行は複数ページに続けます。極端に幅の広いシートは、読めなくなるため分割します。</sys:String>
@@ -200,7 +207,6 @@
   <sys:String x:Key="Preview_NoWebView">WebView2のランタイムが見つからないため、Markdownを文字のまま表示します。</sys:String>
   <sys:String x:Key="Stopped_Title">変換が止まりました</sys:String>
   <sys:String x:Key="Confirm_Title">新しい変換の開始</sys:String>
-  <sys:String x:Key="Confirm_StartWithInterrupted">出力先に、中断した変換が残っています(完了 {0}、失敗 {1}、未完了 {2})。&#10;&#10;それでも新しく変換を始めますか？ 中断した変換は再開できなくなります(出力済みのファイルは消えません)。&#10;続きを実行するときは「いいえ」を選び、「再開」を押してください。</sys:String>
   <sys:String x:Key="Dialog_SelectFolder">フォルダを選択</sys:String>
   <sys:String x:Key="Dialog_SelectFiles">変換するファイルを選択</sys:String>
   <sys:String x:Key="Dialog_Filter">Office・PDF文書 (*.docx;*.xlsx;*.pptx;*.pdf)|*.docx;*.xlsx;*.pptx;*.pdf|すべてのファイル (*.*)|*.*</sys:String>
@@ -261,7 +267,7 @@
   <sys:String x:Key="Conn_MaxImageSide">送る画像の長辺(px。0: そのまま)</sys:String>
   <sys:String x:Key="Conn_MaxImageSideTip">ページ画像を、送る前にこの大きさまで縮小します。トークンが減ります。保存される画像は変わりません。小さくしすぎると、小さい文字が読めなくなります。</sys:String>
   <sys:String x:Key="Conn_MaxLines">1回に読む行数(0: ページ全体)</sys:String>
-  <sys:String x:Key="Conn_LimitsTip">上限に達すると変換を中断し、「再開」で続けられます。費用の上限は、費用を返すコマンドだけで働きます。</sys:String>
+  <sys:String x:Key="Conn_LimitsTip">上限に達すると変換を中断し、「中断したところから再開」で続けられます。費用の上限は、費用を返すコマンドだけで働きます。</sys:String>
   <sys:String x:Key="Conn_Consent">外部への送信</sys:String>
   <sys:String x:Key="Conn_ConsentNotNeeded">不要です(この接続先はローカルネットワークの中です)。</sys:String>
   <sys:String x:Key="Conn_ConsentGranted">{0} に同意済みです。</sys:String>
@@ -272,9 +278,9 @@
   <sys:String x:Key="Conn_ConsentTitle">ページ画像の外部への送信</sys:String>
   <sys:String x:Key="Conn_ConsentQuestion">同意しますか？</sys:String>
   <sys:String x:Key="Conn_LimitNone">なし</sys:String>
-  <sys:String x:Key="Confirm_StartExternal">{0} 件の入力を変換します。ページ画像は、ローカルネットワークの外の次の送信先に送られます: {1}。&#10;&#10;利用料が発生することがあります。{2}&#10;&#10;開始しますか？</sys:String>
-  <sys:String x:Key="Confirm_StartExternalText">&#10;指示に {pagetext} があるため、文書から取り出したページのテキストも送られます。</sys:String>
-  <sys:String x:Key="Confirm_StartExternalLimits">&#10;上限: ページ数 {0}、費用 {1}。</sys:String>
+  <sys:String xml:space="preserve" x:Key="Confirm_StartExternal">{0} 件の入力を変換します。ページ画像は、ローカルネットワークの外の次の送信先に送られます: {1}。&#10;&#10;利用料が発生することがあります。{2}&#10;&#10;開始しますか？</sys:String>
+  <sys:String xml:space="preserve" x:Key="Confirm_StartExternalText">&#10;指示に {pagetext} があるため、文書から取り出したページのテキストも送られます。</sys:String>
+  <sys:String xml:space="preserve" x:Key="Confirm_StartExternalLimits">&#10;上限: ページ数 {0}、費用 {1}。</sys:String>
   <sys:String x:Key="Menu_File">ファイル(_F)</sys:String>
   <sys:String x:Key="Menu_OpenPast">過去の出力を開く…</sys:String>
   <sys:String x:Key="Past_Title">過去の出力</sys:String>
@@ -295,7 +301,7 @@
   <sys:String x:Key="Past_Load">開く</sys:String>
   <sys:String x:Key="Past_OpenFolder">エクスプローラで開く</sys:String>
   <sys:String x:Key="Past_OpenTip">選択したファイルを、メイン画面の「変換するファイル・フォルダ」とファイルの一覧に設定し、出力先をこの出力先にします。変換は始めません。</sys:String>
-  <sys:String x:Key="Past_RunCounts">この変換は「再開」できます（完了 {0}・失敗 {1}・未完了 {2}）</sys:String>
+  <sys:String x:Key="Past_RunCounts">この変換は「中断したところから再開」できます（完了 {0}・失敗 {1}・未完了 {2}）</sys:String>
   <sys:String x:Key="Past_Abandoned">（破棄済み）</sys:String>
   <sys:String x:Key="Past_PreviewOne">プレビューは、ファイルを1つだけ選んだときに使えます。</sys:String>
   <sys:String x:Key="Past_LoadFailed">変換中は開けません。変換が終わってから、もう一度お試しください。</sys:String>

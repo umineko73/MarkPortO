@@ -55,6 +55,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private PreviousRun? _previous;
     private int _scanVersion;
 
+    // The inputs are being set together with the list of files (a past output is opened): the change of the inputs does not refill the list.
+    private bool _keepList;
+
     public MainViewModel(SettingsStore store, Dispatcher dispatcher)
     {
         _store = store;
@@ -87,11 +90,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             }
         };
 
-        StartCommand = new RelayCommand(StartAsync, CanStart);
+        // The four ways to convert; the list of files decides which can be pressed (FR-129):
+        // empty: "Start". Something not finished: "Resume" and "Redo all". Everything done: "Redo all" and "Changed files only".
+        StartCommand = new RelayCommand(StartAllAsync, () => CanStart() && Files.Count == 0);
+        ResumeCommand = new RelayCommand(
+            () => ResumeAsync(_previous is { CanResume: true } ? ResumeMode.Unfinished : ResumeMode.RetryFailed),
+            () => !IsRunning && HasPrevious);
+        RedoAllCommand = new RelayCommand(StartAllAsync, () => CanStart() && Files.Count > 0);
+        StartChangedCommand = new RelayCommand(() => StartAsync(RunKind.ChangedOnly), () => CanStart() && Files.Count > 0 && Files.All(f => f.IsDone));
         InterruptCommand = new RelayCommand(InterruptAsync, () => IsRunning);
-        ResumeCommand = new RelayCommand(() => ResumeAsync(ResumeMode.Unfinished), () => !IsRunning && _previous is { CanResume: true });
-        RetryFailedCommand = new RelayCommand(() => ResumeAsync(ResumeMode.RetryFailed), () => !IsRunning && _previous is { CanRetryFailed: true });
-        ClearPreviousCommand = new RelayCommand(ClearPreviousAsync, () => !IsRunning && HasPrevious);
         AddFilesCommand = new RelayCommand(AddFilesAsync, () => !IsRunning);
         AddFolderCommand = new RelayCommand(AddFolderAsync, () => !IsRunning);
         ClearInputsCommand = new RelayCommand(ClearInputsAsync, () => !IsRunning);
@@ -102,7 +109,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         PromptsCommand = new RelayCommand(() => { ShowPrompts?.Invoke(); RefreshPrompts(); return Task.CompletedTask; }, () => !IsRunning);
         PromptChoices = [.. new[] { DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx, DocumentKind.Pdf }.Select(k => new PromptChoiceViewModel(k, _store))];
 
-        InputPaths.CollectionChanged += (_, _) => UpdateRunCommands();
+        // FR-130: the list of files shows the earlier conversion of the inputs of the screen, so a change of the inputs looks for it again
+        // (the list empties when the output folder has no conversion of the new inputs).
+        InputPaths.CollectionChanged += (_, _) =>
+        {
+            UpdateRunCommands();
+            if (!_keepList)
+            {
+                _ = RefreshPreviousAsync(showFiles: true);
+            }
+        };
+        Files.CollectionChanged += (_, _) => UpdateRunCommands();
         _ = RefreshPreviousAsync(showFiles: true, appendToStatus: true); // the earlier run in the output folder (FR-013e)
     }
 
@@ -214,8 +231,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>A conversion of the output folder that can be resumed or retried is shown (FR-013e): its settings are used again.</summary>
     public bool HasPrevious => _previous is { CanResume: true } or { CanRetryFailed: true };
 
-    /// <summary>The types, the range and the conversion (engine, DPI) are not used by a resume, so they are locked while it can be done.</summary>
-    public bool CanEditNewRun => !IsRunning && !HasPrevious;
+    /// <summary>
+    /// The types, the range and the conversion (engine, DPI). A resume does not use them (it goes on with those of its run), but they can be
+    /// changed while it can be done: "Redo all" uses them (FR-129).
+    /// </summary>
+    public bool CanEditNewRun => !IsRunning;
 
     /// <summary>"Write the results to a separate file" has a meaning only when Step 3 is on.</summary>
     public bool CanEditVlmSeparate => !IsRunning && Step3;
@@ -240,9 +260,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         : !Step3 ? UiText.Get("Main_Cond_PagesStep3OffTip")
         : UiText.Get("Main_Cond_PagesTip");
 
-    /// <summary>Why the locked items are locked (null when they are not).</summary>
-    public string? LockedTip => HasPrevious && !IsRunning ? UiText.Get("Main_Cond_LockedTip") : null;
-
     private void RaiseEditState()
     {
         Raise(nameof(CanEdit));
@@ -253,8 +270,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(CanEditPrompts));
         Raise(nameof(CanEditPages));
         Raise(nameof(PagesTip));
-        Raise(nameof(LockedTip));
-        ClearPreviousCommand.RaiseCanExecuteChanged();
     }
 
     public bool IsRunning
@@ -265,7 +280,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (Set(ref _running, value))
             {
                 RaiseEditState();
-                foreach (var command in new[] { StartCommand, InterruptCommand, ResumeCommand, RetryFailedCommand, ClearPreviousCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
+                foreach (var command in new[] { StartCommand, StartChangedCommand, RedoAllCommand, InterruptCommand, ResumeCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
                 {
                     command.RaiseCanExecuteChanged();
                 }
@@ -355,17 +370,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             _store.Update(s => s.Input.Recurse = value);
-            Raise();
-        }
-    }
-
-    /// <summary>Start converts only the files that changed since their last conversion (FR-126).</summary>
-    public bool ChangedOnly
-    {
-        get => _store.Current.Input.ChangedOnly;
-        set
-        {
-            _store.Update(s => s.Input.ChangedOnly = value);
             Raise();
         }
     }
@@ -584,13 +588,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public RelayCommand StartCommand { get; }
 
+    public RelayCommand StartChangedCommand { get; }
+
     public RelayCommand InterruptCommand { get; }
 
     public RelayCommand ResumeCommand { get; }
 
-    public RelayCommand RetryFailedCommand { get; }
-
-    public RelayCommand ClearPreviousCommand { get; }
+    public RelayCommand RedoAllCommand { get; }
 
     public RelayCommand AddFilesCommand { get; }
 
@@ -644,6 +648,36 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Leave the tables that the VLM wrote again on a page out of the Markdown (FR-124).</summary>
+    /// <summary>
+    /// "Start" and "Redo all" write a file that was converted before into its earlier folder (true) or into a new folder (false) (FR-129).
+    /// The two radio buttons beside the buttons are the two values.
+    /// </summary>
+    public bool SameFolder
+    {
+        get => _store.Current.Output.SameFolder;
+        set
+        {
+            if (value != _store.Current.Output.SameFolder)
+            {
+                _store.Update(s => s.Output.SameFolder = value);
+                Raise();
+                Raise(nameof(NewFolder));
+            }
+        }
+    }
+
+    public bool NewFolder
+    {
+        get => !SameFolder;
+        set
+        {
+            if (value)
+            {
+                SameFolder = false;
+            }
+        }
+    }
+
     public bool DropRepeatedTables
     {
         get => _store.Current.Steps.DropRepeatedTables;
@@ -895,29 +929,41 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return confirm(UiText.Get("Confirm_StartExternal", InputPaths.Count, ExternalConsent.Destination(connection), limits));
     }
 
-    private Task StartAsync()
+    /// <summary>How a run that starts from the inputs converts them.</summary>
+    private enum RunKind
+    {
+        /// <summary>Every file, each into a new folder.</summary>
+        New,
+
+        /// <summary>Every file, each into the folder of its earlier conversion when it has one (FR-129).</summary>
+        SameFolders,
+
+        /// <summary>Only the files that changed since their last conversion, into their earlier folders (FR-126).</summary>
+        ChangedOnly,
+    }
+
+    private Task StartAsync(RunKind kind)
     {
         if (!ConfirmSending())
         {
             return Task.CompletedTask;
         }
 
-        // An interrupted run is still waiting in the output folder: ask before a new one is started (FR-013g).
-        if (_previous is { CanResume: true } previous
-            && Confirm is { } confirm
-            && !confirm(UiText.Get("Confirm_StartWithInterrupted", previous.DoneCount, previous.FailedCount, previous.UnfinishedCount)))
-        {
-            return Task.CompletedTask;
-        }
-
-        // The interrupted runs that this one replaces are given up once it has really started (FR-013g).
+        // The interrupted runs that this one replaces are given up once it has really started (FR-013g). There is no question first:
+        // "Redo all" says what it does, and "Resume" is the button beside it (FR-129).
         var replaced = _previous is { CanResume: true }
-            ? new StateStore(_store.Current.Output.Folder).FindResumableJobs(null, includeFinishedWithErrors: false).Select(j => j.JobId).ToList()
+            ? new StateStore(_store.Current.Output.Folder).FindResumableJobs([.. InputPaths], includeFinishedWithErrors: false).Select(j => j.JobId).ToList()
             : [];
-        return StartRunAsync(replaced);
+        return StartRunAsync(kind, replaced);
     }
 
-    private Task StartRunAsync(IReadOnlyList<Guid> replaced) => RunAsync(async (service, snapshot, token) =>
+    /// <summary>
+    /// "Start" and "Redo all" (FR-129): every file of the inputs is converted with the conditions on the screen. A file that was converted
+    /// before goes to a new folder or into its earlier folder, as chosen beside the buttons (<see cref="SameFolder"/>).
+    /// </summary>
+    private Task StartAllAsync() => StartAsync(SameFolder ? RunKind.SameFolders : RunKind.New);
+
+    private Task StartRunAsync(RunKind kind, IReadOnlyList<Guid> replaced) => RunAsync(async (service, snapshot, token) =>
     {
         var found = InputEnumerator.Enumerate(snapshot.Input.Paths, snapshot.Input.Types, snapshot.Input.Recurse);
         if (found.Inputs.Count == 0)
@@ -935,12 +981,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Options = WithPages(ConvertRequest.OptionsFrom(snapshot)),
         };
 
-        // Only the files that changed since their last conversion, written to their earlier folders (FR-126).
-        if (snapshot.Input.ChangedOnly)
+        request = kind switch
         {
-            request = PreviousOutputs.Load(snapshot.Output.Folder).ChangedOnly(request)
-                ?? throw new ConvertStartException(UiText.Get("Status_NothingChanged", found.Inputs.Count));
-        }
+            RunKind.ChangedOnly => PreviousOutputs.Load(snapshot.Output.Folder).ChangedOnly(request)
+                ?? throw new ConvertStartException(UiText.Get("Status_NothingChanged", found.Inputs.Count)),
+            RunKind.SameFolders => PreviousOutputs.Load(snapshot.Output.Folder).SameFolders(request),
+            _ => request,
+        };
 
         return await service.RunAsync(request, token);
     }, outputFolder => new StateStore(outputFolder).Abandon(replaced));
@@ -978,7 +1025,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 new ConvertRequest
                 {
                     Inputs = [.. paths.Select(p => new PlannedInput(p))],
-                    GivenInputs = paths,
+                    // The run is one of the inputs of the screen (FR-130), so that the list shows it when the screen is opened again.
+                    GivenInputs = snapshot.Input.Paths.Count > 0 ? snapshot.Input.Paths : paths,
                     OutputFolder = snapshot.Output.Folder,
                     Options = ConvertRequest.OptionsFrom(snapshot),
                     Previous = previous,
@@ -1017,28 +1065,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 DropRepeatedTables = snapshot.Steps.DropRepeatedTables,
             },
             token));
-    }
-
-    // FR-069: gives up the conversions that could be resumed or retried, so that the settings can be changed. The files stay.
-    private Task ClearPreviousAsync()
-    {
-        if (_previous is not { } previous)
-        {
-            return Task.CompletedTask;
-        }
-
-        if (Confirm is { } confirm && !confirm(UiText.Get("Confirm_ClearPrevious", previous.DoneCount, previous.FailedCount, previous.UnfinishedCount)))
-        {
-            return Task.CompletedTask;
-        }
-
-        var store = new StateStore(_store.Current.Output.Folder);
-        store.Abandon(store.FindResumableJobs(null, includeFinishedWithErrors: true).Select(j => j.JobId).ToList());
-        _previous = null;
-        Files.Clear();
-        SetStatus(() => UiText.Get("Status_Ready"));
-        UpdateRunCommands();
-        return Task.CompletedTask;
     }
 
     private Task InterruptAsync()
@@ -1101,9 +1127,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         IsRunning = true;
         SetStatus(() => UiText.Get("Status_Running"));
         string? stoppedMessage = null;
+        Guid? ranJob = null;
         try
         {
             var result = await Task.Run(() => run(service, snapshot, _cancellation.Token));
+            ranJob = result.Job.JobId;
             feed.Flush();
             SetStatus(() => Summary(result));
             if (result.WasInterrupted && result.Job.StopReason is { } stopReason)
@@ -1150,8 +1178,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             ShowStopped?.Invoke(stoppedMessage);
         }
 
-        // What can be resumed has changed with this run.
-        await RefreshPreviousAsync(showFiles: false);
+        // What can be resumed has changed with this run (when it did not start, nothing has changed).
+        if (ranJob is { } jobId)
+        {
+            await RefreshPreviousAsync(showFiles: false, jobId: jobId);
+        }
     }
 
     private bool CanStart() =>
@@ -1164,19 +1195,46 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         RaiseEditState();
         StartCommand.RaiseCanExecuteChanged();
+        StartChangedCommand.RaiseCanExecuteChanged();
+        RedoAllCommand.RaiseCanExecuteChanged();
         ResumeCommand.RaiseCanExecuteChanged();
-        RetryFailedCommand.RaiseCanExecuteChanged();
     }
 
     /// <summary>
     /// Looks in the output folder for the earlier run (FR-013e). It decides whether "resume" and "retry failed only" can be
     /// pressed and, when <paramref name="showFiles"/> is set, shows the files of that run in the list.
     /// </summary>
-    private async Task RefreshPreviousAsync(bool showFiles, bool appendToStatus = false)
+    private async Task RefreshPreviousAsync(bool showFiles, bool appendToStatus = false, Guid? jobId = null)
     {
         var version = ++_scanVersion;
         var folder = _store.Current.Output.Folder;
-        var run = await Task.Run(() => PreviousRunFinder.Find(folder));
+        IReadOnlyList<string> inputs = [.. InputPaths];
+
+        // The run of the inputs of the screen (FR-130). Without a run to resume or retry, the newest run that finished is shown (FR-129).
+        // "other": the output folder has a run of other inputs that can be resumed; it is not shown, but the status tells where to find it.
+        var (run, finished, other) = await Task.Run(() =>
+        {
+            if (jobId is { } id)
+            {
+                // The run that has just ended, whatever its inputs (a run of a past output is resumed with other inputs on the screen).
+                var store = new StateStore(folder);
+                var ran = store.LoadJob(id) is { } job ? PreviousRunFinder.ForJob(store, job) : null;
+                return (ran is { CanResume: true } or { CanRetryFailed: true } ? ran : null, (PreviousRun?)null, false);
+            }
+
+            if (inputs.Count == 0)
+            {
+                return (null, null, false);
+            }
+
+            if (PreviousRunFinder.Find(folder, inputs) is { } found)
+            {
+                return (found, null, false);
+            }
+
+            var done = PreviousRunFinder.LatestCompleted(folder, inputs);
+            return ((PreviousRun?)null, done, done is null && PreviousRunFinder.Find(folder) is not null);
+        });
         if (version != _scanVersion || IsRunning)
         {
             return;
@@ -1186,7 +1244,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (showFiles)
         {
             Files.Clear();
-            if (run is not null)
+            if (finished is not null)
+            {
+                foreach (var document in finished.Documents)
+                {
+                    Files.Add(new FileItemViewModel(FileStatusProjector.Project(document), OutputRoot));
+                }
+
+                var count = finished.Documents.Count;
+                var before = _statusSource;
+                var keepEarlier = appendToStatus && Status != UiText.Get("Status_Ready");
+                SetStatus(() => keepEarlier ? $"{before()} / {UiText.Get("Status_Previous_Done", count)}" : UiText.Get("Status_Previous_Done", count));
+            }
+            else if (run is not null)
             {
                 foreach (var document in run.Documents)
                 {
@@ -1199,6 +1269,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 var before = _statusSource;
                 var keepEarlier = appendToStatus && Status != UiText.Get("Status_Ready");
                 SetStatus(() => keepEarlier ? $"{before()} / {Text()}" : Text());
+            }
+            else if (other)
+            {
+                var before = _statusSource;
+                var keepEarlier = appendToStatus && Status != UiText.Get("Status_Ready");
+                SetStatus(() => keepEarlier ? $"{before()} / {UiText.Get("Status_Previous_Other")}" : UiText.Get("Status_Previous_Other"));
+            }
+            else if (!appendToStatus)
+            {
+                SetStatus(() => UiText.Get("Status_Ready")); // the text about the conversion that was shown is out of date
             }
         }
 
@@ -1225,10 +1305,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Raise(nameof(OutputFolder));
         }
 
-        InputPaths.Clear();
-        foreach (var path in documents.Select(d => d.SourcePath).Distinct(StringComparer.OrdinalIgnoreCase))
+        _keepList = true;
+        try
         {
-            InputPaths.Add(path);
+            InputPaths.Clear();
+            foreach (var path in documents.Select(d => d.SourcePath).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                InputPaths.Add(path);
+            }
+        }
+        finally
+        {
+            _keepList = false;
         }
 
         SaveInputs();

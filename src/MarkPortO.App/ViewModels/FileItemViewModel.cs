@@ -44,6 +44,9 @@ public sealed class FileItemViewModel : ObservableObject
 
     public string StateText => FileStatusProjector.Text(_row.State);
 
+    /// <summary>The conversion of the file finished without a failure (FR-129: "changed files only" needs every file like this).</summary>
+    public bool IsDone => _row.State == FileDisplayState.Done;
+
     public bool IsFailed => _row.State == FileDisplayState.Failed;
 
     public bool HasPageFailures => _row.State == FileDisplayState.DoneWithPageFailures;

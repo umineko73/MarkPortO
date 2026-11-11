@@ -117,6 +117,7 @@ public static class CliApp
         var job = new Option<string?>("--job") { Description = "With --resume: the job to resume." };
         var retryFailed = new Option<bool>("--retry-failed") { Description = "With --resume: run the failed files again." };
         var changedOnly = new Option<bool>("--changed-only") { Description = "Convert only the files that changed since their last conversion in the output folder, were never converted, or did not finish; they are written to their earlier folders." };
+        var sameFolder = new Option<string?>("--same-folder") { Description = "on or off: on converts every file and writes each into the folder of its earlier conversion in the output folder, when it has one (its Markdown and page images are replaced); off makes a new folder for each file. Default: the settings file (off)." };
         var result = new Option<string?>("--result") { Description = "Write the result as JSON to this file." };
         var quiet = new Option<bool>("--quiet") { Description = "Show less progress." };
 
@@ -125,7 +126,7 @@ public static class CliApp
         foreach (var option in new Option[]
         {
             settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, engine, dpi, excelRange, step2, step3, vlmSeparate,
-            pages, step1Tables, dropRepeated, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, result, quiet,
+            pages, step1Tables, dropRepeated, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, sameFolder, result, quiet,
         })
         {
             convert.Options.Add(option);
@@ -173,6 +174,7 @@ public static class CliApp
                 Job = parse.GetValue(job),
                 RetryFailed = parse.GetValue(retryFailed),
                 ChangedOnly = parse.GetValue(changedOnly),
+                SameFolder = parse.GetValue(sameFolder),
                 ResultPath = parse.GetValue(result),
                 Quiet = parse.GetValue(quiet),
             };
@@ -351,6 +353,11 @@ public static class CliApp
             }
 
             request = changed;
+        }
+        else if (settings.Output.SameFolder)
+        {
+            // Every file, written to the folder of its earlier conversion (FR-129).
+            request = PreviousOutputs.Load(settings.Output.Folder).SameFolders(request);
         }
 
         // 4. run

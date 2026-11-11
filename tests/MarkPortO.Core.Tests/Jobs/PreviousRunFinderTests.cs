@@ -189,4 +189,33 @@ o\sucholder")]
 
         Assert.Equal(JobStatus.CompletedWithErrors, store.LoadJob(job.JobId)!.Status);
     }
+
+    // FR-130: with inputs, only the runs of those same inputs count.
+    [Fact]
+    public void WithInputs_OnlyTheRunsOfThoseInputsCount()
+    {
+        using var dir = new TempDir();
+        var store = new StateStore(dir.Path);
+        var job = Save(store, JobStatus.Interrupted, DateTime.UtcNow, Doc("d0001", StepStatus.Done), Doc("d0002", StepStatus.Interrupted));
+
+        Assert.Equal(job.JobId, PreviousRunFinder.Find(dir.Path, [@"D:\in"])?.Job.JobId);
+        Assert.Equal(job.JobId, PreviousRunFinder.Find(dir.Path, [@"d:\IN\"])?.Job.JobId); // the same folder, written another way
+        Assert.Null(PreviousRunFinder.Find(dir.Path, [@"D:\other"]));
+        Assert.Null(PreviousRunFinder.Find(dir.Path, [@"D:\in", @"D:\other"]));
+        Assert.Equal(job.JobId, PreviousRunFinder.Find(dir.Path)?.Job.JobId); // without inputs, every run counts
+    }
+
+    // FR-129, FR-130: the newest run that finished without a failure is shown, when it is a run of the inputs.
+    [Fact]
+    public void LatestCompleted_IsTheNewestRunThatFinished_OfTheInputs()
+    {
+        using var dir = new TempDir();
+        var store = new StateStore(dir.Path);
+        var job = Save(store, JobStatus.Completed, DateTime.UtcNow, Doc("d0001", StepStatus.Done));
+
+        Assert.Null(PreviousRunFinder.Find(dir.Path, [@"D:\in"]));
+        Assert.Equal(job.JobId, PreviousRunFinder.LatestCompleted(dir.Path, [@"D:\in"])?.Job.JobId);
+        Assert.Equal(job.JobId, PreviousRunFinder.LatestCompleted(dir.Path)?.Job.JobId);
+        Assert.Null(PreviousRunFinder.LatestCompleted(dir.Path, [@"D:\other"]));
+    }
 }

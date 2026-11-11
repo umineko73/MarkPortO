@@ -125,4 +125,19 @@ public sealed class PreviousOutputs
             OutputRootFolder = RootOf(request.InputFolder),
         };
     }
+
+    /// <summary>
+    /// The request that converts every file again and writes those converted before into their earlier folders (their Markdown and page
+    /// images are replaced); a file that was never converted gets a new folder (FR-129).
+    /// </summary>
+    public ConvertRequest SameFolders(ConvertRequest request) => new()
+    {
+        Inputs = request.Inputs,
+        GivenInputs = request.GivenInputs,
+        InputFolder = request.InputFolder,
+        OutputFolder = request.OutputFolder,
+        Options = request.Options,
+        Previous = For(request.Inputs.Select(i => i.Path)),
+        OutputRootFolder = RootOf(request.InputFolder),
+    };
 }
