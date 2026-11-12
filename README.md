@@ -16,7 +16,7 @@ MarkPortO is a **Windows app that converts Word, Excel, PowerPoint and PDF files
 - Convert headings, tables and lists into Markdown.
 - Compare the result with the original page images in a preview.
 - Convert folders of documents and resume interrupted runs.
-- Optionally read pages with an image-capable AI model (VLM).
+- Optionally read pages with an image-capable model (VLM).
 
 Under development. Results vary with document layout, so check the preview after conversion.
 
@@ -32,12 +32,12 @@ You need **Windows 11** and the **.NET 10 Desktop Runtime**. Office documents al
 
 1. Add files or a folder, or drag them onto the app.
 2. Choose an output folder.
-3. Press **Start**. Turn off Step3 if you do not want to use AI.
+3. Press **Start**. Turn off Step3 if you do not want to use the VLM.
 4. Double-click a completed file to preview the result.
 
 Each document gets a folder containing its Markdown (`.md`) and page images (`images/`). Open them from the file list's right-click menu.
 
-To use AI, set up a VLM connection in **Settings** and turn on Step3. External services receive document images and text, and may charge for usage.
+To use the VLM, set up a VLM connection in **Settings** and turn on Step3. External services receive document images and text, and may charge for usage.
 
 ## Command line
 
@@ -48,7 +48,7 @@ markporto convert D:\docs\report.docx --out D:\out
 markporto convert D:\docs --out D:\out --types docx,xlsx --recurse
 ```
 
-See [Detailed usage](docs/usage.md) for reconversion, AI connections, all CLI options and configuration examples.
+See [Detailed usage](docs/usage.md) for reconversion, VLM connections, all CLI options and configuration examples.
 
 ## Development
 
