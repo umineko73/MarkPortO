@@ -83,7 +83,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(Recurse) or nameof(TypeDocx) or nameof(TypeXlsx) or nameof(TypePptx) or nameof(TypePdf)
-                or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis)
+                or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis) or nameof(ExtractPictures)
                 or nameof(ExtractorDocx) or nameof(ExtractorXlsx) or nameof(ExtractorPptx) or nameof(ExtractorPdf))
             {
                 Raise(nameof(ConditionSummaryText));
@@ -391,6 +391,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             _store.Update(s => s.Input.Emphasis = value);
+            Raise();
+        }
+    }
+
+    /// <summary>Save the pictures of a docx or pptx in pictures/ and refer to them from the Markdown (FR-133).</summary>
+    public bool ExtractPictures
+    {
+        get => _store.Current.Input.ExtractPictures;
+        set
+        {
+            _store.Update(s => s.Input.ExtractPictures = value);
             Raise();
         }
     }

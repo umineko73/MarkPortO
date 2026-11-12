@@ -53,6 +53,34 @@ public class ConvertSingleFileTests
         Assert.Contains("<!-- page: 3 -->\n\n![ページ 3](images/page-003.png)\n\nThird page text", markdown);
     }
 
+    // FR-133: with the option the pictures are saved in pictures/ under the page they are on, and the Markdown refers to them.
+    [LibreOfficeFact]
+    public async Task Docx_WithPictures_SavesThemUnderTheirPage_AndTheMarkdownRefersToThem()
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "pictures.docx");
+        DocxFactory.CreatePaged(source, ["First page text"], ["Second page text"]);
+        using (var document = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(source, isEditable: true))
+        {
+            var main = document.MainDocumentPart!;
+            var red = Ooxml.PictureExtractionTests.AddImage(main, DocumentFormat.OpenXml.Packaging.ImagePartType.Png, Ooxml.PictureExtractionTests.RedPng);
+            var second = main.Document!.Body!.Elements<DocumentFormat.OpenXml.Wordprocessing.Paragraph>().First(p => p.InnerText == "Second page text");
+            second.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.Run(Ooxml.PictureExtractionTests.WordPicture(red, "Company logo")));
+            main.Document.Save();
+        }
+
+        var options = Options();
+        options.ExtractPictures = true;
+        var result = await RunAsync(dir, Request(dir.Combine("out"), options, source));
+
+        var converted = Assert.Single(result.Documents);
+        Assert.True(converted.IsDone());
+        Assert.Equal(Ooxml.PictureExtractionTests.RedPng, File.ReadAllBytes(Path.Combine(converted.OutputFolder, "pictures", "page-002-1.png")));
+        var markdown = File.ReadAllText(Path.Combine(converted.OutputFolder, "pictures.md"));
+        Assert.Contains("Second page text![Company logo](pictures/page-002-1.png)", markdown);
+        Assert.Contains("pictures/page-NNN-K.png", markdown); // the structure note
+    }
+
     [LibreOfficeFact]
     public async Task Pptx_MakesOneImagePerVisibleSlide_AndSkipsHiddenSlides()
     {

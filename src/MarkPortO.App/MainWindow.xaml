@@ -223,7 +223,8 @@
               <TextBlock Text="{DynamicResource Main_Cond_Dpi}" VerticalAlignment="Center" Margin="0,0,6,0" />
               <TextBox x:Name="DpiBox" Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="68" VerticalContentAlignment="Center" Margin="0,0,20,0" />
               <CheckBox Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" />
-              <TextBlock Text="{DynamicResource Main_Cond_EmphasisNote}" Foreground="{DynamicResource SubtleTextBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+              <TextBlock Text="{DynamicResource Main_Cond_EmphasisNote}" Foreground="{DynamicResource SubtleTextBrush}" VerticalAlignment="Center" Margin="8,0,20,0" />
+              <CheckBox Content="{DynamicResource Main_Cond_Pictures}" IsChecked="{Binding ExtractPictures}" ToolTip="{DynamicResource Main_Cond_PicturesTip}" VerticalAlignment="Center" />
             </StackPanel>
           </WrapPanel>
 

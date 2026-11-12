@@ -53,6 +53,17 @@ public class MarkdownHtmlTests
         Assert.Contains("<img src=\"a.png\"", html);
     }
 
+    // FR-133: a picture of the document on a line of its own (a floating picture, a picture of a slide) is shown; only the image of the page is left out.
+    [Fact]
+    public void Render_ShowsAPictureOfTheDocumentOnALineOfItsOwn()
+    {
+        var html = MarkdownHtml.Render("![Page 1](images/page-001.png)\n\nText\n\n![Company logo](pictures/page-001-1.png)\n\n![](pictures/page-001-2.jpg)\n");
+
+        Assert.DoesNotContain("images/page-001.png", html);
+        Assert.Contains("<img src=\"pictures/page-001-1.png\" alt=\"Company logo\"", html);
+        Assert.Contains("<img src=\"pictures/page-001-2.jpg\"", html);
+    }
+
     [Fact]
     public void Render_DoesNotLetTheTextOfADocumentRunOrReachOut()
     {

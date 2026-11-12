@@ -112,4 +112,7 @@
   <data name="The rest of this paragraph is joined to the paragraph on page {0}." xml:space="preserve">
     <value>この段落の続きは、ページ{0}の段落に結合しました。</value>
   </data>
+  <data name="- Pictures of the document (Step1): `![text](pictures/page-NNN-K.png)`. The file of a picture in the document (K counts the pictures of page NNN); the same picture is one file." xml:space="preserve">
+    <value>- 文書の画像（Step1）: `![代替テキスト](pictures/page-NNN-K.png)`。文書に貼られた画像のファイルです（K は NNN ページの中の順番）。同じ画像は1つのファイルです。</value>
+  </data>
 </root>

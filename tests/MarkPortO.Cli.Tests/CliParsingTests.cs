@@ -119,6 +119,15 @@ public class CliParsingTests
     }
 
     [Fact]
+    public void Pictures_IsOffByDefault_AndTheOptionTurnsItOnOrOff()
+    {
+        Assert.False(Resolved(new ConvertArgs(), FromFile()).Input.ExtractPictures);
+        Assert.True(Resolved(new ConvertArgs { Pictures = "on" }, FromFile()).Input.ExtractPictures);
+        Assert.False(Resolved(new ConvertArgs { Pictures = "off" }, FromFile(s => s.Input.ExtractPictures = true)).Input.ExtractPictures);
+        Assert.True(Resolved(new ConvertArgs(), FromFile(s => s.Input.ExtractPictures = true)).Input.ExtractPictures);
+    }
+
+    [Fact]
     public void AnInvalidPdfText_IsReportedWithTheOptionName()
     {
         var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { PdfText = "maybe" }, FromFile());

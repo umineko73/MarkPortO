@@ -91,6 +91,7 @@ public static class CliApp
         var emphasis = new Option<bool>("--emphasis") { Description = "Write text in bold between ** and text in italic between * (the default)." };
         var noEmphasis = new Option<bool>("--no-emphasis") { Description = "Do not mark text in bold or italic." };
         var pdfText = new Option<string?>("--pdf-text") { Description = "on or off: use the text layer of a PDF as the text of its pages (the default is on)." };
+        var pictures = new Option<string?>("--pictures") { Description = "on or off: save the pictures of a Word or PowerPoint file in pictures/ and refer to them from the Markdown (default: the settings file, off)." };
         var engine = new Option<string?>("--engine") { Description = "office or libreoffice." };
         var dpi = new Option<int?>("--dpi") { Description = "Resolution of the page images (72-600)." };
         var excelRange = new Option<string?>("--excel-range") { Description = "How the pages of an Excel sheet are cut: columns (all columns on the width of a page, as far as they stay readable), sheet (the whole sheet on one page) or print-area (follow the print setup of the sheet)." };
@@ -125,7 +126,7 @@ public static class CliApp
         convert.Arguments.Add(inputs);
         foreach (var option in new Option[]
         {
-            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, engine, dpi, excelRange, step2, step3, vlmSeparate,
+            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, pictures, engine, dpi, excelRange, step2, step3, vlmSeparate,
             pages, step1Tables, dropRepeated, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, sameFolder, result, quiet,
         })
         {
@@ -148,6 +149,7 @@ public static class CliApp
                 IncludeOffSlideText = Flag(parse.GetValue(includeOffSlide), parse.GetValue(noIncludeOffSlide)),
                 Emphasis = Flag(parse.GetValue(emphasis), parse.GetValue(noEmphasis)),
                 PdfText = parse.GetValue(pdfText),
+                Pictures = parse.GetValue(pictures),
                 Engine = parse.GetValue(engine),
                 Dpi = parse.GetValue(dpi),
                 ExcelRange = parse.GetValue(excelRange),

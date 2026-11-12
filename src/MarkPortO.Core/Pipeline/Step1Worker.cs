@@ -65,6 +65,9 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
 
         public IReadOnlyList<DocxBlock>? DocxBlocks { get; set; }
 
+        /// <summary>Collects the pictures of a docx or pptx (FR-133); null when they are not saved.</summary>
+        public PictureCollector? Pictures { get; init; }
+
         /// <summary>1-based numbers of the output pages that are deleted pages (a "×" over the page, FR-012).</summary>
         public HashSet<int> DeletedPages { get; } = [];
     }
@@ -104,6 +107,9 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             }
 
             AtomicFile.DeleteStaleTemps(document.OutputFolder);
+
+            // The pictures of an earlier conversion into this folder are removed, also when they are not saved this time (FR-133).
+            PictureFiles.Clear(document.OutputFolder);
             Directory.CreateDirectory(workDirectory);
 
             var layout = document.Kind switch
@@ -116,6 +122,13 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             };
 
             await BuildPagesAsync(document, layout, context.Options.Dpi, cancellationToken).ConfigureAwait(false);
+
+            // The pictures get their names now that the pages of the blocks are known (FR-133).
+            document.ExtractPictures = layout.Pictures is not null;
+            if (layout.Pictures is not null)
+            {
+                DocumentLog.Write(document, [.. layout.Pictures.Skipped, .. PictureFiles.Write(document.OutputFolder, document.Blocks, document.Pages.Count, layout.Pictures)]);
+            }
 
             // The pages (and their images) are made as always, for Step2, Step3 and the preview; the Markdown is the one of the extractor (FR-112).
             if (context.ExtractorFor(document.Kind) is { } extractor)
@@ -201,9 +214,9 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     private static async Task<Layout> LayoutDocxAsync(DocumentWork work, string workDirectory, CancellationToken cancellationToken)
     {
         var document = work.Document;
-        var layout = new Layout();
+        var layout = new Layout { Pictures = NewPictureCollector(work) };
         // Word has the numbers of figures and tables counted again when it prints, so the text is read from a copy in which Word did it.
-        var content = DocxReader.ReadContent(await UpdatedFieldsCopyAsync(work, workDirectory, cancellationToken).ConfigureAwait(false) ?? document.SourcePath, work.Context.Options.Emphasis);
+        var content = DocxReader.ReadContent(await UpdatedFieldsCopyAsync(work, workDirectory, cancellationToken).ConfigureAwait(false) ?? document.SourcePath, work.Context.Options.Emphasis, layout.Pictures);
         var blocks = content.Blocks;
 
         var pdf = Path.Combine(workDirectory, "document.pdf");
@@ -299,8 +312,8 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     {
         var document = work.Document;
         var includeHidden = work.Context.Options.IncludeHiddenSlides;
-        var layout = new Layout();
-        var slides = PptxReader.Read(document.SourcePath, includeHidden, work.Context.Options.IncludeOffSlideText, work.Context.Options.Emphasis);
+        var layout = new Layout { Pictures = NewPictureCollector(work) };
+        var slides = PptxReader.Read(document.SourcePath, includeHidden, work.Context.Options.IncludeOffSlideText, work.Context.Options.Emphasis, layout.Pictures);
         if (slides.Count == 0)
         {
             layout.Warnings.Add(new Warning("EmptyDocument", Loc.T("The presentation has no slides to convert.")));
@@ -429,6 +442,10 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     }
 
     // ---- common ----
+
+    /// <summary>A collector of the pictures when they are saved (FR-133): not when an extractor writes the Markdown (FR-110).</summary>
+    private static PictureCollector? NewPictureCollector(DocumentWork work) =>
+        work.Context.Options.ExtractPictures && work.Context.ExtractorFor(work.Document.Kind) is null ? new PictureCollector() : null;
 
     /// <summary>Records that a page is a deleted page, or warns about a drawing that cannot be judged.</summary>
     private static void MarkDeleted(Layout layout, int page, CrossVerdict verdict, string where, bool warn = true)

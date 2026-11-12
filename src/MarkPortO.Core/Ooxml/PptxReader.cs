@@ -35,12 +35,13 @@ public sealed record SlideContent(int Number, bool Hidden, string Title, string 
 public static class PptxReader
 {
     /// <summary>The size of the slide (EMU), and whether the text of the shapes that are outside of it is written (FR-086).</summary>
-    private sealed record SlideContext(long Width, long Height, bool IncludeOffSlide);
+    private sealed record SlideContext(long Width, long Height, bool IncludeOffSlide, PictureCollector? Pictures);
 
     /// <param name="includeHidden">Include hidden slides (FR-010a).</param>
     /// <param name="includeOffSlideText">Write the text of the shapes that lie outside the slide, as a quote of its own (FR-086); when false they are left out.</param>
     /// <param name="emphasis">Mark text in bold or italic (FR-101); a paragraph all in bold (italic), and a title, is not marked.</param>
-    public static IReadOnlyList<SlideContent> Read(string path, bool includeHidden, bool includeOffSlideText = true, bool emphasis = false)
+    /// <param name="pictures">Collects the pictures, which are then written with the mark of their file (FR-133); null: a picture is written by its alternative text only.</param>
+    public static IReadOnlyList<SlideContent> Read(string path, bool includeHidden, bool includeOffSlideText = true, bool emphasis = false, PictureCollector? pictures = null)
     {
         OoxmlPackage.EnsureOpens(path, DocumentKind.Pptx);
         _marking = emphasis;
@@ -51,7 +52,7 @@ public static class PptxReader
             var slideIds = presentationPart.Presentation?.SlideIdList?.Elements<SlideId>().ToList() ?? [];
 
             var size = presentationPart.Presentation?.SlideSize;
-            var context = new SlideContext(size?.Cx?.Value ?? 9144000, size?.Cy?.Value ?? 6858000, includeOffSlideText);
+            var context = new SlideContext(size?.Cx?.Value ?? 9144000, size?.Cy?.Value ?? 6858000, includeOffSlideText, pictures);
             var result = new List<SlideContent>();
             for (var i = 0; i < slideIds.Count; i++)
             {
@@ -178,16 +179,28 @@ public static class PptxReader
                         break;
                     }
 
-                    // A picture is written by its alternative text, without the image file (FR-072).
-                    if (picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Description?.Value?.Trim() is { Length: > 0 } description)
+                    // A picture is written by its alternative text (FR-072), and with the mark of its file when the pictures are saved (FR-133).
+                    // A video or a sound is not a picture: the picture of it is only its cover.
+                    var drawingProperties = picture.NonVisualPictureProperties?.NonVisualDrawingProperties;
+                    string? mark = null;
+                    if (context.Pictures is not null && !IsMedia(picture))
                     {
-                        body.Add("![" + description.Replace("]", "\\]", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal) + "]");
+                        mark = context.Pictures.Add(part, picture.BlipFill?.Blip?.Embed?.Value, drawingProperties?.Name?.Value);
+                    }
+
+                    if (PictureCollector.Markdown(drawingProperties?.Description?.Value, mark) is { Length: > 0 } pictureMarkdown)
+                    {
+                        body.Add(pictureMarkdown);
                     }
 
                     break;
             }
         }
     }
+
+    private static bool IsMedia(Picture picture) =>
+        picture.NonVisualPictureProperties?.ApplicationNonVisualDrawingProperties?.Descendants<OpenXmlElement>()
+            .Any(e => e.LocalName is "videoFile" or "audioFile" or "quickTimeFile" or "media") == true;
 
     // A shape that lies wholly outside the slide: a memo on the pasteboard. A shape that is partly on the slide is seen on it, so it is not one.
     private static bool IsOffSlide(A.Offset? offset, A.Extents? extents, SlideContext context)

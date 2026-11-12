@@ -50,7 +50,7 @@ public static class MarkdownRenderer
         var builder = new StringBuilder();
         builder.Append("# ").Append(MarkdownText.Escape(fileName).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
         AppendStructureNote(builder, fileName, document.Kind, includeImages, includeVlm, document.Pages.Any(p => p.Bands > 1),
-            document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), language,
+            document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), document.ExtractPictures && !vlmFile, language,
             vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmInSeparateFile ? VlmFileName(name) : null);
 
         if (document.Converter is not null)
@@ -100,7 +100,14 @@ public static class MarkdownRenderer
         return "images/page-" + pageIndex.ToString("D" + digits, CultureInfo.InvariantCulture) + ".png";
     }
 
-    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, bool hasBands, bool hasMergedCells, bool hasJoinedTables, string language, string? mainFile, string? vlmFile)
+    /// <summary>The name of the file of a picture of the document (FR-133): <c>pictures/page-003-1.png</c>, the first picture on page 3.</summary>
+    public static string PictureFileName(int pageIndex, int pageCount, int number, string extension)
+    {
+        var digits = Math.Max(MinimumImageDigits, pageCount.ToString(CultureInfo.InvariantCulture).Length);
+        return "pictures/page-" + pageIndex.ToString("D" + digits, CultureInfo.InvariantCulture) + "-" + number.ToString(CultureInfo.InvariantCulture) + extension;
+    }
+
+    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, bool hasBands, bool hasMergedCells, bool hasJoinedTables, bool hasPictures, string language, string? mainFile, string? vlmFile)
     {
         void Line(string text) => builder.Append("> ").Append(text).Append('\n');
 
@@ -116,6 +123,11 @@ public static class MarkdownRenderer
             : vlmFile is not null
                 ? Loc.M("- VLM results (Step3): not included in this Markdown. They are in `{0}`.", language, vlmFile)
                 : Loc.M("- VLM results (Step3): not included in this Markdown.", language));
+        if (hasPictures)
+        {
+            Line(Loc.M("- Pictures of the document (Step1): `![text](pictures/page-NNN-K.png)`. The file of a picture in the document (K counts the pictures of page NNN); the same picture is one file.", language));
+        }
+
         if (mainFile is not null)
         {
             Line(Loc.M("- The text of the document is in `{0}`. This file has only the results of Step3.", language, mainFile));

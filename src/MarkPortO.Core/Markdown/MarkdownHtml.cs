@@ -46,7 +46,8 @@ public static partial class MarkdownHtml
     [GeneratedRegex("<!--.*?-->", RegexOptions.Singleline)]
     private static partial Regex Comment();
 
-    [GeneratedRegex(@"^[ 	]*!\[[^\]]*\]\([^)]*\)[ 	]*$", RegexOptions.Multiline)]
+    // A line that is only the image of the page (images/page-001.png). A picture of the document (pictures/, FR-133) on a line of its own stays.
+    [GeneratedRegex(@"^[ 	]*!\[[^\]]*\]\(images/[^)]*\)[ 	]*$", RegexOptions.Multiline)]
     private static partial Regex ImageLine();
 
     /// <summary>
@@ -88,8 +89,8 @@ public static partial class MarkdownHtml
     }
 
     /// <summary>
-    /// The page of HTML. The comments of the Markdown (page, sheet, VLM marks) are not shown. A line that is only a picture is left
-    /// out unless <paramref name="showImages"/> is set: the preview shows the image of the page above the text.
+    /// The page of HTML. The comments of the Markdown (page, sheet, VLM marks) are not shown. A line that is only the image of the page is left
+    /// out unless <paramref name="showImages"/> is set: the preview shows the image of the page beside the text.
     /// </summary>
     public static string Render(string markdown, bool showImages = false)
     {

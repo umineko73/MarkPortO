@@ -158,6 +158,9 @@ public sealed class DocumentRecord
     /// <summary>The tables that the VLM wrote again on a page are left out of the Markdown (FR-124).</summary>
     public bool DropRepeatedTables { get; set; }
 
+    /// <summary>The pictures of the document were saved in <c>pictures/</c> (FR-133): the note at the top of the Markdown says so.</summary>
+    public bool ExtractPictures { get; set; }
+
     /// <summary>The name of the extractor that wrote the Markdown of the document (FR-112); <c>null</c> for the built-in one.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Extractor { get; set; }
@@ -238,6 +241,9 @@ public sealed class OptionsSnapshot
 
     /// <summary>Use the text layer of a PDF as the text of its pages (FR-076). A job from before this setting did not read PDF files.</summary>
     public bool UsePdfText { get; set; } = true;
+
+    /// <summary>Save the pictures of a docx or pptx in <c>pictures/</c> (FR-133). A job from before this setting did not.</summary>
+    public bool ExtractPictures { get; set; }
 
     public EngineKind Engine { get; set; }
 

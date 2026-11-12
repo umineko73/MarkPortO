@@ -80,7 +80,8 @@ public static partial class DocxReader
     /// The blocks of the body, and the shapes drawn in it (for the deleted-page check, FR-012). With <paramref name="emphasis"/>, text in bold or italic
     /// is marked (FR-101).
     /// </summary>
-    public static DocxContent ReadContent(string path, bool emphasis = false)
+    /// <param name="pictures">Collects the pictures, which are then written with the mark of their file (FR-133); null: a picture is written by its alternative text only.</param>
+    public static DocxContent ReadContent(string path, bool emphasis = false, PictureCollector? pictures = null)
     {
         OoxmlPackage.EnsureOpens(path, DocumentKind.Docx);
         try
@@ -89,7 +90,7 @@ public static partial class DocxReader
             var main = document.MainDocumentPart ?? throw new InvalidDocumentException(Loc.T("The document has no main part."));
             var body = main.Document?.Body ?? throw new InvalidDocumentException(Loc.T("The document has no body."));
 
-            var context = new Context(main, emphasis);
+            var context = new Context(main, emphasis) { Pictures = pictures };
             var blocks = new List<DocxBlock>();
             var shapes = new List<DocxShapes>();
             var (pageWidth, pageHeight) = PageSizeEmu(body);
@@ -206,6 +207,79 @@ public static partial class DocxReader
 
         /// <summary>The pictures that float (are anchored, not in the line) in the paragraph being read: written after it, as lines of their own.</summary>
         public List<string> PendingPictures { get; } = [];
+
+        /// <summary>Collects the pictures (FR-133); null when only their alternative text is written.</summary>
+        public PictureCollector? Pictures { get; init; }
+
+        /// <summary>How deep the text being read is in table cells: a floating picture of a cell stays in the cell.</summary>
+        public int CellDepth { get; set; }
+
+        /// <summary>
+        /// The pictures of a drawing, as Markdown. Without <see cref="Pictures"/>, the alternative text of the drawing when it has a picture (FR-071).
+        /// With it, each picture (<c>pic:pic</c>) with the mark of its file, or with its alternative text when its file is not saved (FR-133).
+        /// </summary>
+        public IEnumerable<string> PicturesOf(Drawing drawing)
+        {
+            var properties = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties>().FirstOrDefault();
+            var description = properties?.Description?.Value?.Trim();
+            var pictures = Pictures is null
+                ? []
+                : drawing.Descendants<OpenXmlElement>().Where(e => e.LocalName == "pic" && e.NamespaceUri.EndsWith("drawingml/2006/picture", StringComparison.Ordinal)).ToList();
+            if (pictures.Count == 0)
+            {
+                if (!string.IsNullOrEmpty(description) && drawing.Descendants<OpenXmlElement>().Any(e => e.LocalName == "blip"))
+                {
+                    yield return PictureCollector.Markdown(description, null);
+                }
+
+                yield break;
+            }
+
+            var owner = OwnerOf(drawing);
+            foreach (var picture in pictures)
+            {
+                // A picture of a group has its own name and text; a picture alone has those of the drawing.
+                var own = picture.Descendants<OpenXmlElement>().FirstOrDefault(e => e.LocalName == "cNvPr");
+                var ownDescription = own?.GetAttributes().FirstOrDefault(a => a.LocalName == "descr").Value;
+                var ownName = own?.GetAttributes().FirstOrDefault(a => a.LocalName == "name").Value;
+                var text = !string.IsNullOrWhiteSpace(ownDescription) ? ownDescription : pictures.Count == 1 ? description : null;
+                var blip = picture.Descendants<OpenXmlElement>().FirstOrDefault(e => e.LocalName == "blip");
+                var mark = blip is null ? null : Pictures!.Add(owner, RelationshipOf(blip, "embed"), pictures.Count == 1 ? properties?.Name?.Value ?? ownName : ownName);
+                if (PictureCollector.Markdown(text, mark) is { Length: > 0 } markdown)
+                {
+                    yield return markdown;
+                }
+            }
+        }
+
+        /// <summary>The pictures of an old (VML) picture, with the mark of their file (FR-133); nothing without <see cref="Pictures"/>.</summary>
+        public IEnumerable<(string Markdown, bool Floating)> VmlPicturesOf(DocumentFormat.OpenXml.Wordprocessing.Picture picture)
+        {
+            if (Pictures is null)
+            {
+                yield break;
+            }
+
+            var owner = OwnerOf(picture);
+            foreach (var data in picture.Descendants<OpenXmlElement>().Where(e => e.LocalName == "imagedata" && !e.Ancestors<TextBoxContent>().Any()).ToList())
+            {
+                var shape = data.Parent;
+                string? Attribute(OpenXmlElement? element, string name) => element?.GetAttributes().FirstOrDefault(a => a.LocalName == name && a.NamespaceUri.Length == 0).Value;
+                var floating = Attribute(shape, "style")?.Contains("position:absolute", StringComparison.OrdinalIgnoreCase) == true;
+                var mark = Pictures.Add(owner, RelationshipOf(data, "id"), Attribute(shape, "id"));
+                if (PictureCollector.Markdown(Attribute(shape, "alt"), mark) is { Length: > 0 } markdown)
+                {
+                    yield return (markdown, floating);
+                }
+            }
+        }
+
+        // The part whose relationships a picture names: the notes and the comments have their own.
+        private OpenXmlPart OwnerOf(OpenXmlElement element) =>
+            element.Ancestors<Footnotes>().Any() && main.FootnotesPart is { } footnotes ? footnotes
+            : element.Ancestors<Endnotes>().Any() && main.EndnotesPart is { } endnotes ? endnotes
+            : element.Ancestors<Comments>().Any() && main.WordprocessingCommentsPart is { } comments ? comments
+            : main;
 
         /// <summary>The address of an outside link of the body, or null (a link inside the document has no address to write).</summary>
         public string? LinkTarget(string relationshipId)
@@ -556,6 +630,19 @@ public static partial class DocxReader
     // The plain text of its paragraphs (with the numbers that Word gives them) is added to plainLines, to find the page of the row.
     private static string CellText(TableCell cell, Context context, List<string>? plainLines = null)
     {
+        context.CellDepth++;
+        try
+        {
+            return CellTextInside(cell, context, plainLines);
+        }
+        finally
+        {
+            context.CellDepth--;
+        }
+    }
+
+    private static string CellTextInside(TableCell cell, Context context, List<string>? plainLines)
+    {
         var parts = new List<string>();
         foreach (var child in Flatten(cell.ChildElements))
         {
@@ -695,14 +782,28 @@ public static partial class DocxReader
                     markdown.CommentReference(reference.Id?.Value);
                     break;
                 case Drawing drawing when markdown is not null:
-                    // A picture is written by its alternative text, without the image file (FR-071).
-                    var description = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties>().FirstOrDefault()?.Description?.Value?.Trim();
-                    if (!string.IsNullOrEmpty(description) && drawing.Descendants<OpenXmlElement>().Any(e => e.LocalName == "blip"))
+                    // A picture is written by its alternative text (FR-071), and with the mark of its file when the pictures are saved (FR-133).
+                    // A picture in the line is written in the line; a floating one is not part of the sentence (or the heading) that it is anchored in,
+                    // except in a table cell, where it stays in the cell.
+                    var anchored = drawing.ChildElements.Any(e => e.LocalName == "anchor") && markdown.CellDepth == 0;
+                    foreach (var picture in markdown.PicturesOf(drawing))
                     {
-                        var picture = "![" + description.Replace("]", "\\]", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal) + "]";
+                        if (anchored)
+                        {
+                            markdown.PendingPictures.Add(picture);
+                        }
+                        else
+                        {
+                            builder.Append(picture);
+                        }
+                    }
 
-                        // A picture in the line is written in the line; a floating one is not part of the sentence (or the heading) that it is anchored in.
-                        if (drawing.ChildElements.Any(e => e.LocalName == "anchor"))
+                    Append(child, builder, markdown);
+                    break;
+                case DocumentFormat.OpenXml.Wordprocessing.Picture vml when markdown?.Pictures is not null:
+                    foreach (var (picture, floating) in markdown.VmlPicturesOf(vml))
+                    {
+                        if (floating && markdown.CellDepth == 0)
                         {
                             markdown.PendingPictures.Add(picture);
                         }

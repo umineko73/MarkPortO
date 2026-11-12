@@ -79,6 +79,7 @@ public sealed class ConvertRequest
         IncludeOffSlideText = settings.Input.IncludeOffSlideText,
         Emphasis = settings.Input.Emphasis,
         UsePdfText = settings.Input.UsePdfText,
+        ExtractPictures = settings.Input.ExtractPictures,
         Engine = settings.Engine.Kind,
         Step2 = settings.Steps.Step2,
         Step3 = settings.Steps.Step3,

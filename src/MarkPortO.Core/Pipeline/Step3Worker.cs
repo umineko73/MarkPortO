@@ -304,7 +304,8 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             "\n\n",
             document.Blocks
                 .Where((block, i) => effective[i] == page.Index && block.Markdown.Length > 0)
-                .Select(block => MarkdownText.ResolveMarks(block.Markdown)));
+                .Select(block => MarkdownText.ResolveMarks(PictureFiles.WithoutFiles(block.Markdown))) // the files of the pictures are not sent (FR-133)
+                .Where(text => text.Trim().Length > 0));
         var limit = PromptSupplement.MaxPageTextCharacters;
         if (text.Length <= limit)
         {

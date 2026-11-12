@@ -21,7 +21,7 @@ namespace MarkPortO.Core.Settings;
 /// <summary>
 /// The conditions of the folded part of the main window (the kinds of file with the extractor that is chosen for each, and the sub-folders) in one line (FR-102).
 /// It is shown when the part is closed, so that the choices can be seen without opening it. The steps, the connection and the page range are
-/// not in it: they are always on the screen, and so are the engine, the DPI and bold and italic (they are in the row of Step1).
+/// not in it: they are always on the screen, and so are the engine, the DPI, bold and italic, and the pictures (they are in the row of Step1).
 /// </summary>
 public static class ConditionSummary
 {
