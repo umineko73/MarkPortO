@@ -81,6 +81,41 @@ public class ConvertSingleFileTests
         Assert.Contains("pictures/page-NNN-K.png", markdown); // the structure note
     }
 
+    // FR-134, FR-135: a picture of a sheet is saved under the page of its row; an EMF becomes a PNG.
+    [LibreOfficeFact]
+    public async Task Xlsx_WithPictures_SavesThePicturesOfTheSheet_AndAnEmfAsAPng()
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "book.xlsx");
+        XlsxFactory.Create(source, new SheetSpec("Data", [["Name", "Qty"], ["Apple", "3"], ["Pear", "5"]]));
+        using (var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(source, isEditable: true))
+        {
+            var sheetPart = document.WorkbookPart!.WorksheetParts.First();
+            var drawings = sheetPart.AddNewPart<DocumentFormat.OpenXml.Packaging.DrawingsPart>();
+            var emf = Ooxml.PictureExtractionTests.AddImage(drawings, DocumentFormat.OpenXml.Packaging.ImagePartType.Emf, Ooxml.PictureExtractionTests.RedHalfEmf());
+            drawings.WorksheetDrawing = new DocumentFormat.OpenXml.Drawing.Spreadsheet.WorksheetDrawing(
+                "<xdr:wsDr xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" "
+                + "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+                + $"<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>4</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx=\"1828800\" cy=\"914400\"/>"
+                + $"<xdr:pic><xdr:nvPicPr><xdr:cNvPr id=\"2\" name=\"Picture 1\" descr=\"Flow\"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed=\"{emf}\"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>"
+                + "<xdr:spPr><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>");
+            drawings.WorksheetDrawing.Save();
+            sheetPart.Worksheet!.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Drawing { Id = sheetPart.GetIdOfPart(drawings) });
+            sheetPart.Worksheet.Save();
+        }
+
+        var options = Options();
+        options.ExtractPictures = true;
+        var result = await RunAsync(dir, Request(dir.Combine("out"), options, source));
+
+        var converted = Assert.Single(result.Documents);
+        Assert.True(converted.IsDone());
+        Assert.True(File.Exists(Path.Combine(converted.OutputFolder, "pictures", "page-001-1.png")));
+        var markdown = File.ReadAllText(Path.Combine(converted.OutputFolder, "book.md"));
+        Assert.Matches(@"\| Pear \| 5 \|\n\n!\[Flow\]\(pictures/page-001-1\.png\)", markdown);
+        Assert.Contains("turned into a PNG from image/x-emf", File.ReadAllText(Path.Combine(converted.OutputFolder, "book.log")));
+    }
+
     [LibreOfficeFact]
     public async Task Pptx_MakesOneImagePerVisibleSlide_AndSkipsHiddenSlides()
     {

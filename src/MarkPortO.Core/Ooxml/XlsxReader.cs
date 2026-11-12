@@ -19,6 +19,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Markdown;
 
@@ -76,6 +77,12 @@ public sealed record SheetTable(string Name, int FirstRow, int LastRow, int Firs
 /// <summary>A comment (note) of a cell (0-based in <see cref="SheetContent.Rows"/>).</summary>
 public sealed record SheetNote(int Row, int Column, string Text);
 
+/// <summary>
+/// A picture of the sheet (FR-135): the cell that its top-left corner is fixed to (0-based in <see cref="SheetContent.Rows"/>; the row can be outside
+/// the used range, the column is kept inside it), and its Markdown.
+/// </summary>
+public sealed record SheetPicture(int Row, int Column, string Markdown);
+
 /// <summary>The contents of one worksheet, limited to its used range.</summary>
 public sealed class SheetContent
 {
@@ -106,6 +113,9 @@ public sealed class SheetContent
 
     /// <summary>The comments of the cells (FR-070): written after the tables.</summary>
     public IReadOnlyList<SheetNote> Notes { get; init; } = [];
+
+    /// <summary>The pictures of the sheet, when they are saved (FR-135): each before the first piece that starts below its row.</summary>
+    public IReadOnlyList<SheetPicture> Pictures { get; init; } = [];
 
     /// <summary>The rows (0-based in <see cref="Rows"/>) that are hidden: they are not in the image, so they are not in the Markdown either (FR-070).</summary>
     public IReadOnlySet<int> HiddenRows { get; init; } = new HashSet<int>();
@@ -156,6 +166,9 @@ public sealed class SheetContent
     {
         var parts = new List<SheetPart>();
 
+        // The row where each piece starts, for the places of the pictures (FR-135); int.MinValue for the later pieces of a table, which no picture comes before.
+        var starts = new List<int>();
+
         // One table of the sheet, as one piece for each page that its rows are on.
         void AddTable(int firstRow, int lastRow, int from, int to, bool hasHeader, bool skipEmptyRows, string? heading)
         {
@@ -188,6 +201,7 @@ public sealed class SheetContent
                 }
 
                 parts.Add(new SheetPart(page, !started && heading is not null ? heading + "\n\n" + markdown : markdown, IsTable: true, headPage));
+                starts.Add(started ? int.MinValue : first);
                 started = true;
             }
         }
@@ -207,6 +221,7 @@ public sealed class SheetContent
             }
 
             parts.Add(new SheetPart(page, MarkdownText.Escape(text).Replace("\r", string.Empty, StringComparison.Ordinal).Trim(), IsTable: false, page));
+            starts.Add(row);
         }
 
         // The notes beside a bordered table (FR-131): lines of text, not indented by how far right of the other lines they are.
@@ -276,6 +291,7 @@ public sealed class SheetContent
         }
 
         IndentParagraphs(parts, paragraphs);
+        PlacePictures(parts, starts, fromIndex, toIndex, rowPages);
 
         var notes = Notes
             .Where(n => n.Column >= fromIndex && n.Column <= toIndex && !HiddenRows.Contains(n.Row) && !HiddenColumns.Contains(n.Column))
@@ -292,6 +308,46 @@ public sealed class SheetContent
         }
 
         return parts;
+    }
+
+    /// <summary>
+    /// Puts the pictures of the columns of this part of the sheet (FR-135) among the pieces: each before the first piece that starts below its row,
+    /// or after the last one. A picture is on the page where its row is printed.
+    /// </summary>
+    private void PlacePictures(List<SheetPart> parts, List<int> starts, int fromIndex, int toIndex, IReadOnlyList<int>? rowPages)
+    {
+        var pictures = Pictures.Where(p => p.Column >= fromIndex && p.Column <= toIndex).ToList();
+        if (pictures.Count == 0)
+        {
+            return;
+        }
+
+        SheetPart PieceOf(SheetPicture picture)
+        {
+            var row = Math.Clamp(picture.Row, 0, Math.Max(0, Rows.Length - 1));
+            var page = rowPages is not null && row < rowPages.Count ? rowPages[row] : 0;
+            return new SheetPart(page, picture.Markdown, IsTable: false, page);
+        }
+
+        var placed = new List<SheetPart>(parts.Count + pictures.Count);
+        var next = 0;
+        for (var i = 0; i < parts.Count; i++)
+        {
+            while (next < pictures.Count && starts[i] > pictures[next].Row)
+            {
+                placed.Add(PieceOf(pictures[next++]));
+            }
+
+            placed.Add(parts[i]);
+        }
+
+        while (next < pictures.Count)
+        {
+            placed.Add(PieceOf(pictures[next++]));
+        }
+
+        parts.Clear();
+        parts.AddRange(placed);
     }
 
     /// <summary>
@@ -899,7 +955,8 @@ public static partial class XlsxReader
     private static bool _marking;
 
     /// <param name="emphasis">Mark the parts of a text in bold or italic (FR-101); a cell all in bold (italic) is not marked.</param>
-    public static IReadOnlyList<SheetContent> Read(string path, bool includeHidden, bool emphasis = false)
+    /// <param name="pictures">Collects the pictures, which are then written with the mark of their file (FR-135); null: the pictures are not written.</param>
+    public static IReadOnlyList<SheetContent> Read(string path, bool includeHidden, bool emphasis = false, PictureCollector? pictures = null)
     {
         _marking = emphasis;
         OoxmlPackage.EnsureOpens(path, DocumentKind.Xlsx);
@@ -931,7 +988,7 @@ public static partial class XlsxReader
                     continue; // a chart sheet
                 }
 
-                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles, borderedStyles, indentedStyles, filledStyles, boldStyles));
+                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles, borderedStyles, indentedStyles, filledStyles, boldStyles, pictures));
             }
 
             return result;
@@ -967,7 +1024,8 @@ public static partial class XlsxReader
         IReadOnlySet<uint> borderedStyles,
         IReadOnlyDictionary<uint, int> indentedStyles,
         IReadOnlySet<uint> filledStyles,
-        IReadOnlySet<uint> boldStyles)
+        IReadOnlySet<uint> boldStyles,
+        PictureCollector? pictures)
     {
         var worksheet = part.Worksheet ?? throw new InvalidDocumentException(Loc.T("The sheet '{0}' has no content.", name));
         var cells = new Dictionary<(int Row, int Column), string>();
@@ -1136,12 +1194,51 @@ public static partial class XlsxReader
             Indents = indents.ToDictionary(i => (i.Key.Row - minRow, i.Key.Column - minColumn), i => i.Value),
             Tables = ReadTables(part, minRow, maxRow, minColumn, maxColumn),
             Notes = ReadNotes(part, minRow, maxRow, minColumn, maxColumn),
+            Pictures = pictures is null ? [] : ReadPictures(part, minRow, maxRow, minColumn, maxColumn, pictures),
             Charts = [.. (part.DrawingsPart?.ChartParts ?? []).Select(ChartReader.Read).OfType<ChartInfo>()],
             HiddenRows = HiddenRowSet(worksheet, minRow, maxRow),
             HiddenColumns = HiddenColumnSet(worksheet, minColumn, maxColumn),
             HasHeaderRow = hasHeaderRow,
             ColumnWidthsPoints = ColumnWidths(worksheet, minColumn, maxColumn),
         };
+    }
+
+    /// <summary>
+    /// The pictures of the drawing of a sheet (FR-135), in the order of their cells: a picture of a group too, not the picture of a chart or the
+    /// fill of a shape. The cell is the one that the top-left corner is fixed to (the top-left cell for an absolute place), kept inside the used range.
+    /// </summary>
+    private static List<SheetPicture> ReadPictures(WorksheetPart part, int minRow, int maxRow, int minColumn, int maxColumn, PictureCollector pictures)
+    {
+        var result = new List<SheetPicture>();
+        if (part.DrawingsPart is not { WorksheetDrawing: { } drawing } drawingsPart)
+        {
+            return result;
+        }
+
+        foreach (var anchor in drawing.ChildElements)
+        {
+            var from = anchor switch
+            {
+                Xdr.TwoCellAnchor two => two.FromMarker,
+                Xdr.OneCellAnchor one => one.FromMarker,
+                _ => null,
+            };
+            // The marker counts from 0; the rows and columns of the sheet from 1.
+            var row = (int.TryParse(from?.RowId?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r) ? r : 0) + 1;
+            var column = (int.TryParse(from?.ColumnId?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c) ? c : 0) + 1;
+            foreach (var picture in anchor.Descendants<Xdr.Picture>())
+            {
+                var properties = picture.NonVisualPictureProperties?.NonVisualDrawingProperties;
+                var mark = pictures.Add(drawingsPart, picture.BlipFill?.Blip?.Embed?.Value, properties?.Name?.Value);
+                if (PictureCollector.Markdown(properties?.Description?.Value, mark) is { Length: > 0 } markdown)
+                {
+                    // The row is kept as it is (a picture above the used range comes first); the column is that of a part of the sheet.
+                    result.Add(new SheetPicture(row - minRow, Math.Clamp(column, minColumn, maxColumn) - minColumn, markdown));
+                }
+            }
+        }
+
+        return [.. result.Select((p, i) => (p, i)).OrderBy(x => x.p.Row).ThenBy(x => x.p.Column).ThenBy(x => x.i).Select(x => x.p)];
     }
 
     private static double[] ColumnWidths(Worksheet worksheet, int firstColumn, int lastColumn)

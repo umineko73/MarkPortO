@@ -63,6 +63,7 @@ public class PictureExtractionTests
         {
             MainDocumentPart main => main.AddImagePart(type),
             SlidePart slide => slide.AddImagePart(type),
+            DrawingsPart drawings => drawings.AddImagePart(type),
             _ => throw new ArgumentException("no images", nameof(owner)),
         };
         using (var stream = new MemoryStream(data))
@@ -215,6 +216,132 @@ public class PictureExtractionTests
         Assert.Equal("pictures/page-003-1.png", MarkdownRenderer.PictureFileName(3, 12, 1, ".png"));
         Assert.Equal("pictures/page-0012-10.jpg", MarkdownRenderer.PictureFileName(12, 1200, 10, ".jpg"));
     }
+
+    /// <summary>An EMF of 2 x 1 inches: its left half is red, its right half is not drawn (white in the PNG).</summary>
+    public static byte[] RedHalfEmf()
+    {
+        using var stream = new MemoryStream();
+        using (var reference = new System.Drawing.Bitmap(1, 1))
+        using (var referenceGraphics = System.Drawing.Graphics.FromImage(reference))
+        {
+            var hdc = referenceGraphics.GetHdc();
+            try
+            {
+                // 2 x 1 inches, in hundredths of a millimetre.
+                using var metafile = new System.Drawing.Imaging.Metafile(stream, hdc, new System.Drawing.RectangleF(0, 0, 5080, 2540), System.Drawing.Imaging.MetafileFrameUnit.GdiCompatible, System.Drawing.Imaging.EmfType.EmfOnly);
+                using var graphics = System.Drawing.Graphics.FromImage(metafile);
+                graphics.PageUnit = System.Drawing.GraphicsUnit.Millimeter;
+                graphics.FillRectangle(System.Drawing.Brushes.Red, 0, 0, 25.4f, 25.4f);
+            }
+            finally
+            {
+                referenceGraphics.ReleaseHdc(hdc);
+            }
+        }
+
+        return stream.ToArray();
+    }
+
+    // FR-134: an EMF is drawn at the DPI on white; a BMP is written again as a PNG.
+    [Fact]
+    public void AnEmf_IsDrawnIntoAPng_AtTheDpi_OnWhite()
+    {
+        var png = PictureConverter.ToPng(RedHalfEmf(), "image/x-emf", 100);
+
+        using var image = new System.Drawing.Bitmap(new MemoryStream(png));
+        Assert.InRange(image.Width, 190, 210); // 2 inches at 100 dpi
+        Assert.InRange(image.Height, 90, 110);
+        var left = image.GetPixel(image.Width / 4, image.Height / 2);
+        var right = image.GetPixel(image.Width * 3 / 4, image.Height / 2);
+        Assert.True(left.R > 200 && left.G < 60 && left.B < 60, $"left is {left}");
+        Assert.True(right.R > 240 && right.G > 240 && right.B > 240, $"right is {right}");
+    }
+
+    [Fact]
+    public void ABmp_IsWrittenAgainAsAPng_AndABrokenMetafileThrows()
+    {
+        using var bitmap = new System.Drawing.Bitmap(3, 2);
+        using var bmp = new MemoryStream();
+        bitmap.Save(bmp, System.Drawing.Imaging.ImageFormat.Bmp);
+
+        var png = PictureConverter.ToPng(bmp.ToArray(), "image/bmp", 150);
+
+        Assert.Equal(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, png[..4]);
+        Assert.ThrowsAny<Exception>(() => PictureConverter.ToPng(SomeEmf, "image/x-emf", 150));
+        Assert.False(PictureConverter.CanConvert("image/vnd.ms-photo"));
+    }
+
+    [Fact]
+    public void Docx_AnEmfIsSavedAsAPng_AndTheLogSaysSo()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("emf.docx");
+        using (var document = WordprocessingDocument.Create(path, DocumentFormat.OpenXml.WordprocessingDocumentType.Document))
+        {
+            var main = document.AddMainDocumentPart();
+            main.Document = new W.Document(new W.Body());
+            var emf = AddImage(main, ImagePartType.Emf, RedHalfEmf());
+            main.Document.Body!.Append(Paragraph("Figure ", WordPicture(emf, "Flow")));
+            main.Document.Save();
+        }
+
+        var collector = new PictureCollector(100);
+        var blocks = DocxReader.ReadContent(path, pictures: collector).Blocks.Select(b => b.Block).ToList();
+        blocks.ForEach(b => b.PageIndex = 1);
+        var log = PictureFiles.Write(dir.Path, blocks, 1, collector);
+
+        Assert.Equal("Figure ![Flow](pictures/page-001-1.png)", blocks[0].Markdown);
+        Assert.Empty(collector.Skipped);
+        Assert.Contains("turned into a PNG from image/x-emf", Assert.Single(log), StringComparison.Ordinal);
+        using var image = new System.Drawing.Bitmap(dir.Combine("pictures", "page-001-1.png"));
+        Assert.InRange(image.Width, 190, 210);
+    }
+
+    // FR-135: a picture of a sheet comes before the first piece that starts below its row; a column outside the used range is that of its nearest part.
+    [Fact]
+    public void Xlsx_APictureComesBeforeTheFirstPieceBelowItsRow()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("pictures.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data",
+        [
+            ["Name", "Qty", "Unit"], ["Apple", "3", "box"], ["Pear", "5", "box"], ["Plum", "7", "bag"], ["Fig", "9", "bag"],
+            [], [], ["Note: the numbers are boxes."],
+        ]));
+        using (var document = SpreadsheetDocument.Open(path, isEditable: true))
+        {
+            var sheetPart = document.WorkbookPart!.WorksheetParts.First();
+            var drawings = sheetPart.DrawingsPart ?? sheetPart.AddNewPart<DrawingsPart>();
+            var red = AddImage(drawings, ImagePartType.Png, RedPng);
+            var blue = AddImage(drawings, ImagePartType.Png, BluePng);
+            drawings.WorksheetDrawing = new DocumentFormat.OpenXml.Drawing.Spreadsheet.WorksheetDrawing(
+                "<xdr:wsDr xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" "
+                + "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+                + SheetAnchor(column: 0, row: 9, id: 3, blue, null) // A10: below the note
+                + SheetAnchor(column: 4, row: 1, id: 2, red, "Logo") // E2: beside the table, outside the used range
+                + "</xdr:wsDr>");
+            drawings.WorksheetDrawing.Save();
+        }
+
+        var collector = new PictureCollector();
+        var sheet = Assert.Single(XlsxReader.Read(path, includeHidden: false, pictures: collector));
+        var parts = sheet.ToMarkdownParts(0, sheet.ColumnCount - 1, null).Select(p => p.Markdown).ToList();
+
+        Assert.Equal(4, parts.Count);
+        Assert.StartsWith("|", parts[0], StringComparison.Ordinal);
+        Assert.StartsWith("![Logo](" + PictureCollector.MarkStart, parts[1], StringComparison.Ordinal);
+        Assert.Equal("Note: the numbers are boxes.", parts[2]);
+        Assert.StartsWith("![](" + PictureCollector.MarkStart, parts[3], StringComparison.Ordinal);
+
+        // Without the collector, the sheet is as before.
+        Assert.Equal(2, Assert.Single(XlsxReader.Read(path, includeHidden: false)).ToMarkdownParts(0, sheet.ColumnCount - 1, null).Count);
+    }
+
+    private static string SheetAnchor(int column, int row, int id, string relationshipId, string? description) =>
+        $"<xdr:oneCellAnchor><xdr:from><xdr:col>{column}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>{row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx=\"952500\" cy=\"952500\"/>"
+        + $"<xdr:pic><xdr:nvPicPr><xdr:cNvPr id=\"{id}\" name=\"Picture {id}\"{(description is null ? string.Empty : $" descr=\"{description}\"")}/><xdr:cNvPicPr/></xdr:nvPicPr>"
+        + $"<xdr:blipFill><a:blip r:embed=\"{relationshipId}\"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>"
+        + "<xdr:spPr><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>";
 
     [Fact]
     public void Clear_RemovesThePicturesOfAnEarlierConversion()

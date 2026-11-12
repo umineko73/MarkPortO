@@ -65,7 +65,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
 
         public IReadOnlyList<DocxBlock>? DocxBlocks { get; set; }
 
-        /// <summary>Collects the pictures of a docx or pptx (FR-133); null when they are not saved.</summary>
+        /// <summary>Collects the pictures of a docx, pptx or xlsx (FR-133, FR-135); null when they are not saved.</summary>
         public PictureCollector? Pictures { get; init; }
 
         /// <summary>1-based numbers of the output pages that are deleted pages (a "×" over the page, FR-012).</summary>
@@ -359,8 +359,8 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     private static async Task<Layout> LayoutXlsxAsync(DocumentWork work, string workDirectory, CancellationToken cancellationToken)
     {
         var document = work.Document;
-        var layout = new Layout();
-        var sheets = XlsxReader.Read(document.SourcePath, work.Context.Options.IncludeHiddenSheets, work.Context.Options.Emphasis);
+        var layout = new Layout { Pictures = NewPictureCollector(work) };
+        var sheets = XlsxReader.Read(document.SourcePath, work.Context.Options.IncludeHiddenSheets, work.Context.Options.Emphasis, layout.Pictures);
         var verdicts = XlsxCrossExtractor.Evaluate(document.SourcePath, sheets);
 
         var unitNumber = 0;
@@ -443,9 +443,12 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
 
     // ---- common ----
 
-    /// <summary>A collector of the pictures when they are saved (FR-133): not when an extractor writes the Markdown (FR-110).</summary>
+    /// <summary>
+    /// A collector of the pictures when they are saved (FR-133, FR-135): not when an extractor writes the Markdown (FR-110). A metafile is drawn at
+    /// the DPI of the page images (FR-134).
+    /// </summary>
     private static PictureCollector? NewPictureCollector(DocumentWork work) =>
-        work.Context.Options.ExtractPictures && work.Context.ExtractorFor(work.Document.Kind) is null ? new PictureCollector() : null;
+        work.Context.Options.ExtractPictures && work.Context.ExtractorFor(work.Document.Kind) is null ? new PictureCollector(work.Context.Options.Dpi) : null;
 
     /// <summary>Records that a page is a deleted page, or warns about a drawing that cannot be judged.</summary>
     private static void MarkDeleted(Layout layout, int page, CrossVerdict verdict, string where, bool warn = true)

@@ -91,7 +91,7 @@ public static class CliApp
         var emphasis = new Option<bool>("--emphasis") { Description = "Write text in bold between ** and text in italic between * (the default)." };
         var noEmphasis = new Option<bool>("--no-emphasis") { Description = "Do not mark text in bold or italic." };
         var pdfText = new Option<string?>("--pdf-text") { Description = "on or off: use the text layer of a PDF as the text of its pages (the default is on)." };
-        var pictures = new Option<string?>("--pictures") { Description = "on or off: save the pictures of a Word or PowerPoint file in pictures/ and refer to them from the Markdown (default: the settings file, off)." };
+        var pictures = new Option<string?>("--pictures") { Description = "on or off: save the pictures of a Word, PowerPoint or Excel file in pictures/ and refer to them from the Markdown (default: the settings file, off)." };
         var engine = new Option<string?>("--engine") { Description = "office or libreoffice." };
         var dpi = new Option<int?>("--dpi") { Description = "Resolution of the page images (72-600)." };
         var excelRange = new Option<string?>("--excel-range") { Description = "How the pages of an Excel sheet are cut: columns (all columns on the width of a page, as far as they stay readable), sheet (the whole sheet on one page) or print-area (follow the print setup of the sheet)." };

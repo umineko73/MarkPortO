@@ -45,7 +45,7 @@ public sealed record ConvertArgs
 
     public string? PdfText { get; init; }
 
-    /// <summary>on / off: save the pictures of a docx or pptx (FR-133).</summary>
+    /// <summary>on / off: save the pictures of a docx, pptx or xlsx (FR-133 to FR-135).</summary>
     public string? Pictures { get; init; }
 
     public string? Engine { get; init; }

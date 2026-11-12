@@ -14,7 +14,6 @@
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using MarkPortO.Core.IO;
 using MarkPortO.Core.Jobs.Models;
@@ -76,7 +75,7 @@ public static partial class PictureFiles
                 }
 
                 var picture = collector.Pictures[number];
-                var hash = System.Convert.ToHexString(SHA256.HashData(picture.Data));
+                var hash = picture.Hash;
                 if (!byHash.TryGetValue(hash, out var name))
                 {
                     var count = onPage[page] = onPage.GetValueOrDefault(page) + 1;
@@ -85,7 +84,8 @@ public static partial class PictureFiles
                     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                     AtomicFile.WriteAllBytes(path, picture.Data);
                     byHash[hash] = name;
-                    log.Add($"picture: {name} ({picture.Data.Length.ToString(CultureInfo.InvariantCulture)} bytes)");
+                    log.Add($"picture: {name} ({picture.Data.Length.ToString(CultureInfo.InvariantCulture)} bytes"
+                        + (picture.ConvertedFrom is null ? ")" : $", turned into a PNG from {picture.ConvertedFrom})"));
                 }
 
                 byMark[number] = name;

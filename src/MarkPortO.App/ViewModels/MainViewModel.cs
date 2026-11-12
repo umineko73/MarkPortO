@@ -395,7 +395,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>Save the pictures of a docx or pptx in pictures/ and refer to them from the Markdown (FR-133).</summary>
+    /// <summary>Save the pictures of a docx, pptx or xlsx in pictures/ and refer to them from the Markdown (FR-133 to FR-135).</summary>
     public bool ExtractPictures
     {
         get => _store.Current.Input.ExtractPictures;

@@ -318,7 +318,7 @@ public sealed class InputSettings
     /// <summary>Use the text layer of a PDF as the text of its pages, next to the page images (pdf, FR-076).</summary>
     public bool UsePdfText { get; set; } = true;
 
-    /// <summary>Save the pictures of a docx or pptx in <c>pictures/</c> and refer to them from the Markdown (FR-133). Off: a picture is written by its alternative text only.</summary>
+    /// <summary>Save the pictures of a docx, pptx or xlsx in <c>pictures/</c> and refer to them from the Markdown (FR-133). Off: a picture is written by its alternative text only.</summary>
     public bool ExtractPictures { get; set; }
 }
 

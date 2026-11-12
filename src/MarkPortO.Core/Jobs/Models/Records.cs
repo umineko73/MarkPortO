@@ -242,7 +242,7 @@ public sealed class OptionsSnapshot
     /// <summary>Use the text layer of a PDF as the text of its pages (FR-076). A job from before this setting did not read PDF files.</summary>
     public bool UsePdfText { get; set; } = true;
 
-    /// <summary>Save the pictures of a docx or pptx in <c>pictures/</c> (FR-133). A job from before this setting did not.</summary>
+    /// <summary>Save the pictures of a docx, pptx or xlsx in <c>pictures/</c> (FR-133 to FR-135). A job from before this setting did not.</summary>
     public bool ExtractPictures { get; set; }
 
     public EngineKind Engine { get; set; }
