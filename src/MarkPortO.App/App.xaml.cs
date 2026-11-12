@@ -21,6 +21,8 @@ namespace MarkPortO.App;
 
 public partial class App : Application
 {
+    private static int _exitWatchdogStarted;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -41,13 +43,22 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        StartExitWatchdog();
         base.OnExit(e);
 
         // The Office programs that this program started are stopped now (not only when the process ends).
         MarkPortO.Core.Engines.OfficeEngine.StopStartedProcesses();
+    }
 
-        // The process ends by itself within a moment. If something holds it (a call that does not return), it is stopped after 8 seconds:
-        // MarkPortO.exe is never left behind with no window. The thread is a background thread, so it does not hold the process.
+    // Arm before closing the main window: owned windows, WebView2 and settings can block before OnExit is reached.
+    // Call only once closing is accepted, after the conversion has had its time to stop.
+    internal static void StartExitWatchdog()
+    {
+        if (Interlocked.Exchange(ref _exitWatchdogStarted, 1) != 0)
+        {
+            return;
+        }
+
         var watchdog = new Thread(() =>
         {
             Thread.Sleep(TimeSpan.FromSeconds(8));

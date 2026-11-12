@@ -3,6 +3,7 @@
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4.svg)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)
+![Version](https://img.shields.io/badge/version-0.3.0-2ea44f.svg)
 
 **English** | [日本語](README.ja.md)
 
@@ -30,6 +31,7 @@ MarkPortO converts Word, Excel, PowerPoint and PDF documents (docx, xlsx, pptx, 
 - **Preview.** See the page image, the extracted text and the VLM result side by side while the conversion runs. `mermaid` blocks are drawn as diagrams.
 - **Optional VLM reading (Step3).** A VLM (a model that can read images), through an OpenAI-compatible server or a command you are logged in to (`claude`, `codex`, `opencode`), reads each page image and adds the text. Token usage and cost are recorded.
 - **Folders, interrupt and resume.** Convert a file or a folder; interrupt and continue later. Existing output is never overwritten.
+- **Reliable shutdown.** Closing the app stops an active conversion first. If a component hangs during shutdown, a watchdog ends the app process after eight seconds.
 - **Two engines.** Microsoft Office (COM) or LibreOffice (headless) makes the PDF. English and Japanese UI.
 
 ## How it works
@@ -161,6 +163,14 @@ out/report/
 ```
 
 Merged table cells are written in the notePM style (`<` joins the cell on the left, `^` the cell above). Text with a strikethrough is written as `~~text~~`. A `<!-- page: N -->` line starts each page.
+
+## What's new in 0.3.0
+
+- Save pictures embedded in Word, PowerPoint and Excel; convert EMF, WMF, BMP and TIFF pictures to PNG.
+- Cut selected PowerPoint and Excel shapes from page images into picture files.
+- Protect resume from concurrent runs, recheck external extractor consent, and drain active page reads when cancelling.
+- Ensure the app process exits even when shutdown cleanup hangs.
+- Correct Excel picture and shape placement, including shapes extending beyond used cells.
 
 ## Development
 

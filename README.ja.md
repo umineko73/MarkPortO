@@ -3,6 +3,7 @@
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4.svg)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)
+![Version](https://img.shields.io/badge/version-0.3.0-2ea44f.svg)
 
 [English](README.md) | **日本語**
 
@@ -30,6 +31,7 @@ Word・Excel・PowerPoint・PDF の文書（docx・xlsx・pptx・pdf）を、Mar
 - **プレビュー**: ページの画像、抽出テキスト、VLMの結果を、変換の実行中から並べて見られます。`mermaid` のブロックは、図として描きます。
 - **VLMでの読み取り（Step3、任意）**: OpenAI互換のサーバー、またはログイン済みのコマンド（`claude`、`codex`、`opencode`）の、画像を読めるモデルで、ページの画像から文字を読み取って加えます。トークンと費用を記録します。
 - **フォルダ、中断と再開**: ファイルもフォルダも変換できます。中断して、後で続きから再開できます。既存の出力は上書きしません。
+- **確実な終了**: 変換中は停止を待ってから閉じます。終了処理が応答しなくなった場合も、8秒後にアプリのプロセスを終了します。
 - **2つのエンジン**: Microsoft Office（COM）または LibreOffice（画面を出さずに実行）でPDFを作ります。画面は日本語と English です。
 
 ## 変換の流れ
@@ -161,6 +163,14 @@ out/report/
 ```
 
 結合セルは notePM 方式で書きます（`<` は左のセル、`^` は上のセルと結合）。取り消し線の付いた文字は、`~~文字~~` で囲んで書きます。`<!-- page: N -->` の行が、各ページの始まりです。
+
+## 0.3.0 の変更
+
+- Word・PowerPoint・Excelに貼られた画像を保存し、EMF・WMF・BMP・TIFFをPNGに変換します。
+- PowerPoint・Excelの図形をページ画像から切り出して保存します。
+- 再開時の同時実行を防ぎ、外部抽出の同意を再確認し、中断時は実行中のページ処理を完了してから終了します。
+- 終了処理が応答しなくてもアプリのプロセスが残らないようにしました。
+- Excelの画像・図形の配置を修正し、使用範囲を越える図形も正しい大きさで扱います。
 
 ## 開発
 

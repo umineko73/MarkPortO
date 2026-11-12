@@ -70,6 +70,11 @@ public partial class MainWindow : Window
         base.OnClosing(e);
         if (_closeConfirmed || !_viewModel.IsRunning)
         {
+            if (!e.Cancel)
+            {
+                App.StartExitWatchdog();
+            }
+
             return;
         }
 
