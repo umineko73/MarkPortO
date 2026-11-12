@@ -71,6 +71,8 @@ public sealed class ConvertService
 
         var store = new StateStore(request.OutputFolder);
         var (job, documents) = Plan(request, store);
+        using var jobLock = store.TryAcquireLock(job.JobId)
+            ?? throw new ConvertStartException(Loc.T("This job is already running in another process."));
         store.SaveJob(job);
         foreach (var document in documents)
         {
@@ -116,10 +118,15 @@ public sealed class ConvertService
                 ?? throw new JobNotFoundException(Loc.T("There is no job to resume in {0}.", request.OutputFolder));
         }
 
-        var availability = _engine.CheckAvailability();
-        if (!availability.IsAvailable)
+        using var jobLock = store.TryAcquireLock(job.JobId)
+            ?? throw new ConvertStartException(Loc.T("This job is already running in another process."));
+        // Another process may have finished after the initial search. Read the state again under the lock.
+        job = store.LoadJob(job.JobId) ?? throw new JobNotFoundException(Loc.T("The job {0} was not found in {1}.", job.JobId, request.OutputFolder));
+        if (job.Status is not (JobStatus.Interrupted or JobStatus.Running)
+            && !(retry && job.Status == JobStatus.CompletedWithErrors)
+            && !(request.JobId is not null && job.Status == JobStatus.Abandoned))
         {
-            throw new ConvertStartException(availability.Reason ?? Loc.T("The conversion engine is not available.")) { Item = ConvertStartException.EngineItem };
+            throw new JobNotFoundException(Loc.T("The job {0} cannot be resumed (it is running, or finished).", job.JobId));
         }
 
         var documents = new List<DocumentRecord>();
@@ -127,6 +134,13 @@ public sealed class ConvertService
         {
             documents.Add(store.LoadDocument(job.JobId, docId)
                 ?? throw new ConvertStartException(Loc.T("The saved state of {0} is missing; the job cannot be resumed.", docId)));
+        }
+
+        CheckExtractors(job.Options.Extractors);
+        var availability = documents.All(d => d.Kind == DocumentKind.Pdf) ? EngineAvailability.Available : _engine.CheckAvailability();
+        if (!availability.IsAvailable)
+        {
+            throw new ConvertStartException(availability.Reason ?? Loc.T("The conversion engine is not available.")) { Item = ConvertStartException.EngineItem };
         }
 
         // The step selection may differ from the earlier run; the other options stay as they were.
@@ -188,9 +202,6 @@ public sealed class ConvertService
         StateStore store,
         CancellationToken cancellationToken)
     {
-        using var jobLock = store.TryAcquireLock(job.JobId)
-            ?? throw new ConvertStartException(Loc.T("This job is already running in another process."));
-
         // The limits count over the whole job, also over a resume (FR-057).
         var governor = new Step3Governor(_vlm?.MaxPages, _vlm?.MaxCostUsd, job.Step3Totals.Pages, job.Step3Totals.CostUsd);
         if (job.Options.Step3 && _vlm is { } used)

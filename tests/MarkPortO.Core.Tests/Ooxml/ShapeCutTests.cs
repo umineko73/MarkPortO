@@ -26,6 +26,34 @@ namespace MarkPortO.Core.Tests.Ooxml;
 /// <summary>The drawn shapes of a pptx or xlsx are cut out of the page image (FR-136).</summary>
 public class ShapeCutTests
 {
+    [Fact]
+    public void SheetShape_EndBeyondUsedCells_KeepsItsFullSize()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("edge.xlsx");
+        XlsxFactory.Create(path, new SheetSpec("Data", [["a"]], Shapes: [new CellShapeSpec("rect", 0, 0, 4, 5)]));
+        var sheet = Assert.Single(XlsxReader.Read(path, false, pictures: new PictureCollector(cutShapes: true)));
+        var shape = Assert.Single(sheet.Shapes);
+        Assert.Equal(4 * sheet.ShapeColumnWidthsPoints[0], shape.Width, 6);
+        Assert.Equal(5 * sheet.RowHeightsPoints[0], shape.Height, 6);
+        Assert.Single(sheet.Rows); // the drawing dimensions do not extend the text's used range
+    }
+
+    [Fact]
+    public void SheetPicturesAndShapes_AreInsertedInCellOrder()
+    {
+        var sheet = new SheetContent
+        {
+            Name = "Data", FirstRow = 1, LastRow = 5, FirstColumn = 1, LastColumn = 1,
+            Rows = [["start"], [""], ["middle"], [""], ["end"]], ColumnWidthsPoints = [48],
+            Pictures = [new SheetPicture(3, 0, "![picture](late.png)"), new SheetPicture(1, 0, "![shape](early.png)")],
+        };
+        var parts = sheet.ToMarkdownParts(0, 0, null).Select(p => p.Markdown).ToList();
+        Assert.True(parts.IndexOf("![shape](early.png)") < parts.IndexOf("middle"));
+        Assert.True(parts.IndexOf("middle") < parts.IndexOf("![picture](late.png)"));
+        Assert.True(parts.IndexOf("![picture](late.png)") < parts.IndexOf("end"));
+    }
+
     private const string SlideNamespaces =
         "xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"";
 

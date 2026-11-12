@@ -32,6 +32,41 @@ namespace MarkPortO.Core.Tests.Pipeline;
 /// </summary>
 public class Step3StopTests
 {
+    private sealed class DrainingReader : IVlmReader
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Cancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public async Task<VlmResponse> ReadAsync(string prompt, byte[] png, CancellationToken cancellationToken)
+        {
+            Started.SetResult();
+            using var registration = cancellationToken.Register(() => Cancelled.TrySetResult());
+            await Release.Task;
+            cancellationToken.ThrowIfCancellationRequested();
+            return Ok(101);
+        }
+    }
+
+    [Fact]
+    public async Task Cancellation_WaitsForStartedPagesBeforeReturning()
+    {
+        using var dir = new TempDir();
+        using var cancellation = new CancellationTokenSource();
+        var document = Document(dir, 3);
+        var reader = new DrainingReader();
+        var context = Context(dir, document, reader, NewJob(), new Step3Governor());
+        var run = new Step3Worker().ProcessAsync(new DocumentWork(document, context), cancellation.Token);
+        await reader.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+        await reader.Cancelled.Task;
+        // Give the worker's cancelled semaphore wait time to unwind while the reader is still cleaning up.
+        var completed = await Task.WhenAny(run, Task.Delay(100));
+        reader.Release.SetResult();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.NotSame(run, completed);
+        Assert.DoesNotContain(document.Pages, p => p.Step3 == PageStep3Status.Running);
+    }
+
     private sealed class Reader(Func<int, int, VlmResponse> answer, int delayMilliseconds = 0) : IVlmReader
     {
         private int _calls;

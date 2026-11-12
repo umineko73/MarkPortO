@@ -74,20 +74,26 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             var gate = new object();
             using var slots = new SemaphoreSlim(Math.Max(1, context.Step3Parallel));
             var readings = new List<Task>();
-            foreach (var page in document.Pages.Where(p => p.ReadsInStep3 && p.Step3 != PageStep3Status.Done))
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
-                if (!governor.TryBegin())
+                foreach (var page in document.Pages.Where(p => p.ReadsInStep3 && p.Step3 != PageStep3Status.Done))
                 {
-                    slots.Release();
-                    break;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    if (!governor.TryBegin())
+                    {
+                        slots.Release();
+                        break;
+                    }
+
+                    readings.Add(ReadAndRecordAsync(page));
                 }
-
-                readings.Add(ReadAndRecordAsync(page));
             }
-
-            await Task.WhenAll(readings).ConfigureAwait(false);
+            finally
+            {
+                // Drain started readings even when cancellation interrupts the slot wait. They still own the semaphore and saved state.
+                await Task.WhenAll(readings).ConfigureAwait(false);
+            }
 
             var unfinished = document.Pages.Any(p => p.ReadsInStep3 && p.Step3 is PageStep3Status.Pending or PageStep3Status.Running);
             document.Step3 = unfinished ? StepStatus.Interrupted : StepStatus.Done;

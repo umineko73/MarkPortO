@@ -334,7 +334,7 @@ public sealed class SheetContent
     /// </summary>
     private void PlacePictures(List<SheetPart> parts, List<int> starts, int fromIndex, int toIndex, IReadOnlyList<int>? rowPages)
     {
-        var pictures = Pictures.Where(p => p.Column >= fromIndex && p.Column <= toIndex).ToList();
+        var pictures = Pictures.Where(p => p.Column >= fromIndex && p.Column <= toIndex).OrderBy(p => p.Row).ThenBy(p => p.Column).ToList();
         if (pictures.Count == 0)
         {
             return;
@@ -1192,7 +1192,7 @@ public static partial class XlsxReader
         // The shapes are placed with the widths that the default font of the workbook gives (FR-136); the other uses keep the widths of Calibri.
         var shapeColumnWidths = digitWidth == MaxDigitWidthPixels ? columnWidths : ColumnWidths(worksheet, minColumn, maxColumn, digitWidth);
         var (shapes, shapeMarks) = pictures is { CutShapes: true }
-            ? ReadShapes(part, minRow, minColumn, shapeColumnWidths, rowHeights, pictures)
+            ? ReadShapes(part, minRow, minColumn, shapeColumnWidths, rowHeights, pictures, digitWidth)
             : ([], []);
 
         var rows = new string[maxRow - minRow + 1][];
@@ -1261,7 +1261,7 @@ public static partial class XlsxReader
     /// The drawn shapes of the drawing of a sheet (FR-136): a group as one, a shape that is not a text box, a connector; half an inch or more on each
     /// side, with its top-left cell in the used range. A shape that has an absolute place (not fixed to a cell) is not read.
     /// </summary>
-    private static (List<SheetShape> Shapes, List<SheetPicture> Marks) ReadShapes(WorksheetPart part, int minRow, int minColumn, double[] widths, double[] heights, PictureCollector pictures)
+    private static (List<SheetShape> Shapes, List<SheetPicture> Marks) ReadShapes(WorksheetPart part, int minRow, int minColumn, double[] widths, double[] heights, PictureCollector pictures, double digitWidth)
     {
         var shapes = new List<SheetShape>();
         var marks = new List<SheetPicture>();
@@ -1316,8 +1316,13 @@ public static partial class XlsxReader
             {
                 var toColumn = (int.TryParse(to.ColumnId?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tc) ? tc : 0) + 1 - minColumn;
                 var toRow = (int.TryParse(to.RowId?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tr) ? tr : 0) + 1 - minRow;
-                width = Along(widths, toColumn, Offset(to.ColumnOffset?.Text)) - x;
-                height = Along(heights, toRow, Offset(to.RowOffset?.Text)) - y;
+                // A drawing can extend beyond the cells with values or formats. Include those cells' actual dimensions too.
+                var endWidths = toColumn > widths.Length && toColumn + minColumn <= 16385
+                    ? ColumnWidths(part.Worksheet!, minColumn, minColumn + toColumn - 1, digitWidth) : widths;
+                var endHeights = toRow > heights.Length && toRow + minRow <= 1048577
+                    ? RowHeights(part.Worksheet!, minRow, minRow + toRow - 1) : heights;
+                width = Along(endWidths, toColumn, Offset(to.ColumnOffset?.Text)) - x;
+                height = Along(endHeights, toRow, Offset(to.RowOffset?.Text)) - y;
             }
             else
             {
