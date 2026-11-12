@@ -21,7 +21,7 @@ using MarkPortO.Core.Tests.Fixtures;
 
 namespace MarkPortO.Core.Tests.Extraction;
 
-/// <summary>FR-110 and FR-112 (experimental): the extractor is run without a shell, and what it gives is checked.</summary>
+/// <summary>FR-110 and FR-112: the extractor is run without a shell, and what it gives is checked.</summary>
 public class ExtractorRunnerTests
 {
     private static readonly string Cmd = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";

@@ -83,6 +83,12 @@ public sealed record SheetNote(int Row, int Column, string Text);
 /// </summary>
 public sealed record SheetPicture(int Row, int Column, string Markdown);
 
+/// <summary>
+/// A drawn shape of the sheet (FR-136), to be cut out of the page image: the number of its mark, the column (0-based in <see cref="SheetContent.Rows"/>,
+/// inside the used range) and the row of its top-left cell, and its box in points from the top left of the used range, turned by <paramref name="Degrees"/>.
+/// </summary>
+public sealed record SheetShape(int Mark, int Row, int Column, double X, double Y, double Width, double Height, double Degrees);
+
 /// <summary>The contents of one worksheet, limited to its used range.</summary>
 public sealed class SheetContent
 {
@@ -114,8 +120,20 @@ public sealed class SheetContent
     /// <summary>The comments of the cells (FR-070): written after the tables.</summary>
     public IReadOnlyList<SheetNote> Notes { get; init; } = [];
 
-    /// <summary>The pictures of the sheet, when they are saved (FR-135): each before the first piece that starts below its row.</summary>
+    /// <summary>The pictures of the sheet, when they are saved (FR-135), and the marks of its drawn shapes (FR-136): each before the first piece that starts below its row.</summary>
     public IReadOnlyList<SheetPicture> Pictures { get; init; } = [];
+
+    /// <summary>The drawn shapes of the sheet that are cut out of the page images (FR-136); their marks are in <see cref="Pictures"/>.</summary>
+    public IReadOnlyList<SheetShape> Shapes { get; init; } = [];
+
+    /// <summary>Height in points of each row of the used range (0 for a hidden row). Index 0 is <see cref="FirstRow"/>.</summary>
+    public double[] RowHeightsPoints { get; init; } = [];
+
+    /// <summary>
+    /// Width in points of each column of the used range with the default font of the workbook (a Japanese font is wider than Calibri), for the
+    /// places of the drawn shapes (FR-136). The same as <see cref="ColumnWidthsPoints"/> when the shapes are not cut out.
+    /// </summary>
+    public double[] ShapeColumnWidthsPoints { get; init; } = [];
 
     /// <summary>The rows (0-based in <see cref="Rows"/>) that are hidden: they are not in the image, so they are not in the Markdown either (FR-070).</summary>
     public IReadOnlySet<int> HiddenRows { get; init; } = new HashSet<int>();
@@ -974,6 +992,7 @@ public static partial class XlsxReader
             var dateStyles = ReadDateStyles(workbookPart);
             var numberFormats = ReadNumberFormats(workbookPart, dateStyles);
 
+            var digitWidth = pictures is { CutShapes: true } ? DigitWidthOf(workbookPart) : MaxDigitWidthPixels;
             var result = new List<SheetContent>();
             foreach (var sheet in sheets.Elements<Sheet>())
             {
@@ -988,7 +1007,7 @@ public static partial class XlsxReader
                     continue; // a chart sheet
                 }
 
-                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles, borderedStyles, indentedStyles, filledStyles, boldStyles, pictures));
+                result.Add(ReadSheet(sheet.Name?.Value ?? "Sheet", hidden, worksheetPart, sharedStrings, dateStyles, numberFormats, struckStyles, borderedStyles, indentedStyles, filledStyles, boldStyles, pictures, digitWidth));
             }
 
             return result;
@@ -1025,7 +1044,8 @@ public static partial class XlsxReader
         IReadOnlyDictionary<uint, int> indentedStyles,
         IReadOnlySet<uint> filledStyles,
         IReadOnlySet<uint> boldStyles,
-        PictureCollector? pictures)
+        PictureCollector? pictures,
+        double digitWidth)
     {
         var worksheet = part.Worksheet ?? throw new InvalidDocumentException(Loc.T("The sheet '{0}' has no content.", name));
         var cells = new Dictionary<(int Row, int Column), string>();
@@ -1166,6 +1186,15 @@ public static partial class XlsxReader
             && definition.Reference?.Value?.Split(':') is { Length: 2 } corners
             && ExcelColumn.ParseReference(corners[0]).Row == minRow);
 
+        var columnWidths = ColumnWidths(worksheet, minColumn, maxColumn);
+        var rowHeights = RowHeights(worksheet, minRow, maxRow);
+
+        // The shapes are placed with the widths that the default font of the workbook gives (FR-136); the other uses keep the widths of Calibri.
+        var shapeColumnWidths = digitWidth == MaxDigitWidthPixels ? columnWidths : ColumnWidths(worksheet, minColumn, maxColumn, digitWidth);
+        var (shapes, shapeMarks) = pictures is { CutShapes: true }
+            ? ReadShapes(part, minRow, minColumn, shapeColumnWidths, rowHeights, pictures)
+            : ([], []);
+
         var rows = new string[maxRow - minRow + 1][];
         for (var r = minRow; r <= maxRow; r++)
         {
@@ -1194,13 +1223,119 @@ public static partial class XlsxReader
             Indents = indents.ToDictionary(i => (i.Key.Row - minRow, i.Key.Column - minColumn), i => i.Value),
             Tables = ReadTables(part, minRow, maxRow, minColumn, maxColumn),
             Notes = ReadNotes(part, minRow, maxRow, minColumn, maxColumn),
-            Pictures = pictures is null ? [] : ReadPictures(part, minRow, maxRow, minColumn, maxColumn, pictures),
+            Pictures = [.. (pictures is { SavePictures: true } ? ReadPictures(part, minRow, maxRow, minColumn, maxColumn, pictures) : []), .. shapeMarks],
+            Shapes = shapes,
+            RowHeightsPoints = rowHeights,
+            ShapeColumnWidthsPoints = shapeColumnWidths,
             Charts = [.. (part.DrawingsPart?.ChartParts ?? []).Select(ChartReader.Read).OfType<ChartInfo>()],
             HiddenRows = HiddenRowSet(worksheet, minRow, maxRow),
             HiddenColumns = HiddenColumnSet(worksheet, minColumn, maxColumn),
             HasHeaderRow = hasHeaderRow,
-            ColumnWidthsPoints = ColumnWidths(worksheet, minColumn, maxColumn),
+            ColumnWidthsPoints = columnWidths,
         };
+    }
+
+    private const double EmuPerPoint = 12700;
+
+    /// <summary>The height of a row that says nothing of its own, when the sheet does not say either (Calibri 11).</summary>
+    private const double DefaultRowHeightPoints = 15;
+
+    private static double[] RowHeights(Worksheet worksheet, int firstRow, int lastRow)
+    {
+        var defaultHeight = worksheet.SheetFormatProperties?.DefaultRowHeight?.Value is { } d and > 0 ? d : DefaultRowHeightPoints;
+        var heights = Enumerable.Repeat(defaultHeight, lastRow - firstRow + 1).ToArray();
+        foreach (var row in worksheet.Descendants<Row>())
+        {
+            if (row.RowIndex?.Value is not { } index || index < firstRow || index > lastRow)
+            {
+                continue;
+            }
+
+            heights[index - firstRow] = row.Hidden?.Value == true ? 0 : row.Height?.Value is { } height ? height : defaultHeight;
+        }
+
+        return heights;
+    }
+
+    /// <summary>
+    /// The drawn shapes of the drawing of a sheet (FR-136): a group as one, a shape that is not a text box, a connector; half an inch or more on each
+    /// side, with its top-left cell in the used range. A shape that has an absolute place (not fixed to a cell) is not read.
+    /// </summary>
+    private static (List<SheetShape> Shapes, List<SheetPicture> Marks) ReadShapes(WorksheetPart part, int minRow, int minColumn, double[] widths, double[] heights, PictureCollector pictures)
+    {
+        var shapes = new List<SheetShape>();
+        var marks = new List<SheetPicture>();
+        if (part.DrawingsPart?.WorksheetDrawing is not { } drawing)
+        {
+            return (shapes, marks);
+        }
+
+        // From the top left of the used range to the given column (row), 0-based in the used range, and the offset in it (EMU).
+        static double Along(double[] sizes, int index, long offset) =>
+            sizes.Take(Math.Clamp(index, 0, sizes.Length)).Sum() + offset / EmuPerPoint;
+
+        foreach (var anchor in drawing.ChildElements)
+        {
+            var (from, to, extent) = anchor switch
+            {
+                Xdr.TwoCellAnchor two => (two.FromMarker, (Xdr.MarkerType?)two.ToMarker, (Xdr.Extent?)null),
+                Xdr.OneCellAnchor one => (one.FromMarker, null, one.Extent),
+                _ => ((Xdr.MarkerType?)null, (Xdr.MarkerType?)null, (Xdr.Extent?)null),
+            };
+            if (from is null)
+            {
+                continue;
+            }
+
+            var element = anchor.ChildElements.FirstOrDefault(e => e is Xdr.Shape or Xdr.GroupShape or Xdr.ConnectionShape);
+            var (description, rotation) = element switch
+            {
+                Xdr.Shape shape => (shape.NonVisualShapeProperties?.NonVisualDrawingProperties?.Description?.Value, shape.ShapeProperties?.Transform2D?.Rotation?.Value),
+                Xdr.GroupShape group => (group.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Description?.Value, group.GroupShapeProperties?.TransformGroup?.Rotation?.Value),
+                Xdr.ConnectionShape connector => (connector.NonVisualConnectionShapeProperties?.NonVisualDrawingProperties?.Description?.Value, connector.ShapeProperties?.Transform2D?.Rotation?.Value),
+                _ => ((string?)null, (int?)null),
+            };
+            // A text box is text, not a drawing.
+            if (element is null || (element is Xdr.Shape textBox && textBox.NonVisualShapeProperties?.NonVisualShapeDrawingProperties?.TextBox?.Value == true))
+            {
+                continue;
+            }
+
+            var column = (int.TryParse(from.ColumnId?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c) ? c : 0) + 1 - minColumn;
+            var row = (int.TryParse(from.RowId?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r) ? r : 0) + 1 - minRow;
+            if (column < 0 || row < 0 || column >= widths.Length || row >= heights.Length)
+            {
+                continue; // outside the used range, which is what is printed
+            }
+
+            static long Offset(string? text) => long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : 0;
+            var x = Along(widths, column, Offset(from.ColumnOffset?.Text));
+            var y = Along(heights, row, Offset(from.RowOffset?.Text));
+            double width, height;
+            if (to is not null)
+            {
+                var toColumn = (int.TryParse(to.ColumnId?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tc) ? tc : 0) + 1 - minColumn;
+                var toRow = (int.TryParse(to.RowId?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tr) ? tr : 0) + 1 - minRow;
+                width = Along(widths, toColumn, Offset(to.ColumnOffset?.Text)) - x;
+                height = Along(heights, toRow, Offset(to.RowOffset?.Text)) - y;
+            }
+            else
+            {
+                width = (extent?.Cx?.Value ?? 0) / EmuPerPoint;
+                height = (extent?.Cy?.Value ?? 0) / EmuPerPoint;
+            }
+
+            if (width < PictureCollector.MinShapeSidePoints || height < PictureCollector.MinShapeSidePoints)
+            {
+                continue; // a small arrow or line
+            }
+
+            var mark = pictures.AddShape(null);
+            shapes.Add(new SheetShape(PictureCollector.NumberOf(mark), row, column, x, y, width, height, (rotation ?? 0) / 60000.0));
+            marks.Add(new SheetPicture(row, column, PictureCollector.Markdown(description, mark)));
+        }
+
+        return (shapes, marks);
     }
 
     /// <summary>
@@ -1241,11 +1376,12 @@ public static partial class XlsxReader
         return [.. result.Select((p, i) => (p, i)).OrderBy(x => x.p.Row).ThenBy(x => x.p.Column).ThenBy(x => x.i).Select(x => x.p)];
     }
 
-    private static double[] ColumnWidths(Worksheet worksheet, int firstColumn, int lastColumn)
+    private static double[] ColumnWidths(Worksheet worksheet, int firstColumn, int lastColumn, double digitWidth = MaxDigitWidthPixels)
     {
+        // The standard width is 8 digits and their padding: 64 pixels for Calibri 11, 72 for a Japanese font of 11 points.
         var defaultWidth = worksheet.SheetFormatProperties?.DefaultColumnWidth?.Value is { } d
-            ? CharactersToPoints(d)
-            : DefaultColumnWidthPoints;
+            ? CharactersToPoints(d, digitWidth)
+            : digitWidth == MaxDigitWidthPixels ? DefaultColumnWidthPoints : (8 * digitWidth + 8) * 0.75;
 
         var widths = Enumerable.Repeat(defaultWidth, lastColumn - firstColumn + 1).ToArray();
         foreach (var column in worksheet.Descendants<Column>())
@@ -1259,7 +1395,7 @@ public static partial class XlsxReader
 
             var points = column.Hidden?.Value == true
                 ? 0
-                : column.Width?.Value is { } w ? CharactersToPoints(w) : defaultWidth;
+                : column.Width?.Value is { } w ? CharactersToPoints(w, digitWidth) : defaultWidth;
             for (var c = Math.Max(min, firstColumn); c <= Math.Min(max, lastColumn); c++)
             {
                 widths[c - firstColumn] = points;
@@ -1352,10 +1488,24 @@ public static partial class XlsxReader
     }
 
     /// <summary>Excel's width (in characters of the default font) to points. 7 pixels per character, 0.75 points per pixel.</summary>
-    private static double CharactersToPoints(double characters)
+    private static double CharactersToPoints(double characters, double digitWidth = MaxDigitWidthPixels)
     {
-        var pixels = Math.Truncate(((256 * characters) + Math.Truncate(128 / MaxDigitWidthPixels)) / 256 * MaxDigitWidthPixels);
+        var pixels = Math.Truncate(((256 * characters) + Math.Truncate(128 / digitWidth)) / 256 * digitWidth);
         return pixels * 0.75;
+    }
+
+    /// <summary>
+    /// The width in pixels of a digit of the default font of the workbook (the first font of the styles), which the widths of the columns count in:
+    /// 7 for Calibri 11, 8 for a Japanese Gothic or Mincho font of 11 points (游ゴシック, ＭＳ Ｐゴシック, メイリオ), in proportion to the size.
+    /// </summary>
+    internal static double DigitWidthOf(WorkbookPart workbookPart)
+    {
+        var font = workbookPart.WorkbookStylesPart?.Stylesheet?.Fonts?.Elements<Font>().FirstOrDefault();
+        var name = font?.FontName?.Val?.Value ?? string.Empty;
+        var size = font?.FontSize?.Val?.Value is { } s and > 0 ? s : 11;
+        var japanese = name.Any(ch => ch > 0x2E80) || name.Contains("Gothic", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Mincho", StringComparison.OrdinalIgnoreCase) || name.Contains("Meiryo", StringComparison.OrdinalIgnoreCase);
+        return Math.Max(1, Math.Round((japanese ? 8 : MaxDigitWidthPixels) * size / 11));
     }
 
     // The text of a cell; a cell whose font has a strikethrough is written between ~~ (FR-092).

@@ -125,7 +125,7 @@ public static class MarkdownRenderer
                 : Loc.M("- VLM results (Step3): not included in this Markdown.", language));
         if (hasPictures)
         {
-            Line(Loc.M("- Pictures of the document (Step1): `![text](pictures/page-NNN-K.png)`. The file of a picture in the document (K counts the pictures of page NNN); the same picture is one file.", language));
+            Line(Loc.M("- Pictures of the document (Step1): `![text](pictures/page-NNN-K.png)`. The file of a picture in the document, or of a drawn shape cut out of the page image (K counts them on page NNN); the same picture is one file.", language));
         }
 
         if (mainFile is not null)

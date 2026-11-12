@@ -80,6 +80,7 @@ public sealed class ConvertRequest
         Emphasis = settings.Input.Emphasis,
         UsePdfText = settings.Input.UsePdfText,
         ExtractPictures = settings.Input.ExtractPictures,
+        ExtractShapes = settings.Input.ExtractShapes,
         Engine = settings.Engine.Kind,
         Step2 = settings.Steps.Step2,
         Step3 = settings.Steps.Step3,

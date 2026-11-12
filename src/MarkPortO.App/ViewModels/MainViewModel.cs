@@ -83,7 +83,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(Recurse) or nameof(TypeDocx) or nameof(TypeXlsx) or nameof(TypePptx) or nameof(TypePdf)
-                or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis) or nameof(ExtractPictures)
+                or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis) or nameof(ExtractPictures) or nameof(ExtractShapes)
                 or nameof(ExtractorDocx) or nameof(ExtractorXlsx) or nameof(ExtractorPptx) or nameof(ExtractorPdf))
             {
                 Raise(nameof(ConditionSummaryText));
@@ -313,7 +313,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public bool TypePdf { get => HasType(DocumentKind.Pdf); set => SetType(DocumentKind.Pdf, value); }
 
-    // The extractor for each kind of file (FR-111; experimental): the external commands are written in settings.json. The choices are shown only when there are some.
+    // The extractor for each kind of file (FR-111): the external commands are written in settings.json. The choices are shown only when there are some.
     public sealed record ExtractorItem(string Name, string Display);
 
     public IReadOnlyList<ExtractorItem> ExtractorChoices =>
@@ -402,6 +402,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             _store.Update(s => s.Input.ExtractPictures = value);
+            Raise();
+        }
+    }
+
+    /// <summary>Cut the drawn shapes of a pptx or xlsx out of the page image into pictures/ (FR-136).</summary>
+    public bool ExtractShapes
+    {
+        get => _store.Current.Input.ExtractShapes;
+        set
+        {
+            _store.Update(s => s.Input.ExtractShapes = value);
             Raise();
         }
     }

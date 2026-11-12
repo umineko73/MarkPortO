@@ -80,6 +80,18 @@ public sealed class LibreOfficeFactAttribute : FactAttribute
     }
 }
 
+/// <summary>A test with data that needs LibreOffice. Skipped when it is not installed.</summary>
+public sealed class LibreOfficeTheoryAttribute : TheoryAttribute
+{
+    public LibreOfficeTheoryAttribute()
+    {
+        if (!InstalledEngines.HasLibreOffice)
+        {
+            Skip = "LibreOffice is not installed.";
+        }
+    }
+}
+
 /// <summary>A test that needs Microsoft Office (Word, Excel and PowerPoint). Skipped when it is not installed.</summary>
 public sealed class OfficeFactAttribute : FactAttribute
 {

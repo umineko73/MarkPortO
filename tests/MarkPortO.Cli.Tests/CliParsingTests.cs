@@ -128,6 +128,16 @@ public class CliParsingTests
     }
 
     [Fact]
+    public void Shapes_IsOffByDefault_AndIsNotThePicturesOption()
+    {
+        Assert.False(Resolved(new ConvertArgs(), FromFile()).Input.ExtractShapes);
+        var on = Resolved(new ConvertArgs { Shapes = "on" }, FromFile()).Input;
+        Assert.True(on.ExtractShapes);
+        Assert.False(on.ExtractPictures);
+        Assert.False(Resolved(new ConvertArgs { Shapes = "off" }, FromFile(s => s.Input.ExtractShapes = true)).Input.ExtractShapes);
+    }
+
+    [Fact]
     public void AnInvalidPdfText_IsReportedWithTheOptionName()
     {
         var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { PdfText = "maybe" }, FromFile());

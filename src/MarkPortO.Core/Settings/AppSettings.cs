@@ -40,7 +40,7 @@ public sealed class AppSettings
 
     public VlmSettings Vlm { get; set; } = new();
 
-    /// <summary>External commands that write Markdown for a file (FR-110, experimental).</summary>
+    /// <summary>External commands that write Markdown for a file (FR-110).</summary>
     public List<ExtractorProfile> Extractors { get; set; } = [];
 
     public ExtractorProfile? FindExtractor(string name) =>
@@ -274,7 +274,7 @@ public sealed class InputSettings
 {
     public List<string> Paths { get; set; } = [];
 
-    /// <summary>The extractor for each kind of file; empty is the built-in one (FR-111, experimental).</summary>
+    /// <summary>The extractor for each kind of file; empty is the built-in one (FR-111).</summary>
     public ExtractorChoice Extractors { get; set; } = new();
 
     public bool Recurse { get; set; }
@@ -320,6 +320,9 @@ public sealed class InputSettings
 
     /// <summary>Save the pictures of a docx, pptx or xlsx in <c>pictures/</c> and refer to them from the Markdown (FR-133). Off: a picture is written by its alternative text only.</summary>
     public bool ExtractPictures { get; set; }
+
+    /// <summary>Cut the drawn shapes (groups, and shapes of half an inch or more) of a pptx or xlsx out of the page image into <c>pictures/</c> (FR-136).</summary>
+    public bool ExtractShapes { get; set; }
 }
 
 public sealed class OutputSettings

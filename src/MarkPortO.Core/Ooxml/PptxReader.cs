@@ -150,6 +150,12 @@ public static class PptxReader
                 case Shape shape:
                     if (!(off || (check && IsOffSlide(shape.ShapeProperties?.Transform2D?.Offset, shape.ShapeProperties?.Transform2D?.Extents, context))))
                     {
+                        // A drawn shape on the slide is cut out of the image of the slide, before its text (FR-136).
+                        if (check && IsDrawnShape(shape))
+                        {
+                            AddShapeCut(shape.ShapeProperties?.Transform2D, shape.NonVisualShapeProperties?.NonVisualDrawingProperties?.Description?.Value, body, context);
+                        }
+
                         ReadShape(shape, ref title, body, part);
                     }
                     else if (context.IncludeOffSlide)
@@ -165,8 +171,24 @@ public static class PptxReader
                     }
 
                     break;
+                case ConnectionShape connector:
+                    // A connector has no text; a long one that is not straight across (a diagonal) is a drawn shape too (FR-136).
+                    if (check && !off && !IsOffSlide(connector.ShapeProperties?.Transform2D?.Offset, connector.ShapeProperties?.Transform2D?.Extents, context))
+                    {
+                        AddShapeCut(connector.ShapeProperties?.Transform2D, connector.NonVisualConnectionShapeProperties?.NonVisualDrawingProperties?.Description?.Value, body, context);
+                    }
+
+                    break;
                 case GroupShape group:
                     var groupOff = off || (check && IsOffSlide(group.GroupShapeProperties?.TransformGroup?.Offset, group.GroupShapeProperties?.TransformGroup?.Extents, context));
+
+                    // A group on the slide is cut out as one picture, before the texts of its shapes (FR-136); its shapes are not cut out one by one.
+                    if (check && !groupOff)
+                    {
+                        var transform = group.GroupShapeProperties?.TransformGroup;
+                        AddShapeCut(transform?.Offset, transform?.Extents, transform?.Rotation?.Value, group.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Description?.Value, body, context);
+                    }
+
                     if (!groupOff || context.IncludeOffSlide)
                     {
                         Walk(group, ref title, body, part, context, groupOff, check: false);
@@ -197,6 +219,43 @@ public static class PptxReader
             }
         }
     }
+
+    /// <summary>A shape that is drawn, not a place for text: not a placeholder of the layout, not a text box (FR-136).</summary>
+    private static bool IsDrawnShape(Shape shape) =>
+        shape.NonVisualShapeProperties?.ApplicationNonVisualDrawingProperties?.PlaceholderShape is null
+        && shape.NonVisualShapeProperties?.NonVisualShapeDrawingProperties?.TextBox?.Value != true;
+
+    private static void AddShapeCut(A.Transform2D? transform, string? description, List<string> body, SlideContext context) =>
+        AddShapeCut(transform?.Offset, transform?.Extents, transform?.Rotation?.Value, description, body, context);
+
+    /// <summary>
+    /// Writes the mark of a drawn shape that is cut out of the image of the slide (FR-136), when it is half an inch or more on each side. Its place is
+    /// that of the slide, with the turn of the shape and a little room for its line and shadow; the page is the one of the slide.
+    /// </summary>
+    private static void AddShapeCut(A.Offset? offset, A.Extents? extents, int? rotation, string? description, List<string> body, SlideContext context)
+    {
+        if (context.Pictures is not { CutShapes: true } || offset?.X is null || offset.Y is null || extents?.Cx is null || extents.Cy is null)
+        {
+            return;
+        }
+
+        double x = offset.X.Value, y = offset.Y.Value, width = extents.Cx.Value, height = extents.Cy.Value;
+        if (width < PictureCollector.MinShapeSidePoints * EmuPerPoint || height < PictureCollector.MinShapeSidePoints * EmuPerPoint)
+        {
+            return;
+        }
+
+        var area = ShapeAreas.Of(x, y, width, height, (rotation ?? 0) / 60000.0, RoomPoints * EmuPerPoint, context.Width, context.Height);
+        if (area is not null)
+        {
+            body.Add(PictureCollector.Markdown(description, context.Pictures.AddShape(area)));
+        }
+    }
+
+    private const double EmuPerPoint = 12700;
+
+    /// <summary>The room around a cut shape, in points, for its line and its shadow.</summary>
+    private const double RoomPoints = 4;
 
     private static bool IsMedia(Picture picture) =>
         picture.NonVisualPictureProperties?.ApplicationNonVisualDrawingProperties?.Descendants<OpenXmlElement>()

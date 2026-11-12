@@ -25,7 +25,7 @@ using MarkPortO.Core.Vlm;
 
 namespace MarkPortO.App.ViewModels;
 
-/// <summary>One extractor as it is edited. Every change is written to settings.json at once (FR-110; experimental).</summary>
+/// <summary>One extractor as it is edited. Every change is written to settings.json at once (FR-110).</summary>
 public sealed class ExtractorEditorViewModel : ObservableObject
 {
     /// <summary>What is shown in place of the value of an environment variable; the value itself is never shown.</summary>

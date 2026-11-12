@@ -60,6 +60,8 @@
   <sys:String x:Key="Main_Cond_EmphasisNote">（他のツールで、ノイズになる場合があります）</sys:String>
   <sys:String x:Key="Main_Cond_Pictures">文書の画像を取り出す</sys:String>
   <sys:String x:Key="Main_Cond_PicturesTip">Word・PowerPoint・Excel に貼られた画像を pictures/ に保存し(pictures/page-003-1.png は3ページ目の1つ目の画像)、Markdown の画像の位置から参照します。PNG・JPEG・GIF はそのまま、EMF・WMF・BMP・TIFF は PNG にして保存します。Excel では、画像を固定したセルより上の表や文の後ろに置きます。</sys:String>
+  <sys:String x:Key="Main_Cond_Shapes">図形を画像にする</sys:String>
+  <sys:String x:Key="Main_Cond_ShapesTip">PowerPoint・Excel の図形(グループは全体で1枚、縦横とも0.5インチ以上の図形)を、ページ画像から切り出して pictures/ に保存します。名前は画像と同じ形です。テキストボックスや、小さな矢印・線は対象外です。Word は対象外です。Excel では、列の幅と行の高さから位置を計算するので、少しずれることがあります。</sys:String>
   <sys:String x:Key="Main_Cond_EmphasisTip">文中の太字を ** で、斜体を * で囲んで書きます(Word・PowerPoint・Excel)。段落(セル)の全体が太字(斜体)のもの、見出し、スライドのタイトルには付けません。知識グラフを作るツールなど、他のツールに Markdown を渡すときは、** や * がノイズになることがあります。</sys:String>
   <sys:String x:Key="Main_Cond_OffSlide">スライド外の文字を含める</sys:String>
   <sys:String x:Key="Main_Cond_OffSlideTip">PowerPoint: スライドの外に置いたシェイプ(メモ)の文字を、「Off-slide」の引用として書きます。スライドの画像には写りません。</sys:String>
@@ -68,10 +70,10 @@
   <sys:String x:Key="Main_Cond_Step1">印刷イメージ保存、テキスト抽出する(内蔵、外部)</sys:String>
   <sys:String x:Key="Main_Cond_Step1Always">(常に実行)</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Markdownに印刷イメージ差し込み(内蔵選択時のみ)</sys:String>
-  <sys:String x:Key="Main_Cond_Extractor">抽出方法(実験):</sys:String>
+  <sys:String x:Key="Main_Cond_Extractor">抽出方法:</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorBuiltIn">内蔵</sys:String>
-  <sys:String x:Key="Main_Cond_ExtractorTip">Markdownへの抽出を、settings.json に登録した外部コマンドに任せます(実験機能)。ページの区切りはなくなり、VLMの結果は別ファイルになります。</sys:String>
-  <sys:String x:Key="Ext_Title">抽出コマンドの設定(実験)</sys:String>
+  <sys:String x:Key="Main_Cond_ExtractorTip">Markdownへの抽出を、settings.json に登録した外部コマンドに任せます。ページの区切りはなくなり、VLMの結果は別ファイルになります。</sys:String>
+  <sys:String x:Key="Ext_Title">抽出コマンドの設定</sys:String>
   <sys:String x:Key="Ext_List">抽出コマンドの一覧</sys:String>
   <sys:String x:Key="Ext_Selected">選んだ抽出コマンド</sys:String>
   <sys:String x:Key="Ext_Command">コマンド</sys:String>
@@ -98,7 +100,7 @@
   <sys:String x:Key="Ext_Trying">実行中…</sys:String>
   <sys:String x:Key="Ext_TryDone">成功しました({0}秒、{1}文字、{2}行)。先頭の30行：</sys:String>
   <sys:String x:Key="Ext_TryFailed">失敗しました。</sys:String>
-  <sys:String x:Key="Menu_ExtractorSettings">抽出コマンドの設定(実験)…</sys:String>
+  <sys:String x:Key="Menu_ExtractorSettings">抽出コマンドの設定…</sys:String>
   <sys:String x:Key="Ext_Template">ひな形…</sys:String>
   <sys:String x:Key="Ext_TemplateMarkItDown">MarkItDown</sys:String>
   <sys:String x:Key="Ext_TemplateDocling">Docling</sys:String>

@@ -30,7 +30,7 @@ public enum ExtractorOutput
 }
 
 /// <summary>
-/// An external command that writes Markdown for a file (FR-110; experimental). The program is installed by the user; MarkPortO only runs it,
+/// An external command that writes Markdown for a file (FR-110). The program is installed by the user; MarkPortO only runs it,
 /// without a shell, with the arguments below.
 /// </summary>
 public sealed class ExtractorProfile

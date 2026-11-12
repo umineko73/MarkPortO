@@ -127,7 +127,11 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             document.ExtractPictures = layout.Pictures is not null;
             if (layout.Pictures is not null)
             {
-                DocumentLog.Write(document, [.. layout.Pictures.Skipped, .. PictureFiles.Write(document.OutputFolder, document.Blocks, document.Pages.Count, layout.Pictures)]);
+                SnapSheetShapes(document, layout);
+                string? PageImage(int index) => document.Pages.FirstOrDefault(p => p.Index == index) is { ImageFile.Length: > 0 } page
+                    ? Path.Combine(document.OutputFolder, page.ImageFile.Replace('/', Path.DirectorySeparatorChar))
+                    : null;
+                DocumentLog.Write(document, [.. layout.Pictures.Skipped, .. PictureFiles.Write(document.OutputFolder, document.Blocks, document.Pages.Count, layout.Pictures, PageImage)]);
             }
 
             // The pages (and their images) are made as always, for Step2, Step3 and the preview; the Markdown is the one of the extractor (FR-112).
@@ -179,7 +183,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         return document.Kind != DocumentKind.Pdf && context.Engine.Describe(document.Kind) is { Length: > 0 } engine ? text + "; engine: " + engine : text;
     }
 
-    // ---- an extractor: an external command writes the Markdown of the whole document, without pages (FR-110 to FR-112; experimental) ----
+    // ---- an extractor: an external command writes the Markdown of the whole document, without pages (FR-110 to FR-112) ----
 
     private static async Task ExtractAsync(DocumentRecord document, ExtractorProfile extractor, string workDirectory, CancellationToken cancellationToken)
     {
@@ -214,7 +218,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     private static async Task<Layout> LayoutDocxAsync(DocumentWork work, string workDirectory, CancellationToken cancellationToken)
     {
         var document = work.Document;
-        var layout = new Layout { Pictures = NewPictureCollector(work) };
+        var layout = new Layout { Pictures = NewPictureCollector(work, shapes: false) };
         // Word has the numbers of figures and tables counted again when it prints, so the text is read from a copy in which Word did it.
         var content = DocxReader.ReadContent(await UpdatedFieldsCopyAsync(work, workDirectory, cancellationToken).ConfigureAwait(false) ?? document.SourcePath, work.Context.Options.Emphasis, layout.Pictures);
         var blocks = content.Blocks;
@@ -412,6 +416,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                     }
 
                     int PageOf(int pageInUnit) => firstPageOfUnit + Math.Min(Math.Max(0, pageInUnit), pdfPages - 1);
+                    PlaceSheetShapes(document, layout.Pictures, sheet, unit, work.Context.Options.ExcelRange, rowPages, PageOf, pdf);
                     foreach (var part in sheet.ToMarkdownParts(unit.FromColumnIndex, unit.ToColumnIndex, rowPages))
                     {
                         layout.Blocks.Add(new Block
@@ -447,8 +452,168 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     /// A collector of the pictures when they are saved (FR-133, FR-135): not when an extractor writes the Markdown (FR-110). A metafile is drawn at
     /// the DPI of the page images (FR-134).
     /// </summary>
-    private static PictureCollector? NewPictureCollector(DocumentWork work) =>
-        work.Context.Options.ExtractPictures && work.Context.ExtractorFor(work.Document.Kind) is null ? new PictureCollector(work.Context.Options.Dpi) : null;
+    private static PictureCollector? NewPictureCollector(DocumentWork work, bool shapes = true)
+    {
+        var options = work.Context.Options;
+        var cutShapes = shapes && options.ExtractShapes;
+        return (options.ExtractPictures || cutShapes) && work.Context.ExtractorFor(work.Document.Kind) is null
+            ? new PictureCollector(options.Dpi, options.ExtractPictures, cutShapes)
+            : null;
+    }
+
+    /// <summary>
+    /// Moves the worked-out places of the drawn shapes of the sheets onto the shapes as the PDF of their pages draws them (FR-136): the engine draws
+    /// the columns and the rows a little differently from what their widths and heights say. A place that is not found in the PDF is kept.
+    /// </summary>
+    private static void SnapSheetShapes(DocumentRecord document, Layout layout)
+    {
+        if (document.Kind != DocumentKind.Xlsx || layout.Pictures is not { CutShapes: true } pictures)
+        {
+            return;
+        }
+
+        var opened = new Dictionary<string, UglyToad.PdfPig.PdfDocument?>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var picture in pictures.Pictures.Where(p => p.IsShape && p.Area?.Page is not null))
+            {
+                var index = picture.Area!.Page!.Value - 1;
+                if (index < 0 || index >= layout.Pdf.Count)
+                {
+                    continue;
+                }
+
+                var reference = layout.Pdf[index];
+                try
+                {
+                    if (!opened.TryGetValue(reference.PdfPath, out var pdf))
+                    {
+                        pdf = UglyToad.PdfPig.PdfDocument.Open(reference.PdfPath);
+                        opened[reference.PdfPath] = pdf;
+                    }
+
+                    if (pdf is not null)
+                    {
+                        var before = picture.Area;
+                        picture.Area = PdfShapeSnap.Snap(pdf.GetPage(reference.PageIndexInPdf + 1), before, ShapeAreas.SheetRoomPoints);
+                        DocumentLog.Write(document, ReferenceEquals(before, picture.Area)
+                            ? $"page {index + 1}: a drawn shape is not found in the drawing of the PDF; the worked-out place is used"
+                            : $"page {index + 1}: a drawn shape is moved onto its drawing in the PDF: {Describe(picture.Area)}");
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+                {
+                    opened[reference.PdfPath] = null; // not readable: the worked-out places are used
+                    DocumentLog.Write(document, $"page {index + 1}: the drawing of the shapes could not be read from the PDF ({ex.GetType().Name}); the worked-out place is used");
+                }
+            }
+        }
+        finally
+        {
+            foreach (var pdf in opened.Values)
+            {
+                pdf?.Dispose();
+            }
+        }
+    }
+
+    private static string Describe(ShapeArea? area) => area is null
+        ? "nowhere"
+        : string.Create(CultureInfo.InvariantCulture, $"left {area.Left:0.###}, top {area.Top:0.###}, {area.Width:0.###} x {area.Height:0.###} of the page");
+
+    /// <summary>
+    /// Works out where the drawn shapes of one printed part of a sheet are on its pages (FR-136), from the widths of the columns, the heights of the
+    /// rows and how much the part is shrunk to fit the A3 page (<see cref="ExcelTempCopy"/>). Not for a sheet that follows its own print setup.
+    /// </summary>
+    private static void PlaceSheetShapes(DocumentRecord document, PictureCollector? pictures, SheetContent sheet, ExcelUnit unit, ExcelRange range, IReadOnlyList<int>? rowPages, Func<int, int> pageOf, string pdfPath)
+    {
+        if (pictures is not { CutShapes: true } || range == ExcelRange.PrintArea || sheet.Shapes.Count == 0)
+        {
+            return;
+        }
+
+        var widths = sheet.ShapeColumnWidthsPoints;
+        var heights = sheet.RowHeightsPoints;
+        double Sum(double[] sizes, int from, int to) => sizes.Skip(from).Take(Math.Max(0, to - from)).Sum();
+        var partLeft = Sum(widths, 0, unit.FromColumnIndex);
+        var partWidth = Sum(widths, unit.FromColumnIndex, unit.ToColumnIndex + 1);
+        var landscape = range != ExcelRange.Sheet || ExcelUnitPlanner.IsLandscape(sheet);
+        var pageWidth = landscape ? ShapeAreas.A3LongPoints : ShapeAreas.A3ShortPoints;
+        var pageHeight = landscape ? ShapeAreas.A3ShortPoints : ShapeAreas.A3LongPoints;
+        var scale = ShapeAreas.SheetScale(partWidth, heights.Sum(), pageWidth, pageHeight, fitHeight: range == ExcelRange.Sheet);
+        int PageInPart(int row) => rowPages is null || rowPages.Count == 0 ? 0 : rowPages[Math.Clamp(row, 0, rowPages.Count - 1)];
+
+        var shapes = sheet.Shapes.Where(s => s.Column >= unit.FromColumnIndex && s.Column <= unit.ToColumnIndex).ToList();
+        if (shapes.Count == 0)
+        {
+            return;
+        }
+
+        // From the top of the page, in points: where the rows of a page are worked out to be (its first row printed at the top margin).
+        double TopOfPage(int page) => Sum(heights, 0, Enumerable.Range(0, heights.Length).FirstOrDefault(r => PageInPart(r) == page));
+        double Worked(double sheetY, int page) => ShapeAreas.SheetMarginPoints + (sheetY - TopOfPage(page)) * scale;
+
+        // The rows are printed a little taller or shorter than their heights say; the rows whose text is found on the page tell how (PdfRowFit).
+        var fits = new Dictionary<int, PdfRowFit?>();
+        using var pdf = OpenForFit(pdfPath);
+        PdfRowFit? FitOf(int page)
+        {
+            if (!fits.TryGetValue(page, out var fit))
+            {
+                var rows = Enumerable.Range(0, sheet.Rows.Length)
+                    .Where(r => PageInPart(r) == page && heights[r] > 0)
+                    .Select(r => (Text: Enumerable.Range(unit.FromColumnIndex, unit.ToColumnIndex - unit.FromColumnIndex + 1)
+                        .Select(c => c < sheet.Rows[r].Length ? sheet.Rows[r][c].Trim() : string.Empty).FirstOrDefault(t => t.Length > 0) ?? string.Empty,
+                        Bottom: Worked(Sum(heights, 0, r + 1), page)))
+                    .Where(r => r.Text.Length > 0)
+                    .ToList();
+                try
+                {
+                    fit = pdf is null || page >= pdf.NumberOfPages ? null : PdfRowFit.Fit(pdf.GetPage(page + 1), rows);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+                {
+                    fit = null;
+                }
+
+                fits[page] = fit;
+            }
+
+            return fit;
+        }
+
+        foreach (var shape in shapes)
+        {
+            var page = PageInPart(shape.Row);
+            var x = ShapeAreas.SheetMarginPoints + (shape.X - partLeft) * scale;
+            var y = Worked(shape.Y, page);
+            var height = shape.Height * scale;
+            var fit = FitOf(page);
+            if (fit is not null)
+            {
+                height *= fit.Scale;
+                y = fit.Map(y);
+            }
+
+            var area = pictures.Pictures[shape.Mark].Area = ShapeAreas.Of(x, y, shape.Width * scale, height, shape.Degrees, ShapeAreas.SheetRoomPoints, pageWidth, pageHeight, pageOf(page));
+            DocumentLog.Write(document,
+                FormattableString.Invariant($"sheet '{sheet.Name}': a drawn shape at {shape.X:0.#},{shape.Y:0.#} ({shape.Width:0.#} x {shape.Height:0.#} pt), part {partWidth:0.#} x {heights.Sum():0.#} pt shrunk to {scale:0.##}")
+                + (fit is null ? ", rows not found in the PDF" : FormattableString.Invariant($", rows fitted by {fit.Rows} found in the PDF ({fit.Scale:0.###} x + {fit.Offset:0.#} pt)"))
+                + FormattableString.Invariant($": page {pageOf(page)} at {Describe(area)}"));
+        }
+    }
+
+    private static UglyToad.PdfPig.PdfDocument? OpenForFit(string pdfPath)
+    {
+        try
+        {
+            return UglyToad.PdfPig.PdfDocument.Open(pdfPath);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>Records that a page is a deleted page, or warns about a drawing that cannot be judged.</summary>
     private static void MarkDeleted(Layout layout, int page, CrossVerdict verdict, string where, bool warn = true)

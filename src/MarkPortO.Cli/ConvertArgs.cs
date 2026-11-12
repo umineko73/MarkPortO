@@ -48,6 +48,9 @@ public sealed record ConvertArgs
     /// <summary>on / off: save the pictures of a docx, pptx or xlsx (FR-133 to FR-135).</summary>
     public string? Pictures { get; init; }
 
+    /// <summary>on / off: cut the drawn shapes of a pptx or xlsx out of the page image (FR-136).</summary>
+    public string? Shapes { get; init; }
+
     public string? Engine { get; init; }
 
     public int? Dpi { get; init; }
@@ -227,6 +230,7 @@ public static class ConvertArgsResolver
 
         ApplyOnOff("--pdf-text", args.PdfText, value => settings.Input.UsePdfText = value, errors);
         ApplyOnOff("--pictures", args.Pictures, value => settings.Input.ExtractPictures = value, errors);
+        ApplyOnOff("--shapes", args.Shapes, value => settings.Input.ExtractShapes = value, errors);
         ApplyOnOff("--step2", args.Step2, value => settings.Steps.Step2 = value, errors);
         ApplyOnOff("--step3", args.Step3, value => settings.Steps.Step3 = value, errors);
         ApplyOnOff("--vlm-separate", args.VlmSeparate, value => settings.Steps.VlmSeparate = value, errors);

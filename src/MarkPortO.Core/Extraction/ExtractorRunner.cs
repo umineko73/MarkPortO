@@ -33,7 +33,7 @@ public sealed class ExtractorException(string message) : Exception(message);
 public sealed record ExtractorResult(string Markdown, double Seconds, int ExitCode, string ErrorTail, string OutputFolder, string? MarkdownFile);
 
 /// <summary>
-/// Runs an extractor on one file (FR-110, FR-112; experimental): no shell, each argument on its own, no window; the whole process tree is stopped at a time-out
+/// Runs an extractor on one file (FR-110, FR-112): no shell, each argument on its own, no window; the whole process tree is stopped at a time-out
 /// or when the run is cancelled. The standard output and the standard error are read up to <see cref="MaximumOutput"/> characters.
 /// </summary>
 public static class ExtractorRunner

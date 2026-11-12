@@ -40,7 +40,7 @@ public sealed class ConvertService
     private readonly IReadOnlyList<ExtractorProfile> _extractors;
 
     /// <param name="vlm">The VLM connection, needed when step 3 is on. It is not disposed by this class.</param>
-    /// <param name="extractors">The external commands that can write Markdown (FR-110, experimental).</param>
+    /// <param name="extractors">The external commands that can write Markdown (FR-110).</param>
     public ConvertService(IDocumentEngine engine, ILogger? logger = null, TimeSpan? engineTimeout = null, VlmSetup? vlm = null, IReadOnlyList<ExtractorProfile>? extractors = null)
     {
         _vlm = vlm;

@@ -143,7 +143,7 @@
             <CheckBox Content="{DynamicResource Main_Cond_Recurse}" IsChecked="{Binding Recurse}" VerticalAlignment="Center" />
           </StackPanel>
 
-          <!-- Who extracts the text of each kind (experimental). Shown when an extractor is registered. -->
+          <!-- Who extracts the text of each kind . Shown when an extractor is registered. -->
           <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_Extractor}" VerticalAlignment="Center" Margin="0,0,0,6" ToolTip="{DynamicResource Main_Cond_ExtractorTip}"
                      Visibility="{Binding ExtractorVisibility}" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" Visibility="{Binding ExtractorVisibility}"
@@ -224,7 +224,8 @@
               <TextBox x:Name="DpiBox" Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="68" VerticalContentAlignment="Center" Margin="0,0,20,0" />
               <CheckBox Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" />
               <TextBlock Text="{DynamicResource Main_Cond_EmphasisNote}" Foreground="{DynamicResource SubtleTextBrush}" VerticalAlignment="Center" Margin="8,0,20,0" />
-              <CheckBox Content="{DynamicResource Main_Cond_Pictures}" IsChecked="{Binding ExtractPictures}" ToolTip="{DynamicResource Main_Cond_PicturesTip}" VerticalAlignment="Center" />
+              <CheckBox Content="{DynamicResource Main_Cond_Pictures}" IsChecked="{Binding ExtractPictures}" ToolTip="{DynamicResource Main_Cond_PicturesTip}" VerticalAlignment="Center" Margin="0,0,12,0" />
+              <CheckBox Content="{DynamicResource Main_Cond_Shapes}" IsChecked="{Binding ExtractShapes}" ToolTip="{DynamicResource Main_Cond_ShapesTip}" VerticalAlignment="Center" />
             </StackPanel>
           </WrapPanel>
 

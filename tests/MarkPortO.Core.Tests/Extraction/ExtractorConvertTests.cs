@@ -23,7 +23,7 @@ using static MarkPortO.Core.Tests.Convert.ConvertTestHelper;
 
 namespace MarkPortO.Core.Tests.Extraction;
 
-/// <summary>FR-111 and FR-112 (experimental): a document whose Markdown an extractor writes.</summary>
+/// <summary>FR-111 and FR-112: a document whose Markdown an extractor writes.</summary>
 public class ExtractorConvertTests
 {
     private static readonly string Cmd = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";

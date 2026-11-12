@@ -92,6 +92,7 @@ public static class CliApp
         var noEmphasis = new Option<bool>("--no-emphasis") { Description = "Do not mark text in bold or italic." };
         var pdfText = new Option<string?>("--pdf-text") { Description = "on or off: use the text layer of a PDF as the text of its pages (the default is on)." };
         var pictures = new Option<string?>("--pictures") { Description = "on or off: save the pictures of a Word, PowerPoint or Excel file in pictures/ and refer to them from the Markdown (default: the settings file, off)." };
+        var shapes = new Option<string?>("--shapes") { Description = "on or off: cut the drawn shapes of a PowerPoint or Excel file (groups, and shapes of half an inch or more) out of the page image into pictures/ (default: the settings file, off)." };
         var engine = new Option<string?>("--engine") { Description = "office or libreoffice." };
         var dpi = new Option<int?>("--dpi") { Description = "Resolution of the page images (72-600)." };
         var excelRange = new Option<string?>("--excel-range") { Description = "How the pages of an Excel sheet are cut: columns (all columns on the width of a page, as far as they stay readable), sheet (the whole sheet on one page) or print-area (follow the print setup of the sheet)." };
@@ -106,10 +107,10 @@ public static class CliApp
         var promptXlsx = new Option<string?>("--prompt-xlsx") { Description = "The name of the VLM prompt for Excel files (or 'standard')." };
         var promptPptx = new Option<string?>("--prompt-pptx") { Description = "The name of the VLM prompt for PowerPoint files (or 'standard')." };
         var promptPdf = new Option<string?>("--prompt-pdf") { Description = "The name of the VLM prompt for PDF files (or 'standard')." };
-        var extractorDocx = new Option<string?>("--extractor-docx") { Description = "Experimental. The extractor (a name in settings.json) that writes the Markdown of docx files; builtin is the built-in one." };
-        var extractorXlsx = new Option<string?>("--extractor-xlsx") { Description = "Experimental. The extractor that writes the Markdown of xlsx files." };
-        var extractorPptx = new Option<string?>("--extractor-pptx") { Description = "Experimental. The extractor that writes the Markdown of pptx files." };
-        var extractorPdf = new Option<string?>("--extractor-pdf") { Description = "Experimental. The extractor that writes the Markdown of pdf files." };
+        var extractorDocx = new Option<string?>("--extractor-docx") { Description = "The extractor (a name in settings.json) that writes the Markdown of docx files; builtin is the built-in one." };
+        var extractorXlsx = new Option<string?>("--extractor-xlsx") { Description = "The extractor that writes the Markdown of xlsx files." };
+        var extractorPptx = new Option<string?>("--extractor-pptx") { Description = "The extractor that writes the Markdown of pptx files." };
+        var extractorPdf = new Option<string?>("--extractor-pdf") { Description = "The extractor that writes the Markdown of pdf files." };
         var connection = new Option<string?>("--connection") { Description = "Name of the VLM connection in settings.json." };
         var maxPages = new Option<int?>("--max-pages") { Description = "Stop after this many pages have been read by Step 3 (default: the setting of the connection; empty is no limit)." };
         var maxCost = new Option<double?>("--max-cost") { Description = "Stop after Step 3 has cost this many US dollars, when the command says what it costs." };
@@ -126,7 +127,7 @@ public static class CliApp
         convert.Arguments.Add(inputs);
         foreach (var option in new Option[]
         {
-            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, pictures, engine, dpi, excelRange, step2, step3, vlmSeparate,
+            settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, pictures, shapes, engine, dpi, excelRange, step2, step3, vlmSeparate,
             pages, step1Tables, dropRepeated, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, sameFolder, result, quiet,
         })
         {
@@ -150,6 +151,7 @@ public static class CliApp
                 Emphasis = Flag(parse.GetValue(emphasis), parse.GetValue(noEmphasis)),
                 PdfText = parse.GetValue(pdfText),
                 Pictures = parse.GetValue(pictures),
+                Shapes = parse.GetValue(shapes),
                 Engine = parse.GetValue(engine),
                 Dpi = parse.GetValue(dpi),
                 ExcelRange = parse.GetValue(excelRange),

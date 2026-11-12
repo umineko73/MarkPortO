@@ -245,6 +245,9 @@ public sealed class OptionsSnapshot
     /// <summary>Save the pictures of a docx, pptx or xlsx in <c>pictures/</c> (FR-133 to FR-135). A job from before this setting did not.</summary>
     public bool ExtractPictures { get; set; }
 
+    /// <summary>Cut the drawn shapes of a pptx or xlsx out of the page image (FR-136). A job from before this setting did not.</summary>
+    public bool ExtractShapes { get; set; }
+
     public EngineKind Engine { get; set; }
 
     public bool Step2 { get; set; }

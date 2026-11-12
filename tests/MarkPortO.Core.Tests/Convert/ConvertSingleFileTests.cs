@@ -116,6 +116,82 @@ public class ConvertSingleFileTests
         Assert.Contains("turned into a PNG from image/x-emf", File.ReadAllText(Path.Combine(converted.OutputFolder, "book.log")));
     }
 
+    // FR-136: the cut-out of a red rectangle is red in the middle and white at its edges (the room around it): it is where the rectangle is.
+    private static void AssertCutsARedRectangle(string file)
+    {
+        using var image = new System.Drawing.Bitmap(file);
+        bool Red(int x, int y) => image.GetPixel(x, y) is var c && c.R > 200 && c.G < 80 && c.B < 80;
+        Assert.True(Red(image.Width / 2, image.Height / 2), "the middle is red");
+        Assert.True(Red(image.Width / 5, image.Height / 5) && Red(image.Width * 4 / 5, image.Height * 4 / 5), "the rectangle fills the cut-out");
+        Assert.False(Red(0, 0) || Red(image.Width - 1, image.Height - 1), "the corners are outside the rectangle");
+    }
+
+    [LibreOfficeFact]
+    public async Task Pptx_WithShapes_CutsARectangleOutOfTheSlideImage()
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "deck.pptx");
+        PptxFactory.Create(source, new SlideSpec("Plan"));
+        Ooxml.ShapeCutTests.AddToSlide(source, Ooxml.ShapeCutTests.SlideRectangle(20, 914400 * 3, 914400 * 3, 914400 * 3, 914400 * 2));
+
+        var options = Options(dpi: 96);
+        options.ExtractShapes = true;
+        var result = await RunAsync(dir, Request(dir.Combine("out"), options, source));
+
+        var converted = Assert.Single(result.Documents);
+        Assert.True(converted.IsDone());
+        Assert.Contains("![](pictures/page-001-1.png)", File.ReadAllText(Path.Combine(converted.OutputFolder, "deck.md")));
+        AssertCutsARedRectangle(Path.Combine(converted.OutputFolder, "pictures", "page-001-1.png"));
+    }
+
+    // With the default height of a row in the file, and without it (LibreOffice then draws the rows at the height of its own font, and the
+    // place is found from the rows whose text is in the PDF, and from the drawing of the shape).
+    [LibreOfficeTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Xlsx_WithShapes_CutsARectangleOutOfThePageImage_WhereTheCellsSay(bool defaultRowHeight)
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "book.xlsx");
+        string[][] rows = [.. Enumerable.Range(1, 20).Select(r => new[] { "r" + r, "b", "c", "d", "e", "f" })];
+        XlsxFactory.Create(source, new SheetSpec("Data", rows));
+        using (var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(source, isEditable: true))
+        {
+            var sheetPart = document.WorkbookPart!.WorksheetParts.First();
+            var drawings = sheetPart.AddNewPart<DocumentFormat.OpenXml.Packaging.DrawingsPart>();
+            // From B5 to D12: a red rectangle over the cells.
+            drawings.WorksheetDrawing = new DocumentFormat.OpenXml.Drawing.Spreadsheet.WorksheetDrawing(
+                "<xdr:wsDr xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">"
+                + "<xdr:twoCellAnchor><xdr:from><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>4</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>"
+                + "<xdr:to><xdr:col>4</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>12</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>"
+                + "<xdr:sp macro=\"\" textlink=\"\"><xdr:nvSpPr><xdr:cNvPr id=\"2\" name=\"Rectangle 1\"/><xdr:cNvSpPr/></xdr:nvSpPr>"
+                + "<xdr:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val=\"FF0000\"/></a:solidFill></xdr:spPr>"
+                + "</xdr:sp><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>");
+            drawings.WorksheetDrawing.Save();
+            var worksheet = sheetPart.Worksheet!;
+            worksheet.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Drawing { Id = sheetPart.GetIdOfPart(drawings) });
+
+            // As Excel writes it: the height of a row that says nothing of its own (the place of the shape is worked out from it).
+            worksheet.RemoveAllChildren<DocumentFormat.OpenXml.Spreadsheet.SheetFormatProperties>();
+            if (defaultRowHeight)
+            {
+                worksheet.InsertBefore(
+                    new DocumentFormat.OpenXml.Spreadsheet.SheetFormatProperties { DefaultRowHeight = 18.75 },
+                    (DocumentFormat.OpenXml.OpenXmlElement?)worksheet.GetFirstChild<DocumentFormat.OpenXml.Spreadsheet.Columns>() ?? worksheet.GetFirstChild<DocumentFormat.OpenXml.Spreadsheet.SheetData>());
+            }
+            worksheet.Save();
+        }
+
+        var options = Options(dpi: 96);
+        options.ExtractShapes = true;
+        var result = await RunAsync(dir, Request(dir.Combine("out"), options, source));
+
+        var converted = Assert.Single(result.Documents);
+        Assert.True(converted.IsDone());
+        Assert.Contains("![](pictures/page-001-1.png)", File.ReadAllText(Path.Combine(converted.OutputFolder, "book.md")));
+        AssertCutsARedRectangle(Path.Combine(converted.OutputFolder, "pictures", "page-001-1.png"));
+    }
+
     [LibreOfficeFact]
     public async Task Pptx_MakesOneImagePerVisibleSlide_AndSkipsHiddenSlides()
     {

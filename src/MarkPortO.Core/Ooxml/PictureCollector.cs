@@ -22,7 +22,21 @@ namespace MarkPortO.Core.Ooxml;
 /// <summary>A picture taken out of a document (FR-133): its bytes and the extension of its file (<c>.png</c>).</summary>
 /// <param name="Hash">The SHA-256 of the picture as the document has it (before it is turned into a PNG, FR-134): the same picture is one file.</param>
 /// <param name="ConvertedFrom">The content type that it was turned into a PNG from; null when it is saved as it is.</param>
-public sealed record CollectedPicture(byte[] Data, string Extension, string Hash, string? ConvertedFrom = null);
+public sealed record CollectedPicture(byte[] Data, string Extension, string Hash, string? ConvertedFrom = null)
+{
+    /// <summary>
+    /// For a drawn shape (FR-136): where it is on the image of its page, cut out when the file is written. Null for a picture that has its own file.
+    /// It is set later for a shape of a sheet, whose place on the page is known once the pages are (null then: it is not cut out).
+    /// </summary>
+    public ShapeArea? Area { get; set; }
+
+    /// <summary>The picture is a drawn shape, cut out of the image of its page (FR-136).</summary>
+    public bool IsShape { get; init; }
+}
+
+/// <summary>Where a drawn shape is on the image of a page, in fractions of the page (0 to 1, from the top left) (FR-136).</summary>
+/// <param name="Page">The page (1-based) whose image it is cut out of; null for the page of the block that has its mark.</param>
+public sealed record ShapeArea(double Left, double Top, double Width, double Height, int? Page = null);
 
 /// <summary>
 /// Collects the pictures of a docx, pptx or xlsx while it is read (FR-133 to FR-135). The page of a picture is not known yet (a docx is put on its pages later),
@@ -30,8 +44,29 @@ public sealed record CollectedPicture(byte[] Data, string Extension, string Hash
 /// (<see cref="Pipeline.PictureFiles"/>).
 /// </summary>
 /// <param name="dpi">The resolution at which a metafile (EMF, WMF) is drawn into a PNG (FR-134): the DPI of the page images.</param>
-public sealed class PictureCollector(int dpi = 150)
+/// <param name="savePictures">The pictures are saved (FR-133).</param>
+/// <param name="cutShapes">The drawn shapes are cut out of the page images (FR-136).</param>
+public sealed class PictureCollector(int dpi = 150, bool savePictures = true, bool cutShapes = false)
 {
+    /// <summary>The smallest width and height of a drawn shape that is cut out, in points (half an inch): a small arrow or line is not (FR-136).</summary>
+    public const double MinShapeSidePoints = 36;
+
+    /// <summary>The pictures are saved (FR-133).</summary>
+    public bool SavePictures { get; } = savePictures;
+
+    /// <summary>The drawn shapes are cut out of the page images (FR-136).</summary>
+    public bool CutShapes { get; } = cutShapes;
+
+    /// <summary>The mark of a drawn shape that is cut out of the page image (FR-136); <paramref name="area"/> can be set later (a shape of a sheet).</summary>
+    public string AddShape(ShapeArea? area)
+    {
+        _pictures.Add(new CollectedPicture([], ".png", "shape:" + _pictures.Count.ToString(CultureInfo.InvariantCulture)) { Area = area, IsShape = true });
+        return Mark(_pictures.Count - 1);
+    }
+
+    /// <summary>The number in a mark (<see cref="AddShape"/>), to set the place of the shape later.</summary>
+    public static int NumberOf(string mark) => int.Parse(mark.AsSpan(1, mark.Length - 2), CultureInfo.InvariantCulture);
+
     /// <summary>The characters around the number of a picture in its mark: private, so that no text of a document has them.</summary>
     public const char MarkStart = '';
 
@@ -64,6 +99,11 @@ public sealed class PictureCollector(int dpi = 150)
     /// </summary>
     public string? Add(OpenXmlPart owner, string? relationshipId, string? name)
     {
+        if (!SavePictures)
+        {
+            return null;
+        }
+
         var what = string.IsNullOrWhiteSpace(name) ? "a picture" : $"the picture '{name.Trim()}'";
         if (string.IsNullOrEmpty(relationshipId))
         {
