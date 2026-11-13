@@ -191,6 +191,42 @@ public class PictureExtractionTests
         Assert.DoesNotContain("page-001-3", blocks[0].Markdown, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Pptx_PicturesAndShapesBothOn_APictureInACutGroupIsNotWrittenTwice()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("both.pptx");
+        PptxFactory.Create(path, new SlideSpec("Plan"));
+        const long inch = 914400;
+        using (var document = PresentationDocument.Open(path, isEditable: true))
+        {
+            var slidePart = document.PresentationPart!.SlideParts.First();
+            var tree = slidePart.Slide!.CommonSlideData!.ShapeTree!;
+            var red = AddImage(slidePart, ImagePartType.Png, RedPng);
+            var blue = AddImage(slidePart, ImagePartType.Png, BluePng);
+            tree.AppendChild(SlidePicture(90, red, "Logo")); // alone on the slide
+            tree.AppendChild(new P.GroupShape(
+                new P.NonVisualGroupShapeProperties(
+                    new P.NonVisualDrawingProperties { Id = 91, Name = "Group" },
+                    new P.NonVisualGroupShapeDrawingProperties(),
+                    new P.ApplicationNonVisualDrawingProperties()),
+                new P.GroupShapeProperties(new DocumentFormat.OpenXml.Drawing.TransformGroup(
+                    new DocumentFormat.OpenXml.Drawing.Offset { X = inch, Y = inch },
+                    new DocumentFormat.OpenXml.Drawing.Extents { Cx = 3 * inch, Cy = 2 * inch })),
+                SlidePicture(92, blue, "In the group")));
+            slidePart.Slide.Save();
+        }
+
+        var collector = new PictureCollector(savePictures: true, cutShapes: true);
+        var slide = Assert.Single(PptxReader.Read(path, includeHidden: false, pictures: collector));
+
+        // The logo is a file; the group is one shape picture that holds the other picture, which is not a file of its own.
+        Assert.Equal(2, collector.Pictures.Count);
+        Assert.Single(collector.Pictures, p => p.IsShape);
+        Assert.Contains("Logo", slide.Markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("In the group", slide.Markdown, StringComparison.Ordinal);
+    }
+
     private static P.Picture SlidePicture(uint id, string relationshipId, string? description) =>
         new(
             new P.NonVisualPictureProperties(

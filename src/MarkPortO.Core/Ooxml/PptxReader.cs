@@ -35,7 +35,26 @@ public sealed record SlideContent(int Number, bool Hidden, string Title, string 
 public static class PptxReader
 {
     /// <summary>The size of the slide (EMU), and whether the text of the shapes that are outside of it is written (FR-086).</summary>
-    private sealed record SlideContext(long Width, long Height, bool IncludeOffSlide, PictureCollector? Pictures);
+    private sealed record SlideContext(long Width, long Height, bool IncludeOffSlide, PictureCollector? Pictures)
+    {
+        /// <summary>The drawn shapes of the slide that is being read, to be cut out as one picture where they are near one another (FR-136).</summary>
+        public List<PendingCut>? Cuts { get; init; }
+
+        /// <summary>The pictures of the slide, written when the cuts are placed: one that lies within a cut shape is in its picture already (FR-133, FR-136).</summary>
+        public List<PendingPicture> Pictures2 { get; init; } = [];
+
+        /// <summary>Inside a group that is cut out as one picture: its pictures are in that picture.</summary>
+        public bool InCutGroup { get; init; }
+    }
+
+    /// <summary>A picture of the slide that is not yet written: where it is (EMU), how to collect it, its alternative text and the place of its mark in the body.</summary>
+    private sealed record PendingPicture((double Left, double Top, double Right, double Bottom)? Box, Func<string?> Collect, string? Description, int BodyIndex);
+
+    /// <summary>A drawn shape that may be cut out: where it is on the slide (in EMU, with its turn), the place of its mark in the body, and its alternative text.</summary>
+    private sealed record PendingCut(double X, double Y, double Width, double Height, double Degrees, string? Description, int BodyIndex);
+
+    /// <summary>The mark of a cut that has been merged into the one before it (it is taken out of the body).</summary>
+    private const string MergedCut = "merged";
 
     /// <param name="includeHidden">Include hidden slides (FR-010a).</param>
     /// <param name="includeOffSlideText">Write the text of the shapes that lie outside the slide, as a quote of its own (FR-086); when false they are left out.</param>
@@ -96,10 +115,12 @@ public static class PptxReader
         var tree = part.Slide?.CommonSlideData?.ShapeTree;
         var title = string.Empty;
         var body = new List<string>();
+        context = context with { Cuts = context.Pictures is { CutShapes: true } ? [] : null, Pictures2 = [] };
 
         if (tree is not null)
         {
             Walk(tree, ref title, body, part, context, off: false, check: true);
+            PlaceShapeCuts(body, context);
         }
 
         // Charts and SmartArt of the slide, then the speaker notes (FR-072).
@@ -191,7 +212,11 @@ public static class PptxReader
 
                     if (!groupOff || context.IncludeOffSlide)
                     {
-                        Walk(group, ref title, body, part, context, groupOff, check: false);
+                        // The pictures in a group that is cut out are in the picture of the group.
+                        var groupSize = group.GroupShapeProperties?.TransformGroup?.Extents;
+                        var cutAsGroup = check && !groupOff && context.Cuts is not null
+                            && groupSize?.Cx?.Value >= PictureCollector.MinShapeSidePoints * EmuPerPoint && groupSize.Cy?.Value >= PictureCollector.MinShapeSidePoints * EmuPerPoint;
+                        Walk(group, ref title, body, part, cutAsGroup ? context with { InCutGroup = true } : context, groupOff, check: false);
                     }
 
                     break;
@@ -204,6 +229,25 @@ public static class PptxReader
                     // A picture is written by its alternative text (FR-072), and with the mark of its file when the pictures are saved (FR-133).
                     // A video or a sound is not a picture: the picture of it is only its cover.
                     var drawingProperties = picture.NonVisualPictureProperties?.NonVisualDrawingProperties;
+                    if (context.InCutGroup)
+                    {
+                        break;
+                    }
+
+                    if (check && context.Cuts is not null)
+                    {
+                        // Written when the shapes of the slide are placed: a picture that lies within a cut shape is not written twice.
+                        var offset = picture.ShapeProperties?.Transform2D?.Offset;
+                        var extents = picture.ShapeProperties?.Transform2D?.Extents;
+                        (double, double, double, double)? box = offset?.X?.Value is { } px && offset.Y?.Value is { } py && extents?.Cx?.Value is { } pw && extents.Cy?.Value is { } ph ? ((double)px, (double)py, (double)(px + pw), (double)(py + ph)) : null;
+                        var embed = picture.BlipFill?.Blip?.Embed?.Value;
+                        var name = drawingProperties?.Name?.Value;
+                        var isMedia = IsMedia(picture);
+                        context.Pictures2.Add(new PendingPicture(box, () => context.Pictures is not null && !isMedia ? context.Pictures.Add(part, embed, name) : null, drawingProperties?.Description?.Value, body.Count));
+                        body.Add(string.Empty);
+                        break;
+                    }
+
                     string? mark = null;
                     if (context.Pictures is not null && !IsMedia(picture))
                     {
@@ -229,28 +273,129 @@ public static class PptxReader
         AddShapeCut(transform?.Offset, transform?.Extents, transform?.Rotation?.Value, description, body, context);
 
     /// <summary>
-    /// Writes the mark of a drawn shape that is cut out of the image of the slide (FR-136), when it is half an inch or more on each side. Its place is
-    /// that of the slide, with the turn of the shape and a little room for its line and shadow; the page is the one of the slide.
+    /// Notes a drawn shape that may be cut out of the image of the slide (FR-136). Its mark is written by <see cref="PlaceShapeCuts"/> when the whole slide
+    /// has been read, because shapes that are near one another are cut out as one picture.
     /// </summary>
     private static void AddShapeCut(A.Offset? offset, A.Extents? extents, int? rotation, string? description, List<string> body, SlideContext context)
     {
-        if (context.Pictures is not { CutShapes: true } || offset?.X is null || offset.Y is null || extents?.Cx is null || extents.Cy is null)
+        if (context.Cuts is null || offset?.X is null || offset.Y is null || extents?.Cx is null || extents.Cy is null)
         {
             return;
         }
 
-        double x = offset.X.Value, y = offset.Y.Value, width = extents.Cx.Value, height = extents.Cy.Value;
-        if (width < PictureCollector.MinShapeSidePoints * EmuPerPoint || height < PictureCollector.MinShapeSidePoints * EmuPerPoint)
-        {
-            return;
-        }
-
-        var area = ShapeAreas.Of(x, y, width, height, (rotation ?? 0) / 60000.0, RoomPoints * EmuPerPoint, context.Width, context.Height);
-        if (area is not null)
-        {
-            body.Add(PictureCollector.Markdown(description, context.Pictures.AddShape(area)));
-        }
+        context.Cuts.Add(new PendingCut(offset.X.Value, offset.Y.Value, extents.Cx.Value, extents.Cy.Value, (rotation ?? 0) / 60000.0, description, body.Count));
+        body.Add(string.Empty); // the place of its mark
     }
+
+    /// <summary>
+    /// Writes the marks of the drawn shapes of a slide. Shapes that are within <see cref="ClusterGapPoints"/> of one another (a loose group: boxes and the arrows
+    /// between them) are cut out as one picture, in the place of the first of them. A shape that is alone is cut out when it is half an inch or more on each side;
+    /// a shape that covers most of the slide (a background) is always alone.
+    /// </summary>
+    private static void PlaceShapeCuts(List<string> body, SlideContext context)
+    {
+        if (context.Cuts is null || context.Pictures is not { CutShapes: true } pictures)
+        {
+            return;
+        }
+
+        var cuts = context.Cuts;
+        var placed = new List<(double Left, double Top, double Right, double Bottom)>();
+
+        var minimum = PictureCollector.MinShapeSidePoints * EmuPerPoint;
+        var gap = ClusterGapPoints * EmuPerPoint;
+        var boxes = cuts.Select(c =>
+        {
+            // The box that holds the turned shape.
+            var radians = c.Degrees * Math.PI / 180;
+            var width = Math.Abs(c.Width * Math.Cos(radians)) + Math.Abs(c.Height * Math.Sin(radians));
+            var height = Math.Abs(c.Width * Math.Sin(radians)) + Math.Abs(c.Height * Math.Cos(radians));
+            var centreX = c.X + c.Width / 2;
+            var centreY = c.Y + c.Height / 2;
+            return (Left: centreX - width / 2, Top: centreY - height / 2, Right: centreX + width / 2, Bottom: centreY + height / 2);
+        }).ToList();
+
+        bool Backdrop(int i) => (boxes[i].Right - boxes[i].Left) * (boxes[i].Bottom - boxes[i].Top) >= BackdropShare * context.Width * context.Height;
+
+        // Shapes that are near one another (the gap between their boxes is small) are one cluster.
+        var cluster = Enumerable.Range(0, cuts.Count).ToArray();
+        int Root(int i)
+        {
+            while (cluster[i] != i)
+            {
+                i = cluster[i] = cluster[cluster[i]];
+            }
+
+            return i;
+        }
+
+        for (var i = 0; i < cuts.Count; i++)
+        {
+            for (var j = i + 1; j < cuts.Count; j++)
+            {
+                if (!Backdrop(i) && !Backdrop(j)
+                    && boxes[i].Left - gap <= boxes[j].Right && boxes[j].Left - gap <= boxes[i].Right
+                    && boxes[i].Top - gap <= boxes[j].Bottom && boxes[j].Top - gap <= boxes[i].Bottom)
+                {
+                    cluster[Root(j)] = Root(i);
+                }
+            }
+        }
+
+        foreach (var members in Enumerable.Range(0, cuts.Count).GroupBy(Root))
+        {
+            var list = members.ToList();
+            var left = list.Min(i => boxes[i].Left);
+            var top = list.Min(i => boxes[i].Top);
+            var right = list.Max(i => boxes[i].Right);
+            var bottom = list.Max(i => boxes[i].Bottom);
+
+            // One shape is cut out under the old rule (its own turn, half an inch); several are cut out as the box that holds all of them.
+            ShapeArea? area;
+            if (list.Count == 1)
+            {
+                var only = cuts[list[0]];
+                area = only.Width < minimum || only.Height < minimum
+                    ? null
+                    : ShapeAreas.Of(only.X, only.Y, only.Width, only.Height, only.Degrees, RoomPoints * EmuPerPoint, context.Width, context.Height);
+            }
+            else
+            {
+                area = right - left < minimum || bottom - top < minimum
+                    ? null
+                    : ShapeAreas.Of(left, top, right - left, bottom - top, 0, RoomPoints * EmuPerPoint, context.Width, context.Height);
+            }
+
+            foreach (var index in list)
+            {
+                body[cuts[index].BodyIndex] = MergedCut;
+            }
+
+            if (area is not null)
+            {
+                placed.Add(list.Count == 1 ? boxes[list[0]] : (left, top, right, bottom));
+                var description = list.Select(i => cuts[i].Description).FirstOrDefault(d => !string.IsNullOrWhiteSpace(d));
+                body[cuts[list[0]].BodyIndex] = PictureCollector.Markdown(description, pictures.AddShape(area));
+            }
+        }
+
+        // A picture is written unless it lies within the picture of a cut shape (a little room is allowed).
+        foreach (var picture in context.Pictures2)
+        {
+            var inside = picture.Box is { } b && placed.Any(p => b.Left >= p.Left - gap / 4 && b.Top >= p.Top - gap / 4 && b.Right <= p.Right + gap / 4 && b.Bottom <= p.Bottom + gap / 4);
+            var mark = inside ? null : picture.Collect();
+            var markdown = inside ? string.Empty : PictureCollector.Markdown(picture.Description, mark);
+            body[picture.BodyIndex] = markdown.Length > 0 ? markdown : MergedCut;
+        }
+
+        body.RemoveAll(b => b == MergedCut);
+    }
+
+    /// <summary>Drawn shapes that are this near one another, in points, are cut out as one picture (a quarter of an inch).</summary>
+    private const double ClusterGapPoints = 18;
+
+    /// <summary>A shape that covers this share of the slide is a background: it does not join the shapes on it.</summary>
+    private const double BackdropShare = 0.4;
 
     private const double EmuPerPoint = 12700;
 

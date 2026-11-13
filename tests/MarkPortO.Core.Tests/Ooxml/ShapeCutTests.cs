@@ -125,6 +125,50 @@ public class ShapeCutTests
     }
 
     [Fact]
+    public void Pptx_ShapesNearOneAnother_AreCutOutAsOnePicture_ShapesFarApartAreNot()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("cluster.pptx");
+        PptxFactory.Create(path, new SlideSpec("Plan"));
+        AddToSlide(path,
+            SlideRectangle(20, Inch, Inch, 2 * Inch, Inch, "Start"),
+            SlideRectangle(21, 3 * Inch + Inch / 8, Inch + Inch / 4, 3 * Inch / 4, Inch / 4), // a small arrow between two boxes: too small alone, near both
+            SlideRectangle(22, 4 * Inch, Inch, 2 * Inch, Inch, "End"),
+            SlideRectangle(23, Inch, 5 * Inch, 2 * Inch, Inch, "Apart"),
+            SlideRectangle(24, 8 * Inch, 6 * Inch, Inch / 4, Inch / 4)); // alone and small: not cut
+
+        var collector = new PictureCollector(savePictures: false, cutShapes: true);
+        var slide = Assert.Single(PptxReader.Read(path, includeHidden: false, pictures: collector));
+
+        Assert.Equal(2, collector.Pictures.Count);
+        Assert.Contains($"![]({PictureCollector.MarkStart}0{PictureCollector.MarkEnd})\n\nStart\n\nEnd", slide.Markdown, StringComparison.Ordinal);
+        Assert.Contains($"![]({PictureCollector.MarkStart}1{PictureCollector.MarkEnd})\n\nApart", slide.Markdown, StringComparison.Ordinal);
+
+        // The first picture holds the three shapes: from the left of the first box to the right of the last one.
+        var room = 4.0 / 72;
+        var area = collector.Pictures[0].Area!;
+        Assert.Equal((1 - room) / 10, area.Left, 4);
+        Assert.Equal((5 + 2 * room) / 10, area.Width, 4);
+    }
+
+    [Fact]
+    public void Pptx_ABackgroundShape_DoesNotJoinTheShapesOnIt()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("backdrop.pptx");
+        PptxFactory.Create(path, new SlideSpec("Plan"));
+        AddToSlide(path,
+            SlideRectangle(20, 0, 0, 10 * Inch, 7 * Inch),
+            SlideRectangle(21, Inch, Inch, 2 * Inch, Inch, "A"),
+            SlideRectangle(22, 6 * Inch, 5 * Inch, 2 * Inch, Inch, "B"));
+
+        var collector = new PictureCollector(savePictures: false, cutShapes: true);
+        PptxReader.Read(path, includeHidden: false, pictures: collector);
+
+        Assert.Equal(3, collector.Pictures.Count);
+    }
+
+    [Fact]
     public void Pptx_WithoutCuttingShapes_NothingChanges()
     {
         using var dir = new TempDir();
