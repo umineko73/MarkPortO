@@ -641,6 +641,9 @@ public static partial class DocxReader
         }
     }
 
+    /// <summary>A true/false value of an attribute (on, off, true, false, 1, 0); a missing value is on.</summary>
+    private static bool IsOn(string? value) => value is null || !(value is "0" or "off" or "false" or "Off" or "False");
+
     private static string CellTextInside(TableCell cell, Context context, List<string>? plainLines)
     {
         var parts = new List<string>();
@@ -713,8 +716,12 @@ public static partial class DocxReader
             // The page where a table starts is the page of its first cell: the order in which a PDF lists the other cells varies.
             // The pages of the other rows are looked for one by one (DocxPageAssigner), so that a long table is cut at the page breaks.
             var repeats = table.Elements<TableRow>().FirstOrDefault()?.TableRowProperties?.Elements<TableHeader>().FirstOrDefault() is { } header
-                && (header.Val is null || header.Val.Value != OnOffOnlyValues.Off);
-            blocks.Add(new DocxBlock(new Block { Kind = BlockKind.Table, Markdown = markdown }, firstCell ?? string.Empty, new DocxTable(rows, plainRows, hasHeader, repeats)));
+                && IsOn(header.GetAttributes().FirstOrDefault(a => a.LocalName == "val").Value);
+            // A table that is placed on the page (a floating table) is listed by a PDF where it stands on the page, not where it is in the document, like a text box.
+            blocks.Add(new DocxBlock(new Block { Kind = BlockKind.Table, Markdown = markdown }, firstCell ?? string.Empty, new DocxTable(rows, plainRows, hasHeader, repeats))
+            {
+                Floating = table.GetFirstChild<TableProperties>()?.TablePositionProperties is not null,
+            });
         }
     }
 
@@ -722,7 +729,7 @@ public static partial class DocxReader
     private static bool HasHeaderRow(Table table)
     {
         if (table.Elements<TableRow>().FirstOrDefault()?.TableRowProperties?.Elements<TableHeader>().FirstOrDefault() is { } repeated
-            && (repeated.Val is null || repeated.Val.Value != OnOffOnlyValues.Off))
+            && IsOn(repeated.GetAttributes().FirstOrDefault(a => a.LocalName == "val").Value))
         {
             return true;
         }

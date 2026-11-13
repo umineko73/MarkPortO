@@ -23,6 +23,22 @@ namespace MarkPortO.Core.Tests.Ooxml;
 public class DocxReaderTests
 {
     [Fact]
+    public void Read_HeaderRowWithValTrue_IsReadAsARepeatedHeader_AndAFloatingTableIsFloating()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("special-tables.docx");
+        DocxFactory.CreateHeaderValueAndFloatingTable(path);
+
+        var blocks = DocxReader.Read(path);
+
+        var tables = blocks.Where(b => b.Table is not null).ToList();
+        Assert.Equal(2, tables.Count);
+        Assert.True(tables[0].Table!.RepeatsHeader);
+        Assert.False(tables[0].Floating);
+        Assert.True(tables[1].Floating);
+    }
+
+    [Fact]
     public void Read_ListWhoseNumberingIsInTheStyle_IsAList_AndNumIdZeroIsNot()
     {
         using var dir = new TempDir();

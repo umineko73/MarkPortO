@@ -200,6 +200,34 @@ public class PageAssignmentTests(ITestOutputHelper output)
 
     [LibreOfficeFact]
     [Trait("Engine", "LibreOffice")]
+    public async Task S1_ManyTables_NaturalFlowDoesNotAccumulatePageDrift()
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("table-flow.docx");
+        DocxFactory.CreateTableFlow(source, tables: 36, rowsPerTable: 18);
+        var blocks = DocxReader.Read(source);
+        var pdfTexts = await ExportAsync(dir, source);
+        var warnings = DocxPageAssigner.Assign(blocks, pdfTexts);
+
+        var correct = 0;
+        var resolved = 0;
+        foreach (var block in blocks)
+        {
+            var token = block.SearchText.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+            var expected = Enumerable.Range(0, pdfTexts.Count).FirstOrDefault(p => DocxPageAssigner.Normalize(pdfTexts[p]).Contains(DocxPageAssigner.Normalize(token), StringComparison.Ordinal), -1) + 1;
+            if (expected <= 0 || block.Block.PageIndex is null) continue;
+            resolved++;
+            if (block.Block.PageIndex == expected) correct++;
+        }
+
+        output.WriteLine($"Tables: 36, pages: {pdfTexts.Count}, assigned: {resolved}/{blocks.Count}, correct: {correct}, warnings: {warnings.Count}");
+        Assert.True(pdfTexts.Count >= 5, $"expected a multi-page fixture, got {pdfTexts.Count}");
+        Assert.Equal(blocks.Count, resolved);
+        Assert.Equal(blocks.Count, correct);
+    }
+
+    [LibreOfficeFact]
+    [Trait("Engine", "LibreOffice")]
     public async Task S1_TableAndHeadings_AreAssignedToThePageOfTheirFirstText()
     {
         using var dir = new TempDir();

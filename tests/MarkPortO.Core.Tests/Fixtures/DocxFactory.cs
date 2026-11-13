@@ -87,6 +87,21 @@ public static class DocxFactory
         Finish(body);
     }
 
+    /// <summary>Many uniquely tagged tables with nearby paragraphs, for multi-page layout stress tests.</summary>
+    public static void CreateTableFlow(string path, int tables, int rowsPerTable = 12)
+    {
+        using var document = NewDocument(path, out var body);
+        for (var t = 1; t <= tables; t++)
+        {
+            body.AppendChild(Plain($"BEFORE_TABLE_{t:0000} This paragraph identifies the preceding table."));
+            var rows = new List<string[]> { new[] { $"TABLE_{t:0000}_HEADER", "Value" } };
+            for (var r = 1; r <= rowsPerTable; r++) rows.Add([$"TABLE_{t:0000}_ROW_{r:0000}", $"VALUE_{t:0000}_{r:0000}"]);
+            body.AppendChild(NewTable([.. rows]));
+            body.AppendChild(Plain($"AFTER_TABLE_{t:0000} This paragraph identifies the following content."));
+        }
+        Finish(body);
+    }
+
     /// <summary>
     /// Two items of a list whose numbering is in the style ("List Bullet": the paragraphs have no numbering of their own), a paragraph whose style turns
     /// the numbering off (<c>numId</c> 0), and a plain paragraph.
@@ -398,6 +413,25 @@ public static class DocxFactory
 
         body.AppendChild(table);
         body.AppendChild(Numbered("After"));
+        Finish(body);
+    }
+
+    /// <summary>
+    /// A table whose header row says <c>w:val="true"</c> (valid, but not what Word writes), then a table that is placed on the page (<c>tblpPr</c>).
+    /// </summary>
+    public static void CreateHeaderValueAndFloatingTable(string path)
+    {
+        using var document = NewDocument(path, out var body);
+        var header = NewTable([["H1", "H2"], ["a1", "b1"]]);
+        var headerRow = header.Elements<TableRow>().First();
+        var trPr = headerRow.TableRowProperties ?? headerRow.PrependChild(new TableRowProperties());
+        var repeated = trPr.AppendChild(new TableHeader());
+        repeated.SetAttribute(new OpenXmlAttribute("w", "val", "http://schemas.openxmlformats.org/wordprocessingml/2006/main", "true"));
+        body.AppendChild(header);
+        body.AppendChild(Plain("between"));
+        var floating = NewTable([["FLOATING_CELL", "x"]]);
+        floating.GetFirstChild<TableProperties>()!.PrependChild(new TablePositionProperties { VerticalAnchor = VerticalAnchorValues.Text, HorizontalAnchor = HorizontalAnchorValues.Margin, TablePositionY = 1 });
+        body.AppendChild(floating);
         Finish(body);
     }
 
