@@ -246,7 +246,7 @@ public sealed class ConvertService
         store.SaveJob(job);
         await host.RunAsync(works, cancellationToken).ConfigureAwait(false);
 
-        job.Status = Finish(documents, cancellationToken.IsCancellationRequested || governor.Stop != Step3Stop.None);
+        job.Status = Finish(documents, toRun, cancellationToken.IsCancellationRequested || governor.Stop != Step3Stop.None);
         job.StopReason = job.Status == JobStatus.Interrupted && !cancellationToken.IsCancellationRequested ? governor.Reason : null;
         store.SaveJob(job);
         return new ConvertResult(job, documents);
@@ -329,10 +329,17 @@ public sealed class ConvertService
         }
     }
 
-    private static JobStatus Finish(IReadOnlyList<DocumentRecord> documents, bool cancelled)
+    private static JobStatus Finish(IReadOnlyList<DocumentRecord> documents, IReadOnlyList<DocumentRecord> ran, bool cancelled)
     {
         var unfinished = documents.Any(d => !d.IsDone() && !d.IsFailed());
         if (cancelled && unfinished)
+        {
+            return JobStatus.Interrupted;
+        }
+
+        // A file that this run left alone and that is not finished (a re-reading runs only the marked files) keeps the job interrupted,
+        // so "Resume" can still finish it. Otherwise the job would look completed while a step of the file is still waiting.
+        if (documents.Any(d => !ran.Contains(d) && !d.IsDone() && !d.IsFailed()))
         {
             return JobStatus.Interrupted;
         }

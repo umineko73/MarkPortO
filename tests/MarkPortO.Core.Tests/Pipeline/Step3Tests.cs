@@ -301,6 +301,38 @@ public class Step3Tests
         Assert.False(string.IsNullOrEmpty(reread.Pages[1].VlmPrompt));
     }
 
+    [LibreOfficeFact]
+    public async Task Reread_LeavesTheJobInterrupted_WhenAnotherFileStillWaitsForStep3()
+    {
+        using var dir = new TempDir();
+        using var server = new FakeOpenAiServer();
+        var source = dir.Combine("in", "a.docx");
+        DocxFactory.CreatePaged(source, ["one"], ["two"]);
+        var outFolder = dir.Combine("out");
+        var (setup, error) = VlmSetupFactory.Create(Settings(server, timeoutSeconds: 5));
+        Assert.True(setup is not null, error);
+        using var engine = Engine(dir);
+        var first = await new ConvertService(engine, vlm: setup).RunAsync(Request(outFolder, Options(step3: true, connection: "fake"), source));
+
+        // A second file whose Step 3 never ran (an earlier run was interrupted), in the same job.
+        var store = new StateStore(outFolder);
+        var done = Assert.Single(first.Documents);
+        var waiting = store.LoadDocument(first.Job.JobId, done.DocId)!;
+        waiting.DocId = "d0002";
+        waiting.Step3 = StepStatus.Pending;
+        waiting.Pages.ForEach(p => p.Step3 = PageStep3Status.Pending);
+        store.SaveDocument(first.Job.JobId, waiting);
+        first.Job.Documents.Add("d0002");
+        store.SaveJob(first.Job);
+        Assert.True(RereadMarks.Set(store, done, [1], marked: true));
+
+        var again = await new ConvertService(engine, vlm: setup).ResumeAsync(
+            new ResumeRequest { OutputFolder = outFolder, JobId = first.Job.JobId, Mode = ResumeMode.Reread });
+        setup!.Dispose();
+
+        Assert.Equal(JobStatus.Interrupted, again.Job.Status);
+    }
+
     [Fact]
     public async Task Reread_WithoutAMarkedPage_IsRefused_FR139()
     {
