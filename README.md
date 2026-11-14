@@ -3,7 +3,7 @@
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4.svg)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)
-![Version](https://img.shields.io/badge/version-0.3.0-2ea44f.svg)
+![Version](https://img.shields.io/badge/version-0.3.1-2ea44f.svg)
 
 **English** | [日本語](README.ja.md)
 
