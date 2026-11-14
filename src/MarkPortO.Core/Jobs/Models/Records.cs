@@ -115,11 +115,23 @@ public sealed class PageRecord
     public double? CostUsd { get; set; }
 
     public string? Error { get; set; }
+
+    /// <summary>The user marked the page to be read again by the VLM (FR-138). It is taken off when the page has been read.</summary>
+    public bool RereadMark { get; set; }
+
+    /// <summary>The model that read the page, and the name of the prompt (FR-139); null when the page was read before this was recorded.</summary>
+    public string? VlmModel { get; set; }
+
+    public string? VlmPrompt { get; set; }
 }
 
 public sealed class DocumentRecord
 {
     public string DocId { get; set; } = string.Empty;
+
+    /// <summary>The job whose state holds this document. Set when the document is saved or loaded; it is not part of the saved state.</summary>
+    [JsonIgnore]
+    public Guid JobId { get; set; }
 
     public string SourcePath { get; set; } = string.Empty;
 

@@ -279,6 +279,9 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             page.Bands = bands.Count;
             page.Step3 = PageStep3Status.Done;
             page.Error = null;
+            page.RereadMark = false;
+            page.VlmModel = document.VlmModel;
+            page.VlmPrompt = document.VlmPrompt;
             return new PageOutcome(true, VlmFailureKind.Unknown, string.Empty);
         }
         catch (VlmException ex) when (ex.Kind.StopsTheRun())

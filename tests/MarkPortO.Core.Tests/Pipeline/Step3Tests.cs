@@ -270,6 +270,66 @@ public class Step3Tests
     }
 
     [LibreOfficeFact]
+    public async Task Reread_ReadsOnlyTheMarkedPages_AndTakesTheMarkOff_FR139()
+    {
+        using var dir = new TempDir();
+        using var server = new FakeOpenAiServer();
+        var source = dir.Combine("in", "a.docx");
+        DocxFactory.CreatePaged(source, ["one"], ["two"], ["three"]);
+        var outFolder = dir.Combine("out");
+        var (setup, error) = VlmSetupFactory.Create(Settings(server, timeoutSeconds: 5));
+        Assert.True(setup is not null, error);
+        using var engine = Engine(dir);
+        var first = await new ConvertService(engine, vlm: setup).RunAsync(Request(outFolder, Options(step3: true, connection: "fake"), source));
+        var before = ChatRequests(server);
+        Assert.Equal(3, before);
+
+        var store = new StateStore(outFolder);
+        var document = Assert.Single(first.Documents);
+        Assert.True(RereadMarks.Set(store, document, [2], marked: true));
+
+        var again = await new ConvertService(engine, vlm: setup).ResumeAsync(
+            new ResumeRequest { OutputFolder = outFolder, JobId = first.Job.JobId, Mode = ResumeMode.Reread });
+        setup!.Dispose();
+
+        var reread = Assert.Single(again.Documents);
+        Assert.Equal(1, ChatRequests(server) - before); // only page 2 was read again
+        Assert.All(reread.Pages, p => Assert.Equal(PageStep3Status.Done, p.Step3));
+        Assert.Equal(StepStatus.Done, reread.Step3);
+        Assert.Equal((0, 3), RereadMarks.Count(reread)); // the mark is off
+        Assert.Equal((0, 3), RereadMarks.Count(store.LoadDocument(first.Job.JobId, reread.DocId)!));
+        Assert.False(string.IsNullOrEmpty(reread.Pages[1].VlmPrompt));
+    }
+
+    [Fact]
+    public async Task Reread_WithoutAMarkedPage_IsRefused_FR139()
+    {
+        using var dir = new TempDir();
+        var outFolder = dir.Combine("out");
+        var store = new StateStore(outFolder);
+        var source = dir.Combine("in", "a.docx");
+        DocxFactory.CreatePaged(source, ["one"]);
+        var job = new JobState { JobId = Guid.NewGuid(), Status = JobStatus.Completed };
+        job.Documents.Add("d0001");
+        store.SaveJob(job);
+        store.SaveDocument(job.JobId, new DocumentRecord
+        {
+            DocId = "d0001",
+            SourcePath = source,
+            Kind = DocumentKind.Docx,
+            Fingerprint = StateStore.ComputeFingerprint(source),
+            OutputFolder = dir.Combine("out", "a"),
+            Step1 = StepStatus.Done,
+            Step2 = StepStatus.Done,
+            Step3 = StepStatus.Done,
+            Pages = [new PageRecord { Index = 1, Step3 = PageStep3Status.Done }],
+        });
+
+        await Assert.ThrowsAsync<ConvertStartException>(() =>
+            new ConvertService(Engine(dir)).ResumeAsync(new ResumeRequest { OutputFolder = outFolder, JobId = job.JobId, Mode = ResumeMode.Reread }));
+    }
+
+    [LibreOfficeFact]
     public async Task WhenTheServerGivesNoUsage_TheMarkdownSaysItIsUnavailable_AndNothingFails()
     {
         using var dir = new TempDir();

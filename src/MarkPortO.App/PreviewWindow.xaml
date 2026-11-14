@@ -29,7 +29,17 @@
     </Grid.ColumnDefinitions>
 
     <!-- The pages -->
-    <ListBox x:Name="PageList" Grid.Column="0" DisplayMemberPath="Title" SelectionChanged="OnPageChanged" />
+    <ListBox x:Name="PageList" Grid.Column="0" SelectionChanged="OnPageChanged" HorizontalContentAlignment="Stretch">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <DockPanel LastChildFill="True">
+            <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Marked, Mode=OneWay}" IsEnabled="{Binding CanMark}" VerticalAlignment="Center" Margin="0,0,6,0"
+                      PreviewMouseLeftButtonDown="OnPageMarkClick" ToolTip="{DynamicResource Preview_PageMarkTip}" />
+            <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
+          </DockPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
     <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch" ResizeBehavior="PreviousAndNext" />
 
     <Grid Grid.Column="2">
@@ -42,7 +52,17 @@
         <GroupBox Header="{DynamicResource Preview_GroupAction}" Margin="0,0,8,4" Padding="4,2">
           <StackPanel Orientation="Horizontal">
             <CheckBox x:Name="FollowBox" Content="{DynamicResource Preview_Follow}" VerticalAlignment="Center" Margin="0,0,10,0" />
-            <Button Content="{DynamicResource Preview_Refresh}" Click="OnRefresh" Padding="10,1" />
+            <Button Content="{DynamicResource Preview_Refresh}" Click="OnRefresh" Padding="10,1" Margin="0,0,10,0" />
+            <Button x:Name="PrevFileButton" Content="&#x25C0;" Click="OnPrevFile" Padding="8,1" ToolTip="{DynamicResource Preview_PrevFile}" ToolTipService.ShowOnDisabled="True" />
+            <Button x:Name="NextFileButton" Content="&#x25B6;" Click="OnNextFile" Padding="8,1" Margin="4,0,0,0" ToolTip="{DynamicResource Preview_NextFile}" ToolTipService.ShowOnDisabled="True" />
+          </StackPanel>
+        </GroupBox>
+        <GroupBox Header="{DynamicResource Preview_GroupReread}" Margin="0,0,8,4" Padding="4,2">
+          <StackPanel Orientation="Horizontal">
+            <Button x:Name="MarkPageButton" Content="{DynamicResource Preview_MarkPage}" Click="OnMarkPage" Padding="10,1" Margin="0,0,6,0"
+                    ToolTip="{DynamicResource Preview_MarkPageTip}" ToolTipService.ShowOnDisabled="True" />
+            <Button x:Name="MarkFailedButton" Content="{DynamicResource Preview_MarkFailed}" Click="OnMarkFailed" Padding="10,1"
+                    ToolTip="{DynamicResource Preview_MarkFailedTip}" ToolTipService.ShowOnDisabled="True" />
           </StackPanel>
         </GroupBox>
         <GroupBox Header="{DynamicResource Preview_Layout}" Margin="0,0,8,4" Padding="4,2">

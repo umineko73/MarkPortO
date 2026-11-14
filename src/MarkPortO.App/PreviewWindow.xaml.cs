@@ -34,16 +34,21 @@ namespace MarkPortO.App;
 /// </summary>
 public partial class PreviewWindow : Window
 {
-    private readonly FileItemViewModel _item;
+    private FileItemViewModel _item;
+    private readonly MainViewModel _viewModel;
     private readonly DispatcherTimer _refresh = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly List<PreviewItem> _items = [];
     private bool _selectingByProgram;
     private int _version;
 
-    public PreviewWindow(FileItemViewModel item)
+    /// <summary>The window went to another file (FR-137): the file it showed, the file it shows now.</summary>
+    public event Action<FileItemViewModel, FileItemViewModel>? ItemSwitched;
+
+    public PreviewWindow(FileItemViewModel item, MainViewModel viewModel)
     {
         InitializeComponent();
         _item = item;
+        _viewModel = viewModel;
         Title = UiText.Get("Preview_Title", item.FileName);
         PageList.ItemsSource = _items;
         RightDragScroll.Attach(ImageScroll);
@@ -55,9 +60,13 @@ public partial class PreviewWindow : Window
             await ReloadAsync();
         };
         _item.PropertyChanged += OnItemChanged;
+        _viewModel.PropertyChanged += OnViewModelChanged;
+        _viewModel.Files.CollectionChanged += OnFilesChanged;
         Closed += (_, _) =>
         {
             _item.PropertyChanged -= OnItemChanged;
+            _viewModel.PropertyChanged -= OnViewModelChanged;
+            _viewModel.Files.CollectionChanged -= OnFilesChanged;
             _refresh.Stop();
             TextPane.Release();
             VlmPane.Release();
@@ -79,8 +88,109 @@ public partial class PreviewWindow : Window
             }
 
             Arrange();
+            UpdateControls();
             await ReloadAsync();
         };
+    }
+
+    // ---- the other files of the list (FR-137) ----
+
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e) => Dispatcher.BeginInvoke(UpdateControls);
+
+    private void OnFilesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => Dispatcher.BeginInvoke(UpdateControls);
+
+    /// <summary>The files that the window can go through: the files of the list that have pages, in the order of the list.</summary>
+    private List<FileItemViewModel> Neighbours() => [.. _viewModel.Files.Where(f => f.CanPreview || ReferenceEquals(f, _item))];
+
+    private void UpdateControls()
+    {
+        var files = Neighbours();
+        var index = files.IndexOf(_item);
+        PrevFileButton.IsEnabled = index > 0;
+        NextFileButton.IsEnabled = index >= 0 && index < files.Count - 1;
+        Title = index >= 0 && files.Count > 1 ? UiText.Get("Preview_TitleOf", _item.FileName, index + 1, files.Count) : UiText.Get("Preview_Title", _item.FileName);
+
+        var document = _item.Source;
+        var canEdit = !_viewModel.IsRunning && document is not null && _viewModel.Step3 && _viewModel.Files.Contains(_item); // a past output that is not in the list has no marks
+        MarkPageButton.IsEnabled = canEdit && PageList.SelectedItem is PreviewItem { CanMark: true };
+        MarkFailedButton.IsEnabled = canEdit && document!.Pages.Any(p => p.ReadsInStep3 && p.Step3 == PageStep3Status.Failed);
+    }
+
+    private void OnPrevFile(object sender, RoutedEventArgs e) => SwitchFile(-1);
+
+    private void OnNextFile(object sender, RoutedEventArgs e) => SwitchFile(1);
+
+    /// <summary>Shows the file before or after this one. The settings of the window stay; the first page is shown.</summary>
+    private void SwitchFile(int delta)
+    {
+        var files = Neighbours();
+        var index = files.IndexOf(_item) + delta;
+        if (index < 0 || index >= files.Count || files.IndexOf(_item) < 0)
+        {
+            return;
+        }
+
+        var next = files[index];
+        var previous = _item;
+        _item.PropertyChanged -= OnItemChanged;
+        _item = next;
+        _item.PropertyChanged += OnItemChanged;
+        _version++;
+        _items.Clear();
+        PageList.Items.Refresh();
+        PageList.SelectedItem = null;
+        ShowVlmBox.IsChecked = _item.Source is { Step3: not StepStatus.NotApplicable };
+        FollowBox.IsChecked = _item.Source is { Step3: StepStatus.Running or StepStatus.Pending };
+        _viewModel.Selected = next;
+        ItemSwitched?.Invoke(previous, next);
+        Arrange();
+        UpdateControls();
+        _ = ReloadAsync();
+    }
+
+    // ---- the pages to read again with the VLM (FR-138, FR-139) ----
+
+    private void OnPageMarkClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true; // the state of the box comes from the page, not from the click
+        if (sender is System.Windows.Controls.CheckBox { DataContext: PreviewItem item })
+        {
+            ToggleMark(item);
+        }
+    }
+
+    private void OnMarkPage(object sender, RoutedEventArgs e)
+    {
+        if (PageList.SelectedItem is PreviewItem item)
+        {
+            ToggleMark(item);
+        }
+    }
+
+    private void ToggleMark(PreviewItem item)
+    {
+        if (!item.CanMark || _item.Source is not { } document || !_viewModel.SetRereadMarks(document, [item.Page.Index], !item.Marked))
+        {
+            return;
+        }
+
+        var index = _items.IndexOf(item);
+        if (index >= 0)
+        {
+            _items[index].Update(item.Page with { RereadMark = !item.Marked }, document.Step3 != StepStatus.NotApplicable);
+            PageList.Items.Refresh();
+        }
+
+        UpdateControls();
+    }
+
+    private async void OnMarkFailed(object sender, RoutedEventArgs e)
+    {
+        if (_item.Source is { } document && _viewModel.MarkFailedForReread(document))
+        {
+            await ReloadAsync();
+            UpdateControls();
+        }
     }
 
     private void OnItemChanged(object? sender, PropertyChangedEventArgs e)
@@ -107,6 +217,7 @@ public partial class PreviewWindow : Window
 
         var selected = (PageList.SelectedItem as PreviewItem)?.Page.Index;
         var vlmOn = document.Step3 != StepStatus.NotApplicable;
+        UpdateControls();
         for (var i = 0; i < pages.Count; i++)
         {
             if (i < _items.Count)
@@ -151,6 +262,7 @@ public partial class PreviewWindow : Window
 
     private void OnPageChanged(object sender, SelectionChangedEventArgs e)
     {
+        UpdateControls();
         // A page that the user chooses stops the following; the program's own choice does not.
         if (!_selectingByProgram && IsLoaded)
         {
@@ -433,6 +545,13 @@ public partial class PreviewWindow : Window
             }
         }
 
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.Left or Key.Right)
+        {
+            SwitchFile(e.Key == Key.Right ? 1 : -1); // FR-137
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers != ModifierKeys.None || e.Key is not (Key.Left or Key.Right))
         {
             return;
@@ -507,10 +626,18 @@ public partial class PreviewWindow : Window
 
         public string Title { get; private set; } = TitleOf(page, vlmOn);
 
+        /// <summary>The page is marked to be read again (FR-138).</summary>
+        public bool Marked { get; private set; } = page.RereadMark;
+
+        /// <summary>A mark can be put on the page: the VLM reads it.</summary>
+        public bool CanMark { get; private set; } = page.CanReread && vlmOn;
+
         public void Update(PreviewPage next, bool vlmOnNow)
         {
             Page = next;
             Title = TitleOf(next, vlmOnNow);
+            Marked = next.RereadMark;
+            CanMark = next.CanReread && vlmOnNow;
         }
 
         private static string TitleOf(PreviewPage page, bool vlmOn)

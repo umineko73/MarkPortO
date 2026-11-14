@@ -47,6 +47,17 @@ public partial class MainWindow : Window
         };
         DataContext = _viewModel;
 
+        // The column of the pages marked to be read again by the VLM is shown while Step 3 is on (FR-138).
+        void ShowRereadColumn() => RereadColumn.Visibility = _viewModel.Step3 ? Visibility.Visible : Visibility.Collapsed;
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.Step3))
+            {
+                ShowRereadColumn();
+            }
+        };
+        ShowRereadColumn();
+
         // A value of the folded part was refused while it was closed: it is open now, and the item has the focus (FR-102).
         _viewModel.ConditionItemRejected += item => Dispatcher.BeginInvoke(() =>
         {
@@ -95,6 +106,9 @@ public partial class MainWindow : Window
         // Saves any setting that is still waiting to be written.
         _viewModel.Dispose();
         base.OnClosed(e);
+
+        // Nothing is left to do: the process ends here, without the teardown of the graphics (see App.ExitNow).
+        App.ExitNow();
     }
 
     private void OnLanguageClick(object sender, RoutedEventArgs e) => _viewModel.SetLanguage((string)((System.Windows.Controls.MenuItem)sender).Tag);
@@ -105,10 +119,18 @@ public partial class MainWindow : Window
     // FR-068: the preview of the file that is chosen in the list. Each file has its own window.
     private readonly Dictionary<string, PreviewWindow> _previews = new(StringComparer.OrdinalIgnoreCase);
 
-    private void OnFileDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    // FR-138: the check box of a file marks every page of it to be read again, or takes the marks off. The mouse is handled here (not by the check box), so that
+    // the state of the box always comes from the pages.
+    private void OnRereadCheckClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is System.Windows.Controls.CheckBox { DataContext: FileItemViewModel { Source: { } document } item } && item.CanReread)
+        {
+            _viewModel.SetRereadMarks(document, null, item.RereadChecked != true);
+        }
+    }
 
-        // Nothing is left to do: the process ends here, without the teardown of the graphics (see App.ExitNow).
-        App.ExitNow();
+    private void OnFileDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (e.OriginalSource is DependencyObject source && System.Windows.Controls.ItemsControl.ContainerFromElement((System.Windows.Controls.DataGrid)sender, source) is System.Windows.Controls.DataGridRow)
         {
@@ -157,9 +179,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        var window = new PreviewWindow(item) { Owner = this };
-        _previews[item.FullPath] = window;
-        window.Closed += (_, _) => _previews.Remove(item.FullPath);
+        var window = new PreviewWindow(item, _viewModel) { Owner = this };
+        var path = item.FullPath;
+        _previews[path] = window;
+        // The window can go to another file (FR-137): it is then the preview of that file.
+        window.ItemSwitched += (from, to) =>
+        {
+            _previews.Remove(from.FullPath);
+            path = to.FullPath;
+            _previews[path] = window;
+        };
+        window.Closed += (_, _) => _previews.Remove(path);
         window.Show();
     }
 
@@ -197,7 +227,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var window = new PreviewWindow(new FileItemViewModel(FileStatusProjector.Project(past.Document))) { Owner = this };
+        var window = new PreviewWindow(new FileItemViewModel(FileStatusProjector.Project(past.Document)), _viewModel) { Owner = this };
         _previews[key] = window;
         window.Closed += (_, _) => _previews.Remove(key);
         window.Show();

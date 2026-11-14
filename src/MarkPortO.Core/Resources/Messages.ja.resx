@@ -25,6 +25,12 @@
   <data name="The job {0} cannot be resumed (it is running, or finished)." xml:space="preserve">
     <value>ジョブ {0} は再開できません(実行中、または完了しています)。</value>
   </data>
+  <data name="There is no job to read again in {0}." xml:space="preserve">
+    <value>{0} に、読み直すジョブがありません。</value>
+  </data>
+  <data name="No page is marked to be read again." xml:space="preserve">
+    <value>読み直すページに印が付いていません。</value>
+  </data>
   <data name="There is no job to resume in {0}." xml:space="preserve">
     <value>{0} に再開できるジョブがありません。</value>
   </data>

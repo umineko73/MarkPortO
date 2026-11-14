@@ -98,6 +98,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             () => !IsRunning && HasPrevious);
         RedoAllCommand = new RelayCommand(StartAllAsync, () => CanStart() && Files.Count > 0);
         StartChangedCommand = new RelayCommand(() => StartAsync(RunKind.ChangedOnly), () => CanStart() && Files.Count > 0 && Files.All(f => f.IsDone));
+        RereadCommand = new RelayCommand(() => RereadAsync(), () => CanReread);
         InterruptCommand = new RelayCommand(InterruptAsync, () => IsRunning);
         AddFilesCommand = new RelayCommand(AddFilesAsync, () => !IsRunning);
         AddFolderCommand = new RelayCommand(AddFolderAsync, () => !IsRunning);
@@ -280,7 +281,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (Set(ref _running, value))
             {
                 RaiseEditState();
-                foreach (var command in new[] { StartCommand, StartChangedCommand, RedoAllCommand, InterruptCommand, ResumeCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
+                Raise(nameof(CanReread));
+                foreach (var command in new[] { StartCommand, StartChangedCommand, RedoAllCommand, InterruptCommand, ResumeCommand, RereadCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
                 {
                     command.RaiseCanExecuteChanged();
                 }
@@ -616,6 +618,83 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public RelayCommand ResumeCommand { get; }
 
+    /// <summary>"Read again with the VLM": the pages that are marked (FR-139).</summary>
+    public RelayCommand RereadCommand { get; }
+
+    /// <summary>The pages that are marked can be read again: Step 3 is on, nothing is running, and a page is marked (FR-139).</summary>
+    public bool CanReread => !IsRunning && Step3 && Files.Any(f => f.RereadCount.Marked > 0);
+
+    /// <summary>
+    /// Puts the marks of a re-reading on the pages of a document, or takes them off (FR-138); <paramref name="pages"/> null is every page.
+    /// Not while something runs (the state is being written). Returns false when the marks could not be kept.
+    /// </summary>
+    public bool SetRereadMarks(DocumentRecord document, IEnumerable<int>? pages, bool marked)
+    {
+        if (IsRunning)
+        {
+            return false;
+        }
+
+        var store = new StateStore(_store.Current.Output.Folder);
+        var saved = pages is null
+            ? RereadMarks.SetAll(store, document, marked)
+            : RereadMarks.Set(store, document, pages, marked);
+        RefreshRereadMarks(document);
+        return saved;
+    }
+
+    /// <summary>Marks the pages of the document that could not be read.</summary>
+    public bool MarkFailedForReread(DocumentRecord document)
+    {
+        if (IsRunning)
+        {
+            return false;
+        }
+
+        var saved = RereadMarks.MarkFailed(new StateStore(_store.Current.Output.Folder), document);
+        RefreshRereadMarks(document);
+        return saved;
+    }
+
+    private void RefreshRereadMarks(DocumentRecord document)
+    {
+        Files.FirstOrDefault(f => ReferenceEquals(f.Source, document))?.Reproject();
+        RereadCommand.RaiseCanExecuteChanged();
+        Raise(nameof(CanReread));
+    }
+
+    /// <summary>
+    /// Reads the marked pages again (FR-139): only those pages go to the VLM, with the connection and the prompts that are chosen on the screen. Step 1 and
+    /// Step 2 are not done again, and the earlier text of a page stays until the page has been read.
+    /// </summary>
+    public Task RereadAsync()
+    {
+        if (!CanReread || !ConfirmSending())
+        {
+            return Task.CompletedTask;
+        }
+
+        // The files of the list are one run (FR-130): the marked pages of the first file's job. A document of another job is not read here.
+        var jobId = Files.Where(f => f.RereadCount.Marked > 0).Select(f => f.Source?.JobId).FirstOrDefault(id => id is { } v && v != Guid.Empty);
+        if (jobId is null)
+        {
+            SetStatus(() => UiText.Get("Status_RereadNoJob"));
+            return Task.CompletedTask;
+        }
+
+        return RunAsync((service, snapshot, token) =>
+            service.ResumeAsync(
+                new ResumeRequest
+                {
+                    OutputFolder = snapshot.Output.Folder,
+                    JobId = jobId,
+                    Mode = ResumeMode.Reread,
+                    Step3 = true,
+                    PromptNames = ConvertRequest.OptionsFrom(snapshot).PromptNames,
+                },
+                token));
+    }
+
     public RelayCommand RedoAllCommand { get; }
 
     public RelayCommand AddFilesCommand { get; }
@@ -722,6 +801,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Raise(nameof(CanEditPrompts));
             Raise(nameof(PagesTip));
             Raise(nameof(PdfHintVisibility));
+            RereadCommand.RaiseCanExecuteChanged();
+            Raise(nameof(CanReread));
             Raise();
         }
     }
@@ -1220,6 +1301,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         StartChangedCommand.RaiseCanExecuteChanged();
         RedoAllCommand.RaiseCanExecuteChanged();
         ResumeCommand.RaiseCanExecuteChanged();
+        RereadCommand.RaiseCanExecuteChanged();
+        Raise(nameof(CanReread));
     }
 
     /// <summary>

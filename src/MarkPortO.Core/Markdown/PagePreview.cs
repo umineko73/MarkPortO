@@ -30,7 +30,9 @@ public sealed record PreviewPage(
     string? ImagePath,
     string Markdown,
     string? Vlm,
-    bool IsOutOfRange = false);
+    bool IsOutOfRange = false,
+    bool CanReread = false,
+    bool RereadMark = false);
 
 /// <summary>Reads the pages of a converted document from the files of the output folder (FR-068).</summary>
 public static partial class PagePreview
@@ -78,7 +80,7 @@ public static partial class PagePreview
                 }
             }
 
-            result.Add(new PreviewPage(page.Index, page.SourceLabel, page.IsDeleted, page.Step3, image, text, vlm, page.IsOutOfRange));
+            result.Add(new PreviewPage(page.Index, page.SourceLabel, page.IsDeleted, page.Step3, image, text, vlm, page.IsOutOfRange, page.ReadsInStep3, page.RereadMark));
         }
 
         return result;

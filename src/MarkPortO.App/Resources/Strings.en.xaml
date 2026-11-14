@@ -309,4 +309,18 @@
   <sys:String x:Key="Past_Abandoned">(given up)</sys:String>
   <sys:String x:Key="Past_PreviewOne">Select one file to preview it.</sys:String>
   <sys:String x:Key="Past_LoadFailed">It cannot be opened while a conversion is running. Try again when it has finished.</sys:String>
+  <sys:String x:Key="Main_Reread">Read again with the VLM</sys:String>
+  <sys:String x:Key="Main_RereadTip">Reads only the pages that are marked again with the VLM, with the connection and the prompts that are chosen now. The earlier text of a page stays until the page has been read. Pages are marked in the preview, or with the check box of a file in the list.</sys:String>
+  <sys:String x:Key="Main_Col_Reread">Read again</sys:String>
+  <sys:String x:Key="Main_RereadCellTip">Marks every page of the file to be read again with the VLM, or takes the marks off. Pages are marked one by one in the preview. Shown as marked pages / pages that can be marked.</sys:String>
+  <sys:String x:Key="Status_RereadNoJob">The saved state of the marked pages was not found, so they cannot be read again.</sys:String>
+  <sys:String x:Key="Preview_PrevFile">Previous file (Ctrl+Left)</sys:String>
+  <sys:String x:Key="Preview_NextFile">Next file (Ctrl+Right)</sys:String>
+  <sys:String x:Key="Preview_TitleOf">Preview - {0} ({1}/{2})</sys:String>
+  <sys:String x:Key="Preview_GroupReread">Read again</sys:String>
+  <sys:String x:Key="Preview_MarkPage">Mark this page</sys:String>
+  <sys:String x:Key="Preview_MarkPageTip">Marks the page to be read again with the VLM, or takes the mark off.</sys:String>
+  <sys:String x:Key="Preview_MarkFailed">Mark failed pages</sys:String>
+  <sys:String x:Key="Preview_MarkFailedTip">Marks the pages that could not be read.</sys:String>
+  <sys:String x:Key="Preview_PageMarkTip">Mark to read the page again with the VLM</sys:String>
 </ResourceDictionary>

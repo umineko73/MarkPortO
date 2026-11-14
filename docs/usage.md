@@ -36,6 +36,10 @@ Arrow keys and the mouse wheel change the page (the wheel stops at the end of a 
 
 dragging with the right button scrolls.
 
+The ◀ ▶ buttons (Ctrl+Left, Ctrl+Right) go to the previous and next file of the list.
+
+**Reading pages again with the VLM**: tick the check box of a page in the page list of the preview (or use "Mark this page" and "Mark failed pages"). The "Read again" column of the file list (shown while Step 3 is on) ticks every page of a file. Then press "Read again with the VLM" on the main screen: only the marked pages are read again, with the connection and the prompts chosen on the main screen, and the results are replaced. A page that fails again keeps its earlier result and its mark.
+
 ![The preview window](images/preview.png)
 
 **Open a past output** (File > Open a past output...): choose the output folder (or the folder of one document).

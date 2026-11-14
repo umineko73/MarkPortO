@@ -44,6 +44,62 @@ public class ResumePlannerTests
         Assert.Single(ResumePlanner.Plan([document], mode, step2, step3));
 
     [Fact]
+    public void Reread_MarkedPagesBecomePending_AndOnlyTheirFileRuns_FR139()
+    {
+        using var dir = new TempDir();
+        var marked = Doc(dir, "a.docx", s3: StepStatus.Done);
+        marked.Pages =
+        [
+            new PageRecord { Index = 1, Step3 = PageStep3Status.Done, VlmText = "one" },
+            new PageRecord { Index = 2, Step3 = PageStep3Status.Done, VlmText = "two", RereadMark = true },
+            new PageRecord { Index = 3, Step3 = PageStep3Status.Done, VlmText = "three", IsDeleted = true, RereadMark = true }, // a deleted page is not read
+        ];
+        var plain = Doc(dir, "b.docx", s3: StepStatus.Done);
+        plain.Pages = [new PageRecord { Index = 1, Step3 = PageStep3Status.Done, VlmText = "x" }];
+
+        var decisions = ResumePlanner.Plan([marked, plain], ResumeMode.Reread, step2: true, step3: true);
+
+        Assert.Equal([ResumeAction.Run, ResumeAction.Skip], decisions.Select(d => d.Action));
+        Assert.Equal(StepStatus.Pending, marked.Step3);
+        Assert.Equal([PageStep3Status.Done, PageStep3Status.Pending, PageStep3Status.Done], marked.Pages.Select(p => p.Step3));
+        Assert.Equal("two", marked.Pages[1].VlmText); // the earlier text stays until the page is read
+        Assert.Equal(StepStatus.Done, plain.Step3);
+    }
+
+    [Fact]
+    public void RereadMarks_CountOnlyThePagesThatTheVlmReads_AndSetNeedsTheSavedState()
+    {
+        using var dir = new TempDir();
+        var document = Doc(dir, s3: StepStatus.Done);
+        document.Pages =
+        [
+            new PageRecord { Index = 1, Step3 = PageStep3Status.Done },
+            new PageRecord { Index = 2, Step3 = PageStep3Status.Failed },
+            new PageRecord { Index = 3, IsBlank = true },
+        ];
+        var store = new StateStore(dir.Combine("out"));
+        var job = new JobState { JobId = Guid.NewGuid() };
+        store.SaveJob(job);
+        store.SaveDocument(job.JobId, document);
+
+        Assert.Equal((0, 2), RereadMarks.Count(document));
+        Assert.True(RereadMarks.MarkFailed(store, document));
+        Assert.Equal((1, 2), RereadMarks.Count(document));
+        Assert.True(RereadMarks.SetAll(store, document, marked: true));
+        Assert.Equal((2, 2), RereadMarks.Count(document));
+        Assert.False(document.Pages[2].RereadMark); // a blank page cannot be marked
+
+        // The marks are in the saved state.
+        Assert.Equal([true, true, false], store.LoadDocument(job.JobId, document.DocId)!.Pages.Select(p => p.RereadMark));
+
+        // A document that is not in the state of the store is left alone.
+        var other = Doc(dir, "c.docx", s3: StepStatus.Done);
+        other.Pages = [new PageRecord { Index = 1, Step3 = PageStep3Status.Done }];
+        Assert.False(RereadMarks.SetAll(store, other, marked: true));
+        Assert.False(other.Pages[0].RereadMark);
+    }
+
+    [Fact]
     public void AFinishedDocument_IsSkipped()
     {
         using var dir = new TempDir();

@@ -28,6 +28,9 @@ public enum ResumeMode
 
     /// <summary>Run only the files that failed.</summary>
     RetryFailed,
+
+    /// <summary>Read the pages that the user marked again with the VLM (FR-139); nothing else is done.</summary>
+    Reread,
 }
 
 /// <summary>What was decided for one document.</summary>
@@ -80,6 +83,11 @@ public static class ResumePlanner
 
     private static ResumeAction Decide(DocumentRecord document, ResumeMode mode, bool step2, bool step3)
     {
+        if (mode == ResumeMode.Reread)
+        {
+            return DecideReread(document);
+        }
+
         // A run that died leaves "running" behind: it was interrupted.
         document.Step1 = Settle(document.Step1);
         document.Step2 = Settle(document.Step2);
@@ -143,6 +151,34 @@ public static class ResumePlanner
         }
 
         return document.IsDone() ? ResumeAction.Skip : ResumeAction.Run;
+    }
+
+    /// <summary>
+    /// The pages that are marked are read again (FR-139): they become pending, and the file runs Step 3 for them only. The text of an earlier reading stays
+    /// until the page has been read, so a page that fails again keeps it. A file without a marked page is left alone.
+    /// </summary>
+    private static ResumeAction DecideReread(DocumentRecord document)
+    {
+        if (document.Step1 != StepStatus.Done || document.Step2 == StepStatus.Failed)
+        {
+            return ResumeAction.Skip;
+        }
+
+        var marked = document.Pages.Where(p => p.RereadMark && p.ReadsInStep3).ToList();
+        if (marked.Count == 0)
+        {
+            return ResumeAction.Skip;
+        }
+
+        foreach (var page in marked)
+        {
+            page.Step3 = PageStep3Status.Pending;
+            page.Error = null;
+        }
+
+        document.Step3 = StepStatus.Pending;
+        document.Error = null;
+        return ResumeAction.Run;
     }
 
     private static StepStatus Settle(StepStatus status) =>

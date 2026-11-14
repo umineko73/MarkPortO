@@ -319,6 +319,8 @@
             <Button x:Name="PreviewButton" Content="{DynamicResource Main_Preview}" Click="OnPreviewClick" MinWidth="90" Padding="6"
                     IsEnabled="{Binding Selected.CanPreview, FallbackValue=False, TargetNullValue=False}"
                     ToolTip="{DynamicResource Main_PreviewTip}" ToolTipService.ShowOnDisabled="True" />
+            <Button Content="{DynamicResource Main_Reread}" Command="{Binding RereadCommand}" Padding="6" Margin="8,0,0,0"
+                    ToolTip="{DynamicResource Main_RereadTip}" ToolTipService.ShowOnDisabled="True" />
             <Button Content="{DynamicResource Main_ReconvertButton}" Click="OnReconvertClick" MinWidth="90" Padding="6" Margin="8,0,0,0"
                     ToolTip="{DynamicResource Main_ReconvertTip}" ToolTipService.ShowOnDisabled="True">
               <Button.Style>
@@ -405,6 +407,20 @@
                 <TextBlock Text="{DynamicResource Main_Col_Deleted}" />
               </DataGridTextColumn.Header>
             </DataGridTextColumn>
+            <DataGridTemplateColumn x:Name="RereadColumn" Width="96" Visibility="Collapsed">
+              <DataGridTemplateColumn.Header>
+                <TextBlock Text="{DynamicResource Main_Col_Reread}" />
+              </DataGridTemplateColumn.Header>
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" ToolTip="{DynamicResource Main_RereadCellTip}">
+                    <CheckBox IsThreeState="True" IsChecked="{Binding RereadChecked, Mode=OneWay}" PreviewMouseLeftButtonDown="OnRereadCheckClick"
+                              IsEnabled="{Binding CanReread}" VerticalAlignment="Center" Margin="4,0,6,0" />
+                    <TextBlock Text="{Binding RereadText}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
             <DataGridTextColumn Binding="{Binding OutputText}" Width="140">
               <DataGridTextColumn.Header>
                 <TextBlock Text="{DynamicResource Main_Col_Output}" />

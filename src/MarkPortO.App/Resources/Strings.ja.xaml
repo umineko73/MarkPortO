@@ -309,4 +309,18 @@
   <sys:String x:Key="Past_Abandoned">（破棄済み）</sys:String>
   <sys:String x:Key="Past_PreviewOne">プレビューは、ファイルを1つだけ選んだときに使えます。</sys:String>
   <sys:String x:Key="Past_LoadFailed">変換中は開けません。変換が終わってから、もう一度お試しください。</sys:String>
+  <sys:String x:Key="Main_Reread">VLMを再実行</sys:String>
+  <sys:String x:Key="Main_RereadTip">印を付けたページだけを、いま選んでいる接続とプロンプトで、VLMで読み直します。読み終えるまで、そのページの前の結果は残ります。ページの印は、プレビュー、または一覧のファイルのチェックボックスで付けます。</sys:String>
+  <sys:String x:Key="Main_Col_Reread">VLM再変換</sys:String>
+  <sys:String x:Key="Main_RereadCellTip">このファイルのすべてのページを、VLMで読み直す対象にします（もう一度押すと外します）。ページごとの印はプレビューで付けます。表示は、印のあるページ数 / 印を付けられるページ数です。</sys:String>
+  <sys:String x:Key="Status_RereadNoJob">印を付けたページの保存した状態が見つからないため、読み直せません。</sys:String>
+  <sys:String x:Key="Preview_PrevFile">前のファイル（Ctrl＋←）</sys:String>
+  <sys:String x:Key="Preview_NextFile">次のファイル（Ctrl＋→）</sys:String>
+  <sys:String x:Key="Preview_TitleOf">プレビュー - {0}（{1}/{2}）</sys:String>
+  <sys:String x:Key="Preview_GroupReread">再変換</sys:String>
+  <sys:String x:Key="Preview_MarkPage">このページを対象にする</sys:String>
+  <sys:String x:Key="Preview_MarkPageTip">このページを、VLMで読み直す対象にします（もう一度押すと外します）。</sys:String>
+  <sys:String x:Key="Preview_MarkFailed">失敗したページを対象にする</sys:String>
+  <sys:String x:Key="Preview_MarkFailedTip">読めなかったページに印を付けます。</sys:String>
+  <sys:String x:Key="Preview_PageMarkTip">VLMで読み直す対象にする</sys:String>
 </ResourceDictionary>

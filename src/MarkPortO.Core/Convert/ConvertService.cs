@@ -100,11 +100,17 @@ public sealed class ConvertService
 
         var store = new StateStore(request.OutputFolder);
         var retry = request.Mode == ResumeMode.RetryFailed;
+        var reread = request.Mode == ResumeMode.Reread;
         JobState job;
+        if (reread && request.JobId is null)
+        {
+            throw new JobNotFoundException(Loc.T("There is no job to read again in {0}.", request.OutputFolder));
+        }
+
         if (request.JobId is { } id)
         {
             job = store.LoadJob(id) ?? throw new JobNotFoundException(Loc.T("The job {0} was not found in {1}.", id, request.OutputFolder));
-            if (!store.IsResumable(job, includeFinishedWithErrors: retry, includeAbandoned: true))
+            if (!reread && !store.IsResumable(job, includeFinishedWithErrors: retry, includeAbandoned: true))
             {
                 throw new JobNotFoundException(
                     retry
@@ -122,7 +128,8 @@ public sealed class ConvertService
             ?? throw new ConvertStartException(Loc.T("This job is already running in another process."));
         // Another process may have finished after the initial search. Read the state again under the lock.
         job = store.LoadJob(job.JobId) ?? throw new JobNotFoundException(Loc.T("The job {0} was not found in {1}.", job.JobId, request.OutputFolder));
-        if (job.Status is not (JobStatus.Interrupted or JobStatus.Running)
+        if (!reread
+            && job.Status is not (JobStatus.Interrupted or JobStatus.Running)
             && !(retry && job.Status == JobStatus.CompletedWithErrors)
             && !(request.JobId is not null && job.Status == JobStatus.Abandoned))
         {
@@ -137,7 +144,7 @@ public sealed class ConvertService
         }
 
         CheckExtractors(job.Options.Extractors);
-        var availability = documents.All(d => d.Kind == DocumentKind.Pdf) ? EngineAvailability.Available : _engine.CheckAvailability();
+        var availability = reread || documents.All(d => d.Kind == DocumentKind.Pdf) ? EngineAvailability.Available : _engine.CheckAvailability();
         if (!availability.IsAvailable)
         {
             throw new ConvertStartException(availability.Reason ?? Loc.T("The conversion engine is not available.")) { Item = ConvertStartException.EngineItem };
@@ -150,7 +157,11 @@ public sealed class ConvertService
         var tablesBefore = job.Options.Step1Tables;
         var repeatedBefore = job.Options.DropRepeatedTables;
         job.Options.Step2 = request.Step2 ?? job.Options.Step2;
-        job.Options.Step3 = request.Step3 ?? job.Options.Step3;
+        job.Options.Step3 = reread || (request.Step3 ?? job.Options.Step3);
+        if (reread && request.PromptNames is { } promptNames)
+        {
+            job.Options.PromptNames = promptNames; // a re-reading uses the prompts that are chosen now (FR-139)
+        }
         job.Options.VlmSeparate = request.VlmSeparate ?? job.Options.VlmSeparate;
         job.Options.Step1Tables = request.Step1Tables ?? job.Options.Step1Tables;
         job.Options.DropRepeatedTables = request.DropRepeatedTables ?? job.Options.DropRepeatedTables;
@@ -167,6 +178,10 @@ public sealed class ConvertService
         await PreflightAsync(job.Options.Step3, cancellationToken).ConfigureAwait(false);
 
         var decisions = ResumePlanner.Plan(documents, request.Mode, job.Options.Step2, job.Options.Step3);
+        if (reread && decisions.All(d => d.Action != ResumeAction.Run))
+        {
+            throw new ConvertStartException(Loc.T("No page is marked to be read again."));
+        }
         Planned?.Invoke(documents);
         var toRun = new List<DocumentRecord>();
         foreach (var decision in decisions)

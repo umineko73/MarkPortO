@@ -56,11 +56,22 @@ public sealed class StateStore
 
     public JobState? LoadJob(Guid jobId) => ReadJson<JobState>(Path.Combine(JobDirectory(jobId), JobFileName));
 
-    public void SaveDocument(Guid jobId, DocumentRecord document) =>
+    public void SaveDocument(Guid jobId, DocumentRecord document)
+    {
+        document.JobId = jobId;
         AtomicFile.WriteAllBytes(DocumentPath(jobId, document.DocId), JsonDefaults.SerializeToUtf8(document));
+    }
 
-    public DocumentRecord? LoadDocument(Guid jobId, string docId) =>
-        ReadJson<DocumentRecord>(DocumentPath(jobId, docId));
+    public DocumentRecord? LoadDocument(Guid jobId, string docId)
+    {
+        var document = ReadJson<DocumentRecord>(DocumentPath(jobId, docId));
+        if (document is not null)
+        {
+            document.JobId = jobId;
+        }
+
+        return document;
+    }
 
     /// <summary>All jobs under the output folder, newest first.</summary>
     public IReadOnlyList<JobState> ListJobs()
