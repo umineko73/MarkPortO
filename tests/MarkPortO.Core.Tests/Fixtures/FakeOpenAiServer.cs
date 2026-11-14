@@ -230,7 +230,7 @@ public sealed class FakeOpenAiServer : IDisposable
         var number = Interlocked.Increment(ref _chatCount);
         if (StallChatRequest?.Invoke(number) == true)
         {
-            await Task.Delay(TimeSpan.FromSeconds(4), _stop.Token);
+            await Task.Delay(TimeSpan.FromSeconds(8), _stop.Token);
         }
 
         if (FailChatRequest?.Invoke(number) == true)

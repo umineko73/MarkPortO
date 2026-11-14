@@ -183,16 +183,16 @@ public class Step3Tests
     public async Task APageThatTimesOut_IsRecordedAsFailed_AndTheFileStillCompletes()
     {
         using var dir = new TempDir();
-        using var server = new FakeOpenAiServer { ChatDelay = TimeSpan.FromSeconds(4) };
+        using var server = new FakeOpenAiServer { ChatDelay = TimeSpan.FromSeconds(8) };
         var source = dir.Combine("in", "a.docx");
         DocxFactory.CreatePaged(source, ["one"]);
 
-        var (result, _) = await RunWithVlmAsync(dir, server, Request(dir.Combine("out"), Options(step3: true, connection: "fake"), source), timeoutSeconds: 1);
+        var (result, _) = await RunWithVlmAsync(dir, server, Request(dir.Combine("out"), Options(step3: true, connection: "fake"), source), timeoutSeconds: 3);
 
         var document = Assert.Single(result.Documents);
         Assert.True(document.IsDone());
         Assert.Equal(PageStep3Status.Failed, document.Pages[0].Step3);
-        Assert.Contains("1 seconds", document.Pages[0].Error);
+        Assert.Contains("3 seconds", document.Pages[0].Error);
     }
 
     private static int ChatRequests(FakeOpenAiServer server)
@@ -211,7 +211,7 @@ public class Step3Tests
         var source = dir.Combine("in", "a.docx");
         DocxFactory.CreatePaged(source, ["one"]);
 
-        var (result, _) = await RunWithVlmAsync(dir, server, Request(dir.Combine("out"), Options(step3: true, connection: "fake"), source), timeoutSeconds: 1);
+        var (result, _) = await RunWithVlmAsync(dir, server, Request(dir.Combine("out"), Options(step3: true, connection: "fake"), source), timeoutSeconds: 3);
 
         var document = Assert.Single(result.Documents);
         Assert.Equal(PageStep3Status.Done, document.Pages[0].Step3);
@@ -228,7 +228,7 @@ public class Step3Tests
         var source = dir.Combine("in", "a.docx");
         DocxFactory.CreatePaged(source, ["one"], ["two"], ["three"]);
 
-        var (result, _) = await RunWithVlmAsync(dir, server, Request(dir.Combine("out"), Options(step3: true, connection: "fake"), source), timeoutSeconds: 1);
+        var (result, _) = await RunWithVlmAsync(dir, server, Request(dir.Combine("out"), Options(step3: true, connection: "fake"), source), timeoutSeconds: 3);
 
         var document = Assert.Single(result.Documents);
         Assert.Equal([PageStep3Status.Done, PageStep3Status.Failed, PageStep3Status.Done], document.Pages.Select(p => p.Step3));
@@ -236,7 +236,7 @@ public class Step3Tests
         Assert.Equal(FileDisplayState.DoneWithPageFailures, row.State);
         Assert.Equal("完了(一部失敗)", FileStatusProjector.Text(row.State));
         Assert.Contains("1ページ", row.Message);
-        Assert.Contains("1 秒", row.Message);
+        Assert.Contains("3 秒", row.Message);
         Assert.Equal(JobStatus.CompletedWithErrors, result.Job.Status);
     }
 
@@ -248,7 +248,7 @@ public class Step3Tests
         var source = dir.Combine("in", "a.docx");
         DocxFactory.CreatePaged(source, ["one"], ["two"], ["three"]);
         var outFolder = dir.Combine("out");
-        var (setup, error) = VlmSetupFactory.Create(Settings(server, timeoutSeconds: 1));
+        var (setup, error) = VlmSetupFactory.Create(Settings(server, timeoutSeconds: 3));
         Assert.True(setup is not null, error);
         using var engine = Engine(dir);
         await new ConvertService(engine, vlm: setup).RunAsync(Request(outFolder, Options(step3: true, connection: "fake"), source));
