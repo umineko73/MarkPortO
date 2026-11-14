@@ -106,6 +106,9 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, PreviewWindow> _previews = new(StringComparer.OrdinalIgnoreCase);
 
     private void OnFileDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+
+        // Nothing is left to do: the process ends here, without the teardown of the graphics (see App.ExitNow).
+        App.ExitNow();
     {
         if (e.OriginalSource is DependencyObject source && System.Windows.Controls.ItemsControl.ContainerFromElement((System.Windows.Controls.DataGrid)sender, source) is System.Windows.Controls.DataGridRow)
         {

@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using System.Runtime.InteropServices;
 using System.Windows;
 using MarkPortO.App.Services;
 using MarkPortO.Core.Settings;
@@ -50,6 +51,33 @@ public partial class App : Application
         MarkPortO.Core.Engines.OfficeEngine.StopStartedProcesses();
     }
 
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentProcess();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool TerminateProcess(IntPtr process, uint exitCode);
+
+    /// <summary>
+    /// Ends the process now, once the work of the program is done (the settings are written, the Office programs it started are stopped). The windows
+    /// are not taken down one by one: the teardown of the graphics (and of WebView2) is where the process used to stop with a fast fail and stay alive
+    /// while Windows Error Reporting worked. Nothing is left to do after this.
+    /// </summary>
+    internal static void ExitNow(int exitCode = 0)
+    {
+        try
+        {
+            MarkPortO.Core.Engines.OfficeEngine.StopStartedProcesses();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            System.Diagnostics.Debug.WriteLine(ex);
+        }
+
+        TerminateProcess(GetCurrentProcess(), (uint)exitCode);
+        Environment.Exit(exitCode); // when TerminateProcess did not work
+    }
+
     // Arm before closing the main window: owned windows, WebView2 and settings can block before OnExit is reached.
     // Call only once closing is accepted, after the conversion has had its time to stop.
     internal static void StartExitWatchdog()
@@ -69,5 +97,25 @@ public partial class App : Application
             Name = "MarkPortO exit watchdog",
         };
         watchdog.Start();
+
+        // A second guard outside the process: the thread above cannot run when the runtime itself is stuck (a collection that waits for a thread that
+        // does not come back, a crash that Windows Error Reporting is still handling). It ends at once when the process has ended.
+        try
+        {
+            var id = Environment.ProcessId;
+            var script = $"Wait-Process -Id {id} -Timeout 15 -ErrorAction SilentlyContinue; $p = Get-Process -Id {id} -ErrorAction SilentlyContinue; if ($p -and $p.ProcessName -eq 'MarkPortO') {{ $p.Kill() }}";
+            var guard = new System.Diagnostics.ProcessStartInfo("powershell.exe")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                ArgumentList = { "-NoProfile", "-NonInteractive", "-Command", script },
+            };
+            using var started = System.Diagnostics.Process.Start(guard);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            System.Diagnostics.Debug.WriteLine(ex);
+        }
     }
 }
