@@ -179,10 +179,18 @@ public static class FileStatusProjector
          document.Pages.Count(p => p.ReadsInStep3));
 
     /// <summary>The text of step 3 in the list: while it runs, how many of the pages are finished (<c>実行中 3/12</c>).</summary>
-    public static string Step3Text(FileRow row) =>
-        row.StepStates[2] == StepStatus.Running && row.Step3Total > 0
+    public static string Step3Text(FileRow row)
+    {
+        // Pages that are marked to be read again (FR-138): the file waits for it, or is reading them now.
+        if (row.Source is { } source && Jobs.RereadMarks.Count(source).Marked is > 0 and var marked)
+        {
+            return row.StepStates[2] == StepStatus.Running ? Loc.T("Running again") : Loc.T("Waiting to run again ({0})", marked);
+        }
+
+        return row.StepStates[2] == StepStatus.Running && row.Step3Total > 0
             ? Loc.T("Running {0}/{1}", row.Step3Read, row.Step3Total)
             : StepText(row.StepStates[2]);
+    }
 
     private static string MessageOf(DocumentRecord document)
     {
@@ -261,6 +269,12 @@ public static class FileStatusProjector
                 ? Loc.T("Out of range")
             : page.IsJoinedTableOnly
                 ? Loc.T("Joined table")
+            : page.RereadMark && page.Step3 == PageStep3Status.Running
+                ? Loc.T("Running again")
+            : page.RereadMark && page.Step3 == PageStep3Status.Failed
+                ? Loc.T("Failed (waiting to run again)")
+            : page.RereadMark
+                ? Loc.T("Waiting to run again")
             : page.Step3 switch
             {
                 PageStep3Status.Running => Loc.T("Running"),

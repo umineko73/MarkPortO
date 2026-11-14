@@ -337,6 +337,18 @@
   <data name="Interrupted" xml:space="preserve">
     <value>中断</value>
   </data>
+  <data name="Running again" xml:space="preserve">
+    <value>再実行中</value>
+  </data>
+  <data name="Waiting to run again ({0})" xml:space="preserve">
+    <value>再実行待ち ({0})</value>
+  </data>
+  <data name="Waiting to run again" xml:space="preserve">
+    <value>再実行待ち</value>
+  </data>
+  <data name="Failed (waiting to run again)" xml:space="preserve">
+    <value>失敗（再実行待ち）</value>
+  </data>
   <data name="Blank page" xml:space="preserve">
     <value>空白ページ</value>
   </data>

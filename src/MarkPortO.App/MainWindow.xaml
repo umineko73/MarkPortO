@@ -309,8 +309,10 @@
                 ToolTip="{DynamicResource Main_ExistingTip}" ToolTipService.ShowOnDisabled="True">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center" IsEnabled="{Binding CanEdit}">
             <TextBlock Text="{DynamicResource Main_Existing}" VerticalAlignment="Center" Margin="2,0,8,0" />
-            <RadioButton GroupName="ExistingFolder" Content="{DynamicResource Main_ExistingNew}" IsChecked="{Binding NewFolder}" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <RadioButton GroupName="ExistingFolder" Content="{DynamicResource Main_ExistingSame}" IsChecked="{Binding SameFolder}" VerticalAlignment="Center" />
+            <ComboBox SelectedIndex="{Binding SameFolderIndex}" MinWidth="130" VerticalAlignment="Center">
+              <ComboBoxItem Content="{DynamicResource Main_ExistingNew}" />
+              <ComboBoxItem Content="{DynamicResource Main_ExistingSame}" />
+            </ComboBox>
           </StackPanel>
         </Border>
         <!-- The file chosen in the list (FR-127: "Convert again" is the same as "Convert the selected files again" of the list's context menu). -->
@@ -359,6 +361,10 @@
               <Separator />
               <MenuItem Header="{DynamicResource Main_Reconvert}" Click="OnReconvertClick" ToolTip="{DynamicResource Main_ReconvertTip}"
                         IsEnabled="{Binding CanEdit}" />
+              <Separator />
+              <MenuItem Header="{DynamicResource Main_RereadMark}" Click="OnRereadMarkClick" ToolTip="{DynamicResource Main_RereadMarkTip}"
+                        IsEnabled="{Binding CanMarkSelectedForReread}" />
+              <MenuItem Header="{DynamicResource Main_RereadUnmark}" Click="OnRereadUnmarkClick" IsEnabled="{Binding CanMarkSelectedForReread}" />
             </ContextMenu>
           </DataGrid.ContextMenu>
           <DataGrid.RowStyle>
@@ -402,25 +408,6 @@
                 <TextBlock Text="{DynamicResource Main_Col_Pages}" />
               </DataGridTextColumn.Header>
             </DataGridTextColumn>
-            <DataGridTextColumn Binding="{Binding DeletedPageCount}" Width="84">
-              <DataGridTextColumn.Header>
-                <TextBlock Text="{DynamicResource Main_Col_Deleted}" />
-              </DataGridTextColumn.Header>
-            </DataGridTextColumn>
-            <DataGridTemplateColumn x:Name="RereadColumn" Width="96" Visibility="Collapsed">
-              <DataGridTemplateColumn.Header>
-                <TextBlock Text="{DynamicResource Main_Col_Reread}" />
-              </DataGridTemplateColumn.Header>
-              <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
-                  <StackPanel Orientation="Horizontal" ToolTip="{DynamicResource Main_RereadCellTip}">
-                    <CheckBox IsThreeState="True" IsChecked="{Binding RereadChecked, Mode=OneWay}" PreviewMouseLeftButtonDown="OnRereadCheckClick"
-                              IsEnabled="{Binding CanReread}" VerticalAlignment="Center" Margin="4,0,6,0" />
-                    <TextBlock Text="{Binding RereadText}" VerticalAlignment="Center" />
-                  </StackPanel>
-                </DataTemplate>
-              </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
             <DataGridTextColumn Binding="{Binding OutputText}" Width="140">
               <DataGridTextColumn.Header>
                 <TextBlock Text="{DynamicResource Main_Col_Output}" />
@@ -435,11 +422,43 @@
               <DataGridTextColumn.Header>
                 <TextBlock Text="{DynamicResource Main_Col_Usage}" />
               </DataGridTextColumn.Header>
+              <DataGridTextColumn.CellStyle>
+                <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                  <Setter Property="ToolTip">
+                    <Setter.Value>
+                      <ToolTip MaxWidth="600">
+                        <TextBlock Text="{Binding UsageText}" TextWrapping="Wrap" />
+                      </ToolTip>
+                    </Setter.Value>
+                  </Setter>
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding UsageText}" Value="">
+                      <Setter Property="ToolTip" Value="{x:Null}" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
             <DataGridTextColumn Binding="{Binding Message}" Width="*">
               <DataGridTextColumn.Header>
                 <TextBlock Text="{DynamicResource Main_Col_Message}" />
               </DataGridTextColumn.Header>
+              <DataGridTextColumn.CellStyle>
+                <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                  <Setter Property="ToolTip">
+                    <Setter.Value>
+                      <ToolTip MaxWidth="600">
+                        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+                      </ToolTip>
+                    </Setter.Value>
+                  </Setter>
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding Message}" Value="">
+                      <Setter Property="ToolTip" Value="{x:Null}" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
           </DataGrid.Columns>
         </DataGrid>
@@ -463,11 +482,6 @@
                   <TextBlock Text="{DynamicResource Main_Col_Position}" />
                 </DataGridTextColumn.Header>
               </DataGridTextColumn>
-              <DataGridCheckBoxColumn Binding="{Binding IsDeleted, Mode=OneWay}" Width="110">
-                <DataGridCheckBoxColumn.Header>
-                  <TextBlock Text="{DynamicResource Main_Col_DeletedPage}" />
-                </DataGridCheckBoxColumn.Header>
-              </DataGridCheckBoxColumn>
               <DataGridTextColumn Binding="{Binding VlmState}" Width="120">
                 <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource Main_Col_VlmState}" />

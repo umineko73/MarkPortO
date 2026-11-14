@@ -38,7 +38,7 @@ dragging with the right button scrolls.
 
 The ◀ ▶ buttons (Ctrl+Left, Ctrl+Right) go to the previous and next file of the list.
 
-**Reading pages again with the VLM**: tick the check box of a page in the page list of the preview (or use "Mark this page" and "Mark failed pages"). The "Read again" column of the file list (shown while Step 3 is on) ticks every page of a file. Then press "Read again with the VLM" on the main screen: only the marked pages are read again, with the connection and the prompts chosen on the main screen, and the results are replaced. A page that fails again keeps its earlier result and its mark.
+**Reading pages again with the VLM**: tick the check box of a page in the page list of the preview (or use "Mark this page" and "Mark pages that could not be read": a page fails when the VLM gives no answer, times out, or the connection or the server gives an error). The right-click menu of the file list ("Mark for running Step 3 again") marks every page of the selected files. Marked pages show "Waiting to run again" in the Step3 column of the file list and in the VLM column of the page list. Then press "Run Step 3 again" on the main screen: only the marked pages are read again, with the connection and the prompts chosen on the main screen, and the results are replaced. A page that fails again keeps its earlier result and its mark.
 
 ![The preview window](images/preview.png)
 
@@ -58,11 +58,11 @@ The output folder can be moved or copied to another place and still opens, as lo
 
 it does not start a conversion.
 
-Then press **Redo all**, or select files in the file list and press **Convert again** to write them into the same folders as before.
+Then press **Redo all**, or select files in the file list and press **Convert again from Step 1** to write them into the same folders as before.
 
 The same window can also **resume an earlier run**: pick the result in the box (an interrupted one, also one that was given up when a later conversion was started, or one with failures) and press **Open**.
 
-the main window shows it as the previous conversion, and **Resume where it stopped** continues it.
+the main window shows it as the previous conversion, and **Resume** continues it.
 
 Several files can be selected (Ctrl+click, Shift+click): the newest result of each is used (when a file that did not finish is in a run that can be resumed, that run can be resumed), and **Preview** is for one file only.
 
@@ -91,15 +91,15 @@ When the inputs change, the conversion of the new inputs is looked for, and the 
 | The list | Buttons |
 |---|---|
 | Empty (no earlier conversion in the output folder) | **Start** |
-| A file is not done | **Resume where it stopped**, **Redo all** |
-| Every file is done | **Redo all**, **Convert changed files only** |
+| A file is not done | **Resume**, **Redo all** |
+| Every file is done | **Redo all**, **Reconvert updated files** |
 
 - **Start**: converts every file of the inputs.
-- **Resume where it stopped**: goes on with the previous conversion: the files that did not finish or, when only failures are left, the files that failed and the pages the VLM could not read.
-- **Redo all**: converts every file of the inputs again with the conditions on the screen. Where a file that was converted before is written is chosen beside the buttons, under **When a file has an earlier folder** (**Make a new one** or **Overwrite**; it works for **Start** too).
-- **Convert changed files only**: converts only the files that changed since their last conversion in the output folder, and the new ones, into the folders of their earlier conversion.
+- **Resume**: goes on with the previous conversion: the files that did not finish or, when only failures are left, the files that failed and the pages the VLM could not read.
+- **Redo all**: converts every file of the inputs again with the conditions on the screen. Where a file that was converted before is written is chosen beside the buttons, under **If the folder exists** (**Make a new one** or **Overwrite**; it works for **Start** too).
+- **Reconvert updated files**: converts only the files that changed since their last conversion in the output folder, and the new ones, into the folders of their earlier conversion.
 
-To convert some files again, select them in the file list (Ctrl+click, Shift+click) and press **Convert again** above the list, or choose **Convert the selected files again** from the right-click menu.
+To convert some files again, select them in the file list (Ctrl+click, Shift+click) and press **Convert again from Step 1** above the list, or choose **Convert the selected files again from Step 1** from the right-click menu.
 
 A file goes back to the folder of its earlier conversion: its Markdown and page images are replaced, so the paths stay the same.
 

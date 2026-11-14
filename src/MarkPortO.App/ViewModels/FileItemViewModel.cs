@@ -59,8 +59,6 @@ public sealed class FileItemViewModel : ObservableObject
 
     public int PageCount => _row.PageCount;
 
-    public int DeletedPageCount => _row.DeletedPageCount;
-
     /// <summary>Total VLM usage of the file; empty when the VLM is not used.</summary>
     public string UsageText => _row.UsageText;
 
@@ -110,18 +108,6 @@ public sealed class FileItemViewModel : ObservableObject
 
     /// <summary>How many pages are marked to be read again by the VLM, and how many can be (FR-138).</summary>
     public (int Marked, int Markable) RereadCount => _row.Source is { } document ? MarkPortO.Core.Jobs.RereadMarks.Count(document) : (0, 0);
-
-    /// <summary>The marks as the list shows them: <c>2/8</c>; empty when no page can be marked.</summary>
-    public string RereadText => RereadCount is { Markable: > 0 } count ? $"{count.Marked}/{count.Markable}" : string.Empty;
-
-    /// <summary>The check box of the file: all the pages marked, none, or some (null).</summary>
-    public bool? RereadChecked => RereadCount switch
-    {
-        { Markable: 0 } => false,
-        { Marked: 0 } => false,
-        var count when count.Marked == count.Markable => true,
-        _ => null,
-    };
 
     /// <summary>A mark can be put on a page of the file.</summary>
     public bool CanReread => RereadCount.Markable > 0;

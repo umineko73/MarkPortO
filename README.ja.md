@@ -30,7 +30,7 @@ Word・Excel・PowerPoint・PDFを、**Markdownとページごとの画像に変
 
 VLMを使う場合は「設定」でVLM接続を設定します。外部サービスには文書の画像やテキストが送信され、料金がかかる場合があります。
 
-[詳しい使い方](docs/usage.ja.md)：再変換、VLM接続、CLIの全オプション、設定例、出力形式。
+[詳しい使い方](docs/usage.ja.md)：Step1の再変換・Step3の再実行、VLM接続、CLIの全オプション、設定例、出力形式。
 
 ## インストール
 

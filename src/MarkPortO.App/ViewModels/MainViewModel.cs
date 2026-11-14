@@ -166,7 +166,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public FileItemViewModel? Selected
     {
         get => _selected;
-        set => Set(ref _selected, value);
+        set
+        {
+            if (Set(ref _selected, value))
+            {
+                Raise(nameof(CanMarkSelectedForReread));
+            }
+        }
     }
 
     public string Status
@@ -282,6 +288,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 RaiseEditState();
                 Raise(nameof(CanReread));
+                Raise(nameof(CanMarkSelectedForReread));
                 foreach (var command in new[] { StartCommand, StartChangedCommand, RedoAllCommand, InterruptCommand, ResumeCommand, RereadCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
                 {
                     command.RaiseCanExecuteChanged();
@@ -624,6 +631,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>The pages that are marked can be read again: Step 3 is on, nothing is running, and a page is marked (FR-139).</summary>
     public bool CanReread => !IsRunning && Step3 && Files.Any(f => f.RereadCount.Marked > 0);
 
+    /// <summary>The marks of a re-reading can be put on the files chosen in the list: Step 3 is on and nothing runs (FR-138).</summary>
+    public bool CanMarkSelectedForReread => !IsRunning && Step3 && Selected is { CanReread: true };
+
     /// <summary>
     /// Puts the marks of a re-reading on the pages of a document, or takes them off (FR-138); <paramref name="pages"/> null is every page.
     /// Not while something runs (the state is being written). Returns false when the marks could not be kept.
@@ -658,6 +668,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void RefreshRereadMarks(DocumentRecord document)
     {
+        Raise(nameof(CanMarkSelectedForReread));
         Files.FirstOrDefault(f => ReferenceEquals(f.Source, document))?.Reproject();
         RereadCommand.RaiseCanExecuteChanged();
         Raise(nameof(CanReread));
@@ -751,7 +762,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>Leave the tables that the VLM wrote again on a page out of the Markdown (FR-124).</summary>
     /// <summary>
     /// "Start" and "Redo all" write a file that was converted before into its earlier folder (true) or into a new folder (false) (FR-129).
-    /// The two radio buttons beside the buttons are the two values.
+    /// The two items of the drop-down list beside the buttons are the two values (<see cref="SameFolderIndex"/>).
     /// </summary>
     public bool SameFolder
     {
@@ -762,21 +773,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 _store.Update(s => s.Output.SameFolder = value);
                 Raise();
-                Raise(nameof(NewFolder));
+                Raise(nameof(SameFolderIndex));
             }
         }
     }
 
-    public bool NewFolder
+    /// <summary>The drop-down list: 0 makes a new folder, 1 writes into the earlier one.</summary>
+    public int SameFolderIndex
     {
-        get => !SameFolder;
-        set
-        {
-            if (value)
-            {
-                SameFolder = false;
-            }
-        }
+        get => SameFolder ? 1 : 0;
+        set => SameFolder = value == 1;
     }
 
     public bool DropRepeatedTables
@@ -803,6 +809,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Raise(nameof(PdfHintVisibility));
             RereadCommand.RaiseCanExecuteChanged();
             Raise(nameof(CanReread));
+            Raise(nameof(CanMarkSelectedForReread));
             Raise();
         }
     }
@@ -1110,7 +1117,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return Task.CompletedTask;
         }
 
-        if (Confirm is { } confirm && !confirm(UiText.Get("Confirm_Reconvert", documents.Count)))
+        // Pages that wait to be read again by Step 3 (FR-138): the conversion starts from Step 1 with the settings on the screen, so the marks are not used.
+        var waiting = documents.Sum(d => RereadMarks.Count(d).Marked);
+        var note = waiting > 0 ? UiText.Get("Confirm_ReconvertMarked", waiting) : string.Empty;
+        if (Confirm is { } confirm && !confirm(UiText.Get("Confirm_Reconvert", documents.Count, note)))
         {
             return Task.CompletedTask;
         }

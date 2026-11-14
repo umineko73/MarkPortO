@@ -47,17 +47,6 @@ public partial class MainWindow : Window
         };
         DataContext = _viewModel;
 
-        // The column of the pages marked to be read again by the VLM is shown while Step 3 is on (FR-138).
-        void ShowRereadColumn() => RereadColumn.Visibility = _viewModel.Step3 ? Visibility.Visible : Visibility.Collapsed;
-        _viewModel.PropertyChanged += (_, e) =>
-        {
-            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.Step3))
-            {
-                ShowRereadColumn();
-            }
-        };
-        ShowRereadColumn();
-
         // A value of the folded part was refused while it was closed: it is open now, and the item has the focus (FR-102).
         _viewModel.ConditionItemRejected += item => Dispatcher.BeginInvoke(() =>
         {
@@ -119,14 +108,19 @@ public partial class MainWindow : Window
     // FR-068: the preview of the file that is chosen in the list. Each file has its own window.
     private readonly Dictionary<string, PreviewWindow> _previews = new(StringComparer.OrdinalIgnoreCase);
 
-    // FR-138: the check box of a file marks every page of it to be read again, or takes the marks off. The mouse is handled here (not by the check box), so that
-    // the state of the box always comes from the pages.
-    private void OnRereadCheckClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    // FR-138: every page of the files chosen in the list is marked to be read again by the VLM, or the marks are taken off.
+    private void OnRereadMarkClick(object sender, RoutedEventArgs e) => SetRereadMarks(marked: true);
+
+    private void OnRereadUnmarkClick(object sender, RoutedEventArgs e) => SetRereadMarks(marked: false);
+
+    private void SetRereadMarks(bool marked)
     {
-        e.Handled = true;
-        if (sender is System.Windows.Controls.CheckBox { DataContext: FileItemViewModel { Source: { } document } item } && item.CanReread)
+        foreach (var item in FileGrid.SelectedItems.OfType<FileItemViewModel>().Where(i => i.CanReread))
         {
-            _viewModel.SetRereadMarks(document, null, item.RereadChecked != true);
+            if (item.Source is { } document)
+            {
+                _viewModel.SetRereadMarks(document, null, marked);
+            }
         }
     }
 

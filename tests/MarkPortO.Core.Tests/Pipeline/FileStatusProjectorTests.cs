@@ -83,6 +83,31 @@ public class FileStatusProjectorTests : JapaneseUiTests
     }
 
     [Fact]
+    public void PagesMarkedToBeReadAgain_ShowThatInTheStep3ColumnAndInTheListOfPages_FR138()
+    {
+        var document = Doc(StepStatus.Done, StepStatus.Done, StepStatus.Done);
+        document.Pages =
+        [
+            new PageRecord { Index = 1, Step3 = PageStep3Status.Done },
+            new PageRecord { Index = 2, Step3 = PageStep3Status.Done, RereadMark = true },
+            new PageRecord { Index = 3, Step3 = PageStep3Status.Failed, RereadMark = true },
+            new PageRecord { Index = 4, IsDeleted = true, Step3 = PageStep3Status.Skipped, RereadMark = true }, // a deleted page is not read again
+        ];
+
+        var row = FileStatusProjector.Project(document);
+
+        Assert.Equal("再実行待ち (2)", FileStatusProjector.Step3Text(row));
+        Assert.Equal(["完了", "再実行待ち", "失敗（再実行待ち）", "対象外"], row.Pages.Select(p => p.VlmState));
+
+        // While the pages are read again.
+        document.Step3 = StepStatus.Running;
+        document.Pages[1].Step3 = PageStep3Status.Running;
+        row = FileStatusProjector.Project(document);
+        Assert.Equal("再実行中", FileStatusProjector.Step3Text(row));
+        Assert.Equal("再実行中", row.Pages[1].VlmState);
+    }
+
+    [Fact]
     public void WhenStep3IsNotRunning_TheListShowsOnlyTheStateOfTheStep()
     {
         var document = Doc(StepStatus.Done, StepStatus.Done, StepStatus.Done);
