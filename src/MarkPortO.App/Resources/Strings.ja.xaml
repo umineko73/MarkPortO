@@ -54,21 +54,19 @@
   <sys:String x:Key="Main_Cond_HiddenSheets">非表示のシートを含める</sys:String>
   <sys:String x:Key="Main_Cond_HiddenSlides">非表示のスライドを含める</sys:String>
   <sys:String x:Key="Main_Cond_Recurse">サブフォルダも対象にする</sys:String>
-  <sys:String x:Key="Main_Cond_Fold">対象と変換</sys:String>
-  <sys:String x:Key="Main_Cond_FoldTip">種類・サブフォルダ・変換エンジン・DPI などの条件を、たたんだり開いたりします。たたむと、いまの選択を1行で見せます。Step の行は、いつも見えます。</sys:String>
+  <sys:String x:Key="Main_Cond_Fold">対象とオプション</sys:String>
+  <sys:String x:Key="Main_Cond_FoldTip">種類・サブフォルダ・抽出方法・種類ごとのオプションを、たたんだり開いたりします。たたむと、いまの選択を1行で出します。Step1〜3は、いつも出ています。</sys:String>
   <sys:String x:Key="Main_Cond_Emphasis">太字・斜体を書く</sys:String>
-  <sys:String x:Key="Main_Cond_EmphasisNote">（他のツールで、ノイズになる場合があります）</sys:String>
   <sys:String x:Key="Main_Cond_Pictures">文書の画像を取り出す</sys:String>
   <sys:String x:Key="Main_Cond_PicturesTip">Word・PowerPoint・Excel に貼られた画像を pictures/ に保存し(pictures/page-003-1.png は3ページ目の1つ目の画像)、Markdown の画像の位置から参照します。PNG・JPEG・GIF はそのまま、EMF・WMF・BMP・TIFF は PNG にして保存します。Excel では、画像を固定したセルより上の表や文の後ろに置きます。</sys:String>
   <sys:String x:Key="Main_Cond_Shapes">図形を画像にする</sys:String>
   <sys:String x:Key="Main_Cond_ShapesTip">PowerPoint・Excel の図形(グループは全体で1枚、縦横とも0.5インチ以上の図形)を、ページ画像から切り出して pictures/ に保存します。名前は画像と同じ形です。テキストボックスや、小さな矢印・線は対象外です。Word は対象外です。Excel では、列の幅と行の高さから位置を計算するので、少しずれることがあります。</sys:String>
-  <sys:String x:Key="Main_Cond_EmphasisTip">文中の太字を ** で、斜体を * で囲んで書きます(Word・PowerPoint・Excel)。段落(セル)の全体が太字(斜体)のもの、見出し、スライドのタイトルには付けません。知識グラフを作るツールなど、他のツールに Markdown を渡すときは、** や * がノイズになることがあります。</sys:String>
+  <sys:String x:Key="Main_Cond_EmphasisTip">文中の太字を ** で、斜体を * で囲んで書きます(Word・PowerPoint・Excel)。段落(セル)の全体が太字(斜体)のもの、見出し、スライドのタイトルには付けません。知識グラフを作るツールなど、他のツールに Markdown を渡すときは、** や * がノイズになることがあります。 他のツールで読むとき、ノイズになる場合があります。</sys:String>
   <sys:String x:Key="Main_Cond_OffSlide">スライド外の文字を含める</sys:String>
   <sys:String x:Key="Main_Cond_OffSlideTip">PowerPoint: スライドの外に置いたシェイプ(メモ)の文字を、「Off-slide」の引用として書きます。スライドの画像には写りません。</sys:String>
   <sys:String x:Key="Main_Cond_Engine">印刷エンジン</sys:String>
   <sys:String x:Key="Main_Cond_Dpi">DPI</sys:String>
-  <sys:String x:Key="Main_Cond_Step1">印刷イメージ保存、テキスト抽出する(内蔵、外部)</sys:String>
-  <sys:String x:Key="Main_Cond_Step1Always">(常に実行)</sys:String>
+  <sys:String x:Key="Main_Cond_Step1">印刷イメージ保存・テキスト抽出（常に実行）</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Markdownに印刷イメージ差し込み(内蔵選択時のみ)</sys:String>
   <sys:String x:Key="Main_Cond_Extractor">抽出方法</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorBuiltIn">内蔵</sys:String>
@@ -309,7 +307,7 @@
   <sys:String x:Key="Past_LoadFailed">変換中は開けません。変換が終わってから、もう一度お試しください。</sys:String>
   <sys:String xml:space="preserve" x:Key="Confirm_ReconvertMarked">Step3の再実行設定は無視して全ページを対象とします。&#10;&#10;</sys:String>
   <sys:String x:Key="Main_Reread">Step3を再実行</sys:String>
-  <sys:String x:Key="Main_RereadTip">印を付けたページだけを、いま選んでいる接続とプロンプトで、VLMで読み直します。読み終えるまで、そのページの前の結果は残ります。ページの印は、プレビューのページ一覧、または一覧の右クリックのメニューで付けます。Step1・2はやり直しません。</sys:String>
+  <sys:String x:Key="Main_RereadTip">印を付けたページと、いまの設定（接続・モデル、そのファイルの種類のプロンプト）と違う設定で読んだページを、いまの設定で VLM で読み直します。読み終えるまで、そのページの前の結果は残ります。ページの印は、プレビューのページ一覧、または一覧の右クリックのメニューで付けます。Step1・2はやり直しません。</sys:String>
   <sys:String x:Key="Status_RereadNoJob">印を付けたページの保存した状態が見つからないため、読み直せません。</sys:String>
   <sys:String x:Key="Preview_PrevFile">前のファイル（Ctrl＋←）</sys:String>
   <sys:String x:Key="Preview_NextFile">次のファイル（Ctrl＋→）</sys:String>

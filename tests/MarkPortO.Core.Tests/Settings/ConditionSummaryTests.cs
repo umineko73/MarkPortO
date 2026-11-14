@@ -49,6 +49,25 @@ public class ConditionSummaryTests
     }
 
     [Fact]
+    public void TheOptionsThatAreNotTheUsualOnes_AreInTheLine_AndTheUsualOnesAreNot()
+    {
+        var settings = Settings(s =>
+        {
+            s.Images.ExcelRange = ExcelRange.Sheet;
+            s.Input.IncludeHiddenSheets = true;
+            s.Input.IncludeHiddenSlides = true;
+            s.Input.IncludeOffSlideText = false;
+            s.Input.UsePdfText = false;
+        });
+
+        Assert.Equal("docx xlsx pptx pdf | サブフォルダ | Excel: 全体を1シート | 非表示のシート | 非表示のスライド | スライド外の文字なし | PDFの抽出テキストなし", Build(settings, "ja"));
+
+        // An option of a kind that is not converted is not written.
+        settings.Input.Types = [DocumentKind.Docx];
+        Assert.Equal("docx | サブフォルダ", Build(settings, "ja"));
+    }
+
+    [Fact]
     public void TheChoices_AreInOneLine_InJapanese()
     {
         Assert.Equal("docx xlsx pptx pdf | サブフォルダ", Build(Settings(), "ja"));

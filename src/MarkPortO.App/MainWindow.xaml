@@ -200,11 +200,10 @@
           <!-- Steps: always shown, also when the part above is folded (FR-102) -->
           <Grid>
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="150" />
+            <ColumnDefinition Width="56" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -213,8 +212,7 @@
           <!-- Step1 always runs: it is shown, and it cannot be changed (FR-039) -->
           <TextBlock Grid.Row="0" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" />
           <WrapPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,6">
-            <CheckBox Content="{DynamicResource Main_Cond_Step1}" IsChecked="True" IsEnabled="False" VerticalAlignment="Center" Margin="0,0,10,0" />
-            <TextBlock Text="{DynamicResource Main_Cond_Step1Always}" VerticalAlignment="Center" Foreground="{DynamicResource SubtleTextBrush}" Margin="0,0,20,0" />
+            <TextBlock Text="{DynamicResource Main_Cond_Step1}" VerticalAlignment="Center" Margin="0,0,20,0" />
             <!-- The engine and the size of the print images, and the bold and italic of the text, are settings of Step1 -->
             <StackPanel Orientation="Horizontal" IsEnabled="{Binding CanEditNewRun}">
               <TextBlock Text="{DynamicResource Main_Cond_Engine}" VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -222,8 +220,7 @@
                         SelectedValue="{Binding SelectedEngine}" Width="170" Margin="0,0,20,0" />
               <TextBlock Text="{DynamicResource Main_Cond_Dpi}" VerticalAlignment="Center" Margin="0,0,6,0" />
               <TextBox x:Name="DpiBox" Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="68" VerticalContentAlignment="Center" Margin="0,0,20,0" />
-              <CheckBox Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" />
-              <TextBlock Text="{DynamicResource Main_Cond_EmphasisNote}" Foreground="{DynamicResource SubtleTextBrush}" VerticalAlignment="Center" Margin="8,0,20,0" />
+              <CheckBox Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
               <CheckBox Content="{DynamicResource Main_Cond_Pictures}" IsChecked="{Binding ExtractPictures}" ToolTip="{DynamicResource Main_Cond_PicturesTip}" VerticalAlignment="Center" Margin="0,0,12,0" />
               <CheckBox Content="{DynamicResource Main_Cond_Shapes}" IsChecked="{Binding ExtractShapes}" ToolTip="{DynamicResource Main_Cond_ShapesTip}" VerticalAlignment="Center" />
             </StackPanel>
@@ -235,42 +232,44 @@
           <TextBlock Grid.Row="2" Text="Step3" VerticalAlignment="Center" />
           <WrapPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
             <CheckBox Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <CheckBox Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <TextBlock Text="{DynamicResource Main_Cond_Tables}" VerticalAlignment="Center" Margin="0,0,4,0" />
-            <ComboBox SelectedIndex="{Binding Step1TablesIndex}" IsEnabled="{Binding CanEditStep1Tables}" VerticalAlignment="Center" Margin="0,0,16,0" MinWidth="170">
+            <CheckBox Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" Visibility="{Binding Step3DetailsVisibility}" />
+            <TextBlock Text="{DynamicResource Main_Cond_Tables}" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="{Binding Step3DetailsVisibility}" />
+            <ComboBox SelectedIndex="{Binding Step1TablesIndex}" IsEnabled="{Binding CanEditStep1Tables}" VerticalAlignment="Center" Margin="0,0,16,0" MinWidth="170" Visibility="{Binding Step3DetailsVisibility}">
               <ComboBoxItem Content="{DynamicResource Main_Cond_TablesVlm}" />
               <ComboBoxItem Content="{DynamicResource Main_Cond_TablesReplace}" />
               <ComboBoxItem Content="{DynamicResource Main_Cond_TablesOmit}" />
             </ComboBox>
-            <CheckBox Content="{DynamicResource Main_Cond_DropRepeated}" ToolTip="{DynamicResource Main_Cond_DropRepeatedTip}" IsChecked="{Binding DropRepeatedTables}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <TextBlock Text="{DynamicResource Main_Cond_Connection}" VerticalAlignment="Center" Margin="0,0,4,0" />
-            <TextBlock Text="{Binding ConnectionInUse, Mode=OneWay}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,8,0" />
-            <Button Content="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" Padding="8,2" />
-            <Button Content="{DynamicResource Menu_Prompts}" Command="{Binding PromptsCommand}" Padding="8,2" Margin="6,0,0,0" />
+            <CheckBox Content="{DynamicResource Main_Cond_DropRepeated}" ToolTip="{DynamicResource Main_Cond_DropRepeatedTip}" IsChecked="{Binding DropRepeatedTables}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" Visibility="{Binding Step3DetailsVisibility}" />
+            <TextBlock Text="{DynamicResource Main_Cond_Connection}" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="{Binding Step3DetailsVisibility}" />
+            <ComboBox ItemsSource="{Binding ConnectionItems}" SelectedIndex="{Binding ConnectionIndex}" IsEnabled="{Binding CanEdit}" MinWidth="190" Margin="0,0,6,0" Visibility="{Binding Step3DetailsVisibility}" />
+            <Button Content="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" Padding="8,2" Visibility="{Binding Step3DetailsVisibility}" />
+            <Button Content="{DynamicResource Menu_Prompts}" Command="{Binding PromptsCommand}" Padding="8,2" Margin="6,0,0,0" Visibility="{Binding Step3DetailsVisibility}" />
+            <!-- The prompt of each kind of file that Step3 sends to the VLM (FR-115) -->
+            <StackPanel Orientation="Horizontal" Margin="16,0,0,0" IsEnabled="{Binding CanEditPrompts}" Visibility="{Binding Step3DetailsVisibility}">
+              <TextBlock Text="{DynamicResource Main_Cond_Prompt}" VerticalAlignment="Center" Margin="0,0,6,0" />
+              <ItemsControl ItemsSource="{Binding PromptChoices}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                      <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                      <ComboBox ItemsSource="{Binding Items}" SelectedIndex="{Binding SelectedIndex}" MinWidth="150" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
             <!-- The pages that Step3 reads: for one file only (FR-097) -->
-            <StackPanel Orientation="Horizontal" Margin="16,0,0,0" IsEnabled="{Binding CanEditPages}" ToolTip="{Binding PagesTip}" ToolTipService.ShowOnDisabled="True">
+            <StackPanel Orientation="Horizontal" Margin="16,0,0,0" IsEnabled="{Binding CanEditPages}" ToolTip="{Binding PagesTip}" ToolTipService.ShowOnDisabled="True" Visibility="{Binding PagesVisibility}">
               <TextBlock Text="{DynamicResource Main_Cond_Pages}" VerticalAlignment="Center" Margin="0,0,6,0" />
               <TextBox Text="{Binding PageRangeText, UpdateSourceTrigger=PropertyChanged}" Width="110" VerticalContentAlignment="Center" />
             </StackPanel>
           </WrapPanel>
 
-          <!-- The prompt of each kind of file that Step3 sends to the VLM (FR-115) -->
-          <TextBlock Grid.Row="3" Text="{DynamicResource Main_Cond_Prompt}" VerticalAlignment="Center" Margin="0,6,0,0" />
-          <ItemsControl Grid.Row="3" Grid.Column="1" ItemsSource="{Binding PromptChoices}" IsEnabled="{Binding CanEditPrompts}" Margin="0,6,0,0">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel Orientation="Horizontal" />
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
-                  <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                  <ComboBox ItemsSource="{Binding Items}" SelectedIndex="{Binding SelectedIndex}" MinWidth="150" />
-                </StackPanel>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
           </Grid>
         </StackPanel>
       </GroupBox>

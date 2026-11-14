@@ -58,7 +58,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             var reader = context.Vlm ?? throw new InvalidOperationException("The VLM connection is not set up.");
             var promptName = context.Options.PromptNames.For(document.Kind);
             var prompt = (context.Prompts ?? new Settings.PromptSettings()).Resolve(document.Kind, document.MarkdownLanguage, promptName);
-            document.VlmPrompt = Settings.PromptPresets.IsStandardName(promptName) ? "standard" : promptName.Trim();
+            document.VlmPrompt = Jobs.Step3Settings.PromptText(promptName);
             var governor = context.Governor ?? new Step3Governor();
 
             // The header, the footer and the page number of a Word document are in every page image; the result of the VLM is without them (FR-100).
@@ -161,7 +161,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
     /// <summary>The model for the comment in the Markdown: the command and the model (<c>claude haiku</c>), or the model of the server.</summary>
     private static string? ModelText(Step3ConnectionInfo? connection) => connection is null
         ? null
-        : string.Join(' ', new[] { connection.Kind == "command" ? connection.Command : null, connection.Model }.Where(s => !string.IsNullOrWhiteSpace(s))) is { Length: > 0 } text ? text : connection.Kind;
+        : Jobs.Step3Settings.ModelText(connection.Kind, connection.Command, connection.Model);
 
     /// <summary>
     /// Marks the pages whose only content is the rows of a table that runs over from an earlier page. When the tables of Step1 are used

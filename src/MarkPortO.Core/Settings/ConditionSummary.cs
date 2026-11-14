@@ -19,7 +19,7 @@ using MarkPortO.Core.Localization;
 namespace MarkPortO.Core.Settings;
 
 /// <summary>
-/// The conditions of the folded part of the main window (the kinds of file with the extractor that is chosen for each, and the sub-folders) in one line (FR-102).
+/// The conditions of the folded part of the main window (the kinds of file with the extractor that is chosen for each, the sub-folders, and the options that are not the usual ones) in one line (FR-102).
 /// It is shown when the part is closed, so that the choices can be seen without opening it. The steps, the connection and the page range are
 /// not in it: they are always on the screen, and so are the engine, the DPI, bold and italic, and the pictures (they are in the row of Step1).
 /// </summary>
@@ -44,6 +44,33 @@ public static class ConditionSummary
         if (settings.Input.Recurse)
         {
             parts.Add(Loc.T("Sub-folders"));
+        }
+
+        // The options of the folded part that are not the usual ones (the usual ones are not written, so the line stays short).
+        var kinds = settings.Input.Types;
+        if (kinds.Contains(DocumentKind.Xlsx) && settings.Images.ExcelRange != ExcelRange.Columns)
+        {
+            parts.Add(settings.Images.ExcelRange == ExcelRange.Sheet ? Loc.T("Excel: whole sheet on one page") : Loc.T("Excel: print area"));
+        }
+
+        if (kinds.Contains(DocumentKind.Xlsx) && settings.Input.IncludeHiddenSheets)
+        {
+            parts.Add(Loc.T("Hidden sheets"));
+        }
+
+        if (kinds.Contains(DocumentKind.Pptx) && settings.Input.IncludeHiddenSlides)
+        {
+            parts.Add(Loc.T("Hidden slides"));
+        }
+
+        if (kinds.Contains(DocumentKind.Pptx) && !settings.Input.IncludeOffSlideText)
+        {
+            parts.Add(Loc.T("No off-slide text"));
+        }
+
+        if (kinds.Contains(DocumentKind.Pdf) && !settings.Input.UsePdfText)
+        {
+            parts.Add(Loc.T("No PDF text"));
         }
 
         return string.Join(Separator, parts);

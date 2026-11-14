@@ -84,7 +84,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             if (e.PropertyName is nameof(Recurse) or nameof(TypeDocx) or nameof(TypeXlsx) or nameof(TypePptx) or nameof(TypePdf)
                 or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis) or nameof(ExtractPictures) or nameof(ExtractShapes)
-                or nameof(ExtractorDocx) or nameof(ExtractorXlsx) or nameof(ExtractorPptx) or nameof(ExtractorPdf))
+                or nameof(ExtractorDocx) or nameof(ExtractorXlsx) or nameof(ExtractorPptx) or nameof(ExtractorPdf)
+                or nameof(IncludeHiddenSheets) or nameof(IncludeHiddenSlides) or nameof(IncludeOffSlideText) or nameof(UsePdfText)
+                or nameof(ExcelColumns) or nameof(ExcelSheet) or nameof(ExcelPrintArea))
             {
                 Raise(nameof(ConditionSummaryText));
             }
@@ -121,6 +123,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             }
         };
         Files.CollectionChanged += (_, _) => UpdateRunCommands();
+        foreach (var choice in PromptChoices)
+        {
+            choice.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(PromptChoiceViewModel.SelectedIndex))
+                {
+                    RaiseRereadState();
+                }
+            };
+        }
         _ = RefreshPreviousAsync(showFiles: true, appendToStatus: true); // the earlier run in the output folder (FR-013e)
     }
 
@@ -134,6 +146,52 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>The choice of the prompt for each kind of file (FR-115).</summary>
     public IReadOnlyList<PromptChoiceViewModel> PromptChoices { get; } = [];
 
+    /// <summary>The settings of Step 3 are shown while Step 3 is on (FR-102): they do nothing when it is off.</summary>
+    public System.Windows.Visibility Step3DetailsVisibility => Step3 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+
+    /// <summary>The page range is shown for one file only (FR-097).</summary>
+    public System.Windows.Visibility PagesVisibility => Step3DetailsVisibility == System.Windows.Visibility.Visible && IsOneFile
+        ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+
+    // ---- the connection of Step 3, chosen in a drop-down list ----
+
+    /// <summary>The names of the connections of the settings, after the item of no connection.</summary>
+    public IReadOnlyList<string> ConnectionItems => [UiText.Get("Conn_None"), .. _store.Current.Vlm.Connections.Select(c => c.Name)];
+
+    /// <summary>The connection in use: 0 is none.</summary>
+    public int ConnectionIndex
+    {
+        get
+        {
+            var index = _store.Current.Vlm.Connections.FindIndex(c => string.Equals(c.Name, _store.Current.Vlm.Selected, StringComparison.OrdinalIgnoreCase));
+            return index < 0 ? 0 : index + 1;
+        }
+
+        set
+        {
+            var connections = _store.Current.Vlm.Connections;
+            if (value < 0 || value > connections.Count)
+            {
+                return; // the list was replaced and nothing is chosen yet
+            }
+
+            var name = value == 0 ? string.Empty : connections[value - 1].Name;
+            if (!string.Equals(name, _store.Current.Vlm.Selected, StringComparison.Ordinal))
+            {
+                _store.Update(s => s.Vlm.Selected = name);
+                RaiseConnection();
+            }
+        }
+    }
+
+    private void RaiseConnection()
+    {
+        Raise(nameof(ConnectionInUse));
+        Raise(nameof(ConnectionItems));
+        Raise(nameof(ConnectionIndex));
+        RaiseRereadState();
+    }
+
     /// <summary>The prompts were changed in their window: the choices are shown again.</summary>
     public void RefreshPrompts()
     {
@@ -141,6 +199,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             choice.Refresh();
         }
+
+        RaiseRereadState();
     }
 
     public bool CanEditPrompts => CanEdit && Step3;
@@ -277,6 +337,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(CanEditPrompts));
         Raise(nameof(CanEditPages));
         Raise(nameof(PagesTip));
+        Raise(nameof(PagesVisibility));
     }
 
     public bool IsRunning
@@ -546,7 +607,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(LanguageIsJapanese));
         Raise(nameof(LanguageIsEnglish));
         Raise(nameof(LanguageIsSystem));
-        Raise(nameof(ConnectionInUse));
+        RaiseConnection();
         Raise(nameof(ConditionSummaryText));
         Status = _statusSource();
         if (!IsRunning)
@@ -629,7 +690,26 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public RelayCommand RereadCommand { get; }
 
     /// <summary>The pages that are marked can be read again: Step 3 is on, nothing is running, and a page is marked (FR-139).</summary>
-    public bool CanReread => !IsRunning && Step3 && Files.Any(f => f.RereadCount.Marked > 0);
+    public bool CanReread => !IsRunning && Step3 && (Files.Any(f => f.RereadCount.Marked > 0) || StaleCount() > 0);
+
+    /// <summary>The model and the prompt that a reading of a file of this kind would use now: the choices on the screen (FR-139).</summary>
+    private (string? Model, string Prompt) CurrentStep3(DocumentKind kind)
+    {
+        var settings = _store.Current;
+        return (Step3Settings.ModelText(settings.FindConnection(settings.Vlm.Selected)), Step3Settings.PromptText(settings.Vlm.Prompts.VariantsOf(kind).Selected));
+    }
+
+    /// <summary>How many pages of the list were read with other settings than those on the screen (the connection, the prompt of their kind of file): Step 3 can be run again for them.</summary>
+    public int StaleCount() => Files.Sum(f => f.Source is { } document && document.Step3 == StepStatus.Done
+        ? RereadMarks.Stale(document, CurrentStep3(document.Kind).Model, CurrentStep3(document.Kind).Prompt).Count()
+        : 0);
+
+    /// <summary>The state of "Run Step 3 again" is worked out again (the settings of Step 3 or the list changed).</summary>
+    public void RaiseRereadState()
+    {
+        RereadCommand.RaiseCanExecuteChanged();
+        Raise(nameof(CanReread));
+    }
 
     /// <summary>The marks of a re-reading can be put on the files chosen in the list: Step 3 is on and nothing runs (FR-138).</summary>
     public bool CanMarkSelectedForReread => !IsRunning && Step3 && Selected is { CanReread: true };
@@ -683,6 +763,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (!CanReread || !ConfirmSending())
         {
             return Task.CompletedTask;
+        }
+
+        // The pages that were read with other settings than those on the screen are read again too: they are marked, so that the list shows it.
+        var store = new StateStore(_store.Current.Output.Folder);
+        foreach (var file in Files.Where(f => f.Source is { Step3: StepStatus.Done }).ToList())
+        {
+            var document = file.Source!;
+            var (model, prompt) = CurrentStep3(document.Kind);
+            if (RereadMarks.Stale(document, model, prompt).Any())
+            {
+                RereadMarks.MarkStale(store, document, model, prompt);
+                RefreshRereadMarks(document);
+            }
         }
 
         // The files of the list are one run (FR-130): the marked pages of the first file's job. A document of another job is not read here.
@@ -807,6 +900,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Raise(nameof(CanEditPrompts));
             Raise(nameof(PagesTip));
             Raise(nameof(PdfHintVisibility));
+            Raise(nameof(Step3DetailsVisibility));
+            Raise(nameof(PagesVisibility));
             RereadCommand.RaiseCanExecuteChanged();
             Raise(nameof(CanReread));
             Raise(nameof(CanMarkSelectedForReread));
@@ -820,7 +915,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private Task OpenConnectionSettingsAsync()
     {
         ShowConnectionSettings?.Invoke();
-        Raise(nameof(ConnectionInUse)); // the window may have changed the connection in use
+        RaiseConnection(); // the window may have added, removed or chosen a connection
         return Task.CompletedTask;
     }
 
@@ -979,6 +1074,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(TypePptx));
         Raise(nameof(TypePdf));
         Raise(nameof(PdfHintVisibility));
+        Raise(nameof(ConditionSummaryText));
         RaiseOptions();
         UpdateRunCommands();
     }

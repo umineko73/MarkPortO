@@ -493,6 +493,24 @@
   <data name="No kind of file" xml:space="preserve">
     <value>対象の種類なし</value>
   </data>
+  <data name="Excel: whole sheet on one page" xml:space="preserve">
+    <value>Excel: 全体を1シート</value>
+  </data>
+  <data name="Excel: print area" xml:space="preserve">
+    <value>Excel: 印刷範囲</value>
+  </data>
+  <data name="Hidden sheets" xml:space="preserve">
+    <value>非表示のシート</value>
+  </data>
+  <data name="Hidden slides" xml:space="preserve">
+    <value>非表示のスライド</value>
+  </data>
+  <data name="No off-slide text" xml:space="preserve">
+    <value>スライド外の文字なし</value>
+  </data>
+  <data name="No PDF text" xml:space="preserve">
+    <value>PDFの抽出テキストなし</value>
+  </data>
   <data name="Sub-folders" xml:space="preserve">
     <value>サブフォルダ</value>
   </data>

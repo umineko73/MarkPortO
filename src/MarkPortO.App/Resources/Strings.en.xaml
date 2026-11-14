@@ -54,21 +54,19 @@
   <sys:String x:Key="Main_Cond_HiddenSheets">Include hidden sheets</sys:String>
   <sys:String x:Key="Main_Cond_HiddenSlides">Include hidden slides</sys:String>
   <sys:String x:Key="Main_Cond_Recurse">Include sub-folders</sys:String>
-  <sys:String x:Key="Main_Cond_Fold">Kinds of file and conversion</sys:String>
-  <sys:String x:Key="Main_Cond_FoldTip">Fold or open the kinds of file, the sub-folders, the engine, the DPI and so on. Folded, one line shows what is chosen. The steps are always shown.</sys:String>
+  <sys:String x:Key="Main_Cond_Fold">Kinds of file and options</sys:String>
+  <sys:String x:Key="Main_Cond_FoldTip">Fold or open the kinds of file, the sub-folders, the extractors and the options of each kind. Folded, one line shows what is chosen. Steps 1 to 3 are always shown.</sys:String>
   <sys:String x:Key="Main_Cond_Emphasis">Write bold and italic</sys:String>
-  <sys:String x:Key="Main_Cond_EmphasisNote">(May be noise for other tools.)</sys:String>
   <sys:String x:Key="Main_Cond_Pictures">Save the pictures of the document</sys:String>
   <sys:String x:Key="Main_Cond_PicturesTip">The pictures pasted in a Word, PowerPoint or Excel file are saved in pictures/ (pictures/page-003-1.png: the first picture on page 3), and the Markdown refers to them where they are. PNG, JPEG and GIF are saved as they are; EMF, WMF, BMP and TIFF are turned into PNG. In Excel, a picture comes after the table or the text above the cell that it is fixed to.</sys:String>
   <sys:String x:Key="Main_Cond_Shapes">Cut out the shapes</sys:String>
   <sys:String x:Key="Main_Cond_ShapesTip">The drawn shapes of a PowerPoint or Excel file (a group as one picture, and a shape of half an inch or more on each side) are cut out of the page image and saved in pictures/, like the pictures. A text box and a small arrow or line are not. Word is not supported. In Excel the place is worked out from the widths of the columns and the heights of the rows, so it can be a little off.</sys:String>
-  <sys:String x:Key="Main_Cond_EmphasisTip">Bold text in a line is written between ** and italic text between * (Word, PowerPoint, Excel). A paragraph (a cell) that is all in bold (italic), a heading and the title of a slide are not marked. When the Markdown goes to other tools, such as one that builds a knowledge graph, the ** and * marks can be noise.</sys:String>
+  <sys:String x:Key="Main_Cond_EmphasisTip">Bold text in a line is written between ** and italic text between * (Word, PowerPoint, Excel). A paragraph (a cell) that is all in bold (italic), a heading and the title of a slide are not marked. When the Markdown goes to other tools, such as one that builds a knowledge graph, the ** and * marks can be noise. When another tool reads the Markdown, it can be noise.</sys:String>
   <sys:String x:Key="Main_Cond_OffSlide">Include text outside the slide</sys:String>
   <sys:String x:Key="Main_Cond_OffSlideTip">PowerPoint: the text of the shapes that lie outside the slide (memos on the pasteboard) is written as a quote "Off-slide". They are not in the image of the slide.</sys:String>
   <sys:String x:Key="Main_Cond_Engine">Print engine</sys:String>
   <sys:String x:Key="Main_Cond_Dpi">DPI</sys:String>
-  <sys:String x:Key="Main_Cond_Step1">Save print images, extract text (built-in, external)</sys:String>
-  <sys:String x:Key="Main_Cond_Step1Always">(always)</sys:String>
+  <sys:String x:Key="Main_Cond_Step1">Save the print images and extract the text (always done)</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Put print images into the Markdown (built-in only)</sys:String>
   <sys:String x:Key="Main_Cond_Extractor">Extractor</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorBuiltIn">built-in</sys:String>
@@ -309,7 +307,7 @@
   <sys:String x:Key="Past_LoadFailed">It cannot be opened while a conversion is running. Try again when it has finished.</sys:String>
   <sys:String xml:space="preserve" x:Key="Confirm_ReconvertMarked">The settings for running Step 3 again are ignored, and every page is processed.&#10;&#10;</sys:String>
   <sys:String x:Key="Main_Reread">Run Step 3 again</sys:String>
-  <sys:String x:Key="Main_RereadTip">Reads only the pages that are marked again with the VLM, with the connection and the prompts that are chosen now. The earlier text of a page stays until the page has been read. Pages are marked in the page list of the preview, or with the right-click menu of the file list. Steps 1 and 2 are not done again.</sys:String>
+  <sys:String x:Key="Main_RereadTip">Reads again with the VLM, with the settings of now, the pages that are marked and the pages that were read with other settings (the connection and its model, the prompt of the kind of file). The earlier text of a page stays until the page has been read. Pages are marked in the page list of the preview, or with the right-click menu of the file list. Steps 1 and 2 are not done again.</sys:String>
   <sys:String x:Key="Status_RereadNoJob">The saved state of the marked pages was not found, so they cannot be read again.</sys:String>
   <sys:String x:Key="Preview_PrevFile">Previous file (Ctrl+Left)</sys:String>
   <sys:String x:Key="Preview_NextFile">Next file (Ctrl+Right)</sys:String>

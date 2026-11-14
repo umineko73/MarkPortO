@@ -58,6 +58,31 @@ public static class RereadMarks
     public static bool SetAll(StateStore store, DocumentRecord document, bool marked) =>
         Set(store, document, Markable(document).Select(p => p.Index), marked);
 
+    /// <summary>
+    /// The pages that were read with other settings than those of now (FR-139): the model, or the prompt, differs from what the page records (a page read before the
+    /// pages recorded this has the record of its file). A setting that is not known (no connection, or nothing recorded) is not compared. Pages that failed are not
+    /// out of date: they were not read.
+    /// </summary>
+    /// <param name="model">The model that a reading would use now (<see cref="Step3Settings.ModelText(Settings.ConnectionProfile?)"/>); null: not compared.</param>
+    /// <param name="prompt">The prompt of the kind of this document now (<see cref="Step3Settings.PromptText"/>).</param>
+    public static IEnumerable<PageRecord> Stale(DocumentRecord document, string? model, string prompt) =>
+        Markable(document).Where(p =>
+        {
+            if (p.Step3 != PageStep3Status.Done)
+            {
+                return false;
+            }
+
+            var readModel = p.VlmModel ?? document.VlmModel;
+            var readPrompt = p.VlmPrompt ?? document.VlmPrompt;
+            return (model is not null && readModel is not null && !string.Equals(readModel, model, StringComparison.Ordinal))
+                || (readPrompt is not null && !string.Equals(readPrompt, prompt, StringComparison.Ordinal));
+        });
+
+    /// <summary>Marks the pages that are out of date (see <see cref="Stale"/>), and saves the document.</summary>
+    public static bool MarkStale(StateStore store, DocumentRecord document, string? model, string prompt) =>
+        Set(store, document, Stale(document, model, prompt).Select(p => p.Index), marked: true);
+
     /// <summary>Marks the pages that could not be read.</summary>
     public static bool MarkFailed(StateStore store, DocumentRecord document) =>
         Set(store, document, Markable(document).Where(p => p.Step3 == PageStep3Status.Failed).Select(p => p.Index), marked: true);

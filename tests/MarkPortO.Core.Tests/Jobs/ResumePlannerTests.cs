@@ -100,6 +100,45 @@ public class ResumePlannerTests
     }
 
     [Fact]
+    public void Stale_PagesReadWithOtherSettingsThanThoseOfNow_AreFound_FR139()
+    {
+        using var dir = new TempDir();
+        var document = Doc(dir, s3: StepStatus.Done);
+        document.VlmModel = "model-a";
+        document.VlmPrompt = "standard";
+        document.Pages =
+        [
+            new PageRecord { Index = 1, Step3 = PageStep3Status.Done, VlmModel = "model-a", VlmPrompt = "standard" },
+            new PageRecord { Index = 2, Step3 = PageStep3Status.Done, VlmModel = "model-b", VlmPrompt = "standard" }, // another model
+            new PageRecord { Index = 3, Step3 = PageStep3Status.Done, VlmModel = "model-a", VlmPrompt = "mine" },     // another prompt
+            new PageRecord { Index = 4, Step3 = PageStep3Status.Done },                                                // read before the pages recorded it: the file's record
+            new PageRecord { Index = 5, Step3 = PageStep3Status.Failed, VlmModel = "model-b" },                         // not read: not out of date
+            new PageRecord { Index = 6, IsDeleted = true, Step3 = PageStep3Status.Skipped, VlmModel = "model-b" },
+        ];
+
+        // The settings of now are those of page 1 and of the file: another model (page 2) and another prompt (page 3) are out of date.
+        Assert.Equal([2, 3], RereadMarks.Stale(document, "model-a", "standard").Select(p => p.Index));
+
+        // Another model now: every page that was read with model-a is out of date (page 4 has the record of its file).
+        Assert.Equal([1, 3, 4], RereadMarks.Stale(document, "model-b", "standard").Select(p => p.Index));
+
+        // The model of now is not known (no connection): only the prompt is compared.
+        Assert.Equal([3], RereadMarks.Stale(document, null, "standard").Select(p => p.Index));
+    }
+
+    [Fact]
+    public void Step3Settings_GiveTheModelAndThePrompt_AsAReadingRecordsThem_FR139()
+    {
+        Assert.Equal("gpt-x", Step3Settings.ModelText("openai", null, "gpt-x"));
+        Assert.Equal("claude opus", Step3Settings.ModelText("command", "claude", "opus"));
+        Assert.Equal("command", Step3Settings.ModelText("command", null, null));
+        Assert.Null(Step3Settings.ModelText((MarkPortO.Core.Settings.ConnectionProfile?)null));
+        Assert.Equal("standard", Step3Settings.PromptText(""));
+        Assert.Equal("standard", Step3Settings.PromptText("標準"));
+        Assert.Equal("mine", Step3Settings.PromptText(" mine "));
+    }
+
+    [Fact]
     public void AFinishedDocument_IsSkipped()
     {
         using var dir = new TempDir();
