@@ -13,7 +13,7 @@ Word・Excel・PowerPoint・PDFを、**Markdownとページごとの画像に変
 
 ## できること
 
-- 文書の見出し・表・箇条書きなどをMarkdownに変換
+- 文書の見出し・表・箇条書き・コード・数式などをMarkdownに変換
 - 元のページ画像と変換結果を並べて確認
 - フォルダごとの一括変換と、中断した処理の再開
 - 画像を読めるモデル（VLM）による読み取り（任意）
@@ -35,6 +35,8 @@ VLMを使う場合は「設定」でVLM接続を設定します。外部サー�
 ## インストール
 
 [Releases](https://github.com/umineko73/MarkPortO/releases) から `MarkPortO-<version>-win-x64.zip` をダウンロードして展開し、`MarkPortO.exe`（画面）または `markporto-cli.exe`（コマンドライン。同じフォルダにあります）を実行します。
+
+0.3.1 までのコマンドラインは、別フォルダの `cli\markporto.exe` でした。`MarkPortO.exe` と見分けにくいため、名前を変えて同じフォルダに置いています。
 
 必要なもの: Windows 11、**.NET 10 デスクトップ ランタイム**、Microsoft Office または [LibreOffice](https://www.libreoffice.org/)（LibreOfficeだけのときは、エンジンで選びます）。Step3には、画像を読めるモデルを載せたOpenAI互換のサーバー（例: LM Studio）、または上のコマンドが要ります。
 

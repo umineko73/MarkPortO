@@ -13,7 +13,7 @@ MarkPortO is a **Windows app that converts Word, Excel, PowerPoint and PDF files
 
 ## Features
 
-- Convert headings, tables and lists into Markdown.
+- Convert headings, tables, lists, code and equations into Markdown.
 - Compare the result with the original page images in a preview.
 - Convert folders of documents and resume interrupted runs.
 - Optionally read pages with an image-capable model (VLM).
@@ -47,6 +47,8 @@ You can also use `markporto-cli.exe` from the ZIP (in the same folder as `MarkPo
 markporto-cli convert D:\docs\report.docx --out D:\out
 markporto-cli convert D:\docs --out D:\out --types docx,xlsx --recurse
 ```
+
+Up to 0.3.1 the command line was `cli/markporto.exe` in a folder of its own; it now has a name of its own, so that it does not look like `MarkPortO.exe`.
 
 See [Detailed usage](docs/usage.md) for reconversion, VLM connections, all CLI options and configuration examples.
 
