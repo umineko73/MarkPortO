@@ -47,6 +47,11 @@ public partial class PreviewWindow : Window
     public PreviewWindow(FileItemViewModel item, MainViewModel viewModel)
     {
         InitializeComponent();
+
+        // The first size is larger than the screen of a small display allows: it stays inside the work area.
+        var area = SystemParameters.WorkArea;
+        Width = Math.Min(Width, area.Width);
+        Height = Math.Min(Height, area.Height);
         _item = item;
         _viewModel = viewModel;
         Title = UiText.Get("Preview_Title", item.FileName);

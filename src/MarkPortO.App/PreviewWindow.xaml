@@ -19,7 +19,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:MarkPortO.App"
-        Icon="Assets/MarkPortO.ico" Height="780" Width="1100" MinHeight="420" MinWidth="640"
+        Icon="Assets/MarkPortO.ico" Height="936" Width="1500" MinHeight="420" MinWidth="640"
         WindowStartupLocation="CenterOwner" KeyDown="OnKeyDown" PreviewKeyDown="OnPreviewKeyDown" PreviewMouseWheel="OnWheel">
   <Grid Margin="8">
     <Grid.ColumnDefinitions>
@@ -33,7 +33,7 @@
       <ListBox.ItemTemplate>
         <DataTemplate>
           <DockPanel LastChildFill="True">
-            <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Marked, Mode=OneWay}" IsEnabled="{Binding CanMark}" VerticalAlignment="Center" Margin="0,0,6,0"
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" DockPanel.Dock="Left" IsChecked="{Binding Marked, Mode=OneWay}" IsEnabled="{Binding CanMark}" VerticalAlignment="Center" Margin="0,0,6,0"
                       PreviewMouseLeftButtonDown="OnPageMarkClick" ToolTip="{DynamicResource Preview_PageMarkTip}" />
             <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
           </DockPanel>
@@ -51,7 +51,7 @@
       <WrapPanel Grid.Row="0" Margin="0,0,0,6">
         <GroupBox Header="{DynamicResource Preview_GroupAction}" Margin="0,0,8,4" Padding="4,2">
           <StackPanel Orientation="Horizontal">
-            <CheckBox x:Name="FollowBox" Content="{DynamicResource Preview_Follow}" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" x:Name="FollowBox" Content="{DynamicResource Preview_Follow}" VerticalAlignment="Center" Margin="0,0,10,0" />
             <Button Content="{DynamicResource Preview_Refresh}" Click="OnRefresh" Padding="10,1" Margin="0,0,10,0" />
             <Button x:Name="PrevFileButton" Content="&#x25C0;" Click="OnPrevFile" Padding="8,1" ToolTip="{DynamicResource Preview_PrevFile}" ToolTipService.ShowOnDisabled="True" />
             <Button x:Name="NextFileButton" Content="&#x25B6;" Click="OnNextFile" Padding="8,1" Margin="4,0,0,0" ToolTip="{DynamicResource Preview_NextFile}" ToolTipService.ShowOnDisabled="True" />
@@ -65,23 +65,23 @@
                     ToolTip="{DynamicResource Preview_MarkFailedTip}" ToolTipService.ShowOnDisabled="True" />
           </StackPanel>
         </GroupBox>
-        <GroupBox Header="{DynamicResource Preview_Layout}" Margin="0,0,8,4" Padding="4,2">
+        <GroupBox Header="{DynamicResource Preview_Layout}" Margin="0,0,8,4" Padding="4,2,12,2">
           <StackPanel Orientation="Horizontal">
-            <RadioButton x:Name="SideBySideRadio" Content="{DynamicResource Preview_SideBySide}" GroupName="Layout" IsChecked="True" Checked="OnLayoutChanged" VerticalAlignment="Center" Margin="0,0,10,0" />
-            <RadioButton x:Name="StackedRadio" Content="{DynamicResource Preview_Stacked}" GroupName="Layout" Checked="OnLayoutChanged" VerticalAlignment="Center" />
+            <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" MinWidth="0" x:Name="SideBySideRadio" Content="{DynamicResource Preview_SideBySide}" GroupName="Layout" IsChecked="True" Checked="OnLayoutChanged" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" MinWidth="0" x:Name="StackedRadio" Content="{DynamicResource Preview_Stacked}" GroupName="Layout" Checked="OnLayoutChanged" VerticalAlignment="Center" />
           </StackPanel>
         </GroupBox>
-        <GroupBox Header="{DynamicResource Preview_Show}" Margin="0,0,8,4" Padding="4,2">
+        <GroupBox Header="{DynamicResource Preview_Show}" Margin="0,0,8,4" Padding="4,2,12,2">
           <StackPanel Orientation="Horizontal">
-            <CheckBox x:Name="ShowImageBox" Content="{DynamicResource Preview_PaneImage}" IsChecked="True" Checked="OnLayoutChanged" Unchecked="OnLayoutChanged" VerticalAlignment="Center" Margin="0,0,10,0" />
-            <CheckBox x:Name="ShowTextBox" Content="{DynamicResource Preview_PaneText}" IsChecked="True" Checked="OnLayoutChanged" Unchecked="OnLayoutChanged" VerticalAlignment="Center" Margin="0,0,10,0" />
-            <CheckBox x:Name="ShowVlmBox" Content="{DynamicResource Preview_PaneVlm}" IsChecked="True" Checked="OnLayoutChanged" Unchecked="OnLayoutChanged" VerticalAlignment="Center" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" x:Name="ShowImageBox" Content="{DynamicResource Preview_PaneImage}" IsChecked="True" Checked="OnLayoutChanged" Unchecked="OnLayoutChanged" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" x:Name="ShowTextBox" Content="{DynamicResource Preview_PaneText}" IsChecked="True" Checked="OnLayoutChanged" Unchecked="OnLayoutChanged" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" x:Name="ShowVlmBox" Content="{DynamicResource Preview_PaneVlm}" IsChecked="True" Checked="OnLayoutChanged" Unchecked="OnLayoutChanged" VerticalAlignment="Center" />
           </StackPanel>
         </GroupBox>
-        <GroupBox Header="{DynamicResource Preview_GroupMarkdown}" Margin="0,0,0,4" Padding="4,2">
+        <GroupBox Header="{DynamicResource Preview_GroupMarkdown}" Margin="0,0,0,4" Padding="4,2,12,2">
           <StackPanel Orientation="Horizontal">
-            <RadioButton x:Name="RenderedRadio" Content="{DynamicResource Preview_Rendered}" GroupName="View" IsChecked="True" Checked="OnViewChanged" VerticalAlignment="Center" Margin="0,0,10,0" />
-            <RadioButton x:Name="TextRadio" Content="{DynamicResource Preview_Text}" GroupName="View" Checked="OnViewChanged" VerticalAlignment="Center" />
+            <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" MinWidth="0" x:Name="RenderedRadio" Content="{DynamicResource Preview_Rendered}" GroupName="View" IsChecked="True" Checked="OnViewChanged" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" MinWidth="0" x:Name="TextRadio" Content="{DynamicResource Preview_Text}" GroupName="View" Checked="OnViewChanged" VerticalAlignment="Center" />
           </StackPanel>
         </GroupBox>
       </WrapPanel>

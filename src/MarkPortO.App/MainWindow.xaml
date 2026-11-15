@@ -136,11 +136,11 @@
           <!-- The kinds of file that are converted when a folder is given -->
           <TextBlock Grid.Row="0" Text="{DynamicResource Main_Cond_Targets}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
           <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}">
-            <CheckBox x:Name="DocxBox" Content="docx" IsChecked="{Binding TypeDocx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,20,0" />
-            <CheckBox Content="xlsx" IsChecked="{Binding TypeXlsx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,20,0" />
-            <CheckBox Content="pptx" IsChecked="{Binding TypePptx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,20,0" />
-            <CheckBox Content="pdf" IsChecked="{Binding TypePdf}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,40,0" />
-            <CheckBox Content="{DynamicResource Main_Cond_Recurse}" IsChecked="{Binding Recurse}" VerticalAlignment="Center" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" x:Name="DocxBox" Content="docx" IsChecked="{Binding TypeDocx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,20,0" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="xlsx" IsChecked="{Binding TypeXlsx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,20,0" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="pptx" IsChecked="{Binding TypePptx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,20,0" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="pdf" IsChecked="{Binding TypePdf}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,40,0" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Recurse}" IsChecked="{Binding Recurse}" VerticalAlignment="Center" />
           </StackPanel>
 
           <!-- Who extracts the text of each kind . Shown when an extractor is registered. -->
@@ -174,22 +174,22 @@
 
             <TextBlock Grid.Row="0" Text="{DynamicResource Main_Cond_RowXlsx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding XlsxOptionsEnabled}" />
             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding XlsxOptionsEnabled}" ToolTip="{Binding XlsxOptionsTip}" ToolTipService.ShowOnDisabled="True">
-              <CheckBox Content="{DynamicResource Main_Cond_HiddenSheets}" IsChecked="{Binding IncludeHiddenSheets}" VerticalAlignment="Center" Margin="0,0,20,0" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_HiddenSheets}" IsChecked="{Binding IncludeHiddenSheets}" VerticalAlignment="Center" Margin="0,0,20,0" />
               <TextBlock Text="{DynamicResource Main_Cond_Excel}" VerticalAlignment="Center" Margin="0,0,10,0" />
-              <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelColumns}" IsChecked="{Binding ExcelColumns}" ToolTip="{DynamicResource Main_Cond_ExcelColumnsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
-              <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelSheet}" IsChecked="{Binding ExcelSheet}" ToolTip="{DynamicResource Main_Cond_ExcelSheetTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
-              <RadioButton GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelPrintArea}" IsChecked="{Binding ExcelPrintArea}" ToolTip="{DynamicResource Main_Cond_ExcelPrintAreaTip}" VerticalAlignment="Center" />
+              <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelColumns}" IsChecked="{Binding ExcelColumns}" ToolTip="{DynamicResource Main_Cond_ExcelColumnsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
+              <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelSheet}" IsChecked="{Binding ExcelSheet}" ToolTip="{DynamicResource Main_Cond_ExcelSheetTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
+              <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelPrintArea}" IsChecked="{Binding ExcelPrintArea}" ToolTip="{DynamicResource Main_Cond_ExcelPrintAreaTip}" VerticalAlignment="Center" />
             </StackPanel>
 
             <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_RowPptx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding PptxOptionsEnabled}" />
             <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding PptxOptionsEnabled}" ToolTip="{Binding PptxOptionsTip}" ToolTipService.ShowOnDisabled="True">
-              <CheckBox Content="{DynamicResource Main_Cond_HiddenSlides}" IsChecked="{Binding IncludeHiddenSlides}" VerticalAlignment="Center" Margin="0,0,20,0" />
-              <CheckBox Content="{DynamicResource Main_Cond_OffSlide}" IsChecked="{Binding IncludeOffSlideText}" ToolTip="{DynamicResource Main_Cond_OffSlideTip}" VerticalAlignment="Center" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_HiddenSlides}" IsChecked="{Binding IncludeHiddenSlides}" VerticalAlignment="Center" Margin="0,0,20,0" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_OffSlide}" IsChecked="{Binding IncludeOffSlideText}" ToolTip="{DynamicResource Main_Cond_OffSlideTip}" VerticalAlignment="Center" />
             </StackPanel>
 
             <TextBlock Grid.Row="2" Text="{DynamicResource Main_Cond_RowPdf}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding PdfOptionsEnabled}" />
             <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding PdfOptionsEnabled}" ToolTip="{Binding PdfOptionsTip}" ToolTipService.ShowOnDisabled="True">
-              <CheckBox Content="{DynamicResource Main_Cond_PdfText}" IsChecked="{Binding UsePdfText}" ToolTip="{DynamicResource Main_Cond_PdfTextTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_PdfText}" IsChecked="{Binding UsePdfText}" ToolTip="{DynamicResource Main_Cond_PdfTextTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
               <TextBlock Text="{DynamicResource Main_Cond_PdfHint}" Foreground="{DynamicResource SubtleTextBrush}" VerticalAlignment="Center" Visibility="{Binding PdfHintVisibility}" />
             </StackPanel>
           </Grid>
@@ -220,26 +220,26 @@
                         SelectedValue="{Binding SelectedEngine}" Width="170" Margin="0,0,20,0" />
               <TextBlock Text="{DynamicResource Main_Cond_Dpi}" VerticalAlignment="Center" Margin="0,0,6,0" />
               <TextBox x:Name="DpiBox" Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="68" VerticalContentAlignment="Center" Margin="0,0,20,0" />
-              <CheckBox Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
-              <CheckBox Content="{DynamicResource Main_Cond_Pictures}" IsChecked="{Binding ExtractPictures}" ToolTip="{DynamicResource Main_Cond_PicturesTip}" VerticalAlignment="Center" Margin="0,0,12,0" />
-              <CheckBox Content="{DynamicResource Main_Cond_Shapes}" IsChecked="{Binding ExtractShapes}" ToolTip="{DynamicResource Main_Cond_ShapesTip}" VerticalAlignment="Center" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Pictures}" IsChecked="{Binding ExtractPictures}" ToolTip="{DynamicResource Main_Cond_PicturesTip}" VerticalAlignment="Center" Margin="0,0,12,0" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Shapes}" IsChecked="{Binding ExtractShapes}" ToolTip="{DynamicResource Main_Cond_ShapesTip}" VerticalAlignment="Center" />
             </StackPanel>
           </WrapPanel>
 
           <TextBlock Grid.Row="1" Text="Step2" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <CheckBox Grid.Row="1" Grid.Column="1" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Grid.Row="1" Grid.Column="1" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,0,6" />
 
           <TextBlock Grid.Row="2" Text="Step3" VerticalAlignment="Center" />
           <WrapPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
-            <CheckBox Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <CheckBox Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" Visibility="{Binding Step3DetailsVisibility}" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" Visibility="{Binding Step3DetailsVisibility}" />
             <TextBlock Text="{DynamicResource Main_Cond_Tables}" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="{Binding Step3DetailsVisibility}" />
             <ComboBox SelectedIndex="{Binding Step1TablesIndex}" IsEnabled="{Binding CanEditStep1Tables}" VerticalAlignment="Center" Margin="0,0,16,0" MinWidth="170" Visibility="{Binding Step3DetailsVisibility}">
               <ComboBoxItem Content="{DynamicResource Main_Cond_TablesVlm}" />
               <ComboBoxItem Content="{DynamicResource Main_Cond_TablesReplace}" />
               <ComboBoxItem Content="{DynamicResource Main_Cond_TablesOmit}" />
             </ComboBox>
-            <CheckBox Content="{DynamicResource Main_Cond_DropRepeated}" ToolTip="{DynamicResource Main_Cond_DropRepeatedTip}" IsChecked="{Binding DropRepeatedTables}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" Visibility="{Binding Step3DetailsVisibility}" />
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_DropRepeated}" ToolTip="{DynamicResource Main_Cond_DropRepeatedTip}" IsChecked="{Binding DropRepeatedTables}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" Visibility="{Binding Step3DetailsVisibility}" />
             <TextBlock Text="{DynamicResource Main_Cond_Connection}" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="{Binding Step3DetailsVisibility}" />
             <ComboBox ItemsSource="{Binding ConnectionItems}" SelectedIndex="{Binding ConnectionIndex}" IsEnabled="{Binding CanEdit}" MinWidth="190" Margin="0,0,6,0" Visibility="{Binding Step3DetailsVisibility}" />
             <Button Content="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" Padding="8,2" Visibility="{Binding Step3DetailsVisibility}" />
