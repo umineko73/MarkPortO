@@ -79,7 +79,7 @@ public static class VlmSetupFactory
     public static CheckResult? ConsentMissing(ConnectionProfile connection) =>
         ExternalConsent.MayUse(connection)
             ? null
-            : new CheckResult(false, Loc.T("Sending page images outside the local network needs your consent for the connection '{0}'. Agree in the settings, or run: markporto consent {0}", connection.Name));
+            : new CheckResult(false, Loc.T("Sending page images outside the local network needs your consent for the connection '{0}'. Agree in the settings, or run: markporto-cli consent {0}", connection.Name));
 
     /// <summary>
     /// Finds the selected connection and its key. Returns the setup, or the reason it cannot be made

@@ -65,11 +65,11 @@ if ($Task -eq 'Publish') {
     }
 
     # Framework-dependent: the .NET 10 Desktop Runtime must be installed on the computer that runs it.
-    # The names MarkPortO.exe (app) and markporto.exe (command line) differ only in case, which is the same name on
-    # Windows, so the command line goes to its own folder. The app also copies LICENSE.txt and THIRD-PARTY-NOTICES.md.
+    # The app (MarkPortO.exe) and the command line (markporto-cli.exe) are in one folder and share the same DLLs.
+    # The app also copies LICENSE.txt and THIRD-PARTY-NOTICES.md.
     $package = Join-Path $out 'MarkPortO'
     Invoke-Step 'publish app' { dotnet publish src/MarkPortO.App -c $Configuration --no-build -o $package }
-    Invoke-Step 'publish cli' { dotnet publish src/MarkPortO.Cli -c $Configuration --no-build -o (Join-Path $package 'cli') }
+    Invoke-Step 'publish cli' { dotnet publish src/MarkPortO.Cli -c $Configuration --no-build -o $package }
     Copy-Item README.md, README.ja.md -Destination $package
 
     # The version is the one in Directory.Build.props, the single place where it is set.

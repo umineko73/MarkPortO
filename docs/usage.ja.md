@@ -122,23 +122,23 @@ Ctrl＋クリック、Shift＋クリックで複数の文書を選べます。
 ### コマンドライン
 
 ```powershell
-markporto convert D:\docs\report.docx --out D:\out
-markporto convert D:\docs --out D:\out --types docx,xlsx --recurse
-markporto convert D:\docs --out D:\out --step3 on --settings settings.json   # VLMで読む
-markporto convert --resume --out D:\out                                      # 中断した変換を続ける
-markporto list-jobs --out D:\out
-markporto check-connection --settings settings.json
+markporto-cli convert D:\docs\report.docx --out D:\out
+markporto-cli convert D:\docs --out D:\out --types docx,xlsx --recurse
+markporto-cli convert D:\docs --out D:\out --step3 on --settings settings.json   # VLMで読む
+markporto-cli convert --resume --out D:\out                                      # 中断した変換を続ける
+markporto-cli list-jobs --out D:\out
+markporto-cli check-connection --settings settings.json
 ```
 
 コマンド:
 
 | コマンド | 内容 |
 |---|---|
-| `markporto convert <パス...>` | ファイルやフォルダを変換します。 |
-| `markporto list-jobs --out <フォルダ>` | 出力先に残っているジョブの一覧（`--resume --job` で選ぶため）。 |
-| `markporto check-connection [--connection <名前>] [--image]` | VLM接続に届くこととモデルがあることを確かめます。`--image` は画像を読めることも確かめます。 |
-| `markporto list-connections` | `settings.json` のVLM接続の一覧（アクセスキーは表示しません）。 |
-| `markporto consent <名前> [--revoke]` | 接続や抽出コマンドが文書をローカルネットワークの外へ送ることに同意します（`--revoke` で取り消し）。 |
+| `markporto-cli convert <パス...>` | ファイルやフォルダを変換します。 |
+| `markporto-cli list-jobs --out <フォルダ>` | 出力先に残っているジョブの一覧（`--resume --job` で選ぶため）。 |
+| `markporto-cli check-connection [--connection <名前>] [--image]` | VLM接続に届くこととモデルがあることを確かめます。`--image` は画像を読めることも確かめます。 |
+| `markporto-cli list-connections` | `settings.json` のVLM接続の一覧（アクセスキーは表示しません）。 |
+| `markporto-cli consent <名前> [--revoke]` | 接続や抽出コマンドが文書をローカルネットワークの外へ送ることに同意します（`--revoke` で取り消し）。 |
 
 `--settings <ファイル>`（`settings.json` のパス。
 既定は `%APPDATA%\MarkPortO\settings.json`）はすべてのコマンドで使えます。
@@ -298,7 +298,7 @@ xlsxはセルの並びをそのまま表にします。
 #### 文書を外部に送る場合
 
 `"sendsExternally": true` を設定し、送信に同意する必要があります。
-設定画面の「同意...」か、`markporto consent <名前>` を使います。
+設定画面の「同意...」か、`markporto-cli consent <名前>` を使います。
 同意を取り消す場合は `--revoke` を付けてください。
 
 ### `claude`・`codex`・`opencode` で読み取る
@@ -315,7 +315,7 @@ xlsxはセルの並びをそのまま表にします。
 **ページの画像と、ページのテキストは、コマンドの先のサービスへ、ネットワークの外に送られ、費用がかかることがあります。
 ** 機密の文書には使わないでください。
 このような接続（と、ローカルネットワークの外にあるOpenAI互換の接続）は、同意したあとだけ使います。
-接続の設定の「同意...」を押すか、`markporto consent <名前> --settings settings.json` を実行します（`--revoke` で取り消し）。
+接続の設定の「同意...」を押すか、`markporto-cli consent <名前> --settings settings.json` を実行します（`--revoke` で取り消し）。
 
 
 ## 出力

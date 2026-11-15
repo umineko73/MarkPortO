@@ -106,12 +106,12 @@ A file goes back to the folder of its earlier conversion: its Markdown and page 
 ### Command line
 
 ```powershell
-markporto convert D:\docs\report.docx --out D:\out
-markporto convert D:\docs --out D:\out --types docx,xlsx --recurse
-markporto convert D:\docs --out D:\out --step3 on --settings settings.json   # read with a VLM
-markporto convert --resume --out D:\out                                      # continue an interrupted run
-markporto list-jobs --out D:\out
-markporto check-connection --settings settings.json
+markporto-cli convert D:\docs\report.docx --out D:\out
+markporto-cli convert D:\docs --out D:\out --types docx,xlsx --recurse
+markporto-cli convert D:\docs --out D:\out --step3 on --settings settings.json   # read with a VLM
+markporto-cli convert --resume --out D:\out                                      # continue an interrupted run
+markporto-cli list-jobs --out D:\out
+markporto-cli check-connection --settings settings.json
 ```
 
 #### Conversion options
@@ -226,7 +226,7 @@ it does not read PDF, and it writes a sheet of xlsx as a plain grid of cells.
 
 The arguments differ between versions of a tool: try the command by hand first.
 
-A command that sends your documents outside the PC needs `"sendsExternally": true` and a consent: press **Agree...** in the extractor settings, or run `markporto consent <name>` (`--revoke` withdraws it).
+A command that sends your documents outside the PC needs `"sendsExternally": true` and a consent: press **Agree...** in the extractor settings, or run `markporto-cli consent <name>` (`--revoke` withdraws it).
 
 ### Reading with `claude`, `codex` or `opencode`
 
@@ -240,7 +240,7 @@ The conversion stops (and can be resumed) at a limit of pages or cost, a usage l
 
 **The page images, and the text of the pages, are sent to the service behind the command, outside your network, and charges may apply.** Do not use this for confidential documents.
 
-Such a connection (and an OpenAI-compatible one outside the local network) is used only after you agree: press **Agree...** in the connection settings, or run `markporto consent <name> --settings settings.json` (`--revoke` withdraws it).
+Such a connection (and an OpenAI-compatible one outside the local network) is used only after you agree: press **Agree...** in the connection settings, or run `markporto-cli consent <name> --settings settings.json` (`--revoke` withdraws it).
 
 ## Output
 

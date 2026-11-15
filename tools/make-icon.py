@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License along with MarkPortO.
 # If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
-"""Makes src/MarkPortO.App/Assets/MarkPortO.ico (used by the app window, markporto.exe and MarkPortO.exe).
+"""Makes src/MarkPortO.App/Assets/MarkPortO.ico (used by the app window, markporto-cli.exe and MarkPortO.exe).
 
 Run:  python tools/make-icon.py        (needs Pillow)
 A blue rounded square, a white page with a folded corner, a bold "M" and a down arrow (document -> Markdown).

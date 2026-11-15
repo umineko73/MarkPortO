@@ -63,7 +63,7 @@ public static class CliApp
                 await stderr.WriteLineAsync(error.Message);
             }
 
-            await stderr.WriteLineAsync("Run 'markporto --help' for usage.");
+            await stderr.WriteLineAsync("Run 'markporto-cli --help' for usage.");
             return ExitCodes.InvalidArguments;
         }
 
@@ -230,7 +230,7 @@ public static class CliApp
         if (stray is not null)
         {
             await stderr.WriteLineAsync($"error: unrecognized option or argument '{stray}'.");
-            await stderr.WriteLineAsync("Run 'markporto convert --help' for usage.");
+            await stderr.WriteLineAsync("Run 'markporto-cli convert --help' for usage.");
             return ExitCodes.InvalidArguments;
         }
 
@@ -408,7 +408,7 @@ public static class CliApp
         {
             if (!Guid.TryParse(args.Job, out var parsed))
             {
-                await stderr.WriteLineAsync($"error: --job: '{args.Job}' is not a job id (see 'markporto list-jobs').");
+                await stderr.WriteLineAsync($"error: --job: '{args.Job}' is not a job id (see 'markporto-cli list-jobs').");
                 return ExitCodes.InvalidArguments;
             }
 
@@ -530,7 +530,7 @@ public static class CliApp
         var connection = settings.FindConnection(name ?? settings.Vlm.Selected);
         if (connection is null)
         {
-            await stderr.WriteLineAsync($"error: the connection '{name ?? settings.Vlm.Selected}' was not found in settings.json (see 'markporto list-connections').");
+            await stderr.WriteLineAsync($"error: the connection '{name ?? settings.Vlm.Selected}' was not found in settings.json (see 'markporto-cli list-connections').");
             return ExitCodes.InvalidArguments;
         }
 
@@ -677,7 +677,7 @@ public static class CliApp
                 return await ConsentExtractorAsync(store, extractor, revoke, stdout, stderr);
             }
 
-            await stderr.WriteLineAsync($"error: the connection or the extractor '{name}' was not found in settings.json (see 'markporto list-connections').");
+            await stderr.WriteLineAsync($"error: the connection or the extractor '{name}' was not found in settings.json (see 'markporto-cli list-connections').");
             return ExitCodes.InvalidArguments;
         }
 

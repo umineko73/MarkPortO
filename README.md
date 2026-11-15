@@ -41,11 +41,11 @@ To use the VLM, set up a VLM connection in **Settings** and turn on Step3. Exter
 
 ## Command line
 
-You can also use `cli/markporto.exe` from the ZIP:
+You can also use `markporto-cli.exe` from the ZIP (in the same folder as `MarkPortO.exe`):
 
 ```powershell
-markporto convert D:\docs\report.docx --out D:\out
-markporto convert D:\docs --out D:\out --types docx,xlsx --recurse
+markporto-cli convert D:\docs\report.docx --out D:\out
+markporto-cli convert D:\docs --out D:\out --types docx,xlsx --recurse
 ```
 
 See [Detailed usage](docs/usage.md) for reconversion, VLM connections, all CLI options and configuration examples.

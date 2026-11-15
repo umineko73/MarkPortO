@@ -409,8 +409,8 @@
   <data name="The conversion was stopped after the cost of {0:0.####} US dollars, the limit of the connection. Raise the limit and resume it." xml:space="preserve">
     <value>接続の費用の上限({0:0.####} 米ドル)に達したため、変換を止めました。上限を上げてから、再開してください。</value>
   </data>
-  <data name="Sending page images outside the local network needs your consent for the connection '{0}'. Agree in the settings, or run: markporto consent {0}" xml:space="preserve">
-    <value>ページ画像をローカルネットワークの外へ送るには、接続 '{0}' への同意が必要です。設定で同意するか、次を実行してください: markporto consent {0}</value>
+  <data name="Sending page images outside the local network needs your consent for the connection '{0}'. Agree in the settings, or run: markporto-cli consent {0}" xml:space="preserve">
+    <value>ページ画像をローカルネットワークの外へ送るには、接続 '{0}' への同意が必要です。設定で同意するか、次を実行してください: markporto-cli consent {0}</value>
   </data>
   <data name="The command '{0}' was not found. Install it, or set its path in the connection." xml:space="preserve">
     <value>コマンド '{0}' が見つかりません。インストールするか、接続でパスを指定してください。</value>
@@ -520,8 +520,8 @@
   <data name="The command '{0}' of the extractor '{1}' was not found." xml:space="preserve">
     <value>抽出コマンド「{1}」のコマンド「{0}」が見つかりません。</value>
   </data>
-  <data name="The extractor '{0}' sends documents outside; it needs your consent first (markporto consent {0})." xml:space="preserve">
-    <value>抽出コマンド「{0}」は文書を外部へ送ります。先に同意が必要です(markporto consent {0})。</value>
+  <data name="The extractor '{0}' sends documents outside; it needs your consent first (markporto-cli consent {0})." xml:space="preserve">
+    <value>抽出コマンド「{0}」は文書を外部へ送ります。先に同意が必要です(markporto-cli consent {0})。</value>
   </data>
   <data name="The extractor '{0}' sends the content of your documents (text, tables, images) to a service outside the PC." xml:space="preserve">
     <value>抽出コマンド「{0}」は、文書の内容(本文・表・画像)を、PCの外にあるサービスへ送ります。</value>

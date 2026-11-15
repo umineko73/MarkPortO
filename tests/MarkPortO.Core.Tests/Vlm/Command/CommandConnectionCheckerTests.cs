@@ -168,7 +168,7 @@ public class CommandConnectionCheckerTests
 
         Assert.False(result.Ok);
         Assert.Contains("consent", result.Message);
-        Assert.Contains("markporto consent cloud", result.Message);
+        Assert.Contains("markporto-cli consent cloud", result.Message);
     }
 
     [Fact]
