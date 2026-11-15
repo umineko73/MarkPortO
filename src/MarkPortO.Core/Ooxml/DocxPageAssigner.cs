@@ -116,7 +116,7 @@ public static class DocxPageAssigner
             if (position < 0)
             {
                 item.Block.PageIndex = null;
-                if (text.Length >= ReportThreshold)
+                if (text.Length >= ReportThreshold && !item.IsToc)
                 {
                     var snippet = item.SearchText.Length <= 30 ? item.SearchText : item.SearchText[..30] + "...";
                     warnings.Add(new Warning(

@@ -481,19 +481,51 @@ public static class PptxReader
 
         var placeholder = shape.NonVisualShapeProperties?.ApplicationNonVisualDrawingProperties?.PlaceholderShape;
         var placeholderType = placeholder?.Type?.Value;
+        if (placeholderType == PlaceholderValues.SlideNumber)
+        {
+            return; // the number of the slide is not its text (FR-141)
+        }
+
         var isTitle = placeholderType == PlaceholderValues.Title || placeholderType == PlaceholderValues.CenteredTitle;
         var isBody = placeholder is not null && !isTitle && placeholderType != PlaceholderValues.SlideNumber
             && placeholderType != PlaceholderValues.Footer && placeholderType != PlaceholderValues.DateAndTime;
 
         var lines = new List<string>();
         var listLine = new List<bool>();
+        var code = new List<string>();
+
+        // The paragraphs of code that follow each other are one block of code (FR-140).
+        void FlushCode()
+        {
+            if (code.Count > 0 && code.Any(l => l.Trim().Length > 0))
+            {
+                lines.Add(CodeText.Block(code));
+                listLine.Add(false);
+            }
+
+            code.Clear();
+        }
+
         foreach (var paragraph in textBody.Elements<A.Paragraph>())
         {
+            if (!isTitle && IsCodeParagraph(paragraph))
+            {
+                code.AddRange(CodeLines(paragraph));
+                continue;
+            }
+
             var text = ParagraphText(paragraph, part, allowEmphasis: !isTitle).Trim();
             if (text.Length == 0)
             {
+                if (code.Count > 0)
+                {
+                    code.Add(string.Empty); // an empty paragraph in the middle of code is an empty line
+                }
+
                 continue;
             }
+
+            FlushCode();
 
             // A text box has a bullet only when the paragraph says so (a bullet character or a number of its own).
             var bulleted = paragraph.ParagraphProperties?.GetFirstChild<A.CharacterBullet>() is not null
@@ -516,6 +548,7 @@ public static class PptxReader
             }
         }
 
+        FlushCode();
         if (lines.Count == 0)
         {
             return;
@@ -571,6 +604,43 @@ public static class PptxReader
         return uri?.OriginalString.Replace(" ", "%20", StringComparison.Ordinal).Replace(")", "%29", StringComparison.Ordinal);
     }
 
+    private static bool IsFixedWidth(A.RunProperties? properties) =>
+        properties is not null
+        && (CodeText.IsFixedWidthFont(properties.GetFirstChild<A.LatinFont>()?.Typeface?.Value)
+            || CodeText.IsFixedWidthFont(properties.GetFirstChild<A.EastAsianFont>()?.Typeface?.Value));
+
+    // A paragraph of code: not a list item, and all its text in a fixed-width font.
+    private static bool IsCodeParagraph(A.Paragraph paragraph)
+    {
+        if (paragraph.ParagraphProperties?.GetFirstChild<A.CharacterBullet>() is not null || paragraph.ParagraphProperties?.GetFirstChild<A.AutoNumberedBullet>() is not null)
+        {
+            return false;
+        }
+
+        var runs = paragraph.Elements<A.Run>().Where(r => !string.IsNullOrWhiteSpace(r.Text?.Text)).ToList();
+        return runs.Count > 0 && runs.All(r => IsFixedWidth(r.RunProperties));
+    }
+
+    // The lines of a paragraph of code as they are written (the spaces at the start of a line stay).
+    private static IEnumerable<string> CodeLines(A.Paragraph paragraph)
+    {
+        var builder = new StringBuilder();
+        foreach (var child in paragraph.ChildElements)
+        {
+            switch (child)
+            {
+                case A.Run run:
+                    builder.Append(run.Text?.Text);
+                    break;
+                case A.Break:
+                    builder.Append('\n');
+                    break;
+            }
+        }
+
+        return builder.ToString().Split('\n');
+    }
+
     // Whether the slides that are being read are written with the marks of bold and italic (set by Read; the reading of a file is on one thread).
     [ThreadStatic]
     private static bool _marking;
@@ -601,13 +671,15 @@ public static class PptxReader
                 case A.Break:
                     builder.Append('\n');
                     break;
+                case A.Field field when field.Type?.Value?.StartsWith("slidenum", StringComparison.OrdinalIgnoreCase) == true:
+                    break; // a number of the slide in a text box (FR-141)
                 case A.Field field:
                     builder.Append(field.Text?.Text);
                     break;
             }
         }
 
-        return part is null ? builder.ToString() : TextEmphasis.Merge(Strikethrough.Merge(builder.ToString()));
+        return part is null ? builder.ToString() : CodeText.Merge(TextEmphasis.Merge(Strikethrough.Merge(builder.ToString())));
     }
 
     // A run with a strikethrough is written between ~~ (FR-092), bold between ** and italic between * (FR-101); in the plain text (no slide part) it is as it is.
@@ -616,6 +688,13 @@ public static class PptxReader
         if (part is null)
         {
             return text;
+        }
+
+        if (IsFixedWidth(run.RunProperties))
+        {
+            // Code is code: no bold or italic in it.
+            text = CodeText.Wrap(text);
+            return run.RunProperties?.Strike?.Value is { } codeStrike && codeStrike != A.TextStrikeValues.NoStrike ? Strikethrough.Wrap(text) : text;
         }
 
         if (italicAllowed && IsItalic(run))

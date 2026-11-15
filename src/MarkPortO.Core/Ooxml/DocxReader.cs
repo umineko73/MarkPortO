@@ -45,6 +45,9 @@ public sealed record DocxBlock(Block Block, string SearchText, DocxTable? Table 
     /// </summary>
     public bool Splittable { get; init; }
 
+    /// <summary>A line of the table of contents: its text (a title, a dot leader, a page number) is not the text of the PDF, so no warning when its page is not found.</summary>
+    public bool IsToc { get; init; }
+
     /// <summary>The parts of a paragraph that runs over a page break, set by <see cref="DocxPageAssigner"/>; null when it is on one page.</summary>
     public IReadOnlyList<ParagraphSegment>? Segments { get; set; }
 }
@@ -94,19 +97,32 @@ public static partial class DocxReader
             var blocks = new List<DocxBlock>();
             var shapes = new List<DocxShapes>();
             var (pageWidth, pageHeight) = PageSizeEmu(body);
+            var code = new List<string>();
             foreach (var element in Flatten(body.ChildElements))
             {
                 switch (element)
                 {
+                    case Paragraph paragraph when context.IsCodeParagraph(paragraph):
+                        context.Numbering.Label(paragraph);
+                        code.AddRange(CodeLines(paragraph));
+                        break;
+                    case Paragraph paragraph when code.Count > 0 && ParagraphText(paragraph).Trim().Length == 0 && !paragraph.Descendants<Drawing>().Any():
+                        context.Numbering.Label(paragraph);
+                        code.Add(string.Empty); // an empty paragraph in the middle of code is an empty line (at the end of the code it goes)
+                        break;
                     case Paragraph paragraph:
+                        FlushCode(code, blocks);
                         AddParagraph(paragraph, context, blocks, shapes, pageWidth, pageHeight);
                         break;
                     case Table table:
+                        FlushCode(code, blocks);
                         AddTable(table, context, blocks);
                         AddNotes(context, blocks);
                         break;
                 }
             }
+
+            FlushCode(code, blocks);
 
             return new DocxContent(blocks, shapes);
         }
@@ -145,6 +161,56 @@ public static partial class DocxReader
         }
 
         public bool IsBold(Run run, Paragraph paragraph) => Lookup(run, paragraph, e => e?.GetFirstChild<Bold>());
+
+        /// <summary>The styles of a style id and of the styles it is based on, the style itself first.</summary>
+        private IEnumerable<Style> StyleChain(string? styleId)
+        {
+            var id = styleId;
+            for (var depth = 0; id is not null && depth < 8 && _styleDefinitions.TryGetValue(id, out var style); depth++)
+            {
+                yield return style;
+                id = style.BasedOn?.Val?.Value;
+            }
+        }
+
+        /// <summary>A style of the table of contents that Word makes ("toc 1", "toc 2", ...).</summary>
+        public bool IsTocStyle(string? styleId) =>
+            StyleChain(styleId).Any(s => (s.StyleName?.Val?.Value ?? string.Empty).StartsWith("toc ", StringComparison.OrdinalIgnoreCase)
+                || (s.StyleId?.Value ?? string.Empty).StartsWith("TOC", StringComparison.OrdinalIgnoreCase) && char.IsDigit((s.StyleId!.Value!)[^1]));
+
+        private bool IsCodeStyle(string? styleId) =>
+            StyleChain(styleId).Any(s => CodeText.IsCodeStyleName(s.StyleId?.Value) || CodeText.IsCodeStyleName(s.StyleName?.Val?.Value)
+                || IsFixedWidth(s.StyleRunProperties?.RunFonts));
+
+        private static bool IsFixedWidth(RunFonts? fonts) =>
+            fonts is not null && (CodeText.IsFixedWidthFont(fonts.Ascii?.Value) || CodeText.IsFixedWidthFont(fonts.HighAnsi?.Value) || CodeText.IsFixedWidthFont(fonts.EastAsia?.Value));
+
+        /// <summary>A run in a code style or in a fixed-width font: its own, or that of its character style (the style of its paragraph is for <see cref="IsCodeParagraph"/>).</summary>
+        public bool IsCodeRun(Run run) =>
+            IsFixedWidth(run.RunProperties?.RunFonts) || IsCodeStyle(run.RunProperties?.RunStyle?.Val?.Value);
+
+        /// <summary>
+        /// A paragraph of code (FR-140): its style is a code style, or all its text is in code runs. Not a heading and not an item of a list.
+        /// </summary>
+        public bool IsCodeParagraph(Paragraph paragraph)
+        {
+            var properties = paragraph.ParagraphProperties;
+            var (headingLevel, isTitle) = StyleOf(properties?.ParagraphStyleId?.Val?.Value);
+            if (headingLevel is not null || isTitle || NumberingOf(properties) is not null)
+            {
+                return false;
+            }
+
+            if (IsCodeStyle(properties?.ParagraphStyleId?.Val?.Value))
+            {
+                return true;
+            }
+
+            var runs = paragraph.Descendants<Run>()
+                .Where(r => !r.Ancestors<TextBoxContent>().Any() && !r.Ancestors<DeletedRun>().Any() && r.Descendants<Text>().Any(t => !string.IsNullOrWhiteSpace(t.Text)))
+                .ToList();
+            return runs.Count > 0 && runs.All(IsCodeRun);
+        }
 
         public bool IsItalic(Run run, Paragraph paragraph) => Lookup(run, paragraph, e => e?.GetFirstChild<Italic>());
 
@@ -397,15 +463,16 @@ public static partial class DocxReader
         public NumberingProperties? NumberingOf(ParagraphProperties? properties)
         {
             var own = properties?.NumberingProperties;
-            if (own is not null)
+            // A numbering with a level but no number (numId) is no list: the "Subtitle" style of many templates has one.
+            if (own?.NumberingId is not null)
             {
-                return own.NumberingId?.Val?.Value == 0 ? null : own;
+                return own.NumberingId.Val?.Value == 0 ? null : own;
             }
 
             var styleId = properties?.ParagraphStyleId?.Val?.Value;
             for (var depth = 0; styleId is not null && depth < 20 && _styleDefinitions.TryGetValue(styleId, out var style); depth++)
             {
-                if (style.StyleParagraphProperties?.NumberingProperties is { } fromStyle)
+                if (style.StyleParagraphProperties?.NumberingProperties is { NumberingId: not null } fromStyle)
                 {
                     return fromStyle.NumberingId?.Val?.Value == 0 ? null : fromStyle;
                 }
@@ -564,7 +631,7 @@ public static partial class DocxReader
             else
             {
                 context.ListIndents.Clear();
-                blocks.Add(New(BlockKind.Paragraph, escaped, text) with { Splittable = markdown == text });
+                blocks.Add(New(BlockKind.Paragraph, escaped, text) with { Splittable = markdown == text, IsToc = context.IsTocStyle(properties?.ParagraphStyleId?.Val?.Value) });
             }
         }
 
@@ -655,13 +722,16 @@ public static partial class DocxReader
                     // A cell numbered by Word (1. 2. 3.) has its number only in the list, not in its text; the count goes on through the cells.
                     var number = context.Numbering.Label(paragraph);
                     var cellText = ParagraphText(paragraph, context).Trim();
-                    parts.Add(number is null ? cellText : (number + " " + cellText).TrimEnd());
+
+                    // An item of a bullet list in a cell begins with a bullet, so it is seen as an item in the line of the cell (FR-144).
+                    var bulleted = number is null && cellText.Length > 0 && context.NumberingOf(paragraph.ParagraphProperties) is { } listed && context.IsBullet(listed);
+                    parts.Add(number is null ? (bulleted ? "・" + cellText : cellText) : (number + " " + cellText).TrimEnd());
                     var plain = ParagraphText(paragraph).Trim();
                     plainLines?.Add(number is null ? plain : (number + " " + plain).TrimEnd());
                     break;
                 case Table inner:
                     parts.AddRange(inner.Elements<TableRow>().Select(row =>
-                        string.Join(" / ", row.Elements<TableCell>().Select(c => CellText(c, context).Replace("\n", " ", StringComparison.Ordinal)))));
+                        string.Join(" ｜ ", row.Elements<TableCell>().Select(c => CellText(c, context).Replace("\n", " ", StringComparison.Ordinal)))));
                     break;
             }
         }
@@ -750,6 +820,46 @@ public static partial class DocxReader
         new(new Block { Kind = kind, Markdown = markdown }, searchText);
 
     /// <summary>The text of a paragraph. A line break is a newline; the text of a text box is not included.</summary>
+    // The lines of a paragraph of code, as they are written: the spaces at the start of a line stay, a tab is four spaces.
+    private static IEnumerable<string> CodeLines(Paragraph paragraph)
+    {
+        var builder = new StringBuilder();
+        foreach (var element in paragraph.Descendants().Where(e => !e.Ancestors<DeletedRun>().Any() && !e.Ancestors<TextBoxContent>().Any()))
+        {
+            switch (element)
+            {
+                case Text text:
+                    builder.Append(text.Text);
+                    break;
+                case TabChar:
+                    builder.Append("    ");
+                    break;
+                case Break lineBreak when !IsPageOrColumnBreak(lineBreak):
+                    builder.Append('\n');
+                    break;
+            }
+        }
+
+        return builder.ToString().Split('\n');
+    }
+
+    // Paragraphs of code that follow each other are one block of code (its page is the page where it starts).
+    private static void FlushCode(List<string> code, List<DocxBlock> blocks)
+    {
+        if (code.Count == 0)
+        {
+            return;
+        }
+
+        var markdown = CodeText.Block(code);
+        var search = string.Join(' ', code.Select(l => l.Trim()).Where(l => l.Length > 0));
+        code.Clear();
+        if (search.Length > 0)
+        {
+            blocks.Add(New(BlockKind.Paragraph, markdown, search));
+        }
+    }
+
     private static string ParagraphText(OpenXmlElement paragraph, Context? markdown = null)
     {
         var builder = new StringBuilder();
@@ -760,7 +870,7 @@ public static partial class DocxReader
 
         Append(paragraph, builder, markdown);
         markdown?.EndParagraph();
-        return markdown is null ? builder.ToString() : TextEmphasis.Merge(Strikethrough.Merge(builder.ToString()));
+        return markdown is null ? builder.ToString() : CodeText.Merge(TextEmphasis.Merge(Strikethrough.Merge(builder.ToString())));
     }
 
     // With a context the text is Markdown (links, note marks, the alternative text of pictures); without it, plain text.
@@ -838,8 +948,9 @@ public static partial class DocxReader
 
                     break;
                 case DocumentFormat.OpenXml.Math.OfficeMath math:
-                    // An equation is written as the text of its parts, in the order of the file (the shape of a fraction or a root is not kept).
-                    builder.Append(math.InnerText);
+                    // An equation is written as a line of text: a fraction as a/b, a power as x^2 (FR-142). The plain text (to find the page in the PDF)
+                    // has the text of its parts, as the PDF has it.
+                    builder.Append(markdown is null ? math.InnerText : OmmlText.Of(math));
                     break;
                 case Break lineBreak when !IsPageOrColumnBreak(lineBreak):
                     builder.Append('\n');
@@ -854,12 +965,19 @@ public static partial class DocxReader
                     }
 
                     break;
-                case Run run when markdown is not null && (markdown.IsStruck(run) || (markdown.BoldAllowed || markdown.ItalicAllowed)):
+                case Run run when markdown is not null && (markdown.IsStruck(run) || (markdown.BoldAllowed || markdown.ItalicAllowed) || markdown.IsCodeRun(run)):
                     // A run with a strikethrough is written between ~~ (FR-092); bold between ** and italic between * (FR-101).
                     var marked = new StringBuilder();
                     Append(run, marked, markdown, ignoreStrike: true);
                     var piece = marked.ToString();
                     var owner = run.Ancestors<Paragraph>().FirstOrDefault();
+                    if (markdown.IsCodeRun(run))
+                    {
+                        // Code is code: no bold or italic in it (a code style often has them).
+                        builder.Append(markdown.IsStruck(run) ? Strikethrough.Wrap(CodeText.Wrap(piece)) : CodeText.Wrap(piece));
+                        break;
+                    }
+
                     if (owner is not null && markdown.ItalicAllowed && markdown.IsItalic(run, owner))
                     {
                         piece = TextEmphasis.Italic(piece);
