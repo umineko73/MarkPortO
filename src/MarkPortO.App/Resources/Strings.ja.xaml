@@ -191,14 +191,12 @@
   <sys:String x:Key="Preview_PaneVlm">VLMの結果</sys:String>
   <sys:String x:Key="Main_PreviewTip">ファイルを選ぶと押せます(変換でページができたあと)。</sys:String>
   <sys:String x:Key="Preview_GroupAction">操作</sys:String>
-  <sys:String x:Key="Preview_GroupImage">画像</sys:String>
   <sys:String x:Key="Preview_GroupMarkdown">Markdown</sys:String>
   <sys:String x:Key="Preview_Title">プレビュー - {0}</sys:String>
   <sys:String x:Key="Preview_Follow">追従</sys:String>
   <sys:String x:Key="Preview_Refresh">更新</sys:String>
   <sys:String x:Key="Preview_Rendered">プレビュー</sys:String>
   <sys:String x:Key="Preview_Text">ソース</sys:String>
-  <sys:String x:Key="Preview_FitImage">画像を合わせる</sys:String>
   <sys:String x:Key="Preview_ImageZoomTip">Ctrl+ホイール(またはCtrl+プラス・マイナス)で拡大・縮小、Ctrl+0で100%に戻す</sys:String>
   <sys:String x:Key="Preview_NoImage">画像なし</sys:String>
   <sys:String x:Key="Preview_NoVlm">未実行(Step3)。</sys:String>

@@ -94,4 +94,15 @@ public class MarkdownHtmlTests
         Assert.DoesNotContain("<script", html); // the text of a page cannot bring a script
         Assert.Contains("<pre class=\"mermaid\">flowchart LR", html); // the preview draws this block with the library
     }
+
+    [Fact]
+    public void TheImages_AreAsWideAsTheTextAtFullZoom_SoTheyFollowTheTextBothWays()
+    {
+        var html = MarkdownHtml.Render("![Logo](pictures/page-001-1.png)", zoom: 0.7);
+
+        Assert.Contains("--z:0.7", html);
+        Assert.Contains("img{max-width:calc(100vw * var(--z) - 32px)}", html);
+        Assert.Contains("--z:1}", MarkdownHtml.Render("text"));
+        Assert.Contains("'--z','0.5'", MarkdownHtml.ZoomScript(0.5));
+    }
 }

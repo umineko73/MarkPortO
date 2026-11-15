@@ -26,7 +26,8 @@ public partial class MarkdownPane : UserControl
 {
     private bool _ready;
     private string? _mappedFolder;
-    private double _zoom = 1.0;
+    // The text and the Markdown of the VLM start at 70%: a page of text is seen at a glance next to the image of the page.
+    private double _zoom = 0.7;
     private bool _navigating;
 
     // What is shown now. A refresh that brings the same text does nothing; one that brings other text for the same page (its result came in)
@@ -200,6 +201,8 @@ public partial class MarkdownPane : UserControl
                 if (!_navigating)
                 {
                     _zoom = Web.ZoomFactor;
+                    // The images are as wide as the pane at 100%: they get smaller with the text (FR-147).
+                    _ = Web.CoreWebView2.ExecuteScriptAsync(MarkdownHtml.ZoomScript(_zoom));
                 }
             };
             Web.NavigationCompleted += (_, _) =>
@@ -209,6 +212,8 @@ public partial class MarkdownPane : UserControl
                 {
                     Web.ZoomFactor = _zoom;
                 }
+
+                _ = Web.CoreWebView2.ExecuteScriptAsync(MarkdownHtml.ZoomScript(_zoom));
 
                 if (_restoreScroll)
                 {
@@ -280,7 +285,7 @@ public partial class MarkdownPane : UserControl
 
         _navigating = true;
         _restoreScroll = samePage;
-        Web.NavigateToString(MarkdownHtml.Render(markdown));
+        Web.NavigateToString(MarkdownHtml.Render(markdown, zoom: _zoom));
     }
 
     public void Release() => Web.Dispose();

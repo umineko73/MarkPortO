@@ -90,9 +90,11 @@ public static partial class MarkdownHtml
 
     /// <summary>
     /// The page of HTML. The comments of the Markdown (page, sheet, VLM marks) are not shown. A line that is only the image of the page is left
-    /// out unless <paramref name="showImages"/> is set: the preview shows the image of the page beside the text.
+    /// out unless <paramref name="showImages"/> is set: the preview shows the image of the page beside the text. <paramref name="zoom"/> is the zoom
+    /// of the pane: an image is as wide as the text is at 100% (not as the pane is now), so it gets smaller and larger with the text, also wider than the
+    /// pane when it is zoomed in (FR-147). The page keeps the zoom in <c>--z</c> (<see cref="ZoomScript"/> changes it).
     /// </summary>
-    public static string Render(string markdown, bool showImages = false)
+    public static string Render(string markdown, bool showImages = false, double zoom = 1.0)
     {
         var text = Comment().Replace(markdown, string.Empty);
         if (!showImages)
@@ -106,11 +108,16 @@ public static partial class MarkdownHtml
             + "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src https://" + Host + " data:; style-src 'unsafe-inline'; script-src " + MermaidScript + "\">"
             + "<base href=\"https://" + Host + "/\">"
             + "<style>"
-            + ":root{color-scheme:light dark}body{font-family:'Segoe UI','Yu Gothic UI',sans-serif;font-size:14px;line-height:1.6;margin:12px 16px}"
-            + "img{max-width:100%}table{border-collapse:collapse;margin:8px 0}th,td{border:1px solid #8888;padding:4px 8px;vertical-align:top}"
+            + ":root{color-scheme:light dark;--z:" + ZoomValue(zoom) + "}body{font-family:'Segoe UI','Yu Gothic UI',sans-serif;font-size:14px;line-height:1.6;margin:12px 16px}"
+            + "img{max-width:calc(100vw * var(--z) - 32px)}table{border-collapse:collapse;margin:8px 0}th,td{border:1px solid #8888;padding:4px 8px;vertical-align:top}"
             + "th{background:#8882}blockquote{margin:8px 0;padding:0 12px;border-left:4px solid #8886;color:inherit;opacity:.85}"
             + "pre,code{font-family:Consolas,'Cascadia Mono',monospace}pre{background:#8881;padding:8px;overflow:auto}"
             + ".mermaid-figure{margin:8px 0;overflow:auto}.mermaid-figure svg{max-width:100%;height:auto}"
             + "</style></head><body>" + body + "</body></html>";
     }
+
+    private static string ZoomValue(double zoom) => Math.Clamp(zoom, 0.1, 8.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The script that gives the page a new zoom (for the width of its images).</summary>
+    public static string ZoomScript(double zoom) => "document.documentElement.style.setProperty('--z','" + ZoomValue(zoom) + "')";
 }

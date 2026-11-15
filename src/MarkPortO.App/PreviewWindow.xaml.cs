@@ -418,19 +418,7 @@ public partial class PreviewWindow : Window
         }
     }
 
-    private void OnFitChanged(object sender, RoutedEventArgs e)
-    {
-        // The event also comes while the window is being made from the XAML, before the image and its scroll viewer exist.
-        if (ImageScroll is null || PageImage is null)
-        {
-            return;
-        }
-
-        _imageZoom = 1.0;
-        ApplyImageSize();
-    }
-
-    // The zoom of the image (FR-109): 1 is the size of the window when the image is fitted, or the real size of the image when it is not. The wheel
+    // The zoom of the image (FR-109): 1 is the size that fits the pane. The wheel
     // with Ctrl (the pointer stays on the same point of the image), Ctrl and plus or minus zoom; Ctrl and 0 is 100% again.
     private const double MinimumZoom = 0.1;
     private const double MaximumZoom = 8.0;
@@ -438,14 +426,12 @@ public partial class PreviewWindow : Window
 
     private void ApplyImageSize()
     {
-        if (ImageScroll is null || PageImage is null || ZoomText is null)
+        if (ImageScroll is null || PageImage is null)
         {
             return;
         }
 
-        var fit = FitBox.IsChecked == true;
-        ZoomText.Text = _imageZoom.ToString("P0", System.Globalization.CultureInfo.CurrentCulture);
-        if (fit && _imageZoom == 1.0)
+        if (_imageZoom == 1.0)
         {
             // As it was: the image fills the pane and follows its size.
             PageImage.Stretch = System.Windows.Media.Stretch.Uniform;
@@ -467,7 +453,7 @@ public partial class PreviewWindow : Window
         var width = source.PixelWidth * 96.0 / source.DpiX;
         var height = source.PixelHeight * 96.0 / source.DpiY;
         var scale = _imageZoom;
-        if (fit && ImageScroll.ActualWidth > 0 && ImageScroll.ActualHeight > 0)
+        if (ImageScroll.ActualWidth > 0 && ImageScroll.ActualHeight > 0)
         {
             scale *= Math.Min(ImageScroll.ActualWidth / width, ImageScroll.ActualHeight / height);
         }
@@ -479,7 +465,7 @@ public partial class PreviewWindow : Window
 
     private void OnImageScrollSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (FitBox?.IsChecked == true && _imageZoom != 1.0)
+        if (_imageZoom != 1.0)
         {
             ApplyImageSize();
         }
