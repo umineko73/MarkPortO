@@ -39,6 +39,25 @@ Each document gets a folder containing its Markdown (`.md`) and page images (`im
 
 To use the VLM, set up a VLM connection in **Settings** and turn on Step3. External services receive document images and text, and may charge for usage.
 
+## Preview
+
+Double-click a file to open the preview. The image of each page is shown next to its Markdown, so you can check tables, merged cells, lists, code, equations and pictures against the original.
+
+![The preview: the page image of a Word document and its Markdown](docs/images/preview-document.png)
+
+- Show the page image, the extracted text and the VLM result, side by side or stacked. The Markdown can be shown rendered or as source.
+- Move between pages with the arrow keys, and to the previous or next file with ◀ ▶. Ctrl+wheel zooms.
+- **Follow** shows the last page that was read while a conversion is running.
+
+## Converting again
+
+You do not have to convert everything again to fix part of a result.
+
+- **Read some pages again with the VLM (from the preview)**: check the pages in the preview's page list, or press **Mark pages that could not be read**. Then press **Run Step 3 again** in the main window. Only the marked pages are read again, with the connection and prompt chosen on the screen. After you change the connection or a prompt, **Run Step 3 again** also reads the pages that were read with the earlier settings.
+- **Convert some files again**: select them in the list and press **Convert again from Step 1** (also in the right-click menu). Their Markdown and page images in the earlier folder are replaced.
+- **Convert the files that changed**: **Reconvert updated files** converts only the changed and new files.
+- **Resume**: goes on with an interrupted conversion, or runs the failed files and pages again.
+
 ## Command line
 
 You can also use `markporto-cli.exe` from the ZIP (in the same folder as `MarkPortO.exe`):
