@@ -487,7 +487,7 @@ public partial class PreviewWindow : Window
         // The point of the image under the pointer (as a fraction of the image) stays under it.
         var before = anchorInViewer is { } anchor && PageImage.ActualWidth > 0 && PageImage.ActualHeight > 0
             ? (X: (ImageScroll.HorizontalOffset + anchor.X - Math.Max(0, (ImageScroll.ViewportWidth - PageImage.ActualWidth) / 2)) / PageImage.ActualWidth,
-               Y: (ImageScroll.VerticalOffset + anchor.Y - Math.Max(0, (ImageScroll.ViewportHeight - PageImage.ActualHeight) / 2)) / PageImage.ActualHeight)
+               Y: (ImageScroll.VerticalOffset + anchor.Y) / PageImage.ActualHeight)
             : ((double X, double Y)?)null;
         _imageZoom = zoom;
         ApplyImageSize();
@@ -495,7 +495,7 @@ public partial class PreviewWindow : Window
         {
             ImageScroll.UpdateLayout();
             ImageScroll.ScrollToHorizontalOffset((fraction.X * PageImage.ActualWidth) - at.X + Math.Max(0, (ImageScroll.ViewportWidth - PageImage.ActualWidth) / 2));
-            ImageScroll.ScrollToVerticalOffset((fraction.Y * PageImage.ActualHeight) - at.Y + Math.Max(0, (ImageScroll.ViewportHeight - PageImage.ActualHeight) / 2));
+            ImageScroll.ScrollToVerticalOffset((fraction.Y * PageImage.ActualHeight) - at.Y);
         }
     }
 
