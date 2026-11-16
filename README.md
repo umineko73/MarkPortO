@@ -20,6 +20,11 @@ MarkPortO is a **Windows app that converts Word, Excel, PowerPoint and PDF files
 
 Under development. Results vary with document layout, so check the preview after conversion.
 
+## Use cases
+
+- **Knowledge extraction for LLMs and RAG**: Turn a library of documents into Markdown that a language model can read. Each page is marked (`<!-- page: N -->`) and has its own page image, so a passage can be traced back to its page, and a page that is hard to extract as text (a scan, a diagram) can be read from its image with a VLM.
+- **Office-to-Markdown migration**: Move Word, Excel, PowerPoint and PDF documents into a wiki, a notes tool or a Git repository as Markdown, with their tables, lists, code, equations and pictures. Convert whole folders, and check each result against the original page in the preview.
+
 ## Getting started
 
 You need **Windows 11** and the **.NET 10 Desktop Runtime**. Office documents also require Microsoft Office or [LibreOffice](https://www.libreoffice.org/).
