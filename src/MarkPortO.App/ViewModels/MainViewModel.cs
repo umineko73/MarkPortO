@@ -83,7 +83,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(Recurse) or nameof(TypeDocx) or nameof(TypeXlsx) or nameof(TypePptx) or nameof(TypePdf)
-                or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis) or nameof(ExtractPictures) or nameof(ExtractShapes)
+                or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis) or nameof(ExtractPictures) or nameof(ExtractShapes) or nameof(GroupNearShapes)
                 or nameof(ExtractorDocx) or nameof(ExtractorXlsx) or nameof(ExtractorPptx) or nameof(ExtractorPdf)
                 or nameof(IncludeHiddenSheets) or nameof(IncludeHiddenSlides) or nameof(IncludeOffSlideText) or nameof(UsePdfText)
                 or nameof(ExcelColumns) or nameof(ExcelSheet) or nameof(ExcelPrintArea))
@@ -483,6 +483,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             _store.Update(s => s.Input.ExtractShapes = value);
+            Raise();
+        }
+    }
+
+    /// <summary>Cut the shapes and pictures that are near one another, or on the same row, out as one picture (pptx).</summary>
+    public bool GroupNearShapes
+    {
+        get => _store.Current.Input.GroupNearShapes;
+        set
+        {
+            _store.Update(s => s.Input.GroupNearShapes = value);
             Raise();
         }
     }

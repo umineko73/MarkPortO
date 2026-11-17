@@ -260,6 +260,9 @@ public sealed class OptionsSnapshot
     /// <summary>Cut the drawn shapes of a pptx or xlsx out of the page image (FR-136). A job from before this setting did not.</summary>
     public bool ExtractShapes { get; set; }
 
+    /// <summary>Cut shapes and pictures that are near one another, or on the same row, out as one picture (pptx). A job from before this setting did.</summary>
+    public bool GroupNearShapes { get; set; } = true;
+
     public EngineKind Engine { get; set; }
 
     public bool Step2 { get; set; }

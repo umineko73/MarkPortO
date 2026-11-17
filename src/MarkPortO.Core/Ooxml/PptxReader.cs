@@ -356,7 +356,7 @@ public static class PptxReader
             {
                 // On the same row (their heights meet, within the gap) they are together however far apart they are across: shapes in a row
                 // that were cut out in a column would change the look of the page. Above and below one another, only when they are near.
-                if (!Backdrop(i) && !Backdrop(j)
+                if (pictures.GroupShapes && !Backdrop(i) && !Backdrop(j)
                     && boxes[i].Top - gap <= boxes[j].Bottom && boxes[j].Top - gap <= boxes[i].Bottom)
                 {
                     cluster[Root(j)] = Root(i);

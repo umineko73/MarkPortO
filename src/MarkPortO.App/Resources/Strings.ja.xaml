@@ -60,6 +60,8 @@
   <sys:String x:Key="Main_Cond_Pictures">文書の画像を取り出す</sys:String>
   <sys:String x:Key="Main_Cond_PicturesTip">Word・PowerPoint・Excel に貼られた画像を pictures/ に保存し(pictures/page-003-1.png は3ページ目の1つ目の画像)、Markdown の画像の位置から参照します。PNG・JPEG・GIF はそのまま、EMF・WMF・BMP・TIFF は PNG にして保存します。Excel では、画像を固定したセルより上の表や文の後ろに置きます。</sys:String>
   <sys:String x:Key="Main_Cond_Shapes">図形を画像にする</sys:String>
+  <sys:String x:Key="Main_Cond_GroupShapes">近くの図形をまとめる</sys:String>
+  <sys:String x:Key="Main_Cond_GroupShapesTip">オン: PowerPoint で、近くにある図形と画像(間隔0.25インチ以内)と、同じ行にある図形と画像(横にどれだけ離れていても)を、1枚の画像として切り出します。横に並んだ図がバラバラになりません。オフ: 図形を1つずつ切り出し、画像はそのまま保存します。図形を画像にするときに使われます。</sys:String>
   <sys:String x:Key="Main_Cond_ShapesTip">PowerPoint・Excel の図形(グループは全体で1枚、縦横とも0.5インチ以上の図形)を、ページ画像から切り出して pictures/ に保存します。名前は画像と同じ形です。テキストボックスや、小さな矢印・線は対象外です。Word は対象外です。Excel では、列の幅と行の高さから位置を計算するので、少しずれることがあります。</sys:String>
   <sys:String x:Key="Main_Cond_EmphasisTip">文中の太字を ** で、斜体を * で囲んで書きます(Word・PowerPoint・Excel)。段落(セル)の全体が太字(斜体)のもの、見出し、スライドのタイトルには付けません。知識グラフを作るツールなど、他のツールに Markdown を渡すときは、** や * がノイズになることがあります。 他のツールで読むとき、ノイズになる場合があります。</sys:String>
   <sys:String x:Key="Main_Cond_OffSlide">スライド外の文字を含める</sys:String>

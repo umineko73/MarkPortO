@@ -46,7 +46,8 @@ public sealed record ShapeArea(double Left, double Top, double Width, double Hei
 /// <param name="dpi">The resolution at which a metafile (EMF, WMF) is drawn into a PNG (FR-134): the DPI of the page images.</param>
 /// <param name="savePictures">The pictures are saved (FR-133).</param>
 /// <param name="cutShapes">The drawn shapes are cut out of the page images (FR-136).</param>
-public sealed class PictureCollector(int dpi = 150, bool savePictures = true, bool cutShapes = false)
+/// <param name="groupShapes">Shapes and pictures that are near one another, or on the same row, are cut out as one picture; off, each is cut out alone.</param>
+public sealed class PictureCollector(int dpi = 150, bool savePictures = true, bool cutShapes = false, bool groupShapes = true)
 {
     /// <summary>The smallest width and height of a drawn shape that is cut out, in points (half an inch): a small arrow or line is not (FR-136).</summary>
     public const double MinShapeSidePoints = 36;
@@ -56,6 +57,9 @@ public sealed class PictureCollector(int dpi = 150, bool savePictures = true, bo
 
     /// <summary>The drawn shapes are cut out of the page images (FR-136).</summary>
     public bool CutShapes { get; } = cutShapes;
+
+    /// <summary>Shapes and pictures that are near one another, or on the same row, are cut out as one picture (pptx).</summary>
+    public bool GroupShapes { get; } = groupShapes;
 
     /// <summary>The mark of a drawn shape that is cut out of the page image (FR-136); <paramref name="area"/> can be set later (a shape of a sheet).</summary>
     public string AddShape(ShapeArea? area)

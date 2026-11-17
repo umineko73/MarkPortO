@@ -457,7 +457,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var options = work.Context.Options;
         var cutShapes = shapes && options.ExtractShapes;
         return (options.ExtractPictures || cutShapes) && work.Context.ExtractorFor(work.Document.Kind) is null
-            ? new PictureCollector(options.Dpi, options.ExtractPictures, cutShapes)
+            ? new PictureCollector(options.Dpi, options.ExtractPictures, cutShapes, options.GroupNearShapes)
             : null;
     }
 

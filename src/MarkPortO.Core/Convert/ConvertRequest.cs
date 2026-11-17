@@ -81,6 +81,7 @@ public sealed class ConvertRequest
         UsePdfText = settings.Input.UsePdfText,
         ExtractPictures = settings.Input.ExtractPictures,
         ExtractShapes = settings.Input.ExtractShapes,
+        GroupNearShapes = settings.Input.GroupNearShapes,
         Engine = settings.Engine.Kind,
         Step2 = settings.Steps.Step2,
         Step3 = settings.Steps.Step3,

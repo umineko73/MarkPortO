@@ -129,6 +129,7 @@ Options override `settings.json`.
 - `--pdf-text on|off`.
 - `--pictures on|off` (save the pictures of a Word, PowerPoint or Excel file in `pictures/`).
 - `--shapes on|off` (cut the drawn shapes of a PowerPoint or Excel file out of the page image into `pictures/`).
+- `--group-shapes on|off` (with `--shapes on`: cut the shapes and pictures of a PowerPoint file that are near one another, or on the same row, out as one picture; the default is on).
 - `--engine`.
 - `--dpi`.
 - `--pages <range>` (one file: the pages that Step3 reads, like `3-5,8`).

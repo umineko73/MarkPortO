@@ -222,7 +222,8 @@
               <TextBox x:Name="DpiBox" Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="68" VerticalContentAlignment="Center" Margin="0,0,20,0" />
               <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
               <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Pictures}" IsChecked="{Binding ExtractPictures}" ToolTip="{DynamicResource Main_Cond_PicturesTip}" VerticalAlignment="Center" Margin="0,0,12,0" />
-              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Shapes}" IsChecked="{Binding ExtractShapes}" ToolTip="{DynamicResource Main_Cond_ShapesTip}" VerticalAlignment="Center" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Shapes}" IsChecked="{Binding ExtractShapes}" ToolTip="{DynamicResource Main_Cond_ShapesTip}" VerticalAlignment="Center" Margin="0,0,12,0" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_GroupShapes}" IsChecked="{Binding GroupNearShapes}" IsEnabled="{Binding ExtractShapes}" ToolTip="{DynamicResource Main_Cond_GroupShapesTip}" VerticalAlignment="Center" />
             </StackPanel>
           </WrapPanel>
 

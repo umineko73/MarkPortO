@@ -323,6 +323,9 @@ public sealed class InputSettings
 
     /// <summary>Cut the drawn shapes (groups, and shapes of half an inch or more) of a pptx or xlsx out of the page image into <c>pictures/</c> (FR-136).</summary>
     public bool ExtractShapes { get; set; }
+
+    /// <summary>Cut the shapes and pictures of a pptx that are near one another, or on the same row, out as one picture; off, each shape is cut out alone.</summary>
+    public bool GroupNearShapes { get; set; } = true;
 }
 
 public sealed class OutputSettings

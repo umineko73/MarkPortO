@@ -169,6 +169,7 @@ markporto-cli check-connection --settings settings.json
 | `--pdf-text on\|off` | PDFの文字情報をVLMの補助に使う（既定はon）。 |
 | `--pictures on\|off` | Word・PowerPoint・Excel の画像を `pictures/` に保存する（既定はoff）。 |
 | `--shapes on\|off` | PowerPoint・Excel の図形をページ画像から切り出して `pictures/` に保存する（既定はoff）。 |
+| `--group-shapes on\|off` | `--shapes on` のとき、PowerPoint で近くの図形・画像と、同じ行の図形・画像を1枚にまとめて切り出す（既定はon）。 |
 | `--extractor-docx\|xlsx\|pptx\|pdf <名前>` | その種類のファイルのMarkdownを書く抽出方法（`builtin` は内蔵）。 |
 
 **Step2・Step3（VLM）**

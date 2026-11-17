@@ -243,6 +243,28 @@ public class ShapeCutTests
     }
 
     [Fact]
+    public void Pptx_WithGroupingOff_EveryShapeIsCutOutAlone_AndAPictureKeepsItsFile()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("alone.pptx");
+        PptxFactory.Create(path, new SlideSpec("Plan"));
+        AddToSlide(path,
+            SlideRectangle(20, Inch, Inch, 2 * Inch, Inch, "Start"),
+            SlideRectangle(21, 4 * Inch, Inch, 2 * Inch, Inch, "Near"), // on the same row: together when grouping is on
+            SlideRectangle(22, 8 * Inch, Inch, Inch, Inch, "Far"));
+        AddPictures(path, (red, _) => [PictureAt(90, red, "Photo", Inch, 4 * Inch, 2 * Inch, 2 * Inch)]);
+
+        var grouped = new PictureCollector(savePictures: true, cutShapes: true);
+        PptxReader.Read(path, includeHidden: false, pictures: grouped);
+        Assert.Equal(2, grouped.Pictures.Count); // the three shapes are one, and the picture
+
+        var alone = new PictureCollector(savePictures: true, cutShapes: true, groupShapes: false);
+        PptxReader.Read(path, includeHidden: false, pictures: alone);
+        Assert.Equal(4, alone.Pictures.Count); // three shapes, and the picture
+        Assert.Equal(3, alone.Pictures.Count(p => p.IsShape));
+    }
+
+    [Fact]
     public void Pptx_ABackgroundShape_DoesNotJoinTheShapesOnIt()
     {
         using var dir = new TempDir();

@@ -128,6 +128,14 @@ public class CliParsingTests
     }
 
     [Fact]
+    public void GroupShapes_IsOnByDefault_AndCanBeTurnedOff()
+    {
+        Assert.True(Resolved(new ConvertArgs(), FromFile()).Input.GroupNearShapes);
+        Assert.False(Resolved(new ConvertArgs { GroupShapes = "off" }, FromFile()).Input.GroupNearShapes);
+        Assert.True(Resolved(new ConvertArgs { GroupShapes = "on" }, FromFile(s => s.Input.GroupNearShapes = false)).Input.GroupNearShapes);
+    }
+
+    [Fact]
     public void Shapes_IsOffByDefault_AndIsNotThePicturesOption()
     {
         Assert.False(Resolved(new ConvertArgs(), FromFile()).Input.ExtractShapes);
