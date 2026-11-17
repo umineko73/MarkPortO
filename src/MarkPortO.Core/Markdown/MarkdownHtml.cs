@@ -48,7 +48,7 @@ public static partial class MarkdownHtml
     private static partial Regex Comment();
 
     // A line that is only the image of the page (images/page-001.png). A picture of the document (pictures/, FR-133) on a line of its own stays.
-    [GeneratedRegex(@"^[ 	]*!\[[^\]]*\]\(images/[^)]*\)[ 	]*$", RegexOptions.Multiline)]
+    [GeneratedRegex(@"^[ 	]*!?\[[^\]]*\]\(images/[^)]*\)[ 	]*$", RegexOptions.Multiline)]
     private static partial Regex ImageLine();
 
     // The picture of the document that PictureFiles writes with its width: <img src="pictures/page-001-1.png" alt="text" width="300">.

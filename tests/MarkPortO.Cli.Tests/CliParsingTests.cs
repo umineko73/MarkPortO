@@ -128,6 +128,16 @@ public class CliParsingTests
     }
 
     [Fact]
+    public void PageImage_IsAReferenceByDefault_AndCanBeAnImage()
+    {
+        Assert.Equal(PageImageStyle.Reference, Resolved(new ConvertArgs(), FromFile()).Steps.PageImage);
+        Assert.Equal(PageImageStyle.Image, Resolved(new ConvertArgs { PageImage = "image" }, FromFile()).Steps.PageImage);
+        Assert.Equal(PageImageStyle.Link, Resolved(new ConvertArgs { PageImage = "link" }, FromFile()).Steps.PageImage);
+        Assert.Equal(PageImageStyle.Reference, Resolved(new ConvertArgs { PageImage = "Reference" }, FromFile(s => s.Steps.PageImage = PageImageStyle.Image)).Steps.PageImage);
+        Assert.Equal(PageImageStyle.Image, Resolved(new ConvertArgs(), FromFile(s => s.Steps.PageImage = PageImageStyle.Image)).Steps.PageImage);
+    }
+
+    [Fact]
     public void GroupShapes_IsOnByDefault_AndCanBeTurnedOff()
     {
         Assert.True(Resolved(new ConvertArgs(), FromFile()).Input.GroupNearShapes);

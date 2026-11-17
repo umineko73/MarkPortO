@@ -85,6 +85,7 @@ public sealed class ConvertRequest
         Engine = settings.Engine.Kind,
         Step2 = settings.Steps.Step2,
         Step3 = settings.Steps.Step3,
+        PageImage = settings.Steps.PageImage,
         VlmSeparate = settings.Steps.VlmSeparate,
         Step1Tables = settings.Steps.Step1Tables,
         DropRepeatedTables = settings.Steps.DropRepeatedTables,

@@ -98,10 +98,11 @@ public static class CliApp
         var dpi = new Option<int?>("--dpi") { Description = "Resolution of the page images (72-600)." };
         var excelRange = new Option<string?>("--excel-range") { Description = "How the pages of an Excel sheet are cut: columns (all columns on the width of a page, as far as they stay readable), sheet (the whole sheet on one page) or print-area (follow the print setup of the sheet)." };
         var pages = new Option<string?>("--pages") { Description = "The pages that Step 3 reads, like 3-5,8 (8- is from page 8, -4 is up to page 4; write --pages=-4). Only for one file; Step 1 still converts the whole file." };
-        var step2 = new Option<string?>("--step2") { Description = "on or off: put image references in the Markdown." };
+        var step2 = new Option<string?>("--step2") { Description = "on or off: make the print images of the pages and put them in the Markdown (how: --page-image)." };
         var step3 = new Option<string?>("--step3") { Description = "on or off: read the page images with the VLM." };
         var vlmSeparate = new Option<string?>("--vlm-separate") { Description = "on or off: write the results of Step 3 to a separate file, name_vlm.md." };
         var step1Tables = new Option<string?>("--step1-tables") { Description = "off, replace or omit: where the text of a page has a table, replace the tables of the VLM result by it (replace), or leave them out (omit)." };
+        var pageImage = new Option<string?>("--page-image") { Description = "image, reference or link: write the print image of a page in the Markdown as an image (a viewer shows it), as a link (a viewer shows the link, not the image), or as a comment, <!-- page-image: images/page-001.png --> (a viewer does not show it, a program or a model can read the path). Used with Step 2 (default: the settings file, reference)." };
         var dropRepeated = new Option<string?>("--drop-repeated-tables") { Description = "on or off: leave out the tables that the VLM wrote again on a page, after the last table (a small model can go on writing the same tables)." };
         var prompt = new Option<string?>("--prompt") { Description = "The name of the VLM prompt for every kind of file that has a prompt of this name (or 'standard'); a kind without it keeps its own choice. Not used with --resume." };
         var promptDocx = new Option<string?>("--prompt-docx") { Description = "The name of the VLM prompt for Word files (or 'standard')." };
@@ -129,7 +130,7 @@ public static class CliApp
         foreach (var option in new Option[]
         {
             settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, pictures, shapes, groupShapes, engine, dpi, excelRange, step2, step3, vlmSeparate,
-            pages, step1Tables, dropRepeated, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, sameFolder, result, quiet,
+            pages, step1Tables, pageImage, dropRepeated, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, sameFolder, result, quiet,
         })
         {
             convert.Options.Add(option);
@@ -162,6 +163,7 @@ public static class CliApp
                 Step3 = parse.GetValue(step3),
                 VlmSeparate = parse.GetValue(vlmSeparate),
                 Step1Tables = parse.GetValue(step1Tables),
+                PageImage = parse.GetValue(pageImage),
                 DropRepeatedTables = parse.GetValue(dropRepeated),
                 Prompt = parse.GetValue(prompt),
                 PromptDocx = parse.GetValue(promptDocx),
@@ -430,6 +432,7 @@ public static class CliApp
             Step3 = Step(args.Step3),
             VlmSeparate = Step(args.VlmSeparate),
             Step1Tables = ConvertArgsResolver.TryStep1Tables(args.Step1Tables),
+            PageImage = ConvertArgsResolver.TryPageImage(args.PageImage),
             DropRepeatedTables = Step(args.DropRepeatedTables),
             Connection = args.Connection,
         };

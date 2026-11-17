@@ -60,6 +60,7 @@ public class CliParityTests
                 Dpi = 72,
                 Engine = EngineKind.LibreOffice,
                 Step2 = true,
+                PageImage = PageImageStyle.Reference, // the default of the settings
                 MarkdownLanguage = "ja", // the settings file the command line uses says ja
             },
         });

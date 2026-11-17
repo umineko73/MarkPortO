@@ -135,6 +135,7 @@ Options override `settings.json`.
 - `--pages <range>` (one file: the pages that Step3 reads, like `3-5,8`).
 - `--excel-range columns|sheet|print-area`.
 - `--step2 on|off`.
+- `--page-image image|reference|link` (how the print image of a page is written in the Markdown, with Step 2: `reference`, the default, is a comment `<!-- page-image: images/page-001.png -->` that a Markdown viewer does not show but a program or a model can read; `image` is `![Page 1](images/page-001.png)`, which a viewer shows; `link` is `[Page 1](images/page-001.png)`, a link that a viewer shows instead of the image).
 - `--step3 on|off`.
 - `--vlm-separate on|off`.
 - `--step1-tables off|replace|omit` (where the text of a page has a table, replace the tables of the VLM result with it, or leave them out).

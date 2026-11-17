@@ -228,7 +228,15 @@
           </WrapPanel>
 
           <TextBlock Grid.Row="1" Text="Step2" VerticalAlignment="Center" Margin="0,0,0,6" />
-          <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Grid.Row="1" Grid.Column="1" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <WrapPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,6">
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <TextBlock Text="{DynamicResource Main_Cond_PageImage}" VerticalAlignment="Center" Margin="0,0,4,0" />
+            <ComboBox SelectedIndex="{Binding PageImageIndex}" IsEnabled="{Binding CanEditPageImage}" VerticalAlignment="Center" MinWidth="200" ToolTip="{DynamicResource Main_Cond_PageImageTip}">
+              <ComboBoxItem Content="{DynamicResource Main_Cond_PageImageImage}" />
+              <ComboBoxItem Content="{DynamicResource Main_Cond_PageImageReference}" />
+              <ComboBoxItem Content="{DynamicResource Main_Cond_PageImageLink}" />
+            </ComboBox>
+          </WrapPanel>
 
           <TextBlock Grid.Row="2" Text="Step3" VerticalAlignment="Center" />
           <WrapPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">

@@ -34,6 +34,20 @@ public enum EngineKind
     LibreOffice,
 }
 
+/// <summary>How the print image of a page is written in the Markdown (FR-149); the images are made by Step2, which is on or off.</summary>
+[JsonConverter(typeof(LowercaseEnumConverter<PageImageStyle>))]
+public enum PageImageStyle
+{
+    /// <summary>An image, <c>![Page N](images/page-NNN.png)</c>: a viewer shows it. A job from before this setting wrote it so.</summary>
+    Image,
+
+    /// <summary>A comment, <c>&lt;!-- page-image: images/page-NNN.png --&gt;</c>: a viewer does not show it, a program or a model can read the path.</summary>
+    Reference,
+
+    /// <summary>A link, <c>[Page N](images/page-NNN.png)</c>: a viewer shows the link, not the image; a click opens the file.</summary>
+    Link,
+}
+
 /// <summary>How the pages of an Excel sheet are cut (FR-073).</summary>
 [JsonConverter(typeof(ExcelRangeConverter))]
 public enum ExcelRange

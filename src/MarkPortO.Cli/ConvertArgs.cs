@@ -70,6 +70,8 @@ public sealed record ConvertArgs
 
     public string? Step1Tables { get; init; }
 
+    public string? PageImage { get; init; }
+
     public string? DropRepeatedTables { get; init; }
 
     /// <summary>The name of the prompt for each kind that has it (FR-115).</summary>
@@ -259,6 +261,18 @@ public static class ConvertArgsResolver
             }
         }
 
+        if (args.PageImage is not null)
+        {
+            if (TryPageImage(args.PageImage) is { } style)
+            {
+                settings.Steps.PageImage = style;
+            }
+            else
+            {
+                errors.Add($"--page-image: '{args.PageImage}' is not one of image, reference, link.");
+            }
+        }
+
         ApplyPrompts(args, settings, errors);
 
         if (args.Connection is not null)
@@ -356,6 +370,15 @@ public static class ConvertArgsResolver
         "off" => Step1TablesMode.Off,
         "on" or "replace" => Step1TablesMode.Replace,
         "omit" => Step1TablesMode.Omit,
+        _ => null,
+    };
+
+    /// <summary><c>image</c>, <c>reference</c> or <c>link</c>; <c>null</c> for anything else.</summary>
+    internal static PageImageStyle? TryPageImage(string? value) => value?.ToLowerInvariant() switch
+    {
+        "image" => PageImageStyle.Image,
+        "reference" => PageImageStyle.Reference,
+        "link" => PageImageStyle.Link,
         _ => null,
     };
 

@@ -49,7 +49,7 @@ public static class MarkdownRenderer
 
         var builder = new StringBuilder();
         builder.Append("# ").Append(MarkdownText.Escape(fileName).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
-        AppendStructureNote(builder, fileName, document.Kind, includeImages, includeVlm, document.Pages.Any(p => p.Bands > 1),
+        AppendStructureNote(builder, fileName, document.Kind, includeImages, document.PageImage, includeVlm, document.Pages.Any(p => p.Bands > 1),
             document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), document.ExtractPictures && !vlmFile, language,
             vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmInSeparateFile ? VlmFileName(name) : null);
 
@@ -107,7 +107,7 @@ public static class MarkdownRenderer
         return "pictures/page-" + pageIndex.ToString("D" + digits, CultureInfo.InvariantCulture) + "-" + number.ToString(CultureInfo.InvariantCulture) + extension;
     }
 
-    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, bool includeVlm, bool hasBands, bool hasMergedCells, bool hasJoinedTables, bool hasPictures, string language, string? mainFile, string? vlmFile)
+    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, PageImageStyle pageImage, bool includeVlm, bool hasBands, bool hasMergedCells, bool hasJoinedTables, bool hasPictures, string language, string? mainFile, string? vlmFile)
     {
         void Line(string text) => builder.Append("> ").Append(text).Append('\n');
 
@@ -116,7 +116,11 @@ public static class MarkdownRenderer
         Line(Loc.M("- Source file: `{0}`", language, fileName.Replace("`", string.Empty, StringComparison.Ordinal)));
         Line(Loc.M("- Page separator: `<!-- page: N -->` (N is the page number). Everything from this line to the next separator is the content of that page.", language));
         Line(includeImages
-            ? Loc.M("- Page images (Step2): `![Page N](images/page-NNN.png)`. An image of the page as it is printed.", language)
+            ? pageImage == PageImageStyle.Reference
+                ? Loc.M("- Page images (Step2): `<!-- page-image: images/page-NNN.png -->`. The file of an image of the page as it is printed. It is a comment, so a Markdown viewer does not show it.", language)
+                : pageImage == PageImageStyle.Link
+                    ? Loc.M("- Page images (Step2): `[Page N](images/page-NNN.png)`. A link to the file of an image of the page as it is printed. A Markdown viewer shows the link, not the image.", language)
+                    : Loc.M("- Page images (Step2): `![Page N](images/page-NNN.png)`. An image of the page as it is printed.", language)
             : Loc.M("- Page images (Step2): not included in this Markdown. The image files are saved in `images/`.", language));
         Line(includeVlm
             ? Loc.M("- VLM results (Step3): between `<!-- vlm:begin page=N -->` and `<!-- vlm:end -->`. The text read from the image. The usage is written in `<!-- usage page=N prompt=… completion=… total=… -->`.", language)
@@ -218,7 +222,20 @@ public static class MarkdownRenderer
 
         if (includeImages && page.ImageFile.Length > 0)
         {
-            builder.Append("\n![").Append(Loc.M("alt|Page {0}", language, page.Index)).Append("](").Append(page.ImageFile).Append(")\n");
+            if (document.PageImage == PageImageStyle.Reference)
+            {
+                // A comment: a viewer does not show it, a program or a model can read the path (FR-149).
+                builder.Append("<!-- page-image: ").Append(page.ImageFile).Append(" -->\n");
+            }
+            else if (document.PageImage == PageImageStyle.Link)
+            {
+                // A link: a viewer shows the link, not the image (FR-149).
+                builder.Append("\n[").Append(Loc.M("alt|Page {0}", language, page.Index)).Append("](").Append(page.ImageFile).Append(")\n");
+            }
+            else
+            {
+                builder.Append("\n![").Append(Loc.M("alt|Page {0}", language, page.Index)).Append("](").Append(page.ImageFile).Append(")\n");
+            }
         }
 
         if (page.IsBlank)

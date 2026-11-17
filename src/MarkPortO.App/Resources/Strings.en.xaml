@@ -69,6 +69,11 @@
   <sys:String x:Key="Main_Cond_Engine">Print engine</sys:String>
   <sys:String x:Key="Main_Cond_Dpi">DPI</sys:String>
   <sys:String x:Key="Main_Cond_Step1">Save the print images and extract the text (always done)</sys:String>
+  <sys:String x:Key="Main_Cond_PageImage">Write the print image as</sys:String>
+  <sys:String x:Key="Main_Cond_PageImageTip">An image: a Markdown viewer shows the print image of each page. A link: [Page 1](images/page-001.png), a viewer shows the link, not the image. A reference: the path is written as a comment (&lt;!-- page-image: images/page-001.png --&gt;), so a viewer does not show it and a program or a model can still read it. Not writing it at all is Step2 off.</sys:String>
+  <sys:String x:Key="Main_Cond_PageImageImage">an image (shown by a viewer)</sys:String>
+  <sys:String x:Key="Main_Cond_PageImageReference">a reference (a comment, not shown)</sys:String>
+  <sys:String x:Key="Main_Cond_PageImageLink">a link (the file can be opened)</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Put print images into the Markdown (built-in only)</sys:String>
   <sys:String x:Key="Main_Cond_Extractor">Extractor</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorBuiltIn">built-in</sys:String>

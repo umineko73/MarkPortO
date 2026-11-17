@@ -309,6 +309,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public bool CanEditStep1Tables => !IsRunning && Step3;
 
+    /// <summary>How the page image is written can be chosen while Step2 is on (FR-149).</summary>
+    public bool CanEditPageImage => !IsRunning && Step2;
+
     /// <summary>The pages that Step3 reads, as written (FR-097). Not kept in the settings: it is for the one file that is converted.</summary>
     public string PageRangeText
     {
@@ -334,6 +337,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(CanEditNewRun));
         Raise(nameof(CanEditVlmSeparate));
         Raise(nameof(CanEditStep1Tables));
+        Raise(nameof(CanEditPageImage));
         Raise(nameof(CanEditPrompts));
         Raise(nameof(CanEditPages));
         Raise(nameof(PagesTip));
@@ -525,6 +529,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             _store.Update(s => s.Steps.Step2 = value);
             Raise();
+            Raise(nameof(CanEditPageImage));
         }
     }
 
@@ -836,6 +841,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public RelayCommand ExtractorSettingsCommand { get; }
 
     public RelayCommand PromptsCommand { get; }
+
+    /// <summary>How the print image of a page is written in the Markdown: 0 an image that a viewer shows, 1 a comment that it does not, 2 a link (FR-149).</summary>
+    public int PageImageIndex
+    {
+        get => (int)_store.Current.Steps.PageImage;
+        set
+        {
+            if (value is >= 0 and <= 2)
+            {
+                _store.Update(s => s.Steps.PageImage = (PageImageStyle)value);
+            }
+
+            Raise();
+        }
+    }
 
     /// <summary>Write the VLM results to a separate file (FR-058).</summary>
     public bool VlmSeparate
@@ -1282,6 +1302,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Step3 = snapshot.Steps.Step3,
                 VlmSeparate = snapshot.Steps.VlmSeparate,
                 Step1Tables = snapshot.Steps.Step1Tables,
+                PageImage = snapshot.Steps.PageImage,
                 DropRepeatedTables = snapshot.Steps.DropRepeatedTables,
             },
             token));

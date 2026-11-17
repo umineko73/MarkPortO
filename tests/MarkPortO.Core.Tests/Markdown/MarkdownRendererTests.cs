@@ -61,6 +61,38 @@ public class MarkdownRendererTests
         Assert.Contains("> - 削除ページ: `<!-- deleted page=N -->` の目印のあとの、`> **[削除ページ]**` で始まる引用。", markdown);
     }
 
+    // FR-149: the print image of a page is a comment that a viewer does not show, and a program or a model can read.
+    [Fact]
+    public void Render_WithAReferenceToThePageImage_WritesAComment_NotAnImage()
+    {
+        var document = Docx();
+        document.PageImage = PageImageStyle.Reference;
+
+        var markdown = MarkdownRenderer.Render(document);
+
+        Assert.Contains("<!-- page: 1 -->\n<!-- page-image: images/page-001.png -->\n", markdown, StringComparison.Ordinal);
+        Assert.Contains("<!-- page-image: images/page-002.png -->", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("![ページ", markdown, StringComparison.Ordinal);
+        Assert.Contains("> - ページ画像（Step2）: `<!-- page-image: images/page-NNN.png -->`", markdown, StringComparison.Ordinal);
+        // The comment is not shown by the preview either.
+        Assert.DoesNotContain("page-001.png", MarkdownHtml.Render(markdown), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_WithALinkToThePageImage_WritesALink_ThatThePreviewLeavesOutLikeTheImage()
+    {
+        var document = Docx();
+        document.PageImage = PageImageStyle.Link;
+
+        var markdown = MarkdownRenderer.Render(document);
+
+        Assert.Contains("<!-- page: 1 -->\n\n[ページ 1](images/page-001.png)\n", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("![ページ", markdown, StringComparison.Ordinal);
+        Assert.Contains("> - ページ画像（Step2）: `[ページ N](images/page-NNN.png)`", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("page-001.png", MarkdownHtml.Render(markdown), StringComparison.Ordinal);
+        Assert.Contains("href=\"images/page-001.png\"", MarkdownHtml.Render(markdown, showImages: true), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Render_PutsEachPagesImageThenItsText_InOrder()
     {

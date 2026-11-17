@@ -69,6 +69,11 @@
   <sys:String x:Key="Main_Cond_Engine">印刷エンジン</sys:String>
   <sys:String x:Key="Main_Cond_Dpi">DPI</sys:String>
   <sys:String x:Key="Main_Cond_Step1">印刷イメージ保存・テキスト抽出（常に実行）</sys:String>
+  <sys:String x:Key="Main_Cond_PageImage">印刷イメージの書き方</sys:String>
+  <sys:String x:Key="Main_Cond_PageImageTip">画像: Markdown のビューアに、各ページの印刷イメージが表示されます。リンク: [ページ 1](images/page-001.png)。ビューアには、画像ではなくリンクが表示されます。参照: パスをコメント（&lt;!-- page-image: images/page-001.png --&gt;）で書くので、ビューアには表示されず、プログラムやモデルは読めます。まったく書かないのは Step2 をオフにします。</sys:String>
+  <sys:String x:Key="Main_Cond_PageImageImage">画像（ビューアに表示）</sys:String>
+  <sys:String x:Key="Main_Cond_PageImageReference">参照（コメント、表示しない）</sys:String>
+  <sys:String x:Key="Main_Cond_PageImageLink">リンク（ファイルを開ける）</sys:String>
   <sys:String x:Key="Main_Cond_Step2">Markdownに印刷イメージ差し込み(内蔵選択時のみ)</sys:String>
   <sys:String x:Key="Main_Cond_Extractor">抽出方法</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorBuiltIn">内蔵</sys:String>

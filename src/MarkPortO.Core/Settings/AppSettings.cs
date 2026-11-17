@@ -378,6 +378,9 @@ public sealed class StepSettings
 {
     public bool Step2 { get; set; } = true;
 
+    /// <summary>How the print image of a page is written in the Markdown (FR-149): as a comment that a viewer does not show, or as an image.</summary>
+    public PageImageStyle PageImage { get; set; } = PageImageStyle.Reference;
+
     public bool Step3 { get; set; }
 
     /// <summary>Write the VLM results to a separate file, <c>name_vlm.md</c>, not into the Markdown of the document (FR-058).</summary>

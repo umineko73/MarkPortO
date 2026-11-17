@@ -176,7 +176,8 @@ markporto-cli check-connection --settings settings.json
 
 | オプション | 内容 |
 |---|---|
-| `--step2 on\|off` | Markdownにページ画像を差し込む。 |
+| `--step2 on\|off` | ページ画像を作り、Markdownに書く。 |
+| `--page-image image\|reference\|link` | ページ画像の書き方（Step2のとき）。reference（既定）はコメント `<!-- page-image: images/page-001.png -->`（ビューアには表示されず、プログラムやモデルは読める）、image は `![ページ 1](images/page-001.png)`（ビューアに表示される）、link は `[ページ 1](images/page-001.png)`（画像ではなくリンクが表示される）。 |
 | `--step3 on\|off` | VLMでページ画像から文字を読み取る。 |
 | `--connection <名前>` | 使うVLM接続。 |
 | `--prompt <名前>` | VLMのプロンプト。その名前のプロンプトがあるすべての種類に使います（`standard` も可）。`--resume` では使いません。 |

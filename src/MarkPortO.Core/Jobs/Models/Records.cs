@@ -161,6 +161,9 @@ public sealed class DocumentRecord
 
     public StepStatus Step3 { get; set; } = StepStatus.Pending;
 
+    /// <summary>How the print image of a page is written in the Markdown (FR-149). A document from before this setting has an image.</summary>
+    public PageImageStyle PageImage { get; set; }
+
     /// <summary>The VLM results are written to <c>name_vlm.md</c>, not into the Markdown of the document (FR-058).</summary>
     public bool VlmSeparate { get; set; }
 
@@ -268,6 +271,9 @@ public sealed class OptionsSnapshot
     public bool Step2 { get; set; }
 
     public bool Step3 { get; set; }
+
+    /// <summary>How the print image of a page is written in the Markdown (FR-149). A job from before this setting wrote an image.</summary>
+    public PageImageStyle PageImage { get; set; }
 
     public bool VlmSeparate { get; set; }
 

@@ -31,6 +31,12 @@
   <data name="- Page separator: `&lt;!-- page: N --&gt;` (N is the page number). Everything from this line to the next separator is the content of that page." xml:space="preserve">
     <value>- ページの区切り: `&lt;!-- page: N --&gt;`（N は通し番号）。この行から次の区切りまでが、そのページの内容です。</value>
   </data>
+  <data name="- Page images (Step2): `&lt;!-- page-image: images/page-NNN.png --&gt;`. The file of an image of the page as it is printed. It is a comment, so a Markdown viewer does not show it." xml:space="preserve">
+    <value>- ページ画像（Step2）: `&lt;!-- page-image: images/page-NNN.png --&gt;`。そのページを印刷した見た目の画像のファイルです。コメントなので、Markdown のビューアには表示されません。</value>
+  </data>
+  <data name="- Page images (Step2): `[Page N](images/page-NNN.png)`. A link to the file of an image of the page as it is printed. A Markdown viewer shows the link, not the image." xml:space="preserve">
+    <value>- ページ画像（Step2）: `[ページ N](images/page-NNN.png)`。そのページを印刷した見た目の画像のファイルへのリンクです。Markdown のビューアには、画像ではなくリンクが表示されます。</value>
+  </data>
   <data name="- Page images (Step2): `![Page N](images/page-NNN.png)`. An image of the page as it is printed." xml:space="preserve">
     <value>- ページ画像（Step2）: `![ページ N](images/page-NNN.png)`。そのページを印刷した見た目の画像です。</value>
   </data>
