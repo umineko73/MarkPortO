@@ -374,7 +374,8 @@ public class ShapeCutTests
 
         var log = PictureFiles.Write(dir.Path, blocks, 1, collector, page => page == 1 ? image : null);
 
-        Assert.Equal("![Flow](pictures/page-001-1.png)\n\n![Lost]\n\n", blocks[0].Markdown);
+        // 100 pixels of the page image at 150 dpi are 64 pixels at 96 to the inch: the width of the shape in the document (FR-148).
+        Assert.Equal("<img src=\"pictures/page-001-1.png\" alt=\"Flow\" width=\"64\">\n\n![Lost]\n\n", blocks[0].Markdown);
         using var piece = new Bitmap(dir.Combine("pictures", "page-001-1.png"));
         Assert.Equal((100, 60), (piece.Width, piece.Height));
         Assert.Equal(Color.Red.ToArgb(), piece.GetPixel(50, 30).ToArgb());

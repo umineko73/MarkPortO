@@ -76,7 +76,7 @@ public class ConvertSingleFileTests
         var converted = Assert.Single(result.Documents);
         Assert.True(converted.IsDone());
         Assert.Equal(Ooxml.PictureExtractionTests.RedPng, File.ReadAllBytes(Path.Combine(converted.OutputFolder, "pictures", "page-002-1.png")));
-        var markdown = File.ReadAllText(Path.Combine(converted.OutputFolder, "pictures.md"));
+        var markdown = Fixtures.PlainPictures.Of(File.ReadAllText(Path.Combine(converted.OutputFolder, "pictures.md")));
         Assert.Contains("Second page text![Company logo](pictures/page-002-1.png)", markdown);
         Assert.Contains("pictures/page-NNN-K.png", markdown); // the structure note
     }
@@ -112,7 +112,7 @@ public class ConvertSingleFileTests
         Assert.True(converted.IsDone());
         Assert.True(File.Exists(Path.Combine(converted.OutputFolder, "pictures", "page-001-1.png")));
         var markdown = File.ReadAllText(Path.Combine(converted.OutputFolder, "book.md"));
-        Assert.Matches(@"\| Pear \| 5 \|\n\n!\[Flow\]\(pictures/page-001-1\.png\)", markdown);
+        Assert.Matches(@"\| Pear \| 5 \|\n\n(?:!\[Flow\]\(pictures/page-001-1\.png\)|<img src=""pictures/page-001-1\.png"" alt=""Flow"" width=""\d+"">)", markdown);
         Assert.Contains("turned into a PNG from image/x-emf", File.ReadAllText(Path.Combine(converted.OutputFolder, "book.log")));
     }
 
@@ -140,7 +140,7 @@ public class ConvertSingleFileTests
 
         var converted = Assert.Single(result.Documents);
         Assert.True(converted.IsDone());
-        Assert.Contains("![](pictures/page-001-1.png)", File.ReadAllText(Path.Combine(converted.OutputFolder, "deck.md")));
+        Assert.Contains("![](pictures/page-001-1.png)", Fixtures.PlainPictures.Of(File.ReadAllText(Path.Combine(converted.OutputFolder, "deck.md"))));
         AssertCutsARedRectangle(Path.Combine(converted.OutputFolder, "pictures", "page-001-1.png"));
     }
 
@@ -188,7 +188,7 @@ public class ConvertSingleFileTests
 
         var converted = Assert.Single(result.Documents);
         Assert.True(converted.IsDone());
-        Assert.Contains("![](pictures/page-001-1.png)", File.ReadAllText(Path.Combine(converted.OutputFolder, "book.md")));
+        Assert.Contains("![](pictures/page-001-1.png)", Fixtures.PlainPictures.Of(File.ReadAllText(Path.Combine(converted.OutputFolder, "book.md"))));
         AssertCutsARedRectangle(Path.Combine(converted.OutputFolder, "pictures", "page-001-1.png"));
     }
 

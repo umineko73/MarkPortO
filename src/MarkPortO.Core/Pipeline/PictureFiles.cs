@@ -16,6 +16,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
+using System.Net;
 using System.Text.RegularExpressions;
 using MarkPortO.Core.IO;
 using MarkPortO.Core.Jobs.Models;
@@ -55,6 +56,7 @@ public static partial class PictureFiles
         var onPage = new Dictionary<int, int>();
         var byHash = new Dictionary<string, string>(StringComparer.Ordinal);
         var byMark = new Dictionary<int, string?>();
+        var shapeWidths = new Dictionary<int, int>();
         var images = new Dictionary<int, Bitmap?>();
         try
         {
@@ -70,8 +72,18 @@ public static partial class PictureFiles
                 block.Markdown = MarkedReference.Replace(block.Markdown, match =>
                 {
                     var text = match.Groups[1].Value;
-                    var name = NameOf(int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture), page);
-                    return name is not null ? "![" + text + "](" + name + ")" : text.Length == 0 ? string.Empty : "![" + text + "]";
+                    var number = int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
+                    var name = NameOf(number, page);
+                    if (name is null)
+                    {
+                        return text.Length == 0 ? string.Empty : "![" + text + "]";
+                    }
+
+                    // The width that the picture has in the document (FR-148): an <img> can say it, a Markdown picture cannot.
+                    int? width = match.Groups[3].Success ? int.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture) : shapeWidths.GetValueOrDefault(number);
+                    return width is > 0
+                        ? "<img src=\"" + name + "\" alt=\"" + WebUtility.HtmlEncode(text.Replace("\\]", "]", StringComparison.Ordinal)) + "\" width=\"" + width.Value.ToString(CultureInfo.InvariantCulture) + "\">"
+                        : "![" + text + "](" + name + ")";
                 });
             }
         }
@@ -100,7 +112,13 @@ public static partial class PictureFiles
             var picture = collector.Pictures[number];
             if (!byHash.TryGetValue(picture.Hash, out var name))
             {
-                var data = picture.IsShape ? Cut(picture.Area, page) : picture.Data;
+                var cutWidth = 0;
+                var data = picture.IsShape ? Cut(picture.Area, page, out cutWidth) : picture.Data;
+                if (cutWidth > 0)
+                {
+                    shapeWidths[number] = cutWidth;
+                }
+
                 if (data is null)
                 {
                     byMark[number] = null;
@@ -122,8 +140,9 @@ public static partial class PictureFiles
         }
 
         // The PNG of the part of the page image where a drawn shape is (FR-136); null when it cannot be cut out.
-        byte[]? Cut(ShapeArea? area, int blockPage)
+        byte[]? Cut(ShapeArea? area, int blockPage, out int width)
         {
+            width = 0;
             if (area is null)
             {
                 log.Add("a drawn shape is not cut out: its place on the page is not known (a sheet that follows its own print setup)");
@@ -160,6 +179,8 @@ public static partial class PictureFiles
                 return null;
             }
 
+            // The page image is at the dpi of the page images; in the document the picture is as wide as it is at 96 to the inch.
+            width = (int)Math.Round((right - left) * 96.0 / collector.Dpi);
             using var piece = image.Clone(new Rectangle(left, top, right - left, bottom - top), image.PixelFormat);
             using var stream = new MemoryStream();
             piece.Save(stream, ImageFormat.Png);
@@ -172,14 +193,19 @@ public static partial class PictureFiles
     /// and a picture without a text is left out.
     /// </summary>
     public static string WithoutFiles(string markdown) =>
-        markdown.Contains("](" + Folder + "/", StringComparison.Ordinal)
-            ? Reference().Replace(markdown, match => match.Groups[1].Value.Length == 0 ? string.Empty : "![" + match.Groups[1].Value + "]")
+        markdown.Contains("](" + Folder + "/", StringComparison.Ordinal) || markdown.Contains("<img src=\"" + Folder + "/", StringComparison.Ordinal)
+            ? Reference().Replace(markdown, match =>
+            {
+                // A Markdown picture keeps its text as it is; an <img> has its text as HTML.
+                var text = match.Groups[2].Success ? WebUtility.HtmlDecode(match.Groups[2].Value).Replace("]", "\\]", StringComparison.Ordinal) : match.Groups[1].Value;
+                return text.Length == 0 ? string.Empty : "![" + text + "]";
+            })
             : markdown;
 
-    [GeneratedRegex(@"!\[((?:\\.|[^\]\\])*)\]\(pictures/[^)\s]*\)")]
+    [GeneratedRegex("""!\[((?:\\.|[^\]\\])*)\]\(pictures/[^)\s]*\)|<img src="pictures/[^"]*" alt="([^"]*)" width="\d+">""")]
     private static partial Regex Reference();
 
     // A picture with a mark: ![text](mark). The marks are written only by PictureCollector.Markdown, always in this form.
     private static readonly Regex MarkedReference = new(
-        @"!\[((?:\\.|[^\]\\])*)\]\(" + PictureCollector.MarkStart + @"(\d+)" + PictureCollector.MarkEnd + @"\)", RegexOptions.CultureInvariant);
+        @"!\[((?:\\.|[^\]\\])*)\]\(" + PictureCollector.MarkStart + @"(\d+)(?:;(\d+))?" + PictureCollector.MarkEnd + @"\)", RegexOptions.CultureInvariant);
 }

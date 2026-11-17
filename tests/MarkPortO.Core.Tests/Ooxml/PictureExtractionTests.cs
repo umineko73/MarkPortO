@@ -117,9 +117,9 @@ public class PictureExtractionTests
         }
 
         var log = PictureFiles.Write(dir.Path, blocks, 3, collector);
-        var markdown = string.Join("\n\n", blocks.Select(b => b.Markdown));
+        var markdown = PlainPictures.Of(string.Join("\n\n", blocks.Select(b => b.Markdown)));
 
-        Assert.Equal("First ![Company logo](pictures/page-001-1.png)", blocks[0].Markdown);
+        Assert.Equal("First ![Company logo](pictures/page-001-1.png)", PlainPictures.Of(blocks[0].Markdown));
         // A floating picture follows its paragraph as a line of its own; in a cell it stays in the cell.
         Assert.Contains("Second\n\n![](pictures/page-002-1.jpg)", markdown, StringComparison.Ordinal);
         Assert.Contains("| cell![Blue](pictures/page-002-2.png) | other |", markdown, StringComparison.Ordinal);
@@ -185,7 +185,7 @@ public class PictureExtractionTests
         var blocks = new List<Block> { new() { Kind = BlockKind.SlideText, Markdown = slide.Markdown, PageIndex = 1 } };
         PictureFiles.Write(dir.Path, blocks, 1, collector);
 
-        Assert.Contains("- point\n\n![Company logo](pictures/page-001-1.png)\n\n![](pictures/page-001-2.png)", blocks[0].Markdown, StringComparison.Ordinal);
+        Assert.Contains("- point\n\n![Company logo](pictures/page-001-1.png)\n\n![](pictures/page-001-2.png)", PlainPictures.Of(blocks[0].Markdown), StringComparison.Ordinal);
         Assert.Equal(["page-001-1.png", "page-001-2.png"], Directory.GetFiles(dir.Combine("pictures")).Select(Path.GetFileName).Order(StringComparer.Ordinal));
         Assert.Contains(collector.Skipped, s => s.Contains("image/x-emf", StringComparison.Ordinal));
         Assert.DoesNotContain("page-001-3", blocks[0].Markdown, StringComparison.Ordinal);
@@ -241,9 +241,45 @@ public class PictureExtractionTests
     [InlineData("![](pictures/page-002-1.jpg)", "")]
     [InlineData("![A \\] b](pictures/page-010-2.gif)", "![A \\] b]")]
     [InlineData("![Page 1](images/page-001.png)", "![Page 1](images/page-001.png)")]
+    [InlineData("See <img src=\"pictures/page-001-1.png\" alt=\"Logo\" width=\"96\"> here", "See ![Logo] here")]
+    [InlineData("<img src=\"pictures/page-002-1.jpg\" alt=\"\" width=\"300\">", "")]
+    [InlineData("<img src=\"pictures/page-010-2.gif\" alt=\"A &quot;b&quot; ] c\" width=\"10\">", "![A \"b\" \\] c]")]
     public void TheTextSentToTheVlm_HasNoFilesOfPictures(string markdown, string expected)
     {
         Assert.Equal(expected, PictureFiles.WithoutFiles(markdown));
+    }
+
+    // FR-148: a picture whose width in the document is known (the extent of its drawing) is an <img> with that width, in pixels at 96 to the inch.
+    [Fact]
+    public void APictureWithAWidth_IsAnImgTag_AndOneWithoutIsAMarkdownPicture()
+    {
+        var collector = new PictureCollector();
+        var mark = collector.AddShape(null);
+        var blocks = new List<Block>
+        {
+            new() { Kind = BlockKind.Paragraph, Markdown = PictureCollector.Markdown("A \"quoted\" <logo>", mark, PictureCollector.PixelsOfEmu(952500)), PageIndex = 1 },
+        };
+
+        Assert.Equal("![A \"quoted\" <logo>](" + mark[..^1] + ";100" + mark[^1] + ")", blocks[0].Markdown);
+        Assert.Equal(100, PictureCollector.PixelsOfEmu(952500));
+        Assert.Null(PictureCollector.PixelsOfEmu(0));
+        Assert.Null(PictureCollector.PixelsOfEmu(null));
+    }
+
+    [Fact]
+    public void Docx_APictureIsAnImgTagWithItsWidthInTheDocument()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("pictures.docx");
+        CreateDocument(path);
+        var collector = new PictureCollector();
+
+        var blocks = DocxReader.ReadContent(path, pictures: collector).Blocks.Select(b => b.Block).ToList();
+        blocks.ForEach(b => b.PageIndex = 1);
+        PictureFiles.Write(dir.Path, blocks, 1, collector);
+
+        // 952500 EMU is 100 pixels at 96 to the inch.
+        Assert.Equal("First <img src=\"pictures/page-001-1.png\" alt=\"Company logo\" width=\"100\">", blocks[0].Markdown);
     }
 
     [Fact]
@@ -326,7 +362,7 @@ public class PictureExtractionTests
         blocks.ForEach(b => b.PageIndex = 1);
         var log = PictureFiles.Write(dir.Path, blocks, 1, collector);
 
-        Assert.Equal("Figure ![Flow](pictures/page-001-1.png)", blocks[0].Markdown);
+        Assert.Equal("Figure ![Flow](pictures/page-001-1.png)", PlainPictures.Of(blocks[0].Markdown));
         Assert.Empty(collector.Skipped);
         Assert.Contains("turned into a PNG from image/x-emf", Assert.Single(log), StringComparison.Ordinal);
         using var image = new System.Drawing.Bitmap(dir.Combine("pictures", "page-001-1.png"));

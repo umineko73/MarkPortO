@@ -166,10 +166,24 @@ public sealed class PictureCollector(int dpi = 150, bool savePictures = true, bo
         return Mark(_pictures.Count - 1);
     }
 
-    /// <summary>A picture in Markdown: <c>![text](mark)</c>, or, without a mark, <c>![text]</c> (nothing without a text, FR-071).</summary>
-    public static string Markdown(string? description, string? mark)
+    /// <summary>The resolution of the page images, in dots per inch (the size of a shape that is cut out of one).</summary>
+    public int Dpi => dpi;
+
+    /// <summary>The width in CSS pixels (96 to the inch) of something <paramref name="emu"/> wide (914400 to the inch); null when it is not known.</summary>
+    public static int? PixelsOfEmu(double? emu) => emu is > 0 ? Math.Max(1, (int)Math.Round(emu.Value / 9525.0)) : null;
+
+    /// <summary>
+    /// A picture in Markdown: <c>![text](mark)</c>, or, without a mark, <c>![text]</c> (nothing without a text, FR-071). <paramref name="widthPixels"/>
+    /// is the width of the picture in the document: it goes into the mark (<c>mark;width</c>), and the picture is then written as an <c>&lt;img&gt;</c> with that width (FR-148).
+    /// </summary>
+    public static string Markdown(string? description, string? mark, int? widthPixels = null)
     {
         var text = (description ?? string.Empty).Trim().Replace("]", "\\]", StringComparison.Ordinal).Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
+        if (mark is not null && widthPixels is > 0)
+        {
+            mark = mark[..^1] + ";" + widthPixels.Value.ToString(CultureInfo.InvariantCulture) + MarkEnd;
+        }
+
         return mark is null ? (text.Length == 0 ? string.Empty : "![" + text + "]") : "![" + text + "](" + mark + ")";
     }
 }

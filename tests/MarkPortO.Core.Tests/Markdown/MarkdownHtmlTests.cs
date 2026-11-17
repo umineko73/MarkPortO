@@ -64,6 +64,16 @@ public class MarkdownHtmlTests
         Assert.Contains("<img src=\"pictures/page-001-2.jpg\"", html);
     }
 
+    // FR-148: the raw HTML is not allowed, but the <img> of a picture of the document (with its width) is shown as that picture.
+    [Fact]
+    public void Render_ShowsAnImgTagOfAPictureOfTheDocumentWithItsWidth()
+    {
+        var html = MarkdownHtml.Render("Text\n\n<img src=\"pictures/page-001-1.png\" alt=\"A &quot;logo&quot;\" width=\"300\">\n");
+
+        Assert.Contains("<img src=\"pictures/page-001-1.png\" width=\"300\" alt=\"A &quot;logo&quot;\"", html);
+        Assert.DoesNotContain("&lt;img", html);
+    }
+
     [Fact]
     public void Render_DoesNotLetTheTextOfADocumentRunOrReachOut()
     {

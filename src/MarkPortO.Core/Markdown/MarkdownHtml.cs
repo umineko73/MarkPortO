@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using System.Net;
 using System.Text.RegularExpressions;
 using Markdig;
 
@@ -49,6 +50,10 @@ public static partial class MarkdownHtml
     // A line that is only the image of the page (images/page-001.png). A picture of the document (pictures/, FR-133) on a line of its own stays.
     [GeneratedRegex(@"^[ 	]*!\[[^\]]*\]\(images/[^)]*\)[ 	]*$", RegexOptions.Multiline)]
     private static partial Regex ImageLine();
+
+    // The picture of the document that PictureFiles writes with its width: <img src="pictures/page-001-1.png" alt="text" width="300">.
+    [GeneratedRegex("""<img src="(pictures/[^"\s)]*)" alt="([^"]*)" width="(\d+)">""")]
+    private static partial Regex SizedPicture();
 
     /// <summary>
     /// The wide spaces (U+3000) at the start of a line, which indent it (an indented line of an Excel sheet), are written as character
@@ -102,6 +107,9 @@ public static partial class MarkdownHtml
             text = ImageLine().Replace(text, string.Empty);
         }
 
+        // A picture of the document with its width (FR-148): the raw HTML is not allowed, so it is read as the Markdown picture with the width as an attribute.
+        text = SizedPicture().Replace(text, match =>
+            "![" + WebUtility.HtmlDecode(match.Groups[2].Value).Replace("]", "\\]", StringComparison.Ordinal) + "](" + match.Groups[1].Value + "){width=" + match.Groups[3].Value + "}");
         text = KeepLeadingWideSpaces(text.Replace("<br>", BreakToken, StringComparison.OrdinalIgnoreCase));
         var body = Markdig.Markdown.ToHtml(text, Pipeline).Replace(BreakToken, "<br>", StringComparison.Ordinal);
         return "<!doctype html><html><head><meta charset=\"utf-8\">"

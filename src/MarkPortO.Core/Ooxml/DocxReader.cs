@@ -14,6 +14,7 @@
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
 using MarkPortO.Core.Localization;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml;
@@ -308,6 +309,9 @@ public static partial class DocxReader
             }
 
             var owner = OwnerOf(drawing);
+
+            // The width of a picture alone is the extent of its drawing; a picture of a group is scaled by the group, so its width is not written.
+            var width = pictures.Count == 1 ? PictureCollector.PixelsOfEmu(drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.Extent>().FirstOrDefault()?.Cx?.Value) : null;
             foreach (var picture in pictures)
             {
                 // A picture of a group has its own name and text; a picture alone has those of the drawing.
@@ -317,7 +321,7 @@ public static partial class DocxReader
                 var text = !string.IsNullOrWhiteSpace(ownDescription) ? ownDescription : pictures.Count == 1 ? description : null;
                 var blip = picture.Descendants<OpenXmlElement>().FirstOrDefault(e => e.LocalName == "blip");
                 var mark = blip is null ? null : Pictures!.Add(owner, RelationshipOf(blip, "embed"), pictures.Count == 1 ? properties?.Name?.Value ?? ownName : ownName);
-                if (PictureCollector.Markdown(text, mark) is { Length: > 0 } markdown)
+                if (PictureCollector.Markdown(text, mark, width) is { Length: > 0 } markdown)
                 {
                     yield return markdown;
                 }
@@ -339,7 +343,9 @@ public static partial class DocxReader
                 string? Attribute(OpenXmlElement? element, string name) => element?.GetAttributes().FirstOrDefault(a => a.LocalName == name && a.NamespaceUri.Length == 0).Value;
                 var floating = Attribute(shape, "style")?.Contains("position:absolute", StringComparison.OrdinalIgnoreCase) == true;
                 var mark = Pictures.Add(owner, RelationshipOf(data, "id"), Attribute(shape, "id"));
-                if (PictureCollector.Markdown(Attribute(shape, "alt"), mark) is { Length: > 0 } markdown)
+                var vmlWidth = System.Text.RegularExpressions.Regex.Match(Attribute(shape, "style") ?? string.Empty, @"(?:^|;)\s*width\s*:\s*([0-9.]+)pt", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+                int? vmlPixels = vmlWidth.Success && double.TryParse(vmlWidth.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var points) && points > 0 ? Math.Max(1, (int)Math.Round(points * 96 / 72)) : null;
+                if (PictureCollector.Markdown(Attribute(shape, "alt"), mark, vmlPixels) is { Length: > 0 } markdown)
                 {
                     yield return (markdown, floating);
                 }

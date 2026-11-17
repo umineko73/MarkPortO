@@ -1370,7 +1370,9 @@ public static partial class XlsxReader
             {
                 var properties = picture.NonVisualPictureProperties?.NonVisualDrawingProperties;
                 var mark = pictures.Add(drawingsPart, picture.BlipFill?.Blip?.Embed?.Value, properties?.Name?.Value);
-                if (PictureCollector.Markdown(properties?.Description?.Value, mark) is { Length: > 0 } markdown)
+                // The width of the picture in the sheet: the extent of its shape, or of its anchor when it has none.
+                var extent = picture.ShapeProperties?.Transform2D?.Extents?.Cx?.Value ?? (anchor as Xdr.OneCellAnchor)?.Extent?.Cx?.Value;
+                if (PictureCollector.Markdown(properties?.Description?.Value, mark, PictureCollector.PixelsOfEmu(extent)) is { Length: > 0 } markdown)
                 {
                     // The row is kept as it is (a picture above the used range comes first); the column is that of a part of the sheet.
                     result.Add(new SheetPicture(row - minRow, Math.Clamp(column, minColumn, maxColumn) - minColumn, markdown));

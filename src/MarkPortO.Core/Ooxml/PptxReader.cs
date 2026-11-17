@@ -269,7 +269,7 @@ public static class PptxReader
                         mark = context.Pictures.Add(part, picture.BlipFill?.Blip?.Embed?.Value, drawingProperties?.Name?.Value);
                     }
 
-                    if (PictureCollector.Markdown(drawingProperties?.Description?.Value, mark) is { Length: > 0 } pictureMarkdown)
+                    if (PictureCollector.Markdown(drawingProperties?.Description?.Value, mark, PictureCollector.PixelsOfEmu(picture.ShapeProperties?.Transform2D?.Extents?.Cx?.Value)) is { Length: > 0 } pictureMarkdown)
                     {
                         body.Add(pictureMarkdown);
                     }
@@ -428,7 +428,7 @@ public static class PptxReader
             var picture = context.Pictures2[k];
             var inside = picture.Box is { } b && placed.Any(p => b.Left >= p.Left - gap / 4 && b.Top >= p.Top - gap / 4 && b.Right <= p.Right + gap / 4 && b.Bottom <= p.Bottom + gap / 4);
             var mark = inside ? null : picture.Collect();
-            var markdown = inside ? string.Empty : PictureCollector.Markdown(picture.Description, mark);
+            var markdown = inside ? string.Empty : PictureCollector.Markdown(picture.Description, mark, picture.Box is { } wide ? PictureCollector.PixelsOfEmu(wide.Right - wide.Left) : null);
             body[picture.BodyIndex] = markdown.Length > 0 ? markdown : MergedCut;
         }
 
