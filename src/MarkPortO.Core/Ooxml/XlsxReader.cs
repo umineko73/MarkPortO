@@ -1154,7 +1154,7 @@ public static partial class XlsxReader
                 Hidden = hidden,
                 Rows = [],
                 ColumnWidthsPoints = [],
-                Charts = [.. (part.DrawingsPart?.ChartParts ?? []).Select(ChartReader.Read).OfType<ChartInfo>()],
+                Charts = VisibleCharts(part),
             };
         }
 
@@ -1227,7 +1227,7 @@ public static partial class XlsxReader
             Shapes = shapes,
             RowHeightsPoints = rowHeights,
             ShapeColumnWidthsPoints = shapeColumnWidths,
-            Charts = [.. (part.DrawingsPart?.ChartParts ?? []).Select(ChartReader.Read).OfType<ChartInfo>()],
+            Charts = VisibleCharts(part),
             HiddenRows = HiddenRowSet(worksheet, minRow, maxRow),
             HiddenColumns = HiddenColumnSet(worksheet, minColumn, maxColumn),
             HasHeaderRow = hasHeaderRow,
@@ -1457,6 +1457,18 @@ public static partial class XlsxReader
         }
 
         return result.OrderBy(n => n.Row).ThenBy(n => n.Column).ToList();
+    }
+
+    /// <summary>The charts of the sheet, except the ones that are hidden (a hidden graphic frame).</summary>
+    private static List<ChartInfo> VisibleCharts(WorksheetPart part)
+    {
+        if (part.DrawingsPart is not { } drawings)
+        {
+            return [];
+        }
+
+        var hidden = HiddenObjects.HiddenChartIds(drawings.WorksheetDrawing);
+        return [.. drawings.ChartParts.Where(c => !hidden.Contains(drawings.GetIdOfPart(c))).Select(ChartReader.Read).OfType<ChartInfo>()];
     }
 
     private static HashSet<int> HiddenRowSet(Worksheet worksheet, int firstRow, int lastRow)

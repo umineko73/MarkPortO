@@ -56,6 +56,23 @@ internal static class HiddenObjects
     public static bool IsHiddenOrInHidden(OpenXmlElement element) =>
         IsHidden(element) || element.Ancestors<OpenXmlElement>().Any(IsHidden);
 
+    /// <summary>The relationship ids of the charts that are hidden in the drawing (a hidden graphic frame): the chart parts they name are not read.</summary>
+    public static HashSet<string> HiddenChartIds(OpenXmlElement? root)
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var element in root?.Descendants<OpenXmlElement>() ?? [])
+        {
+            if (element.LocalName == "chart" && element.NamespaceUri.EndsWith("drawingml/2006/chart", StringComparison.Ordinal)
+                && IsHiddenOrInHidden(element)
+                && element.GetAttributes().FirstOrDefault(a => a.LocalName == "id" && a.NamespaceUri.EndsWith("officeDocument/2006/relationships", StringComparison.Ordinal)).Value is { } id)
+            {
+                ids.Add(id);
+            }
+        }
+
+        return ids;
+    }
+
     private static bool HasHidden(OpenXmlElement properties) =>
         properties.GetAttributes().FirstOrDefault(a => a.LocalName == "hidden" && a.NamespaceUri.Length == 0).Value is "1" or "true";
 }

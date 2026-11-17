@@ -124,7 +124,8 @@ public static class PptxReader
         }
 
         // Charts and SmartArt of the slide, then the speaker notes (FR-072).
-        foreach (var chart in part.ChartParts.Select(ChartReader.Read).OfType<ChartInfo>())
+        var hiddenCharts = HiddenObjects.HiddenChartIds(part.Slide);
+        foreach (var chart in part.ChartParts.Where(c => !hiddenCharts.Contains(part.GetIdOfPart(c))).Select(ChartReader.Read).OfType<ChartInfo>())
         {
             body.Add(chart.ToMarkdown());
         }

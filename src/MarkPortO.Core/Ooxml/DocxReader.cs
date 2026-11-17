@@ -390,7 +390,7 @@ public static partial class DocxReader
         {
             foreach (var drawing in paragraph.Descendants<Drawing>())
             {
-                if (drawing.Ancestors<AlternateContentFallback>().Any())
+                if (drawing.Ancestors<AlternateContentFallback>().Any() || drawing.ChildElements.Any(HiddenObjects.IsHidden))
                 {
                     continue;
                 }

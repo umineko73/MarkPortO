@@ -43,6 +43,43 @@ public class HiddenObjectsTests
         Assert.Contains("Kept title", markdown, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void Pptx_AHiddenChartIsNotWritten_AndAShownOneIs(bool hidden, bool written)
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("c.pptx");
+        PptxFactory.Create(path, new SlideSpec("Charts", ["intro"]));
+        using (var document = PresentationDocument.Open(path, true))
+        {
+            var slidePart = document.PresentationPart!.SlideParts.Single();
+            var chart = slidePart.AddNewPart<ChartPart>();
+            chart.ChartSpace = new DocumentFormat.OpenXml.Drawing.Charts.ChartSpace(XlsxReaderTests.BarChartXml);
+            var id = slidePart.GetIdOfPart(chart);
+            string xml;
+            using (var reader = new StreamReader(slidePart.GetStream()))
+            {
+                xml = reader.ReadToEnd();
+            }
+
+            var frame = $"""
+                <p:graphicFrame xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                  <p:nvGraphicFramePr><p:cNvPr id="50" name="Chart 1" hidden="{(hidden ? 1 : 0)}"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>
+                  <p:xfrm><a:off x="0" y="0"/><a:ext cx="100" cy="100"/></p:xfrm>
+                  <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" r:id="{id}"/></a:graphicData></a:graphic>
+                </p:graphicFrame>
+                """;
+            xml = xml.Replace("</p:spTree>", frame + "</p:spTree>", StringComparison.Ordinal);
+            using var writer = new StreamWriter(slidePart.GetStream(FileMode.Create));
+            writer.Write(xml);
+        }
+
+        var markdown = Assert.Single(PptxReader.Read(path, includeHidden: false)).Markdown;
+
+        Assert.Equal(written, markdown.Contains("Sales by year", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void IsHidden_ReadsTheHiddenFlagOfEveryKindOfObject()
     {
