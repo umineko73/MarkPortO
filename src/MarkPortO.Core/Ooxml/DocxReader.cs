@@ -286,11 +286,17 @@ public static partial class DocxReader
         /// </summary>
         public IEnumerable<string> PicturesOf(Drawing drawing)
         {
+            // A hidden drawing (or a hidden picture in a group) is not shown, so it is not written.
+            if (drawing.ChildElements.Any(HiddenObjects.IsHidden))
+            {
+                yield break;
+            }
+
             var properties = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties>().FirstOrDefault();
             var description = properties?.Description?.Value?.Trim();
             var pictures = Pictures is null
                 ? []
-                : drawing.Descendants<OpenXmlElement>().Where(e => e.LocalName == "pic" && e.NamespaceUri.EndsWith("drawingml/2006/picture", StringComparison.Ordinal)).ToList();
+                : drawing.Descendants<OpenXmlElement>().Where(e => e.LocalName == "pic" && e.NamespaceUri.EndsWith("drawingml/2006/picture", StringComparison.Ordinal) && !HiddenObjects.IsHiddenOrInHidden(e)).ToList();
             if (pictures.Count == 0)
             {
                 if (!string.IsNullOrEmpty(description) && drawing.Descendants<OpenXmlElement>().Any(e => e.LocalName == "blip"))
@@ -1016,6 +1022,12 @@ public static partial class DocxReader
             if (box.Ancestors<TextBoxContent>().Any())
             {
                 continue; // nested boxes are not unfolded
+            }
+
+            // A hidden text box (the selection pane, or an old shape with visibility:hidden) is not shown.
+            if (HiddenObjects.IsHiddenOrInHidden(box))
+            {
+                continue;
             }
 
             yield return box;

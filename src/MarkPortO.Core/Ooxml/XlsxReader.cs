@@ -1296,7 +1296,7 @@ public static partial class XlsxReader
                 _ => ((string?)null, (int?)null),
             };
             // A text box is text, not a drawing.
-            if (element is null || (element is Xdr.Shape textBox && textBox.NonVisualShapeProperties?.NonVisualShapeDrawingProperties?.TextBox?.Value == true))
+            if (element is null || HiddenObjects.IsHidden(element) || (element is Xdr.Shape textBox && textBox.NonVisualShapeProperties?.NonVisualShapeDrawingProperties?.TextBox?.Value == true))
             {
                 continue;
             }
@@ -1366,7 +1366,7 @@ public static partial class XlsxReader
             // The marker counts from 0; the rows and columns of the sheet from 1.
             var row = (int.TryParse(from?.RowId?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r) ? r : 0) + 1;
             var column = (int.TryParse(from?.ColumnId?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c) ? c : 0) + 1;
-            foreach (var picture in anchor.Descendants<Xdr.Picture>())
+            foreach (var picture in anchor.Descendants<Xdr.Picture>().Where(p => !HiddenObjects.IsHiddenOrInHidden(p)))
             {
                 var properties = picture.NonVisualPictureProperties?.NonVisualDrawingProperties;
                 var mark = pictures.Add(drawingsPart, picture.BlipFill?.Blip?.Embed?.Value, properties?.Name?.Value);

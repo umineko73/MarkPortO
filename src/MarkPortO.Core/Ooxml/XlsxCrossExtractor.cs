@@ -63,7 +63,7 @@ public static class XlsxCrossExtractor
                     continue;
                 }
 
-                foreach (var child in anchor.ChildElements)
+                foreach (var child in anchor.ChildElements.Where(c => !HiddenObjects.IsHidden(c)))
                 {
                     AddShape(child, widthFraction, heightFraction, shapes);
                 }
@@ -87,7 +87,7 @@ public static class XlsxCrossExtractor
                 break;
             case Xdr.GroupShape group:
                 var childExtents = group.GroupShapeProperties?.TransformGroup?.ChildExtents;
-                foreach (var child in group.ChildElements)
+                foreach (var child in group.ChildElements.Where(c => !HiddenObjects.IsHidden(c)))
                 {
                     // The children are placed in the group's own coordinates; they cover their share of the group's area.
                     var share = childExtents is { Cx.Value: > 0, Cy.Value: > 0 } ? ChildShare(child, childExtents) : (1.0, 1.0);

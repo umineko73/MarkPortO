@@ -48,7 +48,7 @@ public static class PptxReader
     }
 
     /// <summary>A picture of the slide that is not yet written: where it is (EMU), how to collect it, its alternative text and the place of its mark in the body.</summary>
-    private sealed record PendingPicture((double Left, double Top, double Right, double Bottom)? Box, Func<string?> Collect, string? Description, int BodyIndex);
+    private sealed record PendingPicture((double Left, double Top, double Right, double Bottom)? Box, Func<string?> Collect, string? Description, int BodyIndex, bool Media = false);
 
     /// <summary>A drawn shape that may be cut out: where it is on the slide (in EMU, with its turn), the place of its mark in the body, and its alternative text.</summary>
     private sealed record PendingCut(double X, double Y, double Width, double Height, double Degrees, string? Description, int BodyIndex);
@@ -166,8 +166,22 @@ public static class PptxReader
     {
         foreach (var element in container.ChildElements)
         {
+            // A shape, a picture, a text box or a group that is hidden (the selection pane) is not shown, so it is not written.
+            if (HiddenObjects.IsHidden(element))
+            {
+                continue;
+            }
+
             switch (element)
             {
+                case AlternateContent alternate:
+                    // A shape that older versions cannot show (an equation, whose Fallback is only its picture): the Choice is the shape itself.
+                    if (alternate.Elements<AlternateContentChoice>().FirstOrDefault() is { } choice)
+                    {
+                        Walk(choice, ref title, body, part, context, off, check);
+                    }
+
+                    break;
                 case Shape shape:
                     if (!(off || (check && IsOffSlide(shape.ShapeProperties?.Transform2D?.Offset, shape.ShapeProperties?.Transform2D?.Extents, context))))
                     {
@@ -243,7 +257,7 @@ public static class PptxReader
                         var embed = picture.BlipFill?.Blip?.Embed?.Value;
                         var name = drawingProperties?.Name?.Value;
                         var isMedia = IsMedia(picture);
-                        context.Pictures2.Add(new PendingPicture(box, () => context.Pictures is not null && !isMedia ? context.Pictures.Add(part, embed, name) : null, drawingProperties?.Description?.Value, body.Count));
+                        context.Pictures2.Add(new PendingPicture(box, () => context.Pictures is not null && !isMedia ? context.Pictures.Add(part, embed, name) : null, drawingProperties?.Description?.Value, body.Count, isMedia));
                         body.Add(string.Empty);
                         break;
                     }
@@ -315,10 +329,17 @@ public static class PptxReader
             return (Left: centreX - width / 2, Top: centreY - height / 2, Right: centreX + width / 2, Bottom: centreY + height / 2);
         }).ToList();
 
+        // A picture is near shapes, or near another picture, as a shape is: they are cut out together. A video, or a picture without a place, stays alone.
+        var cutCount = cuts.Count;
+        foreach (var picture in context.Pictures2)
+        {
+            boxes.Add(picture.Box is { } pictureBox && !picture.Media ? pictureBox : (double.NaN, double.NaN, double.NaN, double.NaN));
+        }
+
         bool Backdrop(int i) => (boxes[i].Right - boxes[i].Left) * (boxes[i].Bottom - boxes[i].Top) >= BackdropShare * context.Width * context.Height;
 
         // Shapes that are near one another (the gap between their boxes is small) are one cluster.
-        var cluster = Enumerable.Range(0, cuts.Count).ToArray();
+        var cluster = Enumerable.Range(0, boxes.Count).ToArray();
         int Root(int i)
         {
             while (cluster[i] != i)
@@ -329,12 +350,13 @@ public static class PptxReader
             return i;
         }
 
-        for (var i = 0; i < cuts.Count; i++)
+        for (var i = 0; i < boxes.Count; i++)
         {
-            for (var j = i + 1; j < cuts.Count; j++)
+            for (var j = i + 1; j < boxes.Count; j++)
             {
+                // On the same row (their heights meet, within the gap) they are together however far apart they are across: shapes in a row
+                // that were cut out in a column would change the look of the page. Above and below one another, only when they are near.
                 if (!Backdrop(i) && !Backdrop(j)
-                    && boxes[i].Left - gap <= boxes[j].Right && boxes[j].Left - gap <= boxes[i].Right
                     && boxes[i].Top - gap <= boxes[j].Bottom && boxes[j].Top - gap <= boxes[i].Bottom)
                 {
                     cluster[Root(j)] = Root(i);
@@ -342,9 +364,15 @@ public static class PptxReader
             }
         }
 
-        foreach (var members in Enumerable.Range(0, cuts.Count).GroupBy(Root))
+        var consumed = new HashSet<int>(); // the pictures that are in the picture of a cluster
+        foreach (var members in Enumerable.Range(0, boxes.Count).GroupBy(Root))
         {
             var list = members.ToList();
+            if (list.Count == 1 && list[0] >= cutCount)
+            {
+                continue; // a picture alone is kept as it is
+            }
+
             var left = list.Min(i => boxes[i].Left);
             var top = list.Min(i => boxes[i].Top);
             var right = list.Max(i => boxes[i].Right);
@@ -366,7 +394,10 @@ public static class PptxReader
                     : ShapeAreas.Of(left, top, right - left, bottom - top, 0, RoomPoints * EmuPerPoint, context.Width, context.Height);
             }
 
-            foreach (var index in list)
+            int BodyIndexOf(int i) => i < cutCount ? cuts[i].BodyIndex : context.Pictures2[i - cutCount].BodyIndex;
+            string? DescriptionOf(int i) => i < cutCount ? cuts[i].Description : context.Pictures2[i - cutCount].Description;
+            var first = list.OrderBy(BodyIndexOf).First();
+            foreach (var index in list.Where(i => i < cutCount))
             {
                 body[cuts[index].BodyIndex] = MergedCut;
             }
@@ -374,14 +405,26 @@ public static class PptxReader
             if (area is not null)
             {
                 placed.Add(list.Count == 1 ? boxes[list[0]] : (left, top, right, bottom));
-                var description = list.Select(i => cuts[i].Description).FirstOrDefault(d => !string.IsNullOrWhiteSpace(d));
-                body[cuts[list[0]].BodyIndex] = PictureCollector.Markdown(description, pictures.AddShape(area));
+                var description = list.OrderBy(BodyIndexOf).Select(DescriptionOf).FirstOrDefault(d => !string.IsNullOrWhiteSpace(d));
+                foreach (var index in list.Where(i => i >= cutCount))
+                {
+                    consumed.Add(index - cutCount);
+                    body[BodyIndexOf(index)] = MergedCut;
+                }
+
+                body[BodyIndexOf(first)] = PictureCollector.Markdown(description, pictures.AddShape(area));
             }
         }
 
         // A picture is written unless it lies within the picture of a cut shape (a little room is allowed).
-        foreach (var picture in context.Pictures2)
+        for (var k = 0; k < context.Pictures2.Count; k++)
         {
+            if (consumed.Contains(k))
+            {
+                continue;
+            }
+
+            var picture = context.Pictures2[k];
             var inside = picture.Box is { } b && placed.Any(p => b.Left >= p.Left - gap / 4 && b.Top >= p.Top - gap / 4 && b.Right <= p.Right + gap / 4 && b.Bottom <= p.Bottom + gap / 4);
             var mark = inside ? null : picture.Collect();
             var markdown = inside ? string.Empty : PictureCollector.Markdown(picture.Description, mark);
@@ -391,7 +434,7 @@ public static class PptxReader
         body.RemoveAll(b => b == MergedCut);
     }
 
-    /// <summary>Drawn shapes that are this near one another, in points, are cut out as one picture (a quarter of an inch).</summary>
+    /// <summary>Drawn shapes and pictures whose heights are this near one another, in points, are cut out as one picture (a quarter of an inch), however far apart they are across.</summary>
     private const double ClusterGapPoints = 18;
 
     /// <summary>A shape that covers this share of the slide is a background: it does not join the shapes on it.</summary>
@@ -675,6 +718,13 @@ public static class PptxReader
                     break; // a number of the slide in a text box (FR-141)
                 case A.Field field:
                     builder.Append(field.Text?.Text);
+                    break;
+                case { LocalName: "m" } math when math.NamespaceUri.EndsWith("office/drawing/2010/main", StringComparison.Ordinal):
+                    // An equation of PowerPoint (a14:m holds an OMML equation), as a line of text like that of Word (FR-142).
+                    // The SDK keeps the equation as text only, so it is read again as a tree of elements.
+                    builder.Append(OmmlText.Of(math.InnerXml.Contains("oMathPara", StringComparison.Ordinal)
+                        ? new DocumentFormat.OpenXml.Math.Paragraph(math.InnerXml)
+                        : new DocumentFormat.OpenXml.Math.OfficeMath(math.InnerXml)));
                     break;
             }
         }

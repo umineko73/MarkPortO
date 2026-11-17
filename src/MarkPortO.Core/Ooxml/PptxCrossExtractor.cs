@@ -61,6 +61,11 @@ public static class PptxCrossExtractor
     {
         foreach (var element in container.ChildElements)
         {
+            if (HiddenObjects.IsHidden(element))
+            {
+                continue;
+            }
+
             switch (element)
             {
                 case Shape shape:

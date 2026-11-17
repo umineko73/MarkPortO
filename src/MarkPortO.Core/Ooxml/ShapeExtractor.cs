@@ -32,7 +32,7 @@ internal static class ShapeExtractor
         foreach (var drawing in paragraph.Descendants<Drawing>())
         {
             // A drawing inside a text box is a drawing of that text box, not of the page.
-            if (drawing.Ancestors<TextBoxContent>().Any())
+            if (drawing.Ancestors<TextBoxContent>().Any() || drawing.ChildElements.Any(HiddenObjects.IsHidden))
             {
                 continue;
             }

@@ -101,7 +101,7 @@ public class ShapeCutTests
         PptxFactory.Create(path, new SlideSpec("Plan"));
         AddToSlide(path,
             SlideRectangle(20, Inch, Inch, 2 * Inch, Inch, "Start"),
-            SlideRectangle(21, 4 * Inch, Inch, 2 * Inch, Inch / 4), // a quarter of an inch tall: too small
+            SlideRectangle(21, 4 * Inch, 6 * Inch + Inch / 2, 2 * Inch, Inch / 4), // a quarter of an inch tall: too small (on a row of its own)
             SlideRectangle(22, Inch, 3 * Inch, 3 * Inch, Inch, "a note", textBox: true),
             SlideGroup(23, 5 * Inch, 3 * Inch, 3 * Inch, 2 * Inch, SlideRectangle(24, 5 * Inch, 3 * Inch, Inch, Inch, "inside"), SlideRectangle(25, 7 * Inch, 4 * Inch, Inch, Inch)));
 
@@ -149,6 +149,97 @@ public class ShapeCutTests
         var area = collector.Pictures[0].Area!;
         Assert.Equal((1 - room) / 10, area.Left, 4);
         Assert.Equal((5 + 2 * room) / 10, area.Width, 4);
+    }
+
+    private static P.Picture PictureAt(uint id, string relationshipId, string description, long x, long y, long width, long height) =>
+        new(
+            new P.NonVisualPictureProperties(
+                new P.NonVisualDrawingProperties { Id = id, Name = "Picture " + id, Description = description },
+                new P.NonVisualPictureDrawingProperties(),
+                new P.ApplicationNonVisualDrawingProperties()),
+            new P.BlipFill(new DocumentFormat.OpenXml.Drawing.Blip { Embed = relationshipId }, new DocumentFormat.OpenXml.Drawing.Stretch(new DocumentFormat.OpenXml.Drawing.FillRectangle())),
+            new P.ShapeProperties(new DocumentFormat.OpenXml.Drawing.Transform2D(
+                new DocumentFormat.OpenXml.Drawing.Offset { X = x, Y = y },
+                new DocumentFormat.OpenXml.Drawing.Extents { Cx = width, Cy = height })));
+
+    private static string[] AddPictures(string path, Func<string, string, P.Picture[]> pictures)
+    {
+        using var document = PresentationDocument.Open(path, isEditable: true);
+        var slidePart = document.PresentationPart!.SlideParts.First();
+        var red = PictureExtractionTests.AddImage(slidePart, ImagePartType.Png, PictureExtractionTests.RedPng);
+        var blue = PictureExtractionTests.AddImage(slidePart, ImagePartType.Png, PictureExtractionTests.BluePng);
+        foreach (var picture in pictures(red, blue))
+        {
+            slidePart.Slide!.CommonSlideData!.ShapeTree!.AppendChild(picture);
+        }
+
+        slidePart.Slide!.Save();
+        return [red, blue];
+    }
+
+    [Fact]
+    public void Pptx_PicturesNearOneAnother_AreCutOutAsOnePicture_APictureFarFromThemKeepsItsFile()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("pictures.pptx");
+        PptxFactory.Create(path, new SlideSpec("Plan"));
+        AddPictures(path, (red, blue) =>
+        [
+            PictureAt(90, red, "Left", Inch, Inch, 2 * Inch, 2 * Inch),
+            PictureAt(91, blue, "Right", 3 * Inch + Inch / 8, Inch, 2 * Inch, 2 * Inch), // an eighth of an inch from the left one
+            PictureAt(92, red, "Far", 7 * Inch, 5 * Inch, 2 * Inch, Inch),
+        ]);
+
+        var collector = new PictureCollector(savePictures: true, cutShapes: true);
+        var slide = Assert.Single(PptxReader.Read(path, includeHidden: false, pictures: collector));
+
+        // The two near ones are one picture of the slide (the box that holds both); the far one is its own file.
+        Assert.Equal(2, collector.Pictures.Count);
+        var cut = Assert.Single(collector.Pictures, p => p.IsShape);
+        Assert.Contains("Left", slide.Markdown, StringComparison.Ordinal);
+        Assert.Contains("Far", slide.Markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("Right", slide.Markdown, StringComparison.Ordinal);
+        var room = 4.0 / 72;
+        Assert.Equal((1 - room) / 10, cut.Area!.Left, 4);
+        Assert.Equal((4.125 + 2 * room) / 10, cut.Area.Width, 4);
+    }
+
+    [Fact]
+    public void Pptx_AShapeOnAPicture_IsCutOutTogetherWithIt_AndThePictureIsNotAFileOfItsOwn()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("overlap.pptx");
+        PptxFactory.Create(path, new SlideSpec("Plan"));
+        AddPictures(path, (red, _) => [PictureAt(90, red, "Photo", Inch, Inch, 5 * Inch, 4 * Inch)]);
+        AddToSlide(path, SlideRectangle(20, 5 * Inch, 4 * Inch, 2 * Inch, Inch)); // a callout over the corner of the photo, reaching beyond it
+
+        var collector = new PictureCollector(savePictures: true, cutShapes: true);
+        PptxReader.Read(path, includeHidden: false, pictures: collector);
+
+        var only = Assert.Single(collector.Pictures);
+        Assert.True(only.IsShape);
+        var room = 4.0 / 72;
+        Assert.Equal((6 + 2 * room) / 10, only.Area!.Width, 4);
+    }
+
+    [Fact]
+    public void Pptx_ShapesOnTheSameRow_AreCutOutTogetherHoweverFarApartAcross_ShapesOnAnotherRowAreNot()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("row.pptx");
+        PptxFactory.Create(path, new SlideSpec("Plan"));
+        AddToSlide(path,
+            SlideRectangle(20, Inch / 2, Inch, Inch, Inch, "Left"),
+            SlideRectangle(21, 8 * Inch + Inch / 2, Inch + Inch / 4, Inch, Inch, "Right"), // seven inches from the first, on the same row
+            SlideRectangle(22, Inch / 2, 4 * Inch, Inch, Inch, "Below"));
+
+        var collector = new PictureCollector(savePictures: false, cutShapes: true);
+        var slide = Assert.Single(PptxReader.Read(path, includeHidden: false, pictures: collector));
+
+        Assert.Equal(2, collector.Pictures.Count);
+        Assert.Contains($"![]({PictureCollector.MarkStart}0{PictureCollector.MarkEnd})\n\nLeft\n\nRight", slide.Markdown, StringComparison.Ordinal);
+        var room = 4.0 / 72;
+        Assert.Equal((9 + 2 * room) / 10, collector.Pictures[0].Area!.Width, 4);
     }
 
     [Fact]
