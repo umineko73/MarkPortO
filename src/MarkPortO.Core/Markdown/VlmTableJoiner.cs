@@ -40,11 +40,16 @@ internal static partial class VlmTableJoiner
     {
         var continuation = new HashSet<int>();
         var paragraphContinuation = new HashSet<int>();
+        var codeContinuation = new HashSet<int>();
         for (var i = 0; i < document.Blocks.Count; i++)
         {
             if (document.Blocks[i] is { Kind: BlockKind.Table or BlockKind.SheetTable, JoinedToPage: not null } && document.Step1Tables == Step1TablesMode.Off)
             {
                 continuation.Add(effectivePages[i]);
+            }
+            else if (document.Blocks[i] is { Kind: BlockKind.Paragraph, JoinedToPage: not null } code && CodeText.IsBlock(code.Markdown))
+            {
+                codeContinuation.Add(effectivePages[i]);
             }
             else if (document.Blocks[i] is { Kind: BlockKind.Paragraph, JoinedToPage: not null })
             {
@@ -53,7 +58,7 @@ internal static partial class VlmTableJoiner
         }
 
         var changed = new Dictionary<int, string>();
-        if (continuation.Count == 0 && paragraphContinuation.Count == 0)
+        if (continuation.Count == 0 && paragraphContinuation.Count == 0 && codeContinuation.Count == 0)
         {
             return changed;
         }
@@ -79,10 +84,26 @@ internal static partial class VlmTableJoiner
                 string? note = null;
                 string? rest = null;
                 string merged = string.Empty;
-                if (continuation.Contains(page.Index) && leading > 0 && TryJoin(TextOf(holder), lines[..leading], out merged))
+                if (continuation.Contains(page.Index) && AlreadyWritten(page, holder, TextOf(holder)))
+                {
+                    // The VLM was given the rows of this page with the page where the table starts, and wrote them there: if it wrote them here
+                    // again, they are taken off.
+                    merged = TextOf(holder);
+                    rest = string.Join('\n', lines[leading..]).Trim('\n', '\r', ' ');
+                    note = "> " + Loc.M("The rows of this table are joined to the table on page {0}.", language, ownerPage);
+                }
+                else if (continuation.Contains(page.Index) && leading > 0 && TryJoin(TextOf(holder), lines[..leading], out merged))
                 {
                     rest = string.Join('\n', lines[leading..]).Trim('\n', '\r', ' ');
                     note = "> " + Loc.M("The rows of this table are joined to the table on page {0}.", language, ownerPage);
+                }
+                else if (codeContinuation.Contains(page.Index) && page.CodeWrittenBefore && holder.ContinuedCodeSent && EndsWithCode(TextOf(holder)))
+                {
+                    // The rest of a code block was given with the page where it starts, and written there: a code block at the top of this page is
+                    // the same lines written again, and is taken off.
+                    merged = TextOf(holder);
+                    rest = WithoutLeadingCode(page.VlmText.Trim());
+                    note = "> " + Loc.M("The rest of this code is joined to the code on page {0}.", language, ownerPage);
                 }
                 else if (paragraphContinuation.Contains(page.Index) && ParagraphJoin.TryJoin(TextOf(holder), page.VlmText.Trim(), out merged, out var remainder))
                 {
@@ -113,6 +134,28 @@ internal static partial class VlmTableJoiner
         }
 
         return changed;
+    }
+
+    /// <summary>
+    /// The rows of the page are already in the table of the page where it starts: that page was read with them in its text, this page was told so, and the
+    /// result of that page ends with a table that is long enough to hold them (the header row, the separator and a row of its own besides). If the VLM left
+    /// them out, the rows of this page are joined as usual.
+    /// </summary>
+    private static bool AlreadyWritten(PageRecord page, PageRecord holder, string holderText)
+    {
+        if (!page.RowsWrittenBefore || holder.ContinuedRowsSent == 0)
+        {
+            return false;
+        }
+
+        var lines = holderText.TrimEnd().Split('\n');
+        var count = 0;
+        while (count < lines.Length && IsTableLine(lines[^(count + 1)]))
+        {
+            count++;
+        }
+
+        return count >= holder.ContinuedRowsSent + 3;
     }
 
     /// <summary>The rows of <paramref name="lines"/> (the start of the result of the next page) are put under the table at the end of <paramref name="ownerText"/>.</summary>
@@ -188,6 +231,36 @@ internal static partial class VlmTableJoiner
 
         merged = builder.ToString();
         return true;
+    }
+
+    /// <summary>The text ends with a fenced code block.</summary>
+    private static bool EndsWithCode(string text)
+    {
+        var last = text.TrimEnd().Split('\n')[^1].Trim();
+        return last.StartsWith("```", StringComparison.Ordinal) || last.StartsWith("~~~", StringComparison.Ordinal);
+    }
+
+    /// <summary>The text without the fenced code block it starts with (when it starts with one).</summary>
+    internal static string WithoutLeadingCode(string text)
+    {
+        var lines = text.Split('\n');
+        var open = lines[0].Trim();
+        if (!open.StartsWith("```", StringComparison.Ordinal) && !open.StartsWith("~~~", StringComparison.Ordinal))
+        {
+            return text;
+        }
+
+        var fence = open[..open.TakeWhile(c => c == open[0]).Count()];
+        for (var i = 1; i < lines.Length; i++)
+        {
+            var line = lines[i].Trim();
+            if (line.StartsWith(fence, StringComparison.Ordinal) && line.TrimEnd(fence[0]).Length == 0)
+            {
+                return string.Join('\n', lines[(i + 1)..]).Trim('\n', '\r', ' ');
+            }
+        }
+
+        return text; // not closed: left as it is
     }
 
     private static int LeadingTableLines(string[] lines)

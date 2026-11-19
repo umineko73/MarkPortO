@@ -123,6 +123,21 @@ public sealed class PageRecord
     public string? VlmModel { get; set; }
 
     public string? VlmPrompt { get; set; }
+
+    /// <summary>
+    /// With the tables of the VLM: how many rows of the later pages of a table that starts at the end of this page were sent with the page, so
+    /// that the VLM wrote the whole table here. 0 when none were sent.
+    /// </summary>
+    public int ContinuedRowsSent { get; set; }
+
+    /// <summary>With the tables of the VLM: the rows at the top of this page go on a table of an earlier page, and the VLM was told that they are already written there.</summary>
+    public bool RowsWrittenBefore { get; set; }
+
+    /// <summary>The rest of a code block that starts on this page and goes on to the next pages was sent with this page, so that the VLM wrote the whole code block here.</summary>
+    public bool ContinuedCodeSent { get; set; }
+
+    /// <summary>The lines at the top of this page go on a code block of an earlier page, and the VLM was told that they are already written there.</summary>
+    public bool CodeWrittenBefore { get; set; }
 }
 
 public sealed class DocumentRecord
@@ -191,6 +206,12 @@ public sealed class DocumentRecord
     /// <summary>The name of the prompt that Step3 used (<c>standard</c> for the standard one), for the comment in the Markdown.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? VlmPrompt { get; set; }
+
+    /// <summary>
+    /// How many marked pages the run that reads them again started with (FR-138), for the progress (the mark of a page is taken off once it is read);
+    /// 0 when Step 3 is not reading pages again.
+    /// </summary>
+    public int RereadTotal { get; set; }
 
     /// <summary>The VLM results are in their own file: the choice, or always for a document that an extractor wrote (FR-112).</summary>
     [JsonIgnore]

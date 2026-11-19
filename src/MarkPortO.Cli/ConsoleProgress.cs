@@ -30,6 +30,7 @@ public sealed class ConsoleProgress(TextWriter output, bool quiet)
     private readonly object _gate = new();
     private readonly Dictionary<string, (StepStatus One, StepStatus Two, StepStatus Three)> _last = [];
     private readonly Dictionary<string, int> _step3Read = [];
+    private readonly Dictionary<string, HashSet<int>> _step3Running = [];
 
     public void Report(DocumentRecord document)
     {
@@ -69,13 +70,19 @@ public sealed class ConsoleProgress(TextWriter output, bool quiet)
 
         var (read, total) = FileStatusProjector.Step3Progress(document);
         _step3Read.TryGetValue(document.DocId, out var shown);
+        _step3Running.TryGetValue(document.DocId, out var wasRunning);
+        _step3Running[document.DocId] = [.. document.Pages.Where(p => p.Step3 == PageStep3Status.Running).Select(p => p.Index)];
         if (read == 0 || read == shown)
         {
             return;
         }
 
         _step3Read[document.DocId] = read;
-        var last = document.Pages.Last(p => !p.IsDeleted && p.Step3 is PageStep3Status.Done or PageStep3Status.Failed);
+
+        // The page that was being read and is finished now; when reading pages again, the last finished page in the order of the pages may be one
+        // that was read before.
+        var finished = document.Pages.Where(p => !p.IsDeleted && p.Step3 is PageStep3Status.Done or PageStep3Status.Failed).ToList();
+        var last = finished.LastOrDefault(p => wasRunning?.Contains(p.Index) == true) ?? finished.Last();
         var detail = last.Step3 == PageStep3Status.Failed ? "  failed" : TokensText(last.Usage);
         output.WriteLine(string.Create(
             CultureInfo.InvariantCulture,

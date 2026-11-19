@@ -174,17 +174,33 @@ public static class FileStatusProjector
     };
 
     /// <summary>How many of the pages step 3 reads are finished (read or failed); the deleted pages are not counted.</summary>
-    public static (int Read, int Total) Step3Progress(DocumentRecord document) =>
-        (document.Pages.Count(p => p.ReadsInStep3 && p.Step3 is PageStep3Status.Done or PageStep3Status.Failed),
-         document.Pages.Count(p => p.ReadsInStep3));
+    /// <remarks>
+    /// When the marked pages are read again (FR-138), only they are counted: a page that is read loses its mark, so the pages still to read are the
+    /// marked pages that wait or are being read (a page that failed keeps its mark, and is finished).
+    /// </remarks>
+    public static (int Read, int Total) Step3Progress(DocumentRecord document)
+    {
+        if (document.RereadTotal > 0)
+        {
+            var left = document.Pages.Count(p => p.ReadsInStep3 && p.RereadMark && p.Step3 is PageStep3Status.Pending or PageStep3Status.Running);
+            return (Math.Max(0, document.RereadTotal - left), document.RereadTotal);
+        }
+
+        return (document.Pages.Count(p => p.ReadsInStep3 && p.Step3 is PageStep3Status.Done or PageStep3Status.Failed),
+                document.Pages.Count(p => p.ReadsInStep3));
+    }
 
     /// <summary>The text of step 3 in the list: while it runs, how many of the pages are finished (<c>実行中 3/12</c>).</summary>
     public static string Step3Text(FileRow row)
     {
         // Pages that are marked to be read again (FR-138): the file waits for it, or is reading them now.
+        // A file none of whose marked pages was read before (Step3 did not run on them yet) is not run "again".
         if (row.Source is { } source && Jobs.RereadMarks.Count(source).Marked is > 0 and var marked)
         {
-            return row.StepStates[2] == StepStatus.Running ? Loc.T("Running again") : Loc.T("Waiting to run again ({0})", marked);
+            var again = Jobs.RereadMarks.Markable(source).Any(p => p.RereadMark && WasReadBefore(p));
+            return row.StepStates[2] != StepStatus.Running ? (again ? Loc.T("Waiting to run again ({0})", marked) : Loc.T("Waiting to run ({0})", marked))
+                : source.RereadTotal > 0 ? (again ? Loc.T("Running again {0}/{1}", row.Step3Read, row.Step3Total) : Loc.T("Running {0}/{1}", row.Step3Read, row.Step3Total)) // without it (an older state), the count would be of every page
+                : again ? Loc.T("Running again") : Loc.T("Running");
         }
 
         return row.StepStates[2] == StepStatus.Running && row.Step3Total > 0
@@ -259,6 +275,9 @@ public static class FileStatusProjector
         _ => string.Empty,
     };
 
+    /// <summary>The VLM read the page before, or tried to: it has a result (kept until it is read again), or it failed.</summary>
+    private static bool WasReadBefore(PageRecord page) => page.VlmText is not null || page.Step3 == PageStep3Status.Failed;
+
     private static PageRow ToRow(PageRecord page, bool usesVlm)
     {
         var vlmState = page.IsDeleted
@@ -270,11 +289,11 @@ public static class FileStatusProjector
             : page.IsJoinedTableOnly
                 ? Loc.T("Joined table")
             : page.RereadMark && page.Step3 == PageStep3Status.Running
-                ? Loc.T("Running again")
+                ? (WasReadBefore(page) ? Loc.T("Running again") : Loc.T("Running"))
             : page.RereadMark && page.Step3 == PageStep3Status.Failed
                 ? Loc.T("Failed (waiting to run again)")
             : page.RereadMark
-                ? Loc.T("Waiting to run again")
+                ? (WasReadBefore(page) ? Loc.T("Waiting to run again") : Loc.T("Waiting to run"))
             : page.Step3 switch
             {
                 PageStep3Status.Running => Loc.T("Running"),

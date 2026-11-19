@@ -178,6 +178,7 @@ public static class ResumePlanner
 
         document.Step3 = StepStatus.Pending;
         document.Error = null;
+        document.RereadTotal = marked.Count;
         return ResumeAction.Run;
     }
 
@@ -196,6 +197,7 @@ public static class ResumePlanner
         document.UsageTotal = null;
         document.Error = null;
         document.Warnings = [];
+        document.RereadTotal = 0;
         try
         {
             document.Fingerprint = StateStore.ComputeFingerprint(document.SourcePath);

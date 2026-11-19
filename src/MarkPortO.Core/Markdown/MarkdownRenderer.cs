@@ -277,6 +277,13 @@ public static class MarkdownRenderer
                 {
                     paragraphHead = i;
                 }
+                else if (paragraphHead >= 0 && effectivePages[paragraphHead] == block.JoinedToPage
+                    && CodeText.IsBlock(texts[paragraphHead]) && CodeText.IsBlock(block.Markdown))
+                {
+                    // The lines of a code block after a page break go back to the code block.
+                    texts[paragraphHead] = CodeText.Join(texts[paragraphHead], block.Markdown);
+                    texts[i] = "> " + Loc.M("The rest of this code is joined to the code on page {0}.", language, block.JoinedToPage.Value);
+                }
                 else if (paragraphHead >= 0 && effectivePages[paragraphHead] == block.JoinedToPage)
                 {
                     texts[paragraphHead] += ParagraphJoin.Separator(texts[paragraphHead], block.Markdown) + block.Markdown;

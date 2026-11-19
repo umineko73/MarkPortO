@@ -23,6 +23,12 @@ namespace MarkPortO.Core.Vlm;
 /// </summary>
 public static class PromptSupplement
 {
+    /// <summary>
+    /// A table that runs over pages, as the prompt of one page tells it: the rows of the later pages that were put into the text of this page
+    /// (<paramref name="CarriedRows"/>, after the <paramref name="HeadRows"/> rows of this page), and the page whose table the rows at the top of this page belong to.
+    /// </summary>
+    public sealed record TableContinuation(int HeadRows, int CarriedRows, int? WrittenBeforeFromPage, bool CarriesCode = false, int? CodeWrittenBeforeFromPage = null);
+
     /// <summary>In the prompt of the user, this is replaced by the text of the page that Step1 took from the document (FR-061).</summary>
     public const string PageTextPlaceholder = "{pagetext}";
 
@@ -35,9 +41,35 @@ public static class PromptSupplement
     /// The prompt of the user and the supplement. <paramref name="bands"/> above 1 tells which part of the page the image is.
     /// <paramref name="pageText"/> is put in place of <see cref="PageTextPlaceholder"/>; without it the placeholder is left as it is.
     /// </summary>
-    public static string Build(string prompt, string language, int band = 1, int bands = 1, string? pageText = null)
+    public static string Build(string prompt, string language, int band = 1, int bands = 1, string? pageText = null, TableContinuation? table = null)
     {
-        var supplement = Loc.M("If a table in the image has no header row, do not make one; write only the rows that are in the image.", language);
+        // A page that carries the rows of the next pages writes rows that are not in its image, so the words about "only the rows in the image" are left out.
+        var supplement = table is { CarriedRows: > 0 }
+            ? string.Empty
+            : Loc.M("If a table in the image has no header row, do not make one; write only the rows that are in the image.", language);
+        if (table is { CarriedRows: > 0 })
+        {
+            supplement += Loc.M("The table at the end of this page goes on to the next page. The extracted text has the whole table: the first {0} rows are in this image, and the {1} rows after them come from the next page and are not in the image. Write all of them as one table, using the rows of the extracted text as they are.", language, table.HeadRows, table.CarriedRows);
+        }
+
+        if (table is { WrittenBeforeFromPage: { } from })
+        {
+            supplement += (supplement.Length > 0 ? " " : string.Empty)
+                + Loc.M("The rows at the top of this image go on a table of page {0}, where they are already written. Do not write them again; write only the rest of this page.", language, from);
+        }
+
+        if (table is { CarriesCode: true })
+        {
+            supplement += (supplement.Length > 0 ? " " : string.Empty)
+                + Loc.M("The code block at the end of this page goes on to the next page. The extracted text has the whole code block, also the lines that are not in the image. Write all of it as one code block.", language);
+        }
+
+        if (table is { CodeWrittenBeforeFromPage: { } codeFrom })
+        {
+            supplement += (supplement.Length > 0 ? " " : string.Empty)
+                + Loc.M("The lines at the top of this image go on a code block of page {0}, where they are already written. Do not write them again; write only the rest of this page.", language, codeFrom);
+        }
+
         if (bands > 1)
         {
             supplement += " " + Loc.M("This image is part {0} of {1} of one page, cut from the top. Write only what is in this image.", language, band, bands);
@@ -54,9 +86,10 @@ public static class PromptSupplement
             cut = breaks.Count == 0 ? -1 : breaks[^1].Index;
         }
 
+        // Before the paragraph of the page text it is a paragraph of its own: put on the last line, it would read as a part of a rule or of a list.
         var text = cut < 0
             ? prompt + " " + supplement
-            : prompt[..cut] + " " + supplement + prompt[cut..];
+            : prompt[..cut] + "\n\n" + supplement + prompt[cut..];
         return pageText is null ? text : text.Replace(PageTextPlaceholder, pageText, StringComparison.Ordinal);
     }
 }

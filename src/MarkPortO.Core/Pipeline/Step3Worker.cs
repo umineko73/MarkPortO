@@ -97,6 +97,11 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
 
             var unfinished = document.Pages.Any(p => p.ReadsInStep3 && p.Step3 is PageStep3Status.Pending or PageStep3Status.Running);
             document.Step3 = unfinished ? StepStatus.Interrupted : StepStatus.Done;
+            if (!unfinished)
+            {
+                document.RereadTotal = 0; // an interrupted reading again goes on counting from where it was when it is resumed
+            }
+
             document.UsageTotal = Total(document);
             document.CostTotalUsd = CostTotal(document);
             MarkdownRenderer.Write(document);
@@ -240,13 +245,14 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
             var png = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
             var language = document.MarkdownLanguage;
             var bands = BandPlanner.Plan(page.TextLines, maxLines);
-            var pageText = PromptSupplement.UsesPageText(prompt) ? PageTextOf(document, page) : null;
+            var pageText = PromptSupplement.UsesPageText(prompt) ? PageTextOf(document, page, maxLines) : null;
+            var table = pageText?.Table;
             string text;
             UsageInfo usage;
             double? cost;
             if (bands.Count == 0)
             {
-                var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, pageText: pageText), Shrink(png, maxImageSide), cancellationToken).ConfigureAwait(false);
+                var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, pageText: pageText?.Text, table: table), Shrink(png, maxImageSide), cancellationToken).ConfigureAwait(false);
                 text = AnswerFences.Strip(answer.Text);
                 usage = answer.Usage;
                 cost = answer.CostUsd;
@@ -260,7 +266,7 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
                 for (var i = 0; i < bands.Count; i++)
                 {
                     var strip = Shrink(Crop(png, bands[i]), maxImageSide);
-                    var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, i + 1, bands.Count, pageText), strip, cancellationToken).ConfigureAwait(false);
+                    var answer = await ReadOnceAsync(reader, PromptSupplement.Build(prompt, language, i + 1, bands.Count, pageText?.Text, table), strip, cancellationToken).ConfigureAwait(false);
                     texts.Add(AnswerFences.Strip(answer.Text));
                     usages.Add(answer.Usage);
                     costs.Add(answer.CostUsd);
@@ -273,10 +279,15 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
 
             // The header and the footer are taken out; a page that the model wrote twice is cut at the second copy (and the header and the
             // footer that stood between the copies are taken out again).
-            page.VlmText = PageFurniture.Strip(RepeatedStart.Trim(PageFurniture.Strip(text, furniture)), furniture);
+            // A part that the model wrote again further down the page, in another form (a code block written again as a list), is cut too.
+            page.VlmText = WithoutNotes(PageFurniture.Strip(RepeatedStart.TrimSection(RepeatedStart.Trim(PageFurniture.Strip(text, furniture))), furniture), pageText?.Notes);
             page.Usage = usage;
             page.CostUsd = cost;
             page.Bands = bands.Count;
+            page.ContinuedRowsSent = table?.CarriedRows ?? 0;
+            page.RowsWrittenBefore = table?.WrittenBeforeFromPage is not null;
+            page.ContinuedCodeSent = table?.CarriesCode ?? false;
+            page.CodeWrittenBefore = table?.CodeWrittenBeforeFromPage is not null;
             page.Step3 = PageStep3Status.Done;
             page.Error = null;
             page.RereadMark = false;
@@ -302,32 +313,109 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
         }
     }
 
-    /// <summary>
-    /// The text that Step1 took from the document for this page (FR-061): the blocks of the page, in the language of the
-    /// job, cut at <see cref="PromptSupplement.MaxPageTextCharacters"/> (a warning tells when).
-    /// </summary>
-    private static string PageTextOf(DocumentRecord document, PageRecord page)
+    /// <summary>The text of a page for the prompt, and what it says about a table that runs over pages.</summary>
+    /// <param name="Notes">The lines that were put in the text in place of a part that is written on an earlier page: a model may copy them into its answer.</param>
+    internal sealed record PageTextResult(string Text, PromptSupplement.TableContinuation? Table, IReadOnlyList<string>? Notes = null);
+
+    /// <summary>The answer without the lines that were put in the text of the page (<see cref="PageTextResult.Notes"/>): the Markdown writes its own.</summary>
+    internal static string WithoutNotes(string text, IReadOnlyList<string>? notes)
     {
-        var effective = DocxPageAssigner.EffectivePages(document.Blocks, document.Pages.Count);
-        var text = string.Join(
-            "\n\n",
-            document.Blocks
-                .Where((block, i) => effective[i] == page.Index && block.Markdown.Length > 0)
-                .Select(block => MarkdownText.ResolveMarks(PictureFiles.WithoutFiles(block.Markdown))) // the files of the pictures are not sent (FR-133)
-                .Where(text => text.Trim().Length > 0));
-        var limit = PromptSupplement.MaxPageTextCharacters;
-        if (text.Length <= limit)
+        if (notes is not { Count: > 0 })
         {
             return text;
         }
 
-        var cut = char.IsHighSurrogate(text[limit - 1]) ? limit - 1 : limit;
+        static string Bare(string line) => line.Trim().TrimStart('>').Trim();
+        var bare = notes.Select(Bare).ToHashSet(StringComparer.Ordinal);
+        var lines = text.Split('\n').Where(l => !bare.Contains(Bare(l)));
+        return System.Text.RegularExpressions.Regex.Replace(string.Join('\n', lines), @"\n{3,}", "\n\n").Trim('\n', '\r', ' ');
+    }
+
+    /// <summary>
+    /// The text that Step1 took from the document for this page (FR-061): the blocks of the page, in the language of the
+    /// job, cut at <see cref="PromptSupplement.MaxPageTextCharacters"/> (a warning tells when).
+    /// </summary>
+    /// <remarks>
+    /// With the tables of the VLM, a table that runs over pages is read as one: the page where it starts gets the rows of the later pages after
+    /// its own (the VLM writes them all), and a later page gets a line that tells that its rows are already written (<see cref="ContinuedTables"/>).
+    /// A code block that runs over pages is read the same way, whatever the choice of the tables.
+    /// </remarks>
+    internal static PageTextResult PageTextOf(DocumentRecord document, PageRecord page, int maxLines)
+    {
+        var effective = DocxPageAssigner.EffectivePages(document.Blocks, document.Pages.Count);
+        var chains = ContinuedTables.Find(document, effective, p => CarriesRows(document, p, maxLines));
+        var parts = new List<string>();
+        int headRows = 0, carriedRows = 0;
+        int? writtenBefore = null, codeWrittenBefore = null;
+        var carriesCode = false;
+        var notes = new List<string>();
+        for (var i = 0; i < document.Blocks.Count; i++)
+        {
+            var block = document.Blocks[i];
+            if (effective[i] != page.Index || block.Markdown.Length == 0)
+            {
+                continue;
+            }
+
+            string markdown;
+            if (chains.Heads.TryGetValue(i, out var later) && ContinuedTables.IsCode(block))
+            {
+                carriesCode = true;
+                markdown = later.Aggregate(block.Markdown, (code, j) => CodeText.Join(code, document.Blocks[j].Markdown));
+            }
+            else if (later is not null)
+            {
+                var rows = later.Select(j => ContinuedTables.RowsOf(document.Blocks[j].Markdown)).ToList();
+                headRows = ContinuedTables.RowCount(block.Markdown);
+                carriedRows += rows.Sum(r => r.Count);
+                markdown = block.Markdown + "\n" + string.Join('\n', rows.SelectMany(r => r));
+            }
+            else if (chains.Continuations.TryGetValue(i, out var head) && ContinuedTables.IsCode(block))
+            {
+                codeWrittenBefore = effective[head];
+                markdown = "> " + Loc.M("The rest of this code is written with the code on page {0}.", document.MarkdownLanguage, effective[head]);
+                notes.Add(markdown);
+            }
+            else if (chains.Continuations.TryGetValue(i, out head))
+            {
+                writtenBefore = effective[head];
+                markdown = "> " + Loc.M("The rows of this table are written with the table on page {0}.", document.MarkdownLanguage, effective[head]);
+                notes.Add(markdown);
+            }
+            else
+            {
+                markdown = block.Markdown;
+            }
+
+            var text = MarkdownText.ResolveMarks(PictureFiles.WithoutFiles(markdown)); // the files of the pictures are not sent (FR-133)
+            if (text.Trim().Length > 0)
+            {
+                parts.Add(text);
+            }
+        }
+
+        var table = carriedRows > 0 || writtenBefore is not null || carriesCode || codeWrittenBefore is not null
+            ? new PromptSupplement.TableContinuation(headRows, carriedRows, writtenBefore, carriesCode, codeWrittenBefore)
+            : null;
+        var joined = string.Join("\n\n", parts);
+        var limit = PromptSupplement.MaxPageTextCharacters;
+        if (joined.Length <= limit)
+        {
+            return new PageTextResult(joined, table, notes);
+        }
+
+        var cut = char.IsHighSurrogate(joined[limit - 1]) ? limit - 1 : limit;
         document.Warnings.Add(new Warning(
             "PageTextCut",
             Loc.T("{0}: the text of the page was cut at {1} characters for the prompt.", PageLabel.Text(page.SourceLabel, CultureInfo.CurrentUICulture), limit),
             page.Index));
-        return text[..cut];
+        return new PageTextResult(joined[..cut], table, notes);
     }
+
+    /// <summary>The page where a table starts takes the rows of the later pages: it is read, and whole (not in bands), so that the VLM can write them.</summary>
+    private static bool CarriesRows(DocumentRecord document, int pageIndex, int maxLines) =>
+        document.Pages.FirstOrDefault(p => p.Index == pageIndex) is { ReadsInStep3: true } page
+        && BandPlanner.Plan(page.TextLines, maxLines).Count == 0;
 
     private static async Task<VlmResponse> ReadOnceAsync(IVlmReader reader, string prompt, byte[] png, CancellationToken cancellationToken)
     {

@@ -51,6 +51,12 @@ public sealed record DocxBlock(Block Block, string SearchText, DocxTable? Table 
 
     /// <summary>The parts of a paragraph that runs over a page break, set by <see cref="DocxPageAssigner"/>; null when it is on one page.</summary>
     public IReadOnlyList<ParagraphSegment>? Segments { get; set; }
+
+    /// <summary>The lines of a code block (FR-140), so that a code block that runs over several pages can be cut at the page breaks; null for other blocks.</summary>
+    public IReadOnlyList<string>? CodeLines { get; init; }
+
+    /// <summary>The page (1-based) of each line of <see cref="CodeLines"/>, set by <see cref="DocxPageAssigner"/>; null when the lines were not placed.</summary>
+    public IReadOnlyList<int>? CodeLinePages { get; set; }
 }
 
 /// <summary>The part of a paragraph that is on one page: its place in the normalized text, the page (1-based), and where it ends in the text of the PDF.</summary>
@@ -865,10 +871,11 @@ public static partial class DocxReader
 
         var markdown = CodeText.Block(code);
         var search = string.Join(' ', code.Select(l => l.Trim()).Where(l => l.Length > 0));
+        var lines = code.ToList();
         code.Clear();
         if (search.Length > 0)
         {
-            blocks.Add(New(BlockKind.Paragraph, markdown, search));
+            blocks.Add(New(BlockKind.Paragraph, markdown, search) with { CodeLines = lines });
         }
     }
 

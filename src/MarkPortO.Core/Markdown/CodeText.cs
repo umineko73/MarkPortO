@@ -157,6 +157,23 @@ public static class CodeText
         return fence + Newline + string.Join(Newline, all) + Newline + fence;
     }
 
+    /// <summary>The Markdown is one fenced code block, as <see cref="Block"/> writes it.</summary>
+    public static bool IsBlock(string markdown)
+    {
+        var text = markdown.Trim();
+        return text.StartsWith("```", StringComparison.Ordinal) && text.EndsWith("```", StringComparison.Ordinal) && text.Contains(Newline);
+    }
+
+    /// <summary>The lines inside a code block that <see cref="Block"/> wrote (without its fences).</summary>
+    public static List<string> LinesOf(string markdown)
+    {
+        var lines = markdown.Trim().Split(Newline);
+        return lines.Length < 2 ? [] : [.. lines[1..^1]];
+    }
+
+    /// <summary>Two code blocks as one: the lines of the second after those of the first, in a fence long enough for both.</summary>
+    public static string Join(string first, string second) => Block(LinesOf(first).Concat(LinesOf(second)));
+
     private static int LongestRun(string text)
     {
         int longest = 0, run = 0;

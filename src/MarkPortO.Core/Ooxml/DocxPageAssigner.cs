@@ -152,6 +152,12 @@ public static class DocxPageAssigner
             {
                 cursor = Math.Max(cursor, AssignRows(item, table, haystack, pageStarts, cursor, rowWindow));
             }
+
+            // So are the lines of a code block.
+            if (item.CodeLines is { Count: > 1 } code)
+            {
+                cursor = Math.Max(cursor, AssignCodeLines(item, code, haystack, pageStarts, position, rowWindow));
+            }
         }
 
         return warnings;
@@ -340,6 +346,32 @@ public static class DocxPageAssigner
     }
 
     /// <summary>
+    /// Finds the page of each line of a code block, as <see cref="AssignRows"/> does for the rows of a table. An empty or short line (too short to be
+    /// found) stays on the page of the line before it. Sets <see cref="DocxBlock.CodeLinePages"/> and returns the position after the last line that was found.
+    /// </summary>
+    private static int AssignCodeLines(DocxBlock item, IReadOnlyList<string> lines, string haystack, int[] pageStarts, int start, int window)
+    {
+        var pages = new int[lines.Count];
+        var page = item.Block.PageIndex ?? 1;
+        var cursor = start;
+        for (var line = 0; line < lines.Count; line++)
+        {
+            var text = Normalize(lines[line]);
+            var found = text.Length >= MinimumNeedle ? Find(haystack, text, cursor, window) : -1;
+            if (found >= 0)
+            {
+                page = Math.Max(page, PageOf(pageStarts, found) + 1);
+                cursor = found + Math.Min(text.Length, LongNeedle);
+            }
+
+            pages[line] = page;
+        }
+
+        item.CodeLinePages = pages;
+        return cursor;
+    }
+
+    /// <summary>
     /// Cuts every table that runs over several pages into one table for each page (the rows that are on the page), so that
     /// the text of a page is the text that is on the page. When Word repeats the header row on every page, each part starts with it.
     /// </summary>
@@ -371,6 +403,39 @@ public static class DocxPageAssigner
                             JoinedToPage = part == 0 ? null : segments[0].Page,
                         },
                         piece));
+                }
+
+                continue;
+            }
+
+            if (item.CodeLines is { } code && item.CodeLinePages is { } linePages && linePages.Distinct().Count() > 1)
+            {
+                // A code block over a page break: one code block for each page, with the lines that are on it.
+                var first = -1;
+                for (var from = 0; from < code.Count;)
+                {
+                    var to = from;
+                    while (to < code.Count && linePages[to] == linePages[from])
+                    {
+                        to++;
+                    }
+
+                    var part = code.Skip(from).Take(to - from).ToList();
+                    if (part.Any(l => l.Trim().Length > 0))
+                    {
+                        first = first < 0 ? linePages[from] : first;
+                        result.Add(new DocxBlock(
+                            new Block
+                            {
+                                Kind = BlockKind.Paragraph,
+                                Markdown = CodeText.Block(part),
+                                PageIndex = linePages[from],
+                                JoinedToPage = first == linePages[from] ? null : first,
+                            },
+                            string.Join(' ', part.Select(l => l.Trim()).Where(l => l.Length > 0))) { CodeLines = part });
+                    }
+
+                    from = to;
                 }
 
                 continue;

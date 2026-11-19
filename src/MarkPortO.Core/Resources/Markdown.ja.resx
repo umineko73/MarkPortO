@@ -121,4 +121,25 @@
   <data name="- Pictures of the document (Step1): `![text](pictures/page-NNN-K.png)`, or an `img` tag with `src`, `alt` and `width` (in pixels, as wide as in the document) when the size is known. The file of a picture in the document, or of a drawn shape cut out of the page image (K counts them on page NNN); the same picture is one file." xml:space="preserve">
     <value>- 文書の画像（Step1）: `![代替テキスト](pictures/page-NNN-K.png)`。文書での大きさが分かるときは、`src`・`alt`・`width`（ピクセル。文書と同じ幅）を持つ `img` タグで書きます。文書に貼られた画像、またはページ画像から切り出した図形のファイルです（K は NNN ページの中の順番）。同じ画像は1つのファイルです。</value>
   </data>
+  <data name="The table at the end of this page goes on to the next page. The extracted text has the whole table: the first {0} rows are in this image, and the {1} rows after them come from the next page and are not in the image. Write all of them as one table, using the rows of the extracted text as they are." xml:space="preserve">
+    <value>このページの末尾の表は、次のページに続いています。抽出テキストには表の全体が入っています。最初の{0}行はこの画像にあり、そのあとの{1}行は次のページの行で、この画像にはありません。すべてを1つの表として、抽出テキストの行をそのまま使って書いてください。</value>
+  </data>
+  <data name="The rows at the top of this image go on a table of page {0}, where they are already written. Do not write them again; write only the rest of this page." xml:space="preserve">
+    <value>この画像の上の方の行は、ページ{0}の表の続きで、そこにすでに書いてあります。もう一度書かず、このページのそれ以外の内容だけを書いてください。</value>
+  </data>
+  <data name="The rows of this table are written with the table on page {0}." xml:space="preserve">
+    <value>この表の行は、ページ{0}の表に含めて書きました。</value>
+  </data>
+  <data name="The code block at the end of this page goes on to the next page. The extracted text has the whole code block, also the lines that are not in the image. Write all of it as one code block." xml:space="preserve">
+    <value>このページの末尾のコードブロックは、次のページに続いています。抽出テキストには、画像にない行も含めて、コードブロックの全体が入っています。すべてを1つのコードブロックとして書いてください。</value>
+  </data>
+  <data name="The lines at the top of this image go on a code block of page {0}, where they are already written. Do not write them again; write only the rest of this page." xml:space="preserve">
+    <value>この画像の上の方の行は、ページ{0}のコードブロックの続きで、そこにすでに書いてあります。もう一度書かず、このページのそれ以外の内容だけを書いてください。</value>
+  </data>
+  <data name="The rest of this code is written with the code on page {0}." xml:space="preserve">
+    <value>このコードの続きは、ページ{0}のコードブロックに含めて書きました。</value>
+  </data>
+  <data name="The rest of this code is joined to the code on page {0}." xml:space="preserve">
+    <value>このコードの続きは、ページ{0}のコードブロックに結合しました。</value>
+  </data>
 </root>

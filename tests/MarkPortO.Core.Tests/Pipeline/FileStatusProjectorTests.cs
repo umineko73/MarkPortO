@@ -83,13 +83,60 @@ public class FileStatusProjectorTests : JapaneseUiTests
     }
 
     [Fact]
+    public void WhileMarkedPagesAreReadAgain_TheListCountsOnlyThem()
+    {
+        // Pages 2, 3 and 4 were marked: 2 is read (its mark is taken off), 3 is being read, 4 waits. Page 1 was read before.
+        var document = Doc(StepStatus.Done, StepStatus.Done, StepStatus.Running);
+        document.RereadTotal = 3;
+        document.Pages =
+        [
+            new PageRecord { Index = 1, Step3 = PageStep3Status.Done },
+            new PageRecord { Index = 2, Step3 = PageStep3Status.Done },
+            new PageRecord { Index = 3, Step3 = PageStep3Status.Running, RereadMark = true, VlmText = "read before" },
+            new PageRecord { Index = 4, Step3 = PageStep3Status.Pending, RereadMark = true, VlmText = "read before" },
+        ];
+
+        var row = FileStatusProjector.Project(document);
+
+        Assert.Equal((1, 3), (row.Step3Read, row.Step3Total));
+        Assert.Equal("再実行中 1/3", FileStatusProjector.Step3Text(row));
+
+        // A page that fails keeps its mark, and is finished.
+        document.Pages[2].Step3 = PageStep3Status.Failed;
+        Assert.Equal((2, 3), FileStatusProjector.Step3Progress(document));
+    }
+
+    [Fact]
+    public void PagesThatWereNeverRead_AreNotRunAgain_ButRun()
+    {
+        // Step3 did not run on the file before: the marked pages have no result.
+        var document = Doc(StepStatus.Done, StepStatus.Done, StepStatus.Pending);
+        document.Pages =
+        [
+            new PageRecord { Index = 1, Step3 = PageStep3Status.Pending, RereadMark = true },
+            new PageRecord { Index = 2, Step3 = PageStep3Status.Pending, RereadMark = true },
+        ];
+
+        var row = FileStatusProjector.Project(document);
+        Assert.Equal("実行待ち (2)", FileStatusProjector.Step3Text(row));
+        Assert.Equal(["実行待ち", "実行待ち"], row.Pages.Select(p => p.VlmState));
+
+        document.Step3 = StepStatus.Running;
+        document.RereadTotal = 2;
+        document.Pages[0].Step3 = PageStep3Status.Running;
+        row = FileStatusProjector.Project(document);
+        Assert.Equal("実行中 0/2", FileStatusProjector.Step3Text(row));
+        Assert.Equal("実行中", row.Pages[0].VlmState);
+    }
+
+    [Fact]
     public void PagesMarkedToBeReadAgain_ShowThatInTheStep3ColumnAndInTheListOfPages_FR138()
     {
         var document = Doc(StepStatus.Done, StepStatus.Done, StepStatus.Done);
         document.Pages =
         [
             new PageRecord { Index = 1, Step3 = PageStep3Status.Done },
-            new PageRecord { Index = 2, Step3 = PageStep3Status.Done, RereadMark = true },
+            new PageRecord { Index = 2, Step3 = PageStep3Status.Done, RereadMark = true, VlmText = "read before" },
             new PageRecord { Index = 3, Step3 = PageStep3Status.Failed, RereadMark = true },
             new PageRecord { Index = 4, IsDeleted = true, Step3 = PageStep3Status.Skipped, RereadMark = true }, // a deleted page is not read again
         ];

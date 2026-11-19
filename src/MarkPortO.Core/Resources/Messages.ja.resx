@@ -562,4 +562,13 @@
   <data name="vlm.prompts.{0}Variants.selected: the prompt '{1}' was not found." xml:space="preserve">
     <value>vlm.prompts.{0}Variants.selected: プロンプト「{1}」が見つかりません。</value>
   </data>
+  <data name="Running again {0}/{1}" xml:space="preserve">
+    <value>再実行中 {0}/{1}</value>
+  </data>
+  <data name="Waiting to run ({0})" xml:space="preserve">
+    <value>実行待ち ({0})</value>
+  </data>
+  <data name="Waiting to run" xml:space="preserve">
+    <value>実行待ち</value>
+  </data>
 </root>

@@ -80,7 +80,7 @@ public class PromptSupplementTests
         var text = PromptSupplement.Build(prompt, "en", pageText: "PAGE-TEXT");
 
         Assert.True(text.IndexOf("header row", StringComparison.Ordinal) < text.IndexOf("PAGE-TEXT", StringComparison.Ordinal));
-        Assert.StartsWith("Read the page. ", text);
+        Assert.StartsWith("Read the page.\n\nIf a table", text);
         Assert.EndsWith("PAGE-TEXT", text);
     }
 
@@ -113,5 +113,30 @@ public class PromptSupplementTests
     {
         Assert.DoesNotContain("part", PromptSupplement.Build("p", "en"));
         Assert.DoesNotContain("part", PromptSupplement.Build("p", "en", band: 1, bands: 1));
+    }
+
+    [Theory]
+    [InlineData(DocumentKind.Docx, "ja")]
+    [InlineData(DocumentKind.Docx, "en")]
+    [InlineData(DocumentKind.Xlsx, "ja")]
+    [InlineData(DocumentKind.Pptx, "en")]
+    [InlineData(DocumentKind.Pdf, "ja")]
+    public void ThePromptForACloudLlm_TalksAboutMermaidOnce(DocumentKind kind, string language)
+    {
+        var text = PromptPresets.TextOf(kind, PromptPresets.Cloud, language);
+
+        // The weaker sentence of the standard prompt is taken out; its own words about diagrams and charts stay.
+        Assert.DoesNotContain(language == "ja" ? PromptSettings.MermaidSentence : PromptSettings.MermaidSentenceEn.Trim(), text);
+        Assert.Contains("xychart-beta", text);
+    }
+
+    [Fact]
+    public void TheSupplement_IsAParagraphOfItsOwn_NotTheEndOfTheLastRule()
+    {
+        var prompt = PromptPresets.TextOf(DocumentKind.Docx, PromptPresets.Cloud, "ja");
+
+        var text = PromptSupplement.Build(prompt, "ja", pageText: "PAGE");
+
+        Assert.Contains("\n\n画像の表に見出し行が無い場合は", text);
     }
 }

@@ -100,7 +100,10 @@ public class PageFurnitureTests
         var ja = PromptSettings.DefaultFor(DocumentKind.Docx, "ja");
         Assert.Contains("1回だけ書きます", ja);
         Assert.Contains("ヘッダー、フッター、ページ番号", ja);
-        Assert.Contains("write only the rows that are on this page", PromptSettings.DefaultFor(DocumentKind.Docx, "en"));
+        Assert.Contains("Write the content of this page once", PromptSettings.DefaultFor(DocumentKind.Docx, "en"));
+
+        // The rule about tables that run over pages is in the supplement, page by page.
+        Assert.DoesNotContain("表がページをまたいで", ja);
         Assert.DoesNotContain("1回だけ書きます", PromptSettings.DefaultFor(DocumentKind.Pptx, "ja"));
 
         var earlier = ja[..ja.IndexOf("\n\n次の決まりを守ってください。", StringComparison.Ordinal)] + "\n\n抽出テキスト:\n{pagetext}";

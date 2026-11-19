@@ -109,7 +109,9 @@ public static class PromptPresets
     // The standard prompt with a paragraph before the extracted text: what a strong model can do, and a small one cannot.
     private static string CloudText(DocumentKind kind, bool ja)
     {
-        var standard = PromptSettings.DefaultFor(kind, ja ? "ja" : "en");
+        // Its own words about diagrams take the place of the sentence of the standard prompt, which would say the same more weakly.
+        var standard = PromptSettings.DefaultFor(kind, ja ? "ja" : "en")
+            .Replace(ja ? PromptSettings.MermaidSentence : PromptSettings.MermaidSentenceEn, string.Empty, StringComparison.Ordinal);
         var marker = ja ? "\n\n抽出テキスト:\n{pagetext}" : "\n\nExtracted text:\n{pagetext}";
         var sheet = kind == DocumentKind.Xlsx;
         var extra = ja
