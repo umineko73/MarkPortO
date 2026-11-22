@@ -17,6 +17,7 @@ using MarkPortO.Core.Convert;
 using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Settings;
 using MarkPortO.Core.Tests.Fixtures;
+using MarkPortO.Core.Vlm;
 using PdfPig = UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using static MarkPortO.Core.Tests.Convert.ConvertTestHelper;
@@ -102,6 +103,53 @@ public class ExtractorConvertTests
         var ex = await Assert.ThrowsAsync<ConvertStartException>(() => RunWithAsync(dir, Request(dir.Combine("out"), PdfOptions("t"), source), profile));
 
         Assert.Equal(ConvertStartException.ExtractorItem, ex.Item);
+    }
+
+    [Fact]
+    public async Task AnExtractorThatGivesNoText_WithStep3_LeavesTheReadingToTheVlm()
+    {
+        // A scanned PDF: the command ends well but writes nothing. The VLM is what can read it, so the document does not fail.
+        using var dir = new TempDir();
+        using var server = new FakeOpenAiServer { PageReply = _ => "Read from the scan" };
+        var source = PdfFactory.Create(dir.Combine("in", "scan.pdf"), PageSize.A4, "One", "Two");
+        var settings = AppSettings.CreateDefault();
+        settings.Vlm.Connections.Add(new ConnectionProfile { Name = "fake", BaseUrl = server.BaseUrl, Model = "vision-model", TimeoutSeconds = 5 });
+        settings.Vlm.Selected = "fake";
+        var (vlm, error) = VlmSetupFactory.Create(settings);
+        Assert.True(vlm is not null, error);
+        var options = PdfOptions("t");
+        options.Step3 = true;
+        options.Connection = "fake";
+        using var engine = Engine(dir);
+
+        var result = await new ConvertService(engine, vlm: vlm, extractors: [Profile("/c", "type", "nul", ">", "{output}", "&", "rem", "{input}")])
+            .RunAsync(Request(dir.Combine("out"), options, source));
+        vlm!.Dispose();
+
+        var document = Assert.Single(result.Documents);
+        Assert.True(document.IsDone(), document.Error?.Message);
+        Assert.Equal("t", document.Extractor);
+        Assert.Contains(document.Warnings, w => w.Code == "ExtractorNoText");
+        Assert.Equal(2, ImageFiles(document.OutputFolder).Length);
+        Assert.Equal(2, server.Requests.Count(r => r.HasImage)); // every page was read
+        Assert.Contains("(Step3)", File.ReadAllText(Path.Combine(document.OutputFolder, "scan.md")));
+        var read = File.ReadAllText(Path.Combine(document.OutputFolder, "scan_vlm.md"));
+        Assert.Contains("Read from the scan", read);
+        Assert.Contains("<!-- page: 2 -->", read);
+    }
+
+    [Fact]
+    public async Task AnExtractorThatGivesNoText_WithoutStep3_FailsThatDocument()
+    {
+        // Nothing would read the pages: an empty Markdown would look like a success.
+        using var dir = new TempDir();
+        var source = PdfFactory.Create(dir.Combine("in", "scan.pdf"), PageSize.A4, "One");
+
+        var result = await RunWithAsync(dir, Request(dir.Combine("out"), PdfOptions("t"), source), Profile("/c", "type", "nul", ">", "{output}", "&", "rem", "{input}"));
+
+        var document = Assert.Single(result.Documents);
+        Assert.True(document.IsFailed());
+        Assert.Contains("gave no text", document.Error!.Message);
     }
 
     [Fact]

@@ -22,7 +22,11 @@ using MarkPortO.Core.Vlm;
 namespace MarkPortO.Core.Extraction;
 
 /// <summary>The command did not give a Markdown: it could not start, failed, took too long, or wrote nothing (FR-112).</summary>
-public sealed class ExtractorException(string message) : Exception(message);
+public sealed class ExtractorException(string message, bool gaveNoText = false) : Exception(message)
+{
+    /// <summary>The command ended well but wrote nothing (a scanned PDF, for example): the VLM can still read the pages.</summary>
+    public bool GaveNoText { get; } = gaveNoText;
+}
 
 /// <param name="Markdown">The Markdown of the document.</param>
 /// <param name="Seconds">How long the command ran.</param>
@@ -218,7 +222,7 @@ public static class ExtractorRunner
         markdown = markdown.TrimStart('\uFEFF');
         if (string.IsNullOrWhiteSpace(markdown))
         {
-            throw new ExtractorException($"The extractor '{profile.Name}' gave no text. {tail}".Trim());
+            throw new ExtractorException($"The extractor '{profile.Name}' gave no text. {tail}".Trim(), gaveNoText: true);
         }
 
         return new ExtractorResult(markdown, Math.Round(started.Elapsed.TotalSeconds, 1), process.ExitCode, tail, outputFolder, file);

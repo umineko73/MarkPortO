@@ -106,6 +106,9 @@
   <data name="This Markdown was written by the extractor `{0}`. It has no page marks and no references to the page images." xml:space="preserve">
     <value>このMarkdownは、抽出コマンド `{0}` が作りました。ページの区切りも、ページ画像の参照もありません。</value>
   </data>
+  <data name="The extractor `{0}` gave no text (a scanned document?). The text comes only from the VLM (Step3)." xml:space="preserve">
+    <value>抽出コマンド `{0}` は文字を取り出せませんでした（スキャンした文書でしょうか）。文字は VLM（Step3）の結果にだけあります。</value>
+  </data>
   <data name="The rows of this table are joined to the table on page {0}." xml:space="preserve">
     <value>この表の行は、ページ{0}の表に結合しました。</value>
   </data>

@@ -61,6 +61,9 @@
   <data name="{0} of {1} pages have no text layer (a scanned page?). Their text comes only from the VLM (Step3)." xml:space="preserve">
     <value>{1} ページのうち {0} ページにテキスト層がありません(スキャンしたページでしょうか)。これらのページの文字は、VLM(Step3)でだけ得られます。</value>
   </data>
+  <data name="The extractor '{0}' gave no text (a scanned document?). The text comes only from the VLM (Step3)." xml:space="preserve">
+    <value>抽出コマンド「{0}」は文字を取り出せませんでした(スキャンした文書でしょうか)。文字は VLM(Step3)でだけ得られます。</value>
+  </data>
   <data name="The input file was not found." xml:space="preserve">
     <value>入力ファイルが見つかりません。</value>
   </data>

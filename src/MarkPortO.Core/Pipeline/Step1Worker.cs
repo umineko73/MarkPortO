@@ -137,7 +137,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             // The pages (and their images) are made as always, for Step2, Step3 and the preview; the Markdown is the one of the extractor (FR-112).
             if (context.ExtractorFor(document.Kind) is { } extractor)
             {
-                await ExtractAsync(document, extractor, workDirectory, cancellationToken).ConfigureAwait(false);
+                await ExtractAsync(document, extractor, workDirectory, context.Options.Step3, cancellationToken).ConfigureAwait(false);
             }
 
             document.Converter = ConverterText(document, work.Context);
@@ -185,11 +185,26 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
 
     // ---- an extractor: an external command writes the Markdown of the whole document, without pages (FR-110 to FR-112) ----
 
-    private static async Task ExtractAsync(DocumentRecord document, ExtractorProfile extractor, string workDirectory, CancellationToken cancellationToken)
+    /// <param name="step3">Step3 reads the pages: a command that gives no text (a scanned PDF) does not stop the document, the VLM reads it.</param>
+    private static async Task ExtractAsync(DocumentRecord document, ExtractorProfile extractor, string workDirectory, bool step3, CancellationToken cancellationToken)
     {
-        var result = await ExtractorRunner.RunAsync(extractor, document.SourcePath, Path.Combine(workDirectory, "extractor"), cancellationToken).ConfigureAwait(false);
         var note = "> " + Loc.M("This Markdown was written by the extractor `{0}`. It has no page marks and no references to the page images.", document.MarkdownLanguage, extractor.Name);
         var name = Path.GetFileNameWithoutExtension(document.SourcePath);
+        ExtractorResult result;
+        try
+        {
+            result = await ExtractorRunner.RunAsync(extractor, document.SourcePath, Path.Combine(workDirectory, "extractor"), cancellationToken).ConfigureAwait(false);
+        }
+        catch (ExtractorException ex) when (ex.GaveNoText && step3)
+        {
+            // The pages and their images are made; the VLM reads them into the file of the VLM results, as for any document of an extractor.
+            var empty = "> " + Loc.M("The extractor `{0}` gave no text (a scanned document?). The text comes only from the VLM (Step3).", document.MarkdownLanguage, extractor.Name);
+            AtomicFile.WriteAllText(Path.Combine(document.OutputFolder, MarkdownRenderer.MarkdownFileName(name)), note + "\n\n" + empty + "\n");
+            document.Warnings.Add(new Warning("ExtractorNoText", Loc.T("The extractor '{0}' gave no text (a scanned document?). The text comes only from the VLM (Step3).", extractor.Name)));
+            document.Extractor = extractor.Name;
+            return;
+        }
+
         AtomicFile.WriteAllText(Path.Combine(document.OutputFolder, MarkdownRenderer.MarkdownFileName(name)), note + "\n\n" + result.Markdown.TrimEnd() + "\n");
 
         // The other files of the command (the pictures that the Markdown refers to) go to the output folder with the same relative paths; nothing is overwritten.
