@@ -81,6 +81,12 @@ public class SettingsPersistenceTests
                 FillWithNonDefaults(prompt, ref counter);
                 property.SetValue(target, new List<NamedPrompt> { prompt });
             }
+            else if (type == typeof(List<ConversionPreset>))
+            {
+                var preset = new ConversionPreset();
+                FillWithNonDefaults(preset, ref counter); // its name is "value-Name-N": a name a preset of the user can have
+                property.SetValue(target, new List<ConversionPreset> { preset });
+            }
             else if (type == typeof(Dictionary<string, string>))
             {
                 property.SetValue(target, new Dictionary<string, string> { [$"KEY_{counter}"] = $"value-{counter}" });
@@ -143,6 +149,8 @@ public class SettingsPersistenceTests
                 s.Ui = changed.Ui;
                 s.Vlm = changed.Vlm;
                 s.Extractors = changed.Extractors;
+                s.Presets = changed.Presets;
+                s.PresetSelected = changed.PresetSelected;
             });
         } // disposing saves
 

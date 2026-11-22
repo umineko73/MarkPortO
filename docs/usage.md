@@ -13,6 +13,22 @@
 
 While a conversion runs, the conditions cannot be changed. The values are saved to `%APPDATA%\MarkPortO\settings.json` and restored at the next start.
 
+#### Presets
+
+**Preset**, at the top of the **Conditions**, puts the recommended settings of Step1 to Step3 for a purpose. They can still be changed afterwards; the name then shows "(changed)".
+
+| Preset | For | Main settings |
+|---|---|---|
+| For people to read | Moving from Office documents to Markdown | bold and italic written, pictures and shapes saved, no page images in the Markdown, Step3 adds what the figures show, no description at the top |
+| For a language model (RAG) | Documents read by a language model | no bold and italic, pictures and shapes saved, the page images as comments (a passage can be traced to its page), Step3 adds what the figures show, the description at the top |
+
+- Both use the tables of the extracted text, leave out repeated tables, and write the VLM results into the Markdown of the document.
+- Step3 is turned on only when a VLM connection is chosen, so a preset never stops a conversion on a machine without one.
+- The inputs, the output folder, the engine, the VLM connection, the kinds of file and the range of a sheet do not change.
+- **Save…** saves the settings now as a preset with a name; **Manage…** renames and deletes them. The built-in presets cannot be changed or deleted.
+- On the command line, `--preset human|rag|<name>`; the options given with it win over it.
+- The name of the preset is in the comment at the top of the Markdown (`<!-- converter: …; preset: rag -->`).
+
 The **Conditions** have a part that can be folded (**Kinds of file and options**) and the rows of Step1 to Step3. What is chosen for each run is in the rows of the steps; what is set once is in the part that can be folded.
 
 | Where | Item | What it sets |
@@ -20,7 +36,7 @@ The **Conditions** have a part that can be folded (**Kinds of file and options**
 | Kinds of file and options | Kinds of file | The kinds of file in a folder, and whether sub-folders are included |
 | 〃 | Extractor | Who extracts the text of each kind: built-in or an external command (shown when a command is registered) |
 | 〃 | Extraction options | The range of an Excel sheet and so on (grey when an external command is chosen) |
-| 〃 | Details of the steps | Step1: the engine, the DPI, bold and italic. Step2: how the page image is written. Step3: write the results to a separate file, tables, leave out repeated tables |
+| 〃 | Details of the steps | Step1: the engine, the DPI, bold and italic. Step2: how the page image is written. Step3: write the results to a separate file, tables, leave out repeated tables. Markdown: write "About this Markdown" at the top |
 | Rows of the steps | Step1 | Save the pictures of the document, cut out the shapes, group the shapes that are near |
 | 〃 | Step2 | Whether the page images are written in the Markdown |
 | 〃 | Step3 | Reading with the VLM (a model that reads images), the use of the VLM, the connection, the prompts, the page range |
@@ -254,6 +270,8 @@ markporto-cli check-connection --settings settings.json
 |---|---|
 | `--step2 on\|off` | Make the page images and write them in the Markdown. |
 | `--page-image image\|reference\|link` | How the page image is written (with Step2). `reference` (the default) is a comment `<!-- page-image: images/page-001.png -->` that a Markdown viewer does not show but a program or a model can read; `image` is `![Page 1](images/page-001.png)`, which a viewer shows; `link` is `[Page 1](images/page-001.png)`, a link that a viewer shows instead of the image. |
+| `--preset human\|rag\|<name>` | Use a preset (the recommended settings of Step1 to Step3). The options given with it win over it. |
+| `--structure-note on\|off` | Write "About this Markdown" at the top of the Markdown (the default is on). |
 | `--step3 on\|off` | Read with the VLM (how: `--step3-mode`). |
 | `--step3-mode supplement\|transcribe` | How Step3 uses the VLM. supplement (the default): keep the text of Step1 and read only the figures, and add what they show (a page that Step1 has almost no text of, and a PDF, are written out whole). transcribe: write out every page. See "Reading with the VLM (Step3)". |
 | `--connection <name>` | The VLM connection to use. |

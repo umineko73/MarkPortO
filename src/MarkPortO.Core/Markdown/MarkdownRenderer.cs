@@ -64,9 +64,13 @@ public static partial class MarkdownRenderer
 
         // The file of the VLM results has the text of the document on the pages where the VLM only added to it (FR-150).
         var step1InVlmFile = vlmFile && document.Pages.Any(AddsToStep1);
-        AppendStructureNote(builder, fileName, document.Kind, includeImages, document.PageImage, includeVlm, document.Pages.Any(p => p.Bands > 1),
-            document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), document.ExtractPictures && (!vlmFile || step1InVlmFile), language,
-            vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmInSeparateFile ? VlmFileName(name) : null, figures.Count > 0, step1InVlmFile);
+        // A reader of the document may not want the description (FR-151): the title, the comment of the converter and the page marks stay.
+        if (document.StructureNote)
+        {
+            AppendStructureNote(builder, fileName, document.Kind, includeImages, document.PageImage, includeVlm, document.Pages.Any(p => p.Bands > 1),
+                document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), document.ExtractPictures && (!vlmFile || step1InVlmFile), language,
+                vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmInSeparateFile ? VlmFileName(name) : null, figures.Count > 0, step1InVlmFile);
+        }
 
         if (document.Converter is not null)
         {
@@ -74,6 +78,7 @@ public static partial class MarkdownRenderer
             builder.Append("\n<!-- converter: ").Append(SafeComment(document.Converter))
                 .Append(document.VlmModel is null ? string.Empty : "; vlm: " + SafeComment(document.VlmModel))
                 .Append(document.VlmModel is null || document.VlmPrompt is null ? string.Empty : "; prompt: " + SafeComment(document.VlmPrompt))
+                .Append(document.Preset is null ? string.Empty : "; preset: " + SafeComment(document.Preset))
                 .Append(" -->\n");
         }
 

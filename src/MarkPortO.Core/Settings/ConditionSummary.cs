@@ -80,6 +80,11 @@ public static class ConditionSummary
             parts.Add(Loc.T("No bold and italic"));
         }
 
+        if (!settings.Output.StructureNote)
+        {
+            parts.Add(Loc.T("No description at the top"));
+        }
+
         if (settings.Steps.Step2 && settings.Steps.PageImage != PageImageStyle.Reference)
         {
             parts.Add(settings.Steps.PageImage == PageImageStyle.Image ? Loc.T("Page images: image") : Loc.T("Page images: link"));

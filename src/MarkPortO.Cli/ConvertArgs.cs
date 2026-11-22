@@ -77,6 +77,12 @@ public sealed record ConvertArgs
     /// <summary>How Step 3 uses the VLM (FR-150): <c>supplement</c> or <c>transcribe</c>.</summary>
     public string? Step3Mode { get; init; }
 
+    /// <summary>The preset of the conversion (FR-151): <c>human</c>, <c>rag</c> or the name of a preset of the settings.</summary>
+    public string? Preset { get; init; }
+
+    /// <summary>Write the description of the structure at the top of the Markdown (FR-151): on or off.</summary>
+    public string? StructureNote { get; init; }
+
     /// <summary>The name of the prompt for each kind that has it (FR-115).</summary>
     public string? Prompt { get; init; }
 
@@ -139,6 +145,20 @@ public static class ConvertArgsResolver
 
         // Work on a copy so the caller's settings stay as they were read.
         var settings = JsonDefaults.Deserialize<AppSettings>(JsonDefaults.Serialize(fromFile))!;
+
+        // The preset first (FR-151): the options below are more particular, so they win over it.
+        if (args.Preset is not null)
+        {
+            if (ConversionPreset.Find(settings, args.Preset) is { } preset)
+            {
+                preset.ApplyTo(settings);
+                settings.PresetSelected = preset.Name;
+            }
+            else
+            {
+                errors.Add($"--preset: there is no preset named '{args.Preset}' (the built-in ones are {ConversionPreset.Human} and {ConversionPreset.Rag}).");
+            }
+        }
 
         if (args.Inputs.Count > 0)
         {
@@ -243,6 +263,7 @@ public static class ConvertArgsResolver
         ApplyOnOff("--step3", args.Step3, value => settings.Steps.Step3 = value, errors);
         ApplyOnOff("--vlm-separate", args.VlmSeparate, value => settings.Steps.VlmSeparate = value, errors);
         ApplyOnOff("--drop-repeated-tables", args.DropRepeatedTables, value => settings.Steps.DropRepeatedTables = value, errors);
+        ApplyOnOff("--structure-note", args.StructureNote, value => settings.Output.StructureNote = value, errors);
         ApplyOnOff("--same-folder", args.SameFolder, value => settings.Output.SameFolder = value, errors);
         foreach (var (kind, value) in new[] { (DocumentKind.Docx, args.ExtractorDocx), (DocumentKind.Xlsx, args.ExtractorXlsx), (DocumentKind.Pptx, args.ExtractorPptx), (DocumentKind.Pdf, args.ExtractorPdf) })
         {

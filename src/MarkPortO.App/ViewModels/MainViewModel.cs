@@ -87,9 +87,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 or nameof(ExtractorDocx) or nameof(ExtractorXlsx) or nameof(ExtractorPptx) or nameof(ExtractorPdf)
                 or nameof(IncludeHiddenSheets) or nameof(IncludeHiddenSlides) or nameof(IncludeOffSlideText) or nameof(UsePdfText)
                 or nameof(ExcelColumns) or nameof(ExcelSheet) or nameof(ExcelPrintArea)
-                or nameof(PageImageIndex) or nameof(Step2) or nameof(Step3) or nameof(VlmSeparate) or nameof(Step1TablesIndex) or nameof(DropRepeatedTables))
+                or nameof(PageImageIndex) or nameof(Step2) or nameof(Step3) or nameof(VlmSeparate) or nameof(Step1TablesIndex) or nameof(DropRepeatedTables) or nameof(StructureNote))
             {
                 Raise(nameof(ConditionSummaryText));
+            }
+
+            // Whether the settings still have the values of the preset is worked out again after any change (FR-151).
+            if (e.PropertyName is not (nameof(PresetStateText) or nameof(Status) or nameof(FinishedCount) or nameof(ProgressText) or nameof(ProgressVisibility)))
+            {
+                Raise(nameof(PresetStateText));
             }
         };
 
@@ -206,6 +212,132 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         RaiseRereadState();
+        Raise(nameof(PresetStateText));
+    }
+
+    // ---- presets of the conversion (FR-151) ----
+
+    /// <summary>One item of the list of presets: the name that is saved, and the name that is shown.</summary>
+    public sealed record PresetItem(string Name, string Display);
+
+    /// <summary>"Custom" (no preset), the built-in presets, then the presets of the user.</summary>
+    public IReadOnlyList<PresetItem> PresetItems =>
+    [
+        new(string.Empty, UiText.Get("Preset_Custom")),
+        .. ConversionPreset.BuiltIn.Select(p => new PresetItem(p.Name, ConversionPreset.DisplayName(p.Name))),
+        .. _store.Current.Presets.Select(p => new PresetItem(p.Name, p.Name)),
+    ];
+
+    /// <summary>The chosen preset in <see cref="PresetItems"/>. Choosing one puts its values into the settings; "Custom" changes nothing.</summary>
+    public int PresetIndex
+    {
+        get
+        {
+            var items = PresetItems;
+            var index = items.ToList().FindIndex(i => i.Name.Length > 0 && string.Equals(i.Name, _store.Current.PresetSelected, StringComparison.OrdinalIgnoreCase));
+            return index < 0 ? 0 : index;
+        }
+
+        set
+        {
+            var items = PresetItems;
+            if (value < 0 || value >= items.Count || value == PresetIndex && value != 0 && !IsPresetModified)
+            {
+                return;
+            }
+
+            ApplyPreset(items[value].Name);
+        }
+    }
+
+    /// <summary>Puts the values of the preset of this name into the settings (empty: no preset, the settings stay) and shows them all again.</summary>
+    public void ApplyPreset(string name)
+    {
+        if (IsRunning)
+        {
+            return;
+        }
+
+        _store.Update(s =>
+        {
+            ConversionPreset.Find(s, name)?.ApplyTo(s);
+            s.PresetSelected = ConversionPreset.Find(s, name)?.Name ?? string.Empty;
+        });
+        Raise(string.Empty); // every setting of the steps may have changed
+        RefreshPrompts();
+    }
+
+    /// <summary>The settings were changed after the preset was chosen.</summary>
+    private bool IsPresetModified => ConversionPreset.Find(_store.Current, _store.Current.PresetSelected) is { } preset && !preset.Matches(_store.Current);
+
+    /// <summary>"(changed)" after the name of the preset when the settings no longer have its values; empty otherwise.</summary>
+    public string PresetStateText => IsPresetModified ? UiText.Get("Preset_Modified") : string.Empty;
+
+    /// <summary>Saves the settings now as a preset of the user with this name (an existing one of the same name is replaced) and chooses it.</summary>
+    public void SavePreset(string name)
+    {
+        var trimmed = name.Trim();
+        _store.Update(s =>
+        {
+            s.Presets.RemoveAll(p => string.Equals(p.Name, trimmed, StringComparison.OrdinalIgnoreCase));
+            s.Presets.Add(ConversionPreset.From(s, trimmed));
+            s.PresetSelected = trimmed;
+        });
+        Raise(nameof(PresetItems));
+        Raise(nameof(PresetIndex));
+        Raise(nameof(PresetStateText));
+    }
+
+    /// <summary>Renames a preset of the user; the choice follows it.</summary>
+    public void RenamePreset(string oldName, string newName)
+    {
+        var trimmed = newName.Trim();
+        _store.Update(s =>
+        {
+            if (s.Presets.FirstOrDefault(p => string.Equals(p.Name, oldName, StringComparison.OrdinalIgnoreCase)) is { } preset)
+            {
+                preset.Name = trimmed;
+                if (string.Equals(s.PresetSelected, oldName, StringComparison.OrdinalIgnoreCase))
+                {
+                    s.PresetSelected = trimmed;
+                }
+            }
+        });
+        Raise(nameof(PresetItems));
+        Raise(nameof(PresetIndex));
+    }
+
+    /// <summary>Deletes a preset of the user; when it was chosen, the choice becomes "Custom" (the settings stay).</summary>
+    public void DeletePreset(string name)
+    {
+        _store.Update(s =>
+        {
+            s.Presets.RemoveAll(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (string.Equals(s.PresetSelected, name, StringComparison.OrdinalIgnoreCase))
+            {
+                s.PresetSelected = string.Empty;
+            }
+        });
+        Raise(nameof(PresetItems));
+        Raise(nameof(PresetIndex));
+        Raise(nameof(PresetStateText));
+    }
+
+    /// <summary>The names of the presets of the user, for the window that manages them.</summary>
+    public IReadOnlyList<string> UserPresetNames => [.. _store.Current.Presets.Select(p => p.Name)];
+
+    /// <summary>A preset of the user, or a built-in one, already has this name.</summary>
+    public bool PresetExists(string name) => ConversionPreset.Find(_store.Current, name) is not null;
+
+    /// <summary>Write the description of the structure at the top of the Markdown (FR-151).</summary>
+    public bool StructureNote
+    {
+        get => _store.Current.Output.StructureNote;
+        set
+        {
+            _store.Update(s => s.Output.StructureNote = value);
+            Raise();
+        }
     }
 
     public bool CanEditPrompts => CanEdit && Step3;
@@ -1328,6 +1460,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 PageImage = snapshot.Steps.PageImage,
                 DropRepeatedTables = snapshot.Steps.DropRepeatedTables,
                 Step3Mode = snapshot.Steps.Step3Mode,
+                StructureNote = snapshot.Output.StructureNote,
             },
             token));
     }

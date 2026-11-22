@@ -157,6 +157,7 @@ public sealed class ConvertService
         var tablesBefore = job.Options.Step1Tables;
         var pageImageBefore = job.Options.PageImage;
         var repeatedBefore = job.Options.DropRepeatedTables;
+        var noteBefore = job.Options.StructureNote;
         job.Options.Step2 = request.Step2 ?? job.Options.Step2;
         job.Options.Step3 = reread || (request.Step3 ?? job.Options.Step3);
         if (reread && request.PromptNames is { } promptNames)
@@ -168,6 +169,7 @@ public sealed class ConvertService
         job.Options.PageImage = request.PageImage ?? job.Options.PageImage;
         job.Options.DropRepeatedTables = request.DropRepeatedTables ?? job.Options.DropRepeatedTables;
         job.Options.Step3Mode = request.Step3Mode ?? job.Options.Step3Mode;
+        job.Options.StructureNote = request.StructureNote ?? job.Options.StructureNote;
         foreach (var document in documents)
         {
             document.VlmSeparate = job.Options.VlmSeparate;
@@ -175,6 +177,7 @@ public sealed class ConvertService
             document.PageImage = job.Options.PageImage;
             document.DropRepeatedTables = job.Options.DropRepeatedTables;
             document.Step3Mode = job.Options.Step3Mode;
+            document.StructureNote = job.Options.StructureNote;
         }
 
         job.Options.Connection = request.Connection ?? job.Options.Connection;
@@ -203,7 +206,7 @@ public sealed class ConvertService
         }
 
         // A step switched off or on changes the Markdown of finished files (image references, VLM results).
-        if (step2Before != job.Options.Step2 || step3Before != job.Options.Step3 || separateBefore != job.Options.VlmSeparate || tablesBefore != job.Options.Step1Tables || pageImageBefore != job.Options.PageImage || repeatedBefore != job.Options.DropRepeatedTables)
+        if (step2Before != job.Options.Step2 || step3Before != job.Options.Step3 || separateBefore != job.Options.VlmSeparate || tablesBefore != job.Options.Step1Tables || pageImageBefore != job.Options.PageImage || repeatedBefore != job.Options.DropRepeatedTables || noteBefore != job.Options.StructureNote)
         {
             foreach (var document in documents.Where(d => d.Step1 == StepStatus.Done && !toRun.Contains(d)))
             {
@@ -454,6 +457,8 @@ public sealed class ConvertService
                 PageImage = options.PageImage,
                 DropRepeatedTables = options.DropRepeatedTables,
                 Step3Mode = options.Step3Mode,
+                StructureNote = options.StructureNote,
+                Preset = options.Preset,
             };
 
             record.OutputFolderRel = Path.GetRelativePath(outRoot, record.OutputFolder);

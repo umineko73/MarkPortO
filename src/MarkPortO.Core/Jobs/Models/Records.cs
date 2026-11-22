@@ -209,6 +209,13 @@ public sealed class DocumentRecord
     /// <summary>How Step3 uses the VLM (FR-150). A document from before this setting was read whole.</summary>
     public Step3Mode Step3Mode { get; set; } = Step3Mode.Transcribe;
 
+    /// <summary>The description of the structure is written at the top of the Markdown (FR-151). A document from before this setting had it.</summary>
+    public bool StructureNote { get; set; } = true;
+
+    /// <summary>The preset of the conversion (FR-151), with " (modified)" when its values were changed; null when none was chosen.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Preset { get; set; }
+
     /// <summary>The pictures of the document were saved in <c>pictures/</c> (FR-133): the note at the top of the Markdown says so.</summary>
     public bool ExtractPictures { get; set; }
 
@@ -325,6 +332,13 @@ public sealed class OptionsSnapshot
 
     /// <summary>How Step3 uses the VLM (FR-150). A job from before this setting read every page whole.</summary>
     public Step3Mode Step3Mode { get; set; } = Step3Mode.Transcribe;
+
+    /// <summary>The description of the structure is written at the top of the Markdown (FR-151). A job from before this setting wrote it.</summary>
+    public bool StructureNote { get; set; } = true;
+
+    /// <summary>The preset of the conversion (FR-151), with " (modified)" when its values were changed; null when none was chosen.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Preset { get; set; }
 
     public string? Connection { get; set; }
 

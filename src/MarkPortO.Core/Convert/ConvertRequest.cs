@@ -90,6 +90,8 @@ public sealed class ConvertRequest
         Step1Tables = settings.Steps.Step1Tables,
         DropRepeatedTables = settings.Steps.DropRepeatedTables,
         Step3Mode = settings.Steps.Step3Mode,
+        StructureNote = settings.Output.StructureNote,
+        Preset = ConversionPreset.RecordText(settings),
         Connection = settings.Steps.Step3 ? settings.Vlm.Selected : null,
         PromptNames = new Settings.PromptNames
         {

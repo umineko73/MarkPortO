@@ -168,6 +168,33 @@ public class CliParsingTests
     }
 
     [Fact]
+    public void APreset_SetsTheSteps_AndAnOptionGivenWithIt_WinsOverIt()
+    {
+        var rag = Resolved(new ConvertArgs { Preset = "rag" }, FromFile());
+        Assert.False(rag.Input.Emphasis);
+        Assert.True(rag.Steps.Step2);
+        Assert.True(rag.Output.StructureNote);
+        Assert.Equal("rag", rag.PresetSelected);
+        Assert.False(rag.Steps.Step3); // no VLM connection is chosen: the preset does not turn Step3 on, so the conversion can start
+
+        var withVlm = Resolved(new ConvertArgs { Preset = "rag" }, FromFile(s =>
+        {
+            s.Vlm.Connections = [new ConnectionProfile { Name = "local", BaseUrl = "http://localhost:1234/v1", Model = "m" }];
+            s.Vlm.Selected = "local";
+        }));
+        Assert.True(withVlm.Steps.Step3);
+
+        var human = Resolved(new ConvertArgs { Preset = "human", StructureNote = "on", Step3Mode = "transcribe" }, FromFile());
+        Assert.True(human.Input.Emphasis);
+        Assert.True(human.Output.StructureNote); // the option, not the preset
+        Assert.Equal(Step3Mode.Transcribe, human.Steps.Step3Mode);
+
+        var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { Preset = "nothing" }, FromFile());
+        Assert.Null(settings);
+        Assert.Contains(errors, e => e.StartsWith("--preset", StringComparison.Ordinal) && e.Contains("nothing"));
+    }
+
+    [Fact]
     public void AnInvalidPdfText_IsReportedWithTheOptionName()
     {
         var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { PdfText = "maybe" }, FromFile());

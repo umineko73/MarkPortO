@@ -113,6 +113,17 @@
           </Style>
         </GroupBox.Resources>
         <StackPanel>
+          <!-- The preset of the conversion (FR-151): choosing one puts its values into the steps; they can still be changed -->
+          <DockPanel Margin="0,0,0,6" IsEnabled="{Binding CanEdit}">
+            <TextBlock Text="{DynamicResource Main_Preset}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <ComboBox ItemsSource="{Binding PresetItems}" DisplayMemberPath="Display" SelectedIndex="{Binding PresetIndex}" MinWidth="220" VerticalAlignment="Center"
+                      ToolTip="{DynamicResource Main_PresetTip}" />
+            <TextBlock Text="{Binding PresetStateText}" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource SubtleTextBrush}" />
+            <Button Content="{DynamicResource Main_PresetSave}" Click="OnSavePresetClick" Padding="10,3" Margin="12,0,0,0" VerticalAlignment="Center"
+                    ToolTip="{DynamicResource Main_PresetSaveTip}" />
+            <Button Content="{DynamicResource Main_PresetManage}" Click="OnManagePresetsClick" Padding="10,3" Margin="6,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" />
+          </DockPanel>
+
           <!-- The folded part: the kinds of file and the conversion (FR-102). Closed, the line says what is chosen. Steps are always shown. -->
           <Expander x:Name="ConditionsExpander" IsExpanded="{Binding ConditionsExpanded, Mode=TwoWay}" HorizontalContentAlignment="Stretch" Margin="0,0,0,6"
                     ToolTip="{DynamicResource Main_Cond_FoldTip}">
@@ -214,6 +225,7 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
@@ -246,6 +258,12 @@
                 <ComboBoxItem Content="{DynamicResource Main_Cond_TablesOmit}" />
               </ComboBox>
               <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_DropRepeated}" ToolTip="{DynamicResource Main_Cond_DropRepeatedTip}" IsChecked="{Binding DropRepeatedTables}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- The Markdown itself (FR-151) -->
+            <TextBlock Grid.Row="3" Text="{DynamicResource Preview_GroupMarkdown}" VerticalAlignment="Center" Margin="0,6,0,0" IsEnabled="{Binding CanEdit}" />
+            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_StructureNote}" ToolTip="{DynamicResource Main_Cond_StructureNoteTip}" IsChecked="{Binding StructureNote}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" />
             </StackPanel>
           </Grid>
 

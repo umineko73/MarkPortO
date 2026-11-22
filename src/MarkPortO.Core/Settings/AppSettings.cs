@@ -43,6 +43,12 @@ public sealed class AppSettings
     /// <summary>External commands that write Markdown for a file (FR-110).</summary>
     public List<ExtractorProfile> Extractors { get; set; } = [];
 
+    /// <summary>The presets of the conversion that the user saved (FR-151); the built-in ones are in <see cref="ConversionPreset.BuiltIn"/>.</summary>
+    public List<ConversionPreset> Presets { get; set; } = [];
+
+    /// <summary>The preset that was chosen last (FR-151); empty when none was ("custom").</summary>
+    public string PresetSelected { get; set; } = string.Empty;
+
     public ExtractorProfile? FindExtractor(string name) =>
         Extractors.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
 
@@ -137,6 +143,25 @@ public sealed class AppSettings
             if (connection.TimeoutSeconds is < SettingsLimits.MinTimeoutSeconds or > SettingsLimits.MaxTimeoutSeconds)
             {
                 errors.Add(Loc.T("{0}.timeoutSeconds: must be between {1} and {2} (was {3}).", prefix, SettingsLimits.MinTimeoutSeconds, SettingsLimits.MaxTimeoutSeconds, connection.TimeoutSeconds));
+            }
+        }
+
+        // The presets of the user (FR-151): a name of their own, not a built-in one, and the DPI within its limits.
+        var presetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var preset in Presets)
+        {
+            if (!ConversionPreset.IsValidUserName(preset.Name))
+            {
+                errors.Add(Loc.T("presets: the name '{0}' cannot be used (empty, a built-in name, a line break or '--').", preset.Name));
+            }
+            else if (!presetNames.Add(preset.Name.Trim()))
+            {
+                errors.Add(Loc.T("presets: the name '{0}' is used twice.", preset.Name));
+            }
+
+            if (preset.Dpi is < SettingsLimits.MinDpi or > SettingsLimits.MaxDpi)
+            {
+                errors.Add(Loc.T("presets: the DPI of '{0}' must be between {1} and {2} (was {3}).", preset.Name, SettingsLimits.MinDpi, SettingsLimits.MaxDpi, preset.Dpi));
             }
         }
 
@@ -338,6 +363,9 @@ public sealed class OutputSettings
     /// "convert the selected files again" always write into the earlier folder.
     /// </summary>
     public bool SameFolder { get; set; }
+
+    /// <summary>Write the description of the structure ("About this Markdown") at the top of the Markdown (FR-151). A reader of the document may not want it.</summary>
+    public bool StructureNote { get; set; } = true;
 }
 
 /// <summary>The language and the theme of the screen (FR-033, FR-035). <c>system</c> follows the operating system.</summary>

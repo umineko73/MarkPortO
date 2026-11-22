@@ -604,4 +604,22 @@
   <data name="No repeated tables" xml:space="preserve">
     <value>繰り返しの表を除く</value>
   </data>
+  <data name="For people to read" xml:space="preserve">
+    <value>人が読む</value>
+  </data>
+  <data name="For a language model (RAG)" xml:space="preserve">
+    <value>RAG（LLMが読む）</value>
+  </data>
+  <data name="No description at the top" xml:space="preserve">
+    <value>冒頭の説明なし</value>
+  </data>
+  <data name="presets: the name '{0}' cannot be used (empty, a built-in name, a line break or '--')." xml:space="preserve">
+    <value>presets: 名前「{0}」は使えません（空、組み込みの名前、改行、「--」）。</value>
+  </data>
+  <data name="presets: the name '{0}' is used twice." xml:space="preserve">
+    <value>presets: 名前「{0}」が2つあります。</value>
+  </data>
+  <data name="presets: the DPI of '{0}' must be between {1} and {2} (was {3})." xml:space="preserve">
+    <value>presets: 「{0}」の DPI は {1} から {2} にしてください（{3}）。</value>
+  </data>
 </root>

@@ -291,6 +291,121 @@ public partial class MainWindow : Window
 
     private void OnThemeClick(object sender, RoutedEventArgs e) => _viewModel.SetTheme((string)((System.Windows.Controls.MenuItem)sender).Tag);
 
+    // ---- presets of the conversion (FR-151) ----
+
+    /// <summary>Saves the settings now as a preset of the user, under a name that is asked.</summary>
+    private void OnSavePresetClick(object sender, RoutedEventArgs e)
+    {
+        var name = AskPresetName(UiText.Get("Preset_SaveTitle"), string.Empty, null);
+        if (name is null)
+        {
+            return;
+        }
+
+        if (_viewModel.UserPresetNames.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase))
+            && MessageBox.Show(this, UiText.Get("Preset_Overwrite", name), UiText.Get("Preset_SaveTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _viewModel.SavePreset(name);
+    }
+
+    /// <summary>A small window with the presets of the user: rename and delete. The built-in ones are not in it.</summary>
+    private void OnManagePresetsClick(object sender, RoutedEventArgs e)
+    {
+        var list = new System.Windows.Controls.ListBox { MinHeight = 160, MinWidth = 320, Margin = new Thickness(0, 0, 0, 8) };
+        var rename = new System.Windows.Controls.Button { Content = UiText.Get("Preset_Rename"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
+        var delete = new System.Windows.Controls.Button { Content = UiText.Get("Preset_Delete"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
+        var close = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Close"), Padding = new Thickness(16, 3, 16, 3), IsCancel = true, IsDefault = true };
+        var empty = new System.Windows.Controls.TextBlock { Text = UiText.Get("Preset_None"), Margin = new Thickness(0, 0, 0, 8), TextWrapping = TextWrapping.Wrap };
+        var buttons = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { rename, delete, close } };
+        var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(12), Children = { empty, list, buttons } };
+        var dialog = new Window
+        {
+            Title = UiText.Get("Preset_ManageTitle"),
+            Owner = this,
+            Content = panel,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false,
+        };
+
+        void Reload()
+        {
+            list.ItemsSource = _viewModel.UserPresetNames;
+            empty.Visibility = _viewModel.UserPresetNames.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            rename.IsEnabled = delete.IsEnabled = list.SelectedItem is not null;
+        }
+
+        list.SelectionChanged += (_, _) => rename.IsEnabled = delete.IsEnabled = list.SelectedItem is not null;
+        rename.Click += (_, _) =>
+        {
+            if (list.SelectedItem is not string old || AskPresetName(UiText.Get("Preset_Rename"), old, old) is not { } name || name == old)
+            {
+                return;
+            }
+
+            _viewModel.RenamePreset(old, name);
+            Reload();
+        };
+        delete.Click += (_, _) =>
+        {
+            if (list.SelectedItem is not string name
+                || MessageBox.Show(dialog, UiText.Get("Preset_DeleteConfirm", name), UiText.Get("Preset_Delete"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            _viewModel.DeletePreset(name);
+            Reload();
+        };
+        Reload();
+        dialog.ShowDialog();
+    }
+
+    /// <summary>A name for a preset of the user, asked in a small window; null when it is cancelled. A built-in name or another preset's name (when renaming) is refused.</summary>
+    private string? AskPresetName(string title, string initial, string? current)
+    {
+        var box = new System.Windows.Controls.TextBox { Text = initial, MinWidth = 320, Margin = new Thickness(0, 0, 0, 6) };
+        var error = new System.Windows.Controls.TextBlock { Foreground = System.Windows.Media.Brushes.Firebrick, TextWrapping = TextWrapping.Wrap, MinHeight = 18, Margin = new Thickness(0, 0, 0, 6) };
+        var ok = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Ok"), IsDefault = true, Width = 80, Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Cancel"), IsCancel = true, Width = 80 };
+        var buttons = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { ok, cancel } };
+        var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(12), Children = { new System.Windows.Controls.TextBlock { Text = UiText.Get("Preset_NameLabel"), Margin = new Thickness(0, 0, 0, 4) }, box, error, buttons } };
+        var dialog = new Window
+        {
+            Title = title,
+            Owner = this,
+            Content = panel,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false,
+        };
+        string? result = null;
+        ok.Click += (_, _) =>
+        {
+            var name = box.Text.Trim();
+            if (!ConversionPreset.IsValidUserName(name))
+            {
+                error.Text = UiText.Get("Preset_NameInvalid");
+            }
+            else if (current is not null && !string.Equals(name, current, StringComparison.OrdinalIgnoreCase) && _viewModel.PresetExists(name))
+            {
+                error.Text = UiText.Get("Prompts_NameDuplicate");
+            }
+            else
+            {
+                result = name;
+                dialog.DialogResult = true;
+            }
+        };
+        box.Loaded += (_, _) => { box.Focus(); box.SelectAll(); };
+        return dialog.ShowDialog() == true ? result : null;
+    }
+
     private void OnAboutClick(object sender, RoutedEventArgs e)
     {
         new AboutWindow { Owner = this }.ShowDialog();
