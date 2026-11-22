@@ -132,7 +132,11 @@ public class ExtractorConvertTests
         Assert.Contains(document.Warnings, w => w.Code == "ExtractorNoText");
         Assert.Equal(2, ImageFiles(document.OutputFolder).Length);
         Assert.Equal(2, server.Requests.Count(r => r.HasImage)); // every page was read
-        Assert.Contains("(Step3)", File.ReadAllText(Path.Combine(document.OutputFolder, "scan.md")));
+        // The note in the language of the Markdown (Japanese in these tests): it names the command and Step3.
+        var note = File.ReadAllLines(Path.Combine(document.OutputFolder, "scan.md")).Where(l => l.StartsWith('>')).ToList();
+        Assert.Equal(2, note.Count);
+        Assert.Contains("`t`", note[1]);
+        Assert.Contains("Step3", note[1]);
         var read = File.ReadAllText(Path.Combine(document.OutputFolder, "scan_vlm.md"));
         Assert.Contains("Read from the scan", read);
         Assert.Contains("<!-- page: 2 -->", read);
