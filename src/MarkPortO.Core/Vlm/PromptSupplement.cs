@@ -41,6 +41,23 @@ public static class PromptSupplement
     /// The prompt of the user and the supplement. <paramref name="bands"/> above 1 tells which part of the page the image is.
     /// <paramref name="pageText"/> is put in place of <see cref="PageTextPlaceholder"/>; without it the placeholder is left as it is.
     /// </summary>
+    /// <summary>
+    /// The prompt with a sentence of its own put in front of the paragraph that holds <c>{pagetext}</c> (or at the end when it has none), as
+    /// <see cref="Build"/> does with the supplement of a page. <c>{pagetext}</c> is left for the caller.
+    /// </summary>
+    public static string WithSupplement(string prompt, string supplement)
+    {
+        var at = prompt.IndexOf(PageTextPlaceholder, StringComparison.Ordinal);
+        var cut = -1;
+        if (at >= 0)
+        {
+            var breaks = System.Text.RegularExpressions.Regex.Matches(prompt[..at], @"\r?\n[ \t]*\r?\n");
+            cut = breaks.Count == 0 ? -1 : breaks[^1].Index;
+        }
+
+        return cut < 0 ? prompt + " " + supplement : prompt[..cut] + "\n\n" + supplement + prompt[cut..];
+    }
+
     public static string Build(string prompt, string language, int band = 1, int bands = 1, string? pageText = null, TableContinuation? table = null)
     {
         // A page that carries the rows of the next pages writes rows that are not in its image, so the words about "only the rows in the image" are left out.

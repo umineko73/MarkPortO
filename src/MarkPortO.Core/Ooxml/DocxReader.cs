@@ -674,6 +674,12 @@ public static partial class DocxReader
         if (boxes.Count > 0)
         {
             shapes.Add(new DocxShapes(blocks.Count - 1, boxes));
+
+            // What the shapes draw is not in the text: Step3 can read it from the page image (FR-150).
+            if (blocks.Count > 0 && IsDrawing(boxes))
+            {
+                blocks[^1].Block.HasDrawing = true;
+            }
         }
 
         // Text boxes anchored in this paragraph follow it as paragraphs of their own.
@@ -689,6 +695,17 @@ public static partial class DocxReader
             }
         }
     }
+
+    /// <summary>The smallest side, as a part of the page, of a drawn shape that is a drawing: a short line or a small mark is not.</summary>
+    internal const double MinDrawingFraction = 0.06;
+
+    /// <summary>
+    /// The shapes of a paragraph draw something that the text does not have (FR-150): a shape without text that is not small, or several shapes
+    /// (a diagram, also of boxes with words in them). One text box alone is only its text, which Step1 writes.
+    /// </summary>
+    internal static bool IsDrawing(IReadOnlyList<ShapeBox> boxes) =>
+        boxes.Any(b => !b.HasText && Math.Max(b.WidthFraction, b.HeightFraction) >= MinDrawingFraction)
+        || boxes.Count(b => Math.Max(b.WidthFraction, b.HeightFraction) >= MinDrawingFraction) >= 2;
 
     // The notes that the last paragraph or table referred to, as blocks of their own: [^1]: text. Their page is the page before them.
     private static void AddNotes(Context context, List<DocxBlock> blocks)

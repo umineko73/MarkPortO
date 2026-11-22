@@ -20,6 +20,8 @@ The list of files and the list of pages share the height.
 
 drag the bar between them to change it.
 
+**Use of the VLM** (the row of Step3): *add to the text* (the default) keeps the text, tables and code of Step1, and the VLM reads only the pictures that Step1 saved, one by one; what the text does not have (the values of a chart, how a diagram is connected, the items of a screen) is written after the picture (after its caption, when it has one). A page that Step1 has almost no text of, a page with a picture that could not be saved, and a PDF are read whole; a page that the text of Step1 is enough for is not sent. The drawn shapes of a Word document (boxes, arrows) are not saved as pictures, so for a page with them the page image is read, for the shapes only, and what they show is written after the paragraph they are with. *Read every page* reads every page image whole and writes it out (as up to 0.3.6). Turn on "Save the pictures of the document" in Step1 for *add to the text*, or the pictures are not read. The prompt for the pictures is in the "Figures" tab of the prompts. With the results in a separate file (`name_vlm.md`), the pages that the VLM added to have the text and the pictures too, so that file reads on its own.
+
 For one file, a **page range** (like `3-5,8`) limits the pages that Step3 reads.
 
 The values are saved to `%APPDATA%\MarkPortO\settings.json` and restored at the next start.
@@ -38,7 +40,7 @@ dragging with the right button scrolls.
 
 The ◀ ▶ buttons (Ctrl+Left, Ctrl+Right) go to the previous and next file of the list.
 
-**Reading pages again with the VLM**: tick the check box of a page in the page list of the preview (or use "Mark this page" and "Mark pages that could not be read": a page fails when the VLM gives no answer, times out, or the connection or the server gives an error). The right-click menu of the file list ("Mark for running Step 3 again") marks every page of the selected files. Marked pages show "Waiting to run again" in the Step3 column of the file list and in the VLM column of the page list. Then press "Run Step 3 again" on the main screen: only the marked pages are read again, with the connection and the prompts chosen on the main screen, and the results are replaced. A page that fails again keeps its earlier result and its mark.
+**Reading pages again with the VLM**: tick the check box of a page in the page list of the preview (or use "Mark this page" and "Mark pages that could not be read": a page fails when the VLM gives no answer, times out, or the connection or the server gives an error). The right-click menu of the file list ("Mark for running Step 3 again") marks every page of the selected files. Marked pages show "Waiting to run again" in the Step3 column of the file list and in the VLM column of the page list. Then press "Run Step 3 again" on the main screen: only the marked pages are read again, with the connection and the prompts chosen on the main screen, and the results are replaced. A page that fails again keeps its earlier result and its mark. After the connection, a prompt or the use of the VLM is changed, "Run Step 3 again" also reads the pages that were read with the earlier settings.
 
 ![The preview window](images/preview.png)
 
@@ -140,6 +142,7 @@ Options override `settings.json`.
 - `--vlm-separate on|off`.
 - `--step1-tables off|replace|omit` (where the text of a page has a table, replace the tables of the VLM result with it, or leave them out).
 - `--drop-repeated-tables on|off` (leave out the tables that the VLM wrote again on a page).
+- `--step3-mode supplement|transcribe` (how Step3 uses the VLM: add what it reads in the pictures to the text of Step1, the default, or read every page whole).
 - `--result <file>`.
 - `--resume`.
 - `--retry-failed`.

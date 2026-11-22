@@ -27,7 +27,7 @@ namespace MarkPortO.Core.Markdown;
 /// Builds the Markdown of one document from its model, following <c>contracts/markdown-format.md</c>.
 /// The whole file is built again after each step, so a stopped run still gives a consistent result (research R13).
 /// </summary>
-public static class MarkdownRenderer
+public static partial class MarkdownRenderer
 {
     /// <summary>Digits of the page number in image names: at least three (<c>page-001.png</c>).</summary>
     public const int MinimumImageDigits = 3;
@@ -49,9 +49,24 @@ public static class MarkdownRenderer
 
         var builder = new StringBuilder();
         builder.Append("# ").Append(MarkdownText.Escape(fileName).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
+        // What the VLM read in the pictures (FR-150), by file: a picture is written once, after its first reference.
+        var figures = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (includeVlm)
+        {
+            foreach (var page in document.Pages.Where(p => p.Step3 == PageStep3Status.Done && p.ReadAs == PageReading.Pictures && p.Figures is not null))
+            {
+                foreach (var figure in page.Figures!.Where(f => f.Text.Trim().Length > 0))
+                {
+                    figures.TryAdd(figure.File, figure.Text.Trim());
+                }
+            }
+        }
+
+        // The file of the VLM results has the text of the document on the pages where the VLM only added to it (FR-150).
+        var step1InVlmFile = vlmFile && document.Pages.Any(AddsToStep1);
         AppendStructureNote(builder, fileName, document.Kind, includeImages, document.PageImage, includeVlm, document.Pages.Any(p => p.Bands > 1),
-            document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), document.ExtractPictures && !vlmFile, language,
-            vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmInSeparateFile ? VlmFileName(name) : null);
+            document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), document.ExtractPictures && (!vlmFile || step1InVlmFile), language,
+            vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmInSeparateFile ? VlmFileName(name) : null, figures.Count > 0, step1InVlmFile);
 
         if (document.Converter is not null)
         {
@@ -87,7 +102,7 @@ public static class MarkdownRenderer
         foreach (var page in document.Pages.OrderBy(p => p.Index))
         {
             builder.Append('\n');
-            AppendPage(builder, document, page, effectivePages, blockTexts, vlmTexts, includeImages, includeVlm, vlmFile, language);
+            AppendPage(builder, document, page, effectivePages, blockTexts, vlmTexts, figures, includeImages, includeVlm, vlmFile, language);
         }
 
         return builder.ToString().TrimEnd('\n') + "\n";
@@ -107,7 +122,7 @@ public static class MarkdownRenderer
         return "pictures/page-" + pageIndex.ToString("D" + digits, CultureInfo.InvariantCulture) + "-" + number.ToString(CultureInfo.InvariantCulture) + extension;
     }
 
-    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, PageImageStyle pageImage, bool includeVlm, bool hasBands, bool hasMergedCells, bool hasJoinedTables, bool hasPictures, string language, string? mainFile, string? vlmFile)
+    private static void AppendStructureNote(StringBuilder builder, string fileName, DocumentKind kind, bool includeImages, PageImageStyle pageImage, bool includeVlm, bool hasBands, bool hasMergedCells, bool hasJoinedTables, bool hasPictures, string language, string? mainFile, string? vlmFile, bool hasFigures, bool step1InVlmFile)
     {
         void Line(string text) => builder.Append("> ").Append(text).Append('\n');
 
@@ -134,7 +149,14 @@ public static class MarkdownRenderer
 
         if (mainFile is not null)
         {
-            Line(Loc.M("- The text of the document is in `{0}`. This file has only the results of Step3.", language, mainFile));
+            Line(step1InVlmFile
+                ? Loc.M("- The text of the document is in `{0}`. This file has the results of Step3: on a page that the VLM read whole, what it read; on the other pages, the text of the document with what the VLM read in its figures.", language, mainFile)
+                : Loc.M("- The text of the document is in `{0}`. This file has only the results of Step3.", language, mainFile));
+        }
+
+        if (hasFigures)
+        {
+            Line(Loc.M("- What the VLM read in a figure (Step3): a quote after the figure, between `<!-- vlm:figure picture=pictures/page-NNN-K.png -->` and `<!-- vlm:figure-end -->`. The VLM read the figure on its own and wrote only what the text around it does not have.", language));
         }
 
         if (includeVlm && hasBands)
@@ -161,7 +183,7 @@ public static class MarkdownRenderer
 
     private static string? TryUsageLine(IReadOnlyList<PageRecord> pages, string language)
     {
-        var read = pages.Where(p => p.ReadsInStep3).ToList();
+        var read = pages.Where(p => p.ReadsInStep3 && !(p.Step3 == PageStep3Status.Done && p.ReadAs == PageReading.None)).ToList();
         if (read.Count == 0)
         {
             return null;
@@ -195,6 +217,7 @@ public static class MarkdownRenderer
         IReadOnlyList<int> effectivePages,
         IReadOnlyList<string> blockTexts,
         IReadOnlyDictionary<int, string> vlmTexts,
+        Dictionary<string, string> figures,
         bool includeImages,
         bool includeVlm,
         bool vlmOnly,
@@ -243,17 +266,95 @@ public static class MarkdownRenderer
             builder.Append("\n> ").Append(Loc.M("This page is blank.", language)).Append('\n');
         }
 
-        for (var i = 0; i < document.Blocks.Count && !vlmOnly; i++)
+        // The file of the VLM results has the text of the document too, where the VLM only added to it (FR-150): read alone, it has the pictures and the text.
+        var addsToStep1 = AddsToStep1(page);
+        var pending = new StringBuilder(); // what was read in the pictures of the block before, kept for after its caption
+        for (var i = 0; i < document.Blocks.Count && (!vlmOnly || addsToStep1); i++)
         {
-            if (effectivePages[i] == page.Index && blockTexts[i].Length > 0)
+            if (effectivePages[i] != page.Index || blockTexts[i].Length == 0)
             {
-                builder.Append('\n').Append(MarkdownText.ResolveMarks(blockTexts[i])).Append('\n');
+                continue;
+            }
+
+            builder.Append('\n').Append(MarkdownText.ResolveMarks(blockTexts[i])).Append('\n');
+            builder.Append(pending);
+            pending.Clear();
+
+            // A figure, its caption, then what was read in it: the reading does not come between a figure and its caption.
+            AppendFigures(pending, blockTexts[i], figures, language, document.Blocks[i].HasDrawing ? page.ImageFile : null);
+            var next = i + 1;
+            while (next < document.Blocks.Count && (effectivePages[next] != page.Index || blockTexts[next].Length == 0))
+            {
+                next++;
+            }
+
+            if (next >= document.Blocks.Count || !IsCaption(blockTexts[next]))
+            {
+                builder.Append(pending);
+                pending.Clear();
             }
         }
+
+        builder.Append(pending);
 
         if (includeVlm)
         {
             AppendVlm(builder, page, vlmTexts);
+        }
+    }
+
+    /// <summary>The VLM only added to the text of Step1 on the page, or did not read it (FR-150): the text of the page is that of Step1.</summary>
+    /// <remarks>
+    /// A page of joined table rows only, that is not sent (FR-117), has the text of Step1 too: the quote that tells where its rows went. Without it,
+    /// the page would be empty in the file of the VLM and in the preview.
+    /// </remarks>
+    private static bool AddsToStep1(PageRecord page) =>
+        (page.Step3 == PageStep3Status.Done && page.ReadAs is PageReading.Pictures or PageReading.None)
+        || (page.Step3 == PageStep3Status.Skipped && page.IsJoinedTableOnly && !page.IsDeleted);
+
+    /// <summary>A block that reads as the caption of a figure: one short line that starts with 図, 表, Figure, Fig., Table or Chart (and has no picture of its own).</summary>
+    internal static bool IsCaption(string block)
+    {
+        var text = block.Trim().TrimStart('*', '_').TrimStart();
+        return text.Length is > 0 and <= 200
+            && !text.Contains('\n', StringComparison.Ordinal)
+            && Pipeline.PictureFiles.References(text).Count == 0
+            && CaptionStart().IsMatch(text);
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^(?:(?:図|表|グラフ)\s*[0-9０-９A-Za-z一-九十\-‐.．:：]|(?:Figure|Fig\.|Table|Chart)\s*[0-9]|(?:Figure|Fig\.|Table|Chart)\s+[A-Z][0-9.\-:]*(?:\s|$))", System.Text.RegularExpressions.RegexOptions.IgnoreCase)]
+    private static partial System.Text.RegularExpressions.Regex CaptionStart();
+
+    /// <summary>The start of what the VLM read in a picture (FR-150), with the file of the picture; it ends with <see cref="FigureEnd"/>.</summary>
+    public const string FigureStart = "<!-- vlm:figure picture=";
+
+    public const string FigureEnd = "<!-- vlm:figure-end -->";
+
+    /// <summary>After a block, what the VLM read in each of its pictures (FR-150), as a quote between two comments. Each is written once (it is taken out of <paramref name="figures"/>).</summary>
+    /// <param name="drawing">The page image, when the block has drawn shapes that were read in it (a Word drawing); null otherwise.</param>
+    private static void AppendFigures(StringBuilder builder, string block, Dictionary<string, string> figures, string language, string? drawing = null)
+    {
+        if (figures.Count == 0)
+        {
+            return;
+        }
+
+        var files = Pipeline.PictureFiles.References(block).Select(r => r.File);
+        foreach (var file in drawing is { Length: > 0 } ? files.Append(drawing) : files)
+        {
+            if (!figures.Remove(file, out var text))
+            {
+                continue;
+            }
+
+            builder.Append('\n').Append(FigureStart).Append(SafeComment(file)).Append(" -->\n")
+                .Append("> **").Append(Loc.M("What the VLM read in the figure", language)).Append("**\n>\n");
+            foreach (var line in MarkdownText.NeutraliseMarkers(text).Split('\n'))
+            {
+                builder.Append(line.TrimEnd('\r').Length == 0 ? ">" : "> " + line.TrimEnd('\r')).Append('\n');
+            }
+
+            builder.Append(FigureEnd).Append('\n');
         }
     }
 
@@ -331,6 +432,12 @@ public static class MarkdownRenderer
                 break;
             case PageStep3Status.Skipped when page.IsJoinedTableOnly:
                 builder.Append("\n<!-- vlm:skipped page=").Append(number).Append(" reason=\"joined table\" -->\n");
+                break;
+            case PageStep3Status.Done when page.ReadAs == PageReading.None:
+                builder.Append("\n<!-- vlm:skipped page=").Append(number).Append(" reason=\"step1 text\" -->\n");
+                break;
+            case PageStep3Status.Done when page.ReadAs == PageReading.Pictures:
+                builder.Append(UsageComment(page));
                 break;
             case PageStep3Status.Done when page.VlmText is not null:
                 builder.Append("\n<!-- vlm:begin page=").Append(number)

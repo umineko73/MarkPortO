@@ -45,6 +45,9 @@ public sealed class ResumeRequest
 
     public bool? DropRepeatedTables { get; init; }
 
+    /// <summary>How Step3 uses the VLM in this run (FR-150). <c>null</c>: as in the earlier run.</summary>
+    public Step3Mode? Step3Mode { get; init; }
+
     public string? Connection { get; init; }
 
     /// <summary>The prompts of this run, by name (FR-139: a re-reading uses the choice on the screen). <c>null</c>: as in the earlier run.</summary>

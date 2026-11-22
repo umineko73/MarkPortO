@@ -66,6 +66,13 @@ public sealed class Block
     /// into one table and says so on the later pages.
     /// </summary>
     public int? JoinedToPage { get; set; }
+
+    /// <summary>
+    /// The block has drawn shapes of the document with it (a Word drawing) that are not in its text and not saved as a picture: Step3 can read them
+    /// from the page image (FR-150). False in a state written before this was recorded.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool HasDrawing { get; set; }
 }
 
 public sealed class PageRecord
@@ -100,6 +107,17 @@ public sealed class PageRecord
     public SheetInfo? Sheet { get; set; }
 
     public PageStep3Status Step3 { get; set; } = PageStep3Status.Pending;
+
+    /// <summary>How Step3 read the page (FR-150). A page read before this was recorded was read whole.</summary>
+    public PageReading ReadAs { get; set; }
+
+    /// <summary>The use of Step3 that the page was read with (FR-150); <c>null</c> when it was read before this was recorded (it was read whole).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Step3Mode? ReadMode { get; set; }
+
+    /// <summary>What the VLM read in the pictures of the page, when they were read one by one (FR-150).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<FigureReading>? Figures { get; set; }
 
     public string? VlmText { get; set; }
 
@@ -187,6 +205,9 @@ public sealed class DocumentRecord
 
     /// <summary>The tables that the VLM wrote again on a page are left out of the Markdown (FR-124).</summary>
     public bool DropRepeatedTables { get; set; }
+
+    /// <summary>How Step3 uses the VLM (FR-150). A document from before this setting was read whole.</summary>
+    public Step3Mode Step3Mode { get; set; } = Step3Mode.Transcribe;
 
     /// <summary>The pictures of the document were saved in <c>pictures/</c> (FR-133): the note at the top of the Markdown says so.</summary>
     public bool ExtractPictures { get; set; }
@@ -301,6 +322,9 @@ public sealed class OptionsSnapshot
     public Step1TablesMode Step1Tables { get; set; }
 
     public bool DropRepeatedTables { get; set; }
+
+    /// <summary>How Step3 uses the VLM (FR-150). A job from before this setting read every page whole.</summary>
+    public Step3Mode Step3Mode { get; set; } = Step3Mode.Transcribe;
 
     public string? Connection { get; set; }
 

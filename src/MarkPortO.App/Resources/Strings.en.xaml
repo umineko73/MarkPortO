@@ -121,6 +121,10 @@
   <sys:String x:Key="Main_Cond_TablesOmit">do not keep in the VLM result</sys:String>
   <sys:String x:Key="Main_Cond_DropRepeated">Leave out repeated tables</sys:String>
   <sys:String x:Key="Main_Cond_DropRepeatedTip">A small model may not stop after the last table and go on writing the same tables. A table with the same content as a table written before it on the same page is not written to the Markdown (the result of the VLM itself is not changed).</sys:String>
+  <sys:String x:Key="Main_Cond_Step3Mode">Use of the VLM:</sys:String>
+  <sys:String x:Key="Main_Cond_Step3ModeSupplement">add to the text</sys:String>
+  <sys:String x:Key="Main_Cond_Step3ModeTranscribe">read every page</sys:String>
+  <sys:String x:Key="Main_Cond_Step3ModeTip">Add to the text: the text, tables and code of Step1 are kept, and the VLM reads only the pictures that Step1 saved (one by one, after each picture it writes what the text does not have). A page that Step1 has almost no text of, and a PDF, are read whole. A page that the text of Step1 is enough for is not sent. Turn on &quot;Save the pictures of the document&quot; in Step1, or the pictures are not read. Read every page: the VLM reads every page image whole and writes it out (as before).</sys:String>
   <sys:String x:Key="Main_Cond_VlmSeparate">Write the results to a separate file (name__vlm.md)</sys:String>
   <sys:String x:Key="Main_Cond_Step3">Extract text from print images with the VLM</sys:String>
   <sys:String x:Key="Main_Cond_Pages">Pages</sys:String>
@@ -240,6 +244,8 @@
   <sys:String x:Key="Prompts_Title">VLM prompt settings</sys:String>
   <sys:String x:Key="Prompts_Note">The instruction sent to the VLM in Step3 to read the text from an image. Each type of document can have several prompts with a name; the one chosen in "Prompt in use" is sent (the standard one cannot be renamed or deleted). It is saved when you leave the box. If you empty the standard one, the default text comes back.</sys:String>
   <sys:String x:Key="Prompts_PageText">{pagetext} in a prompt is replaced by the text taken from the page of the document (it is sent to the VLM with the image; without it, no text is sent).</sys:String>
+  <sys:String x:Key="Prompts_FigureTab">Figures</sys:String>
+  <sys:String x:Key="Prompts_FigureNote">When the use of the VLM is &quot;add to the text&quot;, each picture that Step1 saved is sent on its own with this prompt, for every type of document. {pagetext} is replaced by the text before and after the picture. An answer NONE adds nothing.</sys:String>
   <sys:String x:Key="Prompts_InsertPageText">Insert {pagetext}</sys:String>
   <sys:String x:Key="Prompts_Reset">Reset the shown prompt to the default</sys:String>
   <sys:String x:Key="Prompts_UsedLabel">Prompt in use:</sys:String>

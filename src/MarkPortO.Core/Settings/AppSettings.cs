@@ -391,6 +391,9 @@ public sealed class StepSettings
 
     /// <summary>Leave the tables that the VLM wrote again on a page out of the Markdown (FR-124).</summary>
     public bool DropRepeatedTables { get; set; }
+
+    /// <summary>How Step3 uses the VLM (FR-150): add to the text of Step1 (the default), or read every page whole.</summary>
+    public Step3Mode Step3Mode { get; set; } = Step3Mode.Supplement;
 }
 
 public sealed class VlmSettings
@@ -525,6 +528,16 @@ public sealed class PromptSettings
     public const string DefaultPdfEn =
         "This image is one page of a PDF document. Looking at the image, transcribe the page as Markdown that keeps the structure of headings, paragraphs, tables and lists. The \"Extracted text\" below is the text of the text layer of the same page; use it only as a help (it may be empty, and its order and line breaks may be wrong). Read the characters from the image, and use the extracted text to check proper names, numbers and symbols. If the extracted text and the image disagree, trust the image. You may write a diagram (flowchart, architecture diagram, sequence diagram, etc.) in Mermaid syntax (a ```mermaid code block) when its structure can be read. Do not wrap the whole answer or a table in a code block such as ```markdown. Do not write explanations or a preamble.\n\nExtracted text:\n{pagetext}";
 
+    // A picture that Step1 saved is read on its own, with the text around it (FR-150): the VLM writes only what that text does not have.
+    public const string DefaultFigure =
+        "この画像は、文書に貼られた図（グラフ、構成図、フローチャート、画面の写しなど）の1つです。次の「まわりの文字」は、文書でこの図の前後にある文字です。図を見て、まわりの文字にない情報だけを、Markdown で簡潔に書いてください。グラフは項目と値（単位を含む）を表または箇条書きで、構成図やフローチャートは要素のつながりを Mermaid 記法（```mermaid のコードブロック）または箇条書きで、画面の写しは見える項目名と値を書いてください。読み取れない値は推測で書かないでください。まわりの文字に書いてあることは繰り返さないでください。付け加えることがなければ、NONE とだけ答えてください。説明や前置きは書かないでください。\n\nまわりの文字:\n{pagetext}";
+
+    public const string DefaultFigureEn =
+        "This image is one figure of a document (a chart, an architecture diagram, a flowchart, a screenshot, etc.). The \"Text around\" below is the text before and after this figure in the document. Looking at the figure, write in short Markdown only the information that the text around does not have. For a chart, write the items and their values (with units) as a table or a list; for a diagram or a flowchart, write how the elements are connected, in Mermaid syntax (a ```mermaid code block) or as a list; for a screenshot, write the labels and values that can be seen. Do not guess values that cannot be read. Do not repeat what the text around already says. If there is nothing to add, answer only NONE. Do not write explanations or a preamble.\n\nText around:\n{pagetext}";
+
+    /// <summary>The built-in prompt for the pictures, in the language ("ja", or English for anything else).</summary>
+    public static string DefaultFigureFor(string language) => language == "ja" ? DefaultFigure : DefaultFigureEn;
+
     /// <summary>The built-in prompt of the kind, in the language ("ja", or English for anything else).</summary>
     public static string DefaultFor(DocumentKind kind, string language)
     {
@@ -570,6 +583,13 @@ public sealed class PromptSettings
     public string Pptx { get; set; } = DefaultPptx;
 
     public string Pdf { get; set; } = DefaultPdf;
+
+    /// <summary>The prompt for a picture that Step1 saved, for every kind of file (FR-150).</summary>
+    public string Figure { get; set; } = DefaultFigure;
+
+    /// <summary>The prompt for the pictures to send. One that was never edited (the built-in one, in either language) follows the language.</summary>
+    public string FigureFor(string language) =>
+        string.IsNullOrWhiteSpace(Figure) || Figure == DefaultFigure || Figure == DefaultFigureEn ? DefaultFigureFor(language) : Figure;
 
     // The prompts with a name, besides the standard one above, and the one that is used (FR-115). A settings file without them gets the built-in examples.
     public PromptVariants DocxVariants { get; set; } = PromptVariants.Seeded();

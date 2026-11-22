@@ -65,10 +65,22 @@ public static class RereadMarks
     /// </summary>
     /// <param name="model">The model that a reading would use now (<see cref="Step3Settings.ModelText(Settings.ConnectionProfile?)"/>); null: not compared.</param>
     /// <param name="prompt">The prompt of the kind of this document now (<see cref="Step3Settings.PromptText"/>).</param>
-    public static IEnumerable<PageRecord> Stale(DocumentRecord document, string? model, string prompt) =>
+    /// <param name="mode">How Step3 uses the VLM now (FR-150); null: not compared. A page read before this was recorded was read whole.</param>
+    public static IEnumerable<PageRecord> Stale(DocumentRecord document, string? model, string prompt, Step3Mode? mode = null) =>
         Markable(document).Where(p =>
         {
             if (p.Step3 != PageStep3Status.Done)
+            {
+                return false;
+            }
+
+            if (mode is not null && (p.ReadMode ?? Step3Mode.Transcribe) != mode)
+            {
+                return true;
+            }
+
+            // A page that was not sent to the VLM (FR-150) has no model or prompt to be out of date.
+            if (p.ReadAs == PageReading.None)
             {
                 return false;
             }
@@ -80,8 +92,8 @@ public static class RereadMarks
         });
 
     /// <summary>Marks the pages that are out of date (see <see cref="Stale"/>), and saves the document.</summary>
-    public static bool MarkStale(StateStore store, DocumentRecord document, string? model, string prompt) =>
-        Set(store, document, Stale(document, model, prompt).Select(p => p.Index), marked: true);
+    public static bool MarkStale(StateStore store, DocumentRecord document, string? model, string prompt, Step3Mode? mode = null) =>
+        Set(store, document, Stale(document, model, prompt, mode).Select(p => p.Index), marked: true);
 
     /// <summary>Marks the pages that could not be read.</summary>
     public static bool MarkFailed(StateStore store, DocumentRecord document) =>

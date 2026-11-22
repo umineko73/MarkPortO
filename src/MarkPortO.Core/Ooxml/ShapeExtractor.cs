@@ -92,7 +92,8 @@ internal static class ShapeExtractor
 
         var horizontalFlip = Flag(transform, "flipH");
         var verticalFlip = Flag(transform, "flipV");
-        return new ShapeBox(geometry, widthFraction, heightFraction, horizontalFlip ^ verticalFlip);
+        var hasText = shape.Elements().Any(e => e.Name.LocalName == "txbx");
+        return new ShapeBox(geometry, widthFraction, heightFraction, horizontalFlip ^ verticalFlip, hasText);
     }
 
     private static double Number(XElement? element, string attribute) =>

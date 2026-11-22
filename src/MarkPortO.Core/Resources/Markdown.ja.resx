@@ -142,4 +142,16 @@
   <data name="The rest of this code is joined to the code on page {0}." xml:space="preserve">
     <value>このコードの続きは、ページ{0}のコードブロックに結合しました。</value>
   </data>
+  <data name="What the VLM read in the figure" xml:space="preserve">
+    <value>図の読み取り（VLM）</value>
+  </data>
+  <data name="- The text of the document is in `{0}`. This file has the results of Step3: on a page that the VLM read whole, what it read; on the other pages, the text of the document with what the VLM read in its figures." xml:space="preserve">
+    <value>- 文書の本文は `{0}` にあります。このファイルは Step3 の結果です: VLM がページ全体を読んだページは、その読み取り結果。ほかのページは、文書の本文に、VLM が図から読み取った内容を足したもの。</value>
+  </data>
+  <data name="- What the VLM read in a figure (Step3): a quote after the figure, between `&lt;!-- vlm:figure picture=pictures/page-NNN-K.png --&gt;` and `&lt;!-- vlm:figure-end --&gt;`. The VLM read the figure on its own and wrote only what the text around it does not have." xml:space="preserve">
+    <value>- 図の読み取り（Step3）: 図のあとの、`&lt;!-- vlm:figure picture=pictures/page-NNN-K.png --&gt;` と `&lt;!-- vlm:figure-end --&gt;` の間の引用。VLM がその図だけを読み、まわりの本文にない情報を書いたもの。</value>
+  </data>
+  <data name="This image is a whole page, not one figure. The text and the tables of the page are already written (they are the text around below). Read only the drawn shapes of the page (boxes, circles, arrows, lines, and how they are placed and connected), and write what they show." xml:space="preserve">
+    <value>この画像は図の1つではなく、ページ全体です。ページの本文と表は、すでに書いてあります（下の「まわりの文字」）。ページに描かれた図形（四角、円、矢印、線と、その並びやつながり）だけを読み、それが表すものを書いてください。</value>
+  </data>
 </root>

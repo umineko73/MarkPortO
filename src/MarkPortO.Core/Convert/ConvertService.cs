@@ -167,12 +167,14 @@ public sealed class ConvertService
         job.Options.Step1Tables = request.Step1Tables ?? job.Options.Step1Tables;
         job.Options.PageImage = request.PageImage ?? job.Options.PageImage;
         job.Options.DropRepeatedTables = request.DropRepeatedTables ?? job.Options.DropRepeatedTables;
+        job.Options.Step3Mode = request.Step3Mode ?? job.Options.Step3Mode;
         foreach (var document in documents)
         {
             document.VlmSeparate = job.Options.VlmSeparate;
             document.Step1Tables = job.Options.Step1Tables;
             document.PageImage = job.Options.PageImage;
             document.DropRepeatedTables = job.Options.DropRepeatedTables;
+            document.Step3Mode = job.Options.Step3Mode;
         }
 
         job.Options.Connection = request.Connection ?? job.Options.Connection;
@@ -451,6 +453,7 @@ public sealed class ConvertService
                 Step1Tables = options.Step1Tables,
                 PageImage = options.PageImage,
                 DropRepeatedTables = options.DropRepeatedTables,
+                Step3Mode = options.Step3Mode,
             };
 
             record.OutputFolderRel = Path.GetRelativePath(outRoot, record.OutputFolder);

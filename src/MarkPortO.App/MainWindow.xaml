@@ -241,6 +241,12 @@
           <TextBlock Grid.Row="2" Text="Step3" VerticalAlignment="Center" />
           <WrapPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
             <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <!-- How Step3 uses the VLM (FR-150) -->
+            <TextBlock Text="{DynamicResource Main_Cond_Step3Mode}" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="{Binding Step3DetailsVisibility}" />
+            <ComboBox SelectedIndex="{Binding Step3ModeIndex}" IsEnabled="{Binding CanEditStep1Tables}" ToolTip="{DynamicResource Main_Cond_Step3ModeTip}" VerticalAlignment="Center" Margin="0,0,16,0" MinWidth="150" Visibility="{Binding Step3DetailsVisibility}">
+              <ComboBoxItem Content="{DynamicResource Main_Cond_Step3ModeSupplement}" />
+              <ComboBoxItem Content="{DynamicResource Main_Cond_Step3ModeTranscribe}" />
+            </ComboBox>
             <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" Visibility="{Binding Step3DetailsVisibility}" />
             <TextBlock Text="{DynamicResource Main_Cond_Tables}" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="{Binding Step3DetailsVisibility}" />
             <ComboBox SelectedIndex="{Binding Step1TablesIndex}" IsEnabled="{Binding CanEditStep1Tables}" VerticalAlignment="Center" Margin="0,0,16,0" MinWidth="170" Visibility="{Binding Step3DetailsVisibility}">

@@ -156,6 +156,18 @@ public class CliParsingTests
     }
 
     [Fact]
+    public void Step3Mode_SetsHowStep3UsesTheVlm_AndTheSettingsAddToTheText()
+    {
+        Assert.Equal(Step3Mode.Supplement, Resolved(new ConvertArgs(), FromFile()).Steps.Step3Mode);
+        Assert.Equal(Step3Mode.Transcribe, Resolved(new ConvertArgs { Step3Mode = "transcribe" }, FromFile()).Steps.Step3Mode);
+        Assert.Equal(Step3Mode.Supplement, Resolved(new ConvertArgs { Step3Mode = "Supplement" }, FromFile(s => s.Steps.Step3Mode = Step3Mode.Transcribe)).Steps.Step3Mode);
+
+        var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { Step3Mode = "both" }, FromFile());
+        Assert.Null(settings);
+        Assert.Contains(errors, e => e.StartsWith("--step3-mode", StringComparison.Ordinal) && e.Contains("both"));
+    }
+
+    [Fact]
     public void AnInvalidPdfText_IsReportedWithTheOptionName()
     {
         var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { PdfText = "maybe" }, FromFile());

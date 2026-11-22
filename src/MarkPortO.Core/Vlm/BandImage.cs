@@ -25,6 +25,20 @@ public static class BandImage
     /// The PNG, scaled down so that its longer side is at most <paramref name="maxSide"/> pixels. An image that is already
     /// small enough, or a <paramref name="maxSide"/> of 0, is returned as it is. The image is never made larger.
     /// </summary>
+    /// <summary>The image as a PNG: a PNG is given back as it is, another format (a JPEG or a GIF picture of a document, FR-150) is written again as a PNG.</summary>
+    public static byte[] ToPng(byte[] image)
+    {
+        if (image.Length >= 8 && image[0] == 0x89 && image[1] == 0x50 && image[2] == 0x4E && image[3] == 0x47)
+        {
+            return image;
+        }
+
+        using var source = new Bitmap(new MemoryStream(image));
+        using var stream = new MemoryStream();
+        source.Save(stream, ImageFormat.Png);
+        return stream.ToArray();
+    }
+
     public static byte[] Shrink(byte[] png, int maxSide)
     {
         if (maxSide <= 0)

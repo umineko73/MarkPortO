@@ -23,7 +23,8 @@ namespace MarkPortO.Core.Ooxml;
 /// <param name="WidthFraction">Width as a fraction of the page width (1 = the whole width).</param>
 /// <param name="HeightFraction">Height as a fraction of the page height.</param>
 /// <param name="AntiDiagonal">For a line: it runs from the top right to the bottom left. Otherwise from the top left to the bottom right.</param>
-public sealed record ShapeBox(string Geometry, double WidthFraction, double HeightFraction, bool AntiDiagonal = false);
+/// <param name="HasText">The shape holds text (a text box, or a shape with words in it): Step1 writes the text.</param>
+public sealed record ShapeBox(string Geometry, double WidthFraction, double HeightFraction, bool AntiDiagonal = false, bool HasText = false);
 
 /// <summary>What the shapes of one page add up to.</summary>
 /// <param name="IsCross">The page carries a "×" over (nearly) the whole page: it is a deleted page (FR-012).</param>

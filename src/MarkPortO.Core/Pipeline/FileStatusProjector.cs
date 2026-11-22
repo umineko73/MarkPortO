@@ -92,6 +92,9 @@ public static class FileStatusProjector
 {
     public static string UnavailableText => Loc.T("unavailable");
 
+    /// <summary>No page was sent to the VLM (FR-150), so nothing was used.</summary>
+    public static string NotSentText => Loc.T("none (not sent)");
+
     public static FileRow Project(DocumentRecord document)
     {
         var steps = new[] { document.Step1, document.Step2, document.Step3 };
@@ -248,7 +251,19 @@ public static class FileStatusProjector
     {
         var total = TotalUsage(document);
         var cost = document.CostTotalUsd ?? SumCost(document);
-        return total is null && cost is null && document.Step3 is not (StepStatus.Done or StepStatus.Failed) ? string.Empty : UsageText(total, cost);
+        if (total is null && cost is null && document.Step3 is not (StepStatus.Done or StepStatus.Failed))
+        {
+            return string.Empty;
+        }
+
+        // Step3 finished without sending any page (FR-150: the text of Step1 was enough): nothing was used, which is not a failure to know it.
+        if (total is null && cost is null && document.Step3 == StepStatus.Done
+            && document.Pages.Where(p => p.ReadsInStep3).All(p => p.Step3 == PageStep3Status.Done && p.ReadAs == PageReading.None))
+        {
+            return NotSentText;
+        }
+
+        return UsageText(total, cost);
     }
 
     /// <summary>The cost of the pages read so far, when the command reported it (FR-054); null when none did.</summary>
@@ -270,13 +285,15 @@ public static class FileStatusProjector
     /// <summary>The usage of a page once it is read; for a page that failed, the cause (the column is shared); empty before that.</summary>
     private static string PageUsageText(PageRecord page) => page.Step3 switch
     {
+        PageStep3Status.Done when page.ReadAs == PageReading.None => NotSentText,
         PageStep3Status.Done => UsageText(page.Usage, page.CostUsd),
         PageStep3Status.Failed => string.IsNullOrWhiteSpace(page.Error) ? UnavailableText : string.Join(' ', page.Error.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)),
         _ => string.Empty,
     };
 
     /// <summary>The VLM read the page before, or tried to: it has a result (kept until it is read again), or it failed.</summary>
-    private static bool WasReadBefore(PageRecord page) => page.VlmText is not null || page.Step3 == PageStep3Status.Failed;
+    /// <remarks>A page that Step3 only added to (FR-150) has no text of its own: what it was read with is recorded.</remarks>
+    private static bool WasReadBefore(PageRecord page) => page.VlmText is not null || page.ReadMode is not null || page.Step3 == PageStep3Status.Failed;
 
     private static PageRow ToRow(PageRecord page, bool usesVlm)
     {
@@ -297,6 +314,8 @@ public static class FileStatusProjector
             : page.Step3 switch
             {
                 PageStep3Status.Running => Loc.T("Running"),
+                PageStep3Status.Done when page.ReadAs == PageReading.None => Loc.T("Not sent (the text is enough)"),
+                PageStep3Status.Done when page.ReadAs == PageReading.Pictures => Loc.T("Done (figures)"),
                 PageStep3Status.Done => Loc.T("Done"),
                 PageStep3Status.Failed => Loc.T("Failed"),
                 PageStep3Status.Skipped => Loc.T("Not applicable"),

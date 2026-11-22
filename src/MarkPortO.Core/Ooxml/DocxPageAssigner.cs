@@ -401,6 +401,7 @@ public static class DocxPageAssigner
                             Markdown = MarkdownText.Escape(piece).Replace("\n", "  \n", StringComparison.Ordinal),
                             PageIndex = segments[part].Page,
                             JoinedToPage = part == 0 ? null : segments[0].Page,
+                            HasDrawing = part == 0 && item.Block.HasDrawing, // the drawing is anchored where the paragraph starts
                         },
                         piece));
                 }
@@ -468,7 +469,7 @@ public static class DocxPageAssigner
 
                 var searchText = start == 0 ? item.SearchText : string.Concat(table.PlainRows[start]);
                 result.Add(new DocxBlock(
-                    new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table(rows, hasHeader), PageIndex = pages[start], JoinedToPage = start == 0 ? null : pages[0] },
+                    new Block { Kind = BlockKind.Table, Markdown = MarkdownText.Table(rows, hasHeader), PageIndex = pages[start], JoinedToPage = start == 0 ? null : pages[0], HasDrawing = row >= pages.Count && item.Block.HasDrawing },
                     searchText));
                 start = row;
             }

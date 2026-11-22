@@ -571,4 +571,16 @@
   <data name="Waiting to run" xml:space="preserve">
     <value>実行待ち</value>
   </data>
+  <data name="The picture {0} could not be read." xml:space="preserve">
+    <value>図 {0} を読み込めませんでした。</value>
+  </data>
+  <data name="Not sent (the text is enough)" xml:space="preserve">
+    <value>送らず（本文で足りる）</value>
+  </data>
+  <data name="Done (figures)" xml:space="preserve">
+    <value>完了（図）</value>
+  </data>
+  <data name="none (not sent)" xml:space="preserve">
+    <value>なし（送らず）</value>
+  </data>
 </root>

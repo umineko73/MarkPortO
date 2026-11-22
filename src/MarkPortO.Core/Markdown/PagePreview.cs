@@ -43,6 +43,13 @@ public static partial class PagePreview
     [GeneratedRegex(@"<!-- vlm:begin[^>]*-->(.*?)<!-- vlm:end -->", RegexOptions.Singleline)]
     private static partial Regex VlmBlock();
 
+    // What the VLM read in a figure (FR-150), and the comments of Step3 that say nothing to a reader (the usage, a page that was not read).
+    [GeneratedRegex(@"\n?<!-- vlm:figure picture=[^>]*-->.*?<!-- vlm:figure-end -->\n?", RegexOptions.Singleline)]
+    private static partial Regex FigureBlock();
+
+    [GeneratedRegex(@"^<!-- (?:page|page-image|sheet|usage|vlm:skipped)[ :][^\n]*-->[ \t]*\r?\n?", RegexOptions.Multiline)]
+    private static partial Regex Comments();
+
     /// <summary>
     /// The pages of the document with their images and Markdown. A file that is not there yet gives empty text: a conversion in
     /// progress writes the Markdown after Step 1, and the results of Step 3 page by page.
@@ -69,6 +76,13 @@ public static partial class PagePreview
             {
                 vlm = block.Groups[1].Value.Trim();
             }
+            else if (whole is null
+                && ((page.Step3 == PageStep3Status.Done && page.ReadAs is PageReading.Pictures or PageReading.None)
+                    || (page.Step3 == PageStep3Status.Skipped && page.IsJoinedTableOnly && !page.IsDeleted)))
+            {
+                // The VLM only added to the text of Step1 (FR-150): the page as it reads with what the VLM added.
+                vlm = Comments().Replace(text, string.Empty).Trim();
+            }
 
             string? image = null;
             if (page.ImageFile.Length > 0)
@@ -87,7 +101,7 @@ public static partial class PagePreview
     }
 
     /// <summary>The Markdown of a page without the result of the VLM that is written in it (it is shown on its own).</summary>
-    public static string WithoutVlm(string pageMarkdown) => VlmBlock().Replace(pageMarkdown, string.Empty).Trim();
+    public static string WithoutVlm(string pageMarkdown) => FigureBlock().Replace(VlmBlock().Replace(pageMarkdown, string.Empty), "\n").Trim();
 
     /// <summary>The text of each page of a Markdown file: after its <c>&lt;!-- page: N --&gt;</c> line, to the next one. The words before the first page are not a page.</summary>
     public static IReadOnlyDictionary<int, string> SplitPages(string markdown)

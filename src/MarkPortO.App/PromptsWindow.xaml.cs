@@ -30,7 +30,7 @@ public partial class PromptsWindow : Window
 {
     private readonly SettingsStore _store;
     private readonly string _language;
-    private readonly List<KindEditor> _editors = [];
+    private readonly List<IPromptEditor> _editors = [];
 
     public PromptsWindow(SettingsStore store)
     {
@@ -51,6 +51,11 @@ public partial class PromptsWindow : Window
             Tabs.Items.Add(new TabItem { Header = header, Content = editor.Root });
         }
 
+        // The prompt for the pictures that Step1 saved, for every kind of file (FR-150).
+        var figure = new FigureEditor(this);
+        _editors.Add(figure);
+        Tabs.Items.Add(new TabItem { Header = UiText.Get("Prompts_FigureTab"), Content = figure.Root });
+
         Closing += (_, _) =>
         {
             foreach (var editor in _editors)
@@ -60,7 +65,7 @@ public partial class PromptsWindow : Window
         };
     }
 
-    private KindEditor Current => _editors[Math.Max(0, Tabs.SelectedIndex)];
+    private IPromptEditor Current => _editors[Math.Max(0, Tabs.SelectedIndex)];
 
     // Puts {pagetext} at the caret of the box that is shown (in place of the selected text), and keeps the focus in the box.
     private void OnInsertPageText(object sender, RoutedEventArgs e)
@@ -119,8 +124,63 @@ public partial class PromptsWindow : Window
         return dialog.ShowDialog() == true ? result : null;
     }
 
+    /// <summary>A tab of the window: the box of the text, which is saved and can be set back to the default.</summary>
+    private interface IPromptEditor
+    {
+        TextBox Box { get; }
+
+        void Commit();
+
+        void Reset();
+    }
+
+    /// <summary>The editor of the prompt for the pictures (FR-150): one text, for every kind of file.</summary>
+    private sealed class FigureEditor : IPromptEditor
+    {
+        private readonly PromptsWindow _window;
+
+        public FigureEditor(PromptsWindow window)
+        {
+            _window = window;
+            Box = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(6) };
+            var note = new TextBlock { Text = UiText.Get("Prompts_FigureNote"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(6, 6, 6, 0) };
+            var grid = new Grid();
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            Grid.SetRow(note, 0);
+            Grid.SetRow(Box, 1);
+            grid.Children.Add(note);
+            grid.Children.Add(Box);
+            Root = grid;
+            Box.Text = window._store.Current.Vlm.Prompts.FigureFor(window._language);
+            Box.LostFocus += (_, _) => Commit();
+        }
+
+        public UIElement Root { get; }
+
+        public TextBox Box { get; }
+
+        public void Commit()
+        {
+            // An empty box means "use the default"; the default is kept as it is, so that it follows the language.
+            var text = string.IsNullOrWhiteSpace(Box.Text) ? PromptSettings.DefaultFigureFor(_window._language) : Box.Text;
+            if (text != Box.Text)
+            {
+                Box.Text = text;
+            }
+
+            _window._store.Update(s => s.Vlm.Prompts.Figure = text);
+        }
+
+        public void Reset()
+        {
+            Box.Text = PromptSettings.DefaultFigureFor(_window._language);
+            Commit();
+        }
+    }
+
     /// <summary>The editor of one kind of file: the list of its prompts, the buttons, and the box of the text.</summary>
-    private sealed class KindEditor
+    private sealed class KindEditor : IPromptEditor
     {
         private readonly PromptsWindow _window;
         private readonly DocumentKind _kind;

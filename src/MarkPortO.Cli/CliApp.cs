@@ -103,6 +103,7 @@ public static class CliApp
         var vlmSeparate = new Option<string?>("--vlm-separate") { Description = "on or off: write the results of Step 3 to a separate file, name_vlm.md." };
         var step1Tables = new Option<string?>("--step1-tables") { Description = "off, replace or omit: where the text of a page has a table, replace the tables of the VLM result by it (replace), or leave them out (omit)." };
         var pageImage = new Option<string?>("--page-image") { Description = "image, reference or link: write the print image of a page in the Markdown as an image (a viewer shows it), as a link (a viewer shows the link, not the image), or as a comment, <!-- page-image: images/page-001.png --> (a viewer does not show it, a program or a model can read the path). Used with Step 2 (default: the settings file, reference)." };
+        var step3Mode = new Option<string?>("--step3-mode") { Description = "supplement or transcribe: how Step 3 uses the VLM. supplement keeps the text of Step 1 and reads only the pictures that Step 1 saved (--pictures on), and the pages that Step 1 has almost no text of; transcribe reads every page whole (default: the settings file, supplement)." };
         var dropRepeated = new Option<string?>("--drop-repeated-tables") { Description = "on or off: leave out the tables that the VLM wrote again on a page, after the last table (a small model can go on writing the same tables)." };
         var prompt = new Option<string?>("--prompt") { Description = "The name of the VLM prompt for every kind of file that has a prompt of this name (or 'standard'); a kind without it keeps its own choice. Not used with --resume." };
         var promptDocx = new Option<string?>("--prompt-docx") { Description = "The name of the VLM prompt for Word files (or 'standard')." };
@@ -130,7 +131,7 @@ public static class CliApp
         foreach (var option in new Option[]
         {
             settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, pictures, shapes, groupShapes, engine, dpi, excelRange, step2, step3, vlmSeparate,
-            pages, step1Tables, pageImage, dropRepeated, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, sameFolder, result, quiet,
+            pages, step1Tables, pageImage, dropRepeated, step3Mode, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, sameFolder, result, quiet,
         })
         {
             convert.Options.Add(option);
@@ -165,6 +166,7 @@ public static class CliApp
                 Step1Tables = parse.GetValue(step1Tables),
                 PageImage = parse.GetValue(pageImage),
                 DropRepeatedTables = parse.GetValue(dropRepeated),
+                Step3Mode = parse.GetValue(step3Mode),
                 Prompt = parse.GetValue(prompt),
                 PromptDocx = parse.GetValue(promptDocx),
                 PromptXlsx = parse.GetValue(promptXlsx),
@@ -434,6 +436,7 @@ public static class CliApp
             Step1Tables = ConvertArgsResolver.TryStep1Tables(args.Step1Tables),
             PageImage = ConvertArgsResolver.TryPageImage(args.PageImage),
             DropRepeatedTables = Step(args.DropRepeatedTables),
+            Step3Mode = ConvertArgsResolver.TryStep3Mode(args.Step3Mode),
             Connection = args.Connection,
         };
 

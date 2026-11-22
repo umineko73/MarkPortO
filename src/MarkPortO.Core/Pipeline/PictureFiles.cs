@@ -205,6 +205,36 @@ public static partial class PictureFiles
     [GeneratedRegex("""!\[((?:\\.|[^\]\\])*)\]\(pictures/[^)\s]*\)|<img src="pictures/[^"]*" alt="([^"]*)" width="\d+">""")]
     private static partial Regex Reference();
 
+    /// <summary>
+    /// The pictures of a text, in their order, as <c>(the reference as it is written, the file)</c>: <c>![text](pictures/…)</c> and
+    /// <c>&lt;img src="pictures/…" …&gt;</c> (FR-148). Used to read each picture on its own and to write what was read after it (FR-150).
+    /// </summary>
+    public static IReadOnlyList<(string Markup, string File)> References(string markdown) =>
+        markdown.Contains(Folder + "/", StringComparison.Ordinal)
+            ? [.. FileReference().Matches(markdown).Select(m => (m.Value, m.Groups["file"].Value))]
+            : [];
+
+    /// <summary>
+    /// The text has a picture that was not saved: <c>![text]</c> with no file (the pictures are not taken out, or the file could not be).
+    /// Its content is only in the page image (FR-150).
+    /// </summary>
+    /// <remarks>A <c>![</c> in the text of the document is written escaped (<c>!\[</c>); one in code (a code span or a code block) is not, and is not a picture.</remarks>
+    public static bool HasUnsavedPicture(string markdown) =>
+        markdown.Contains("![", StringComparison.Ordinal) && Unsaved().IsMatch(CodeSpan().Replace(CodeBlock().Replace(markdown, string.Empty), string.Empty));
+
+    [GeneratedRegex(@"^[ \t]*(```|~~~).*?^[ \t]*\1[ \t]*$", RegexOptions.Multiline | RegexOptions.Singleline)]
+    private static partial Regex CodeBlock();
+
+    [GeneratedRegex(@"(`+)[^`].*?\1", RegexOptions.Singleline)]
+    private static partial Regex CodeSpan();
+
+    [GeneratedRegex("""!\[(?:\\.|[^\]\\])*\]\((?<file>pictures/[^)\s]*)\)|<img src="(?<file>pictures/[^"]*)" alt="[^"]*" width="\d+">""")]
+    private static partial Regex FileReference();
+
+    // A Markdown picture whose text is not followed by a file. A code span or a link that happens to look so is rare enough to read the page whole.
+    [GeneratedRegex("""!\[(?:\\.|[^\]\\])+\](?!\()""")]
+    private static partial Regex Unsaved();
+
     // A picture with a mark: ![text](mark). The marks are written only by PictureCollector.Markdown, always in this form.
     private static readonly Regex MarkedReference = new(
         @"!\[((?:\\.|[^\]\\])*)\]\(" + PictureCollector.MarkStart + @"(\d+)(?:;(\d+))?" + PictureCollector.MarkEnd + @"\)", RegexOptions.CultureInvariant);

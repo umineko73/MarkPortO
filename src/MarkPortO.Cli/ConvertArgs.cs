@@ -74,6 +74,9 @@ public sealed record ConvertArgs
 
     public string? DropRepeatedTables { get; init; }
 
+    /// <summary>How Step 3 uses the VLM (FR-150): <c>supplement</c> or <c>transcribe</c>.</summary>
+    public string? Step3Mode { get; init; }
+
     /// <summary>The name of the prompt for each kind that has it (FR-115).</summary>
     public string? Prompt { get; init; }
 
@@ -261,6 +264,18 @@ public static class ConvertArgsResolver
             }
         }
 
+        if (args.Step3Mode is not null)
+        {
+            if (TryStep3Mode(args.Step3Mode) is { } mode)
+            {
+                settings.Steps.Step3Mode = mode;
+            }
+            else
+            {
+                errors.Add($"--step3-mode: '{args.Step3Mode}' is not one of supplement, transcribe.");
+            }
+        }
+
         if (args.PageImage is not null)
         {
             if (TryPageImage(args.PageImage) is { } style)
@@ -370,6 +385,14 @@ public static class ConvertArgsResolver
         "off" => Step1TablesMode.Off,
         "on" or "replace" => Step1TablesMode.Replace,
         "omit" => Step1TablesMode.Omit,
+        _ => null,
+    };
+
+    /// <summary><c>supplement</c> or <c>transcribe</c>; <c>null</c> for anything else (FR-150).</summary>
+    internal static Step3Mode? TryStep3Mode(string? value) => value?.ToLowerInvariant() switch
+    {
+        "supplement" => MarkPortO.Core.Jobs.Models.Step3Mode.Supplement,
+        "transcribe" => MarkPortO.Core.Jobs.Models.Step3Mode.Transcribe,
         _ => null,
     };
 

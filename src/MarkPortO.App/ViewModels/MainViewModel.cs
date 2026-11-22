@@ -709,15 +709,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public bool CanReread => !IsRunning && Step3 && (Files.Any(f => f.RereadCount.Marked > 0) || StaleCount() > 0);
 
     /// <summary>The model and the prompt that a reading of a file of this kind would use now: the choices on the screen (FR-139).</summary>
-    private (string? Model, string Prompt) CurrentStep3(DocumentKind kind)
+    private (string? Model, string Prompt, Step3Mode Mode) CurrentStep3(DocumentKind kind)
     {
         var settings = _store.Current;
-        return (Step3Settings.ModelText(settings.FindConnection(settings.Vlm.Selected)), Step3Settings.PromptText(settings.Vlm.Prompts.VariantsOf(kind).Selected));
+        return (Step3Settings.ModelText(settings.FindConnection(settings.Vlm.Selected)), Step3Settings.PromptText(settings.Vlm.Prompts.VariantsOf(kind).Selected), settings.Steps.Step3Mode);
     }
 
     /// <summary>How many pages of the list were read with other settings than those on the screen (the connection, the prompt of their kind of file): Step 3 can be run again for them.</summary>
     public int StaleCount() => Files.Sum(f => f.Source is { } document && document.Step3 == StepStatus.Done
-        ? RereadMarks.Stale(document, CurrentStep3(document.Kind).Model, CurrentStep3(document.Kind).Prompt).Count()
+        ? RereadMarks.Stale(document, CurrentStep3(document.Kind).Model, CurrentStep3(document.Kind).Prompt, CurrentStep3(document.Kind).Mode).Count()
         : 0);
 
     /// <summary>The state of "Run Step 3 again" is worked out again (the settings of Step 3 or the list changed).</summary>
@@ -786,10 +786,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         foreach (var file in Files.Where(f => f.Source is { Step3: StepStatus.Done }).ToList())
         {
             var document = file.Source!;
-            var (model, prompt) = CurrentStep3(document.Kind);
-            if (RereadMarks.Stale(document, model, prompt).Any())
+            var (model, prompt, step3Mode) = CurrentStep3(document.Kind);
+            if (RereadMarks.Stale(document, model, prompt, step3Mode).Any())
             {
-                RereadMarks.MarkStale(store, document, model, prompt);
+                RereadMarks.MarkStale(store, document, model, prompt, step3Mode);
                 RefreshRereadMarks(document);
             }
         }
@@ -811,6 +811,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                     Mode = ResumeMode.Reread,
                     Step3 = true,
                     PromptNames = ConvertRequest.OptionsFrom(snapshot).PromptNames,
+                    Step3Mode = snapshot.Steps.Step3Mode,
                 },
                 token));
     }
@@ -915,6 +916,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             _store.Update(s => s.Steps.DropRepeatedTables = value);
+            Raise();
+        }
+    }
+
+    /// <summary>How Step3 uses the VLM (FR-150): 0 adds to the text of Step1, 1 reads every page whole.</summary>
+    public int Step3ModeIndex
+    {
+        get => (int)_store.Current.Steps.Step3Mode;
+        set
+        {
+            if (value is >= 0 and <= 1)
+            {
+                _store.Update(s => s.Steps.Step3Mode = (Step3Mode)value);
+                RaiseRereadState(); // the pages read with the other use can be read again
+            }
+
             Raise();
         }
     }
@@ -1304,6 +1321,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Step1Tables = snapshot.Steps.Step1Tables,
                 PageImage = snapshot.Steps.PageImage,
                 DropRepeatedTables = snapshot.Steps.DropRepeatedTables,
+                Step3Mode = snapshot.Steps.Step3Mode,
             },
             token));
     }

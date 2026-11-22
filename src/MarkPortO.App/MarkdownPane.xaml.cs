@@ -29,6 +29,7 @@ public partial class MarkdownPane : UserControl
     // The text and the Markdown of the VLM start at 70%: a page of text is seen at a glance next to the image of the page.
     private double _zoom = 0.7;
     private bool _navigating;
+    private long _renderVersion;
 
     // What is shown now. A refresh that brings the same text does nothing; one that brings other text for the same page (its result came in)
     // keeps the scroll position, and a new page starts at the top (FR-068).
@@ -205,8 +206,16 @@ public partial class MarkdownPane : UserControl
                     _ = Web.CoreWebView2.ExecuteScriptAsync(MarkdownHtml.ZoomScript(_zoom));
                 }
             };
-            Web.NavigationCompleted += (_, _) =>
+            Web.NavigationCompleted += (_, navigation) =>
             {
+                if (!navigation.IsSuccess || !_shownRendered ||
+                    Web.CoreWebView2.DocumentTitle != _renderVersion.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                {
+                    return;
+                }
+
+                Web.Visibility = Visibility.Visible;
+                RawBox.Visibility = Visibility.Collapsed;
                 _navigating = false;
                 if (Math.Abs(Web.ZoomFactor - _zoom) > 0.001)
                 {
@@ -285,7 +294,11 @@ public partial class MarkdownPane : UserControl
 
         _navigating = true;
         _restoreScroll = samePage;
-        Web.NavigateToString(MarkdownHtml.Render(markdown, zoom: _zoom));
+        var title = (++_renderVersion).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Web.Visibility = Visibility.Hidden;
+        RawBox.Visibility = Visibility.Visible;
+        Web.NavigateToString(MarkdownHtml.Render(markdown, zoom: _zoom)
+            .Replace("<head>", "<head><title>" + title + "</title>", StringComparison.Ordinal));
     }
 
     public void Release() => Web.Dispose();

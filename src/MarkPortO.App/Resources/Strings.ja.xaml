@@ -121,6 +121,10 @@
   <sys:String x:Key="Main_Cond_TablesOmit">VLMの結果には残さない</sys:String>
   <sys:String x:Key="Main_Cond_DropRepeated">繰り返しの表を除く</sys:String>
   <sys:String x:Key="Main_Cond_DropRepeatedTip">小さいモデルが、最後の表のあとも止まらず、同じ表を書き続けることがあります。同じページで前に書いた表と同じ内容の表を、Markdown に書きません（VLM の結果そのものは変えません）。</sys:String>
+  <sys:String x:Key="Main_Cond_Step3Mode">VLMの使い方:</sys:String>
+  <sys:String x:Key="Main_Cond_Step3ModeSupplement">補足</sys:String>
+  <sys:String x:Key="Main_Cond_Step3ModeTranscribe">書き写し</sys:String>
+  <sys:String x:Key="Main_Cond_Step3ModeTip">補足: Step1 の本文・表・コードをそのまま使い、VLM は Step1 で取り出した図だけを1つずつ読んで、本文にない情報を図の直後に書き足します。Step1 の本文がほとんどないページと PDF は、ページ全体を読みます。Step1 の本文で足りるページは送りません。Step1 の「文書の画像を取り出す」をオンにしないと、図は読まれません。書き写し: すべてのページの画像を VLM が読み、書き起こします（これまでの動き）。</sys:String>
   <sys:String x:Key="Main_Cond_VlmSeparate">結果を別ファイル(名前__vlm.md)に書く</sys:String>
   <sys:String x:Key="Main_Cond_Step3">VLMで印刷イメージからテキスト抽出</sys:String>
   <sys:String x:Key="Main_Cond_Pages">ページの範囲</sys:String>
@@ -240,6 +244,8 @@
   <sys:String x:Key="Prompts_Title">VLMへの指示(プロンプト)の設定</sys:String>
   <sys:String x:Key="Prompts_Note">Step3で、画像からテキストを読み取るときにVLMへ送る指示です。文書の種類ごとに、名前を付けて複数持てます。「使うプロンプト」で選んだものを使います（標準は、名前を変えられず、削除もできません）。入力欄から移ると保存されます。空にすると標準は既定の文に戻ります。</sys:String>
   <sys:String x:Key="Prompts_PageText">指示に {pagetext} を書くと、文書から取り出したそのページのテキストに置き換わります(画像と一緒にVLMへ送ります。書かなければ送りません)。</sys:String>
+  <sys:String x:Key="Prompts_FigureTab">図</sys:String>
+  <sys:String x:Key="Prompts_FigureNote">VLMの使い方が「補足」のとき、Step1 で取り出した図を1つずつ、この指示で送ります（文書の種類によらず共通）。{pagetext} は、図の前後の文字に置き換わります。答えが NONE なら何も足しません。</sys:String>
   <sys:String x:Key="Prompts_InsertPageText">{pagetext} を挿入</sys:String>
   <sys:String x:Key="Prompts_Reset">表示中のプロンプトを既定に戻す</sys:String>
   <sys:String x:Key="Prompts_UsedLabel">使うプロンプト:</sys:String>
