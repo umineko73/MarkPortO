@@ -125,7 +125,7 @@
   <sys:String x:Key="Main_Cond_Step3Mode">Use of the VLM:</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeSupplement">add to the text</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTranscribe">read every page</sys:String>
-  <sys:String x:Key="Main_Cond_Step3ModeTip">Add to the text: the text, tables and code of Step1 are kept, and the VLM reads only the pictures that Step1 saved (one by one, after each picture it writes what the text does not have). A page that Step1 has almost no text of, and a PDF, are read whole. A page that the text of Step1 is enough for is not sent. Turn on &quot;Save the pictures of the document&quot; in Step1, or the pictures are not read. Read every page: the VLM reads every page image whole and writes it out (as before).</sys:String>
+  <sys:String x:Key="Main_Cond_Step3ModeTip">Add to the text: the text, tables and code of Step1 are kept, and the VLM reads only the pictures that Step1 saved (one by one, after each picture it writes what the text does not have). A page that Step1 has almost no text of, and a PDF, are read whole. A page that the text of Step1 is enough for is not sent. The drawn shapes of Word are read from the page image, for the shapes only. Turn on &quot;Save the pictures of the document&quot; in Step1 (when it is off, a page with a picture that has an alternative text is read whole, and a picture without one is not read). Read every page: the VLM reads every page image whole and writes it out (as before).</sys:String>
   <sys:String x:Key="Main_Cond_VlmSeparate">Write the results to a separate file (name__vlm.md)</sys:String>
   <sys:String x:Key="Main_Cond_Step3">Extract text from print images with the VLM</sys:String>
   <sys:String x:Key="Main_Cond_Pages">Pages</sys:String>

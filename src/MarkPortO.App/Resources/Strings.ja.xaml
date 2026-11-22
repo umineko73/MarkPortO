@@ -125,7 +125,7 @@
   <sys:String x:Key="Main_Cond_Step3Mode">VLMの使い方:</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeSupplement">補足</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTranscribe">書き写し</sys:String>
-  <sys:String x:Key="Main_Cond_Step3ModeTip">補足: Step1 の本文・表・コードをそのまま使い、VLM は Step1 で取り出した図だけを1つずつ読んで、本文にない情報を図の直後に書き足します。Step1 の本文がほとんどないページと PDF は、ページ全体を読みます。Step1 の本文で足りるページは送りません。Step1 の「文書の画像を取り出す」をオンにしないと、図は読まれません。書き写し: すべてのページの画像を VLM が読み、書き起こします（これまでの動き）。</sys:String>
+  <sys:String x:Key="Main_Cond_Step3ModeTip">補足: Step1 の本文・表・コードをそのまま使い、VLM は Step1 で取り出した図だけを1つずつ読んで、本文にない情報を図の直後に書き足します。Step1 の本文がほとんどないページと PDF は、ページ全体を読みます。Step1 の本文で足りるページは送りません。Word の図形は、ページ画像から図形だけを読みます。Step1 の「文書の画像を取り出す」をオンにしてください（オフだと、代替テキストのある画像のページはページ全体を読み、代替テキストのない画像は読まれません）。書き写し: すべてのページの画像を VLM が読み、書き起こします（これまでの動き）。</sys:String>
   <sys:String x:Key="Main_Cond_VlmSeparate">結果を別ファイル(名前__vlm.md)に書く</sys:String>
   <sys:String x:Key="Main_Cond_Step3">VLMで印刷イメージからテキスト抽出</sys:String>
   <sys:String x:Key="Main_Cond_Pages">ページの範囲</sys:String>
