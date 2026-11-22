@@ -342,6 +342,8 @@ On the command line, use `--extractor-docx|xlsx|pptx|pdf <name>` (`builtin` is t
 
 The result is the Markdown of the whole document, as the command wrote it, **with no page marks and no page image references** (the page images are still saved in `images/`). The features of MarkPortO for that kind of file (tables over several pages, merged cells, bold and italic, and so on) do not apply, and the options beside a kind of file (hidden sheets, the range of a sheet and so on) are grayed out while a command is chosen.
 
+When the command gives no text at all (a scanned PDF, for example) and Step3 is on, the file does not fail: the VLM reads the page images. The Markdown then says so, and the text is only in `name_vlm.md`. With Step3 off, the file fails.
+
 It has been tried with MarkItDown, Docling and Pandoc on sample files, not with every tool, version or kind of document, and the results of the tools differ.
 
 #### Example
