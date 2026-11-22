@@ -322,6 +322,16 @@ The location can be changed with the environment variable `MARKPORTO_SETTINGS`. 
 
 For a kind of file, the Markdown can be written by a program that you installed yourself (MarkItDown, Docling, Pandoc and so on). MarkPortO does not install or update it; it only runs it, without a shell, with the arguments that you give.
 
+#### PDF files
+
+The built-in extraction of MarkPortO takes the text of a PDF simply: headings run into the text, and a table is a line of words. For PDF files, MarkItDown or Docling is recommended.
+
+- MarkItDown: fast; it keeps headings, lists and line breaks well.
+- Docling: makes the best tables and reads scanned PDFs too; it takes longer.
+- Pandoc cannot read PDF files.
+
+With a command, the page images, Step3 (the VLM) and the preview still work. When the command gives no text for a scanned PDF, the VLM reads it if Step3 is on (see "How it differs from the built-in extraction" below).
+
 #### Registering a command
 
 1. Open **Settings > Extractor settings**.

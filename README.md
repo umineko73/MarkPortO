@@ -3,7 +3,7 @@
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4.svg)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)
-![Version](https://img.shields.io/badge/version-0.3.6-2ea44f.svg)
+![Version](https://img.shields.io/badge/version-0.4.0-2ea44f.svg)
 
 **English** | [日本語](README.ja.md)
 
@@ -13,10 +13,12 @@ MarkPortO is a **Windows app that converts Word, Excel, PowerPoint and PDF files
 
 ## Features
 
-- Convert headings, tables, lists, code and equations into Markdown.
+- Convert headings, tables, lists, code and equations into Markdown, read directly from the Office file.
 - Compare the result with the original page images in a preview.
+- Choose a preset for the purpose: **For reading** (people read the Markdown) or **For RAG** (a language model reads it).
+- Optionally let an image-capable model (VLM) add what the figures, charts and shapes show, or read whole pages (scans).
 - Convert folders of documents and resume interrupted runs.
-- Optionally read pages with an image-capable model (VLM).
+- Use an external command (MarkItDown, Docling and so on) to write the Markdown of a kind of file; recommended for PDF files.
 
 Under development. Results vary with document layout, so check the preview after conversion.
 
@@ -37,18 +39,27 @@ You need **Windows 11** and the **.NET 10 Desktop Runtime**. Office documents al
 
 1. Add files or a folder, or drag them onto the app.
 2. Choose an output folder.
-3. Press **Start**. Turn off Step3 if you do not want to use the VLM.
-4. Double-click a completed file to preview the result.
+3. Choose a **Preset** if you like (**For reading** or **For RAG**). It puts the recommended settings of Step1 to Step3; you can still change them.
+4. Press **Start**. Turn off Step3 if you do not want to use the VLM.
+5. Double-click a completed file to preview the result.
 
 Each document gets a folder containing its Markdown (`.md`) and page images (`images/`). Open them from the file list's right-click menu.
 
 To use the VLM, set up a VLM connection in **Settings** and turn on Step3. External services receive document images and text, and may charge for usage.
 
+## Reading figures with a VLM (Step3)
+
+By default (**Add to the text**), the text, tables and code stay as Step1 read them from the document, and the VLM reads only the pictures, charts and shapes that Step1 saved, one by one. What they show is written after each figure. Pages with almost no text, and PDF files, are read whole; pages that Step1 covers are not sent at all, so a document of text costs nothing. **Read every page** has the VLM write out every page, as up to 0.3.6.
+
+## PDF files
+
+The built-in extraction takes the text of a PDF simply (headings run into the text, a table is a line of words). For PDF files, choose **MarkItDown** or **Docling** as an external command; the page images, Step3 and the preview still work, and a scanned PDF is read by the VLM when Step3 is on. See [Detailed usage](docs/usage.md#pdf-files).
+
 ## Preview
 
 Double-click a file to open the preview. The image of each page is shown next to its Markdown, so you can check tables, merged cells, lists, code, equations and pictures against the original.
 
-![The preview: the page image of a Word document and its Markdown](docs/images/preview-document.png)
+![The preview: the page image of a Word document, its Markdown, and the VLM result with what the VLM read in the chart](docs/images/preview-document.png)
 
 - Show the page image, the extracted text and the VLM result, side by side or stacked. The Markdown can be shown rendered or as source.
 - Move between pages with the arrow keys, and to the previous or next file with ◀ ▶. Ctrl+wheel zooms.

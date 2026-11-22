@@ -357,6 +357,18 @@ markporto-cli check-connection --settings settings.json
 MarkItDown・Docling・Pandocなどを使って、Markdownを作成できます。
 使うツールは自分でインストールしてください。MarkPortOはインストールや更新を行いません。
 
+#### PDFについて
+
+MarkPortOの内蔵の抽出は、PDFの文字を簡単に取り出すだけです。見出しは本文とつながり、表はただの文字の並びになります。
+PDFは、MarkItDownかDoclingに任せることをおすすめします。
+
+- MarkItDown：速く、見出し・箇条書き・改行がよく残ります。
+- Docling：表を最もよく表にし、スキャンしたPDFも読み取れます。時間はかかります。
+- PandocはPDFを読み取れません。
+
+外部コマンドを使っても、ページ画像の保存、Step3（VLM）での読み取り、プレビューは使えます。
+スキャンしたPDFでコマンドが文字を返さないときも、Step3がオンならVLMが読み取ります（下の「内蔵の抽出との違い」を参照）。
+
 #### 登録する
 
 1. 「設定 > 抽出コマンドの設定」を開きます。
