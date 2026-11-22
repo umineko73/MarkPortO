@@ -40,6 +40,17 @@ public partial class PreviewWindow : Window
     private readonly List<PreviewItem> _items = [];
     private bool _selectingByProgram;
     private int _version;
+    private int? _requestedPage;
+
+    internal void GoToPage(int index)
+    {
+        FollowBox.IsChecked = false;
+        _requestedPage = index;
+        if (IsLoaded)
+        {
+            _ = ReloadAsync();
+        }
+    }
 
     /// <summary>The window went to another file (FR-137): the file it showed, the file it shows now.</summary>
     public event Action<FileItemViewModel, FileItemViewModel>? ItemSwitched;
@@ -138,6 +149,7 @@ public partial class PreviewWindow : Window
         var next = files[index];
         var previous = _item;
         _item.PropertyChanged -= OnItemChanged;
+        _requestedPage = null;
         _item = next;
         _item.PropertyChanged += OnItemChanged;
         _version++;
@@ -244,7 +256,8 @@ public partial class PreviewWindow : Window
 
         // Follow the work: the latest page that is finished (read, or failed) when the VLM is used; the last page otherwise.
         // Without a finished page yet, the choice stays as it is.
-        var target = selected;
+        var target = _requestedPage ?? selected;
+        _requestedPage = null;
         if (FollowBox.IsChecked == true && pages.Count > 0)
         {
             var finished = vlmOn ? pages.LastOrDefault(p => !p.IsDeleted && p.Step3 is PageStep3Status.Done or PageStep3Status.Failed) : pages[^1];

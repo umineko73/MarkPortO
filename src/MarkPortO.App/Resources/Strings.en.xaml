@@ -116,11 +116,12 @@
   <sys:String x:Key="Main_OpenMarkdown">Open the Markdown</sys:String>
   <sys:String x:Key="Main_OpenVlm">Open the Markdown of the VLM results</sys:String>
   <sys:String x:Key="Main_Cond_Tables">Tables</sys:String>
+  <sys:String x:Key="Main_Cond_TablesTip">When the VLM reads only figures, the document keeps its Step1 tables with any selection. This setting controls tables on pages read in full, including PDFs. Replacement and omission apply only where Step1 extracted a table.</sys:String>
   <sys:String x:Key="Main_Cond_TablesVlm">use the VLM result</sys:String>
   <sys:String x:Key="Main_Cond_TablesReplace">use the extracted text</sys:String>
   <sys:String x:Key="Main_Cond_TablesOmit">do not keep in the VLM result</sys:String>
   <sys:String x:Key="Main_Cond_DropRepeated">Leave out repeated tables</sys:String>
-  <sys:String x:Key="Main_Cond_DropRepeatedTip">A small model may not stop after the last table and go on writing the same tables. A table with the same content as a table written before it on the same page is not written to the Markdown (the result of the VLM itself is not changed).</sys:String>
+  <sys:String x:Key="Main_Cond_DropRepeatedTip">When a page is read in full, only the first copy of a repeated table appears in its Markdown. This setting does not affect the document text or figure descriptions on pages where only figures are read.</sys:String>
   <sys:String x:Key="Main_Cond_Step3Mode">Use of the VLM:</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeSupplement">add to the text</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTranscribe">read every page</sys:String>

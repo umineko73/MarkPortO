@@ -24,11 +24,29 @@ drag the bar between them to change it.
 
 For one file, a **page range** (like `3-5,8`) limits the pages that Step3 reads.
 
+#### How the table settings work
+
+Suppose a Word page contains a price table and a screenshot, and Step1 extracts both. With **add to the text**, the Markdown keeps the Step1 price table and adds a description after the screenshot. Selecting **use the VLM result** does not send the price table to the VLM. If the figure description itself contains a table, it stays with the figure.
+
+**Tables** controls the output when Step3 reads a whole page. This includes pages processed with **read every page**, as well as PDFs and pages with very little extracted text when using **add to the text**.
+
+| Tables setting | Markdown for a page read in full |
+|---|---|
+| use the VLM result | Include the table the VLM read from the page image. |
+| use the extracted text | Where Step1 extracted a table on this page, replace the VLM tables with the Step1 tables. |
+| do not keep in the VLM result | Where Step1 extracted a table on this page, omit the VLM tables and add a note pointing to the tables in the document text. |
+
+If Step1 extracted no table on that page, all three settings keep the tables the VLM read.
+
+**Leave out repeated tables** then checks the VLM output for that page. If the model wrote the same price table twice, the Markdown keeps the first copy and marks the omission. This applies to tables with at least two data rows. If the price table appears once in the document text and once in the VLM result, choose **do not keep in the VLM result** to omit the second version.
+
 The values are saved to `%APPDATA%\MarkPortO\settings.json` and restored at the next start.
 
 **Preview** (double-click a file): choose which of the page image, the extracted text and the VLM result to show, side by side or stacked, drawn or as source.
 
 **Follow** shows the page read last.
+
+To preview a specific page, select the document in the main window’s file list. In the page list below it, right-click the row you want (for example, page 9) and choose **Preview**. The preview opens on that page. If the document already has a preview window, that window moves to the selected page. Opening a specific page turns **Follow** off so you can keep reading during conversion. Turn **Follow** on again to track progress.
 
 The page image zooms with Ctrl and the wheel (Ctrl and 0 is 100%).
 

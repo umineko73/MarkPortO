@@ -116,11 +116,12 @@
   <sys:String x:Key="Main_OpenMarkdown">Markdownを開く</sys:String>
   <sys:String x:Key="Main_OpenVlm">VLMの結果のMarkdownを開く</sys:String>
   <sys:String x:Key="Main_Cond_Tables">表</sys:String>
+  <sys:String x:Key="Main_Cond_TablesTip">「補足」で図だけを読むページでは、どの選択でも本文には Step1 の表が残ります。PDF などでページ全体を読むときは、この設定で出力する表を選びます。置き換え・省略は Step1 で表を抽出できたページに適用します。</sys:String>
   <sys:String x:Key="Main_Cond_TablesVlm">VLMの結果を採用</sys:String>
   <sys:String x:Key="Main_Cond_TablesReplace">抽出テキストを採用</sys:String>
   <sys:String x:Key="Main_Cond_TablesOmit">VLMの結果には残さない</sys:String>
   <sys:String x:Key="Main_Cond_DropRepeated">繰り返しの表を除く</sys:String>
-  <sys:String x:Key="Main_Cond_DropRepeatedTip">小さいモデルが、最後の表のあとも止まらず、同じ表を書き続けることがあります。同じページで前に書いた表と同じ内容の表を、Markdown に書きません（VLM の結果そのものは変えません）。</sys:String>
+  <sys:String x:Key="Main_Cond_DropRepeatedTip">ページ全体を読んだ結果に同じ表が複数回あれば、Markdown には最初の表だけを残します。「補足」で図だけを読むページの本文や図の説明には適用しません。</sys:String>
   <sys:String x:Key="Main_Cond_Step3Mode">VLMの使い方:</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeSupplement">補足</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTranscribe">書き写し</sys:String>

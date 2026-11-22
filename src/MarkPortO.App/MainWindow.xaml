@@ -249,7 +249,7 @@
             </ComboBox>
             <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" Visibility="{Binding Step3DetailsVisibility}" />
             <TextBlock Text="{DynamicResource Main_Cond_Tables}" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="{Binding Step3DetailsVisibility}" />
-            <ComboBox SelectedIndex="{Binding Step1TablesIndex}" IsEnabled="{Binding CanEditStep1Tables}" VerticalAlignment="Center" Margin="0,0,16,0" MinWidth="170" Visibility="{Binding Step3DetailsVisibility}">
+            <ComboBox SelectedIndex="{Binding Step1TablesIndex}" ToolTip="{DynamicResource Main_Cond_TablesTip}" IsEnabled="{Binding CanEditStep1Tables}" VerticalAlignment="Center" Margin="0,0,16,0" MinWidth="170" Visibility="{Binding Step3DetailsVisibility}">
               <ComboBoxItem Content="{DynamicResource Main_Cond_TablesVlm}" />
               <ComboBoxItem Content="{DynamicResource Main_Cond_TablesReplace}" />
               <ComboBoxItem Content="{DynamicResource Main_Cond_TablesOmit}" />
@@ -483,8 +483,28 @@
 
         <!-- The pages of the selected file -->
         <GroupBox Grid.Row="2" Header="{DynamicResource Main_PagesGroup}" Padding="4">
-          <DataGrid ItemsSource="{Binding Selected.Pages}" AutoGenerateColumns="False" IsReadOnly="True"
+          <DataGrid x:Name="PageGrid" ItemsSource="{Binding Selected.Pages}" AutoGenerateColumns="False" IsReadOnly="True"
                     CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+            <DataGrid.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="{DynamicResource Main_Preview}" Click="OnPagePreviewClick">
+                  <MenuItem.Style>
+                    <Style TargetType="MenuItem">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Value="{x:Null}">
+                          <Setter Property="IsEnabled" Value="False" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </MenuItem.Style>
+                </MenuItem>
+              </ContextMenu>
+            </DataGrid.ContextMenu>
+            <DataGrid.RowStyle>
+              <Style TargetType="DataGridRow">
+                <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnPageRightClick" />
+              </Style>
+            </DataGrid.RowStyle>
             <DataGrid.Columns>
               <DataGridTextColumn Binding="{Binding Index}" Width="80">
                 <DataGridTextColumn.Header>

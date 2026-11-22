@@ -160,7 +160,26 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnPreviewClick(object sender, RoutedEventArgs e)
+    private void OnPageRightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is System.Windows.Controls.DataGridRow row)
+        {
+            PageGrid.SelectedItem = row.Item;
+            row.Focus();
+        }
+    }
+
+    private void OnPagePreviewClick(object sender, RoutedEventArgs e)
+    {
+        if (PageGrid.SelectedItem is PageRow page)
+        {
+            OpenPreview(page.Index);
+        }
+    }
+
+    private void OnPreviewClick(object sender, RoutedEventArgs e) => OpenPreview(null);
+
+    private void OpenPreview(int? pageIndex)
     {
         if (_viewModel.Selected is not { CanPreview: true } item)
         {
@@ -169,11 +188,26 @@ public partial class MainWindow : Window
 
         if (_previews.TryGetValue(item.FullPath, out var open) && open.IsLoaded)
         {
+            if (pageIndex is int page)
+            {
+                open.GoToPage(page);
+            }
+
+            if (open.WindowState == WindowState.Minimized)
+            {
+                open.WindowState = WindowState.Normal;
+            }
+
             open.Activate();
             return;
         }
 
         var window = new PreviewWindow(item, _viewModel) { Owner = this };
+        if (pageIndex is int initialPage)
+        {
+            window.GoToPage(initialPage);
+        }
+
         var path = item.FullPath;
         _previews[path] = window;
         // The window can go to another file (FR-137): it is then the preview of that file.
