@@ -133,6 +133,28 @@ public class SettingsStoreTests
     }
 
     [Fact]
+    public void ASaveAskedFor_IsNotOverwrittenByTheOlderSaveOfTheTimer()
+    {
+        // The timer's save and a save asked for (on closing) ran together, and the older settings could be written last.
+        using var dir = new TempDir();
+        var path = dir.Combine("settings.json");
+        using var store = new SettingsStore(path, NoWait);
+        store.Load();
+
+        for (var i = 1; i <= 100; i++)
+        {
+            var name = "p" + i;
+            store.Update(s => s.PresetSelected = name);
+            Thread.Sleep(i % 3); // now and then the timer starts its save first
+            store.Update(s => s.PresetSelected = name + "-last");
+            store.Flush();
+            Thread.Sleep(2); // a save of the timer that was still writing has finished
+
+            Assert.Contains($"\"presetSelected\": \"{name}-last\"", File.ReadAllText(path));
+        }
+    }
+
+    [Fact]
     public void Dispose_FlushesPendingChanges()
     {
         using var dir = new TempDir();

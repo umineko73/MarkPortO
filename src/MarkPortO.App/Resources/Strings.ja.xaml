@@ -62,7 +62,7 @@
   <sys:String x:Key="Preset_Rename">名前の変更…</sys:String>
   <sys:String x:Key="Preset_Delete">削除</sys:String>
   <sys:String x:Key="Preset_DeleteConfirm">プリセット「{0}」を削除しますか？（いまの設定は変わりません）</sys:String>
-  <sys:String x:Key="Preset_None">保存したプリセットはありません。組み込みのプリセット（人が読む、RAG）は変更・削除できません。</sys:String>
+  <sys:String x:Key="Preset_None">保存したプリセットはありません。組み込みのプリセット（閲覧用、RAG用）は変更・削除できません。</sys:String>
   <sys:String x:Key="Main_Cond_RowDocx">Word</sys:String>
   <sys:String x:Key="Main_Cond_RowXlsx">Excel</sys:String>
   <sys:String x:Key="Main_Cond_RowPptx">PowerPoint</sys:String>

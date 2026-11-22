@@ -217,16 +217,112 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     // ---- presets of the conversion (FR-151) ----
 
-    /// <summary>One item of the list of presets: the name that is saved, and the name that is shown.</summary>
-    public sealed record PresetItem(string Name, string Display);
+    /// <summary>One item of the list of presets: the name that is saved, and the name that is shown. A rename changes the item, not the list.</summary>
+    public sealed class PresetItem(string name, string display) : ObservableObject
+    {
+        public string Name { get; private set; } = name;
+
+        public string Display { get; private set; } = display;
+
+        /// <summary>The name that is shown: what a screen reader says for the item, and the text of the closed drop-down list.</summary>
+        public override string ToString() => Display;
+
+        internal void Change(string name, string display)
+        {
+            if (Name != name)
+            {
+                Name = name;
+                Raise(nameof(Name));
+            }
+
+            if (Display != display)
+            {
+                Display = display;
+                Raise(nameof(Display));
+            }
+        }
+    }
 
     /// <summary>"Custom" (no preset), the built-in presets, then the presets of the user.</summary>
-    public IReadOnlyList<PresetItem> PresetItems =>
-    [
-        new(string.Empty, UiText.Get("Preset_Custom")),
-        .. ConversionPreset.BuiltIn.Select(p => new PresetItem(p.Name, ConversionPreset.DisplayName(p.Name))),
-        .. _store.Current.Presets.Select(p => new PresetItem(p.Name, p.Name)),
-    ];
+    /// <remarks>
+    /// One list, whose items are changed in place (<see cref="SyncPresetItems"/>). A new list each time made the drop-down list choose again, which set
+    /// <see cref="PresetIndex"/> again and again until the stack overflowed when "Custom" was chosen; and a replaced list lost the choice after a rename.
+    /// </remarks>
+    public ObservableCollection<PresetItem> PresetItems
+    {
+        get
+        {
+            if (_presetItems.Count == 0)
+            {
+                SyncPresetItems();
+            }
+
+            return _presetItems;
+        }
+    }
+
+    private readonly ObservableCollection<PresetItem> _presetItems = [];
+    private bool _applyingPreset;
+
+    /// <summary>
+    /// Makes the items of the list say the presets now and the words of the screen now. An item is kept while its preset is there (by its name), so the
+    /// drop-down list keeps its choice: only the item of a deleted preset goes, and a new one is added. A rename changes its item first (<see cref="RenamePreset"/>).
+    /// </summary>
+    private void SyncPresetItems()
+    {
+        (string Name, string Display)[] fixedItems =
+        [
+            (string.Empty, UiText.Get("Preset_Custom")),
+            .. ConversionPreset.BuiltIn.Select(p => (p.Name, ConversionPreset.DisplayName(p.Name))),
+        ];
+        for (var i = 0; i < fixedItems.Length; i++)
+        {
+            if (i < _presetItems.Count)
+            {
+                _presetItems[i].Change(fixedItems[i].Name, fixedItems[i].Display);
+            }
+            else
+            {
+                _presetItems.Add(new PresetItem(fixedItems[i].Name, fixedItems[i].Display));
+            }
+        }
+
+        var users = _store.Current.Presets.Select(p => p.Name).ToList();
+        for (var i = _presetItems.Count - 1; i >= fixedItems.Length; i--)
+        {
+            if (!users.Contains(_presetItems[i].Name, StringComparer.OrdinalIgnoreCase))
+            {
+                _presetItems.RemoveAt(i);
+            }
+        }
+
+        for (var k = 0; k < users.Count; k++)
+        {
+            var at = fixedItems.Length + k;
+            var found = -1;
+            for (var i = fixedItems.Length; i < _presetItems.Count; i++)
+            {
+                if (string.Equals(_presetItems[i].Name, users[k], StringComparison.OrdinalIgnoreCase))
+                {
+                    found = i;
+                    break;
+                }
+            }
+
+            if (found < 0)
+            {
+                _presetItems.Insert(at, new PresetItem(users[k], users[k]));
+                continue;
+            }
+
+            if (found != at)
+            {
+                _presetItems.Move(found, at);
+            }
+
+            _presetItems[at].Change(users[k], users[k]); // the same name in other capitals
+        }
+    }
 
     /// <summary>The chosen preset in <see cref="PresetItems"/>. Choosing one puts its values into the settings; "Custom" changes nothing.</summary>
     public int PresetIndex
@@ -241,13 +337,59 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             var items = PresetItems;
-            if (value < 0 || value >= items.Count || value == PresetIndex && value != 0 && !IsPresetModified)
+            if (_applyingPreset || value < 0 || value >= items.Count)
+            {
+                return; // the drop-down list chooses again while the settings are shown again, or the list was replaced
+            }
+
+            if (value == 0)
+            {
+                // "Custom": the settings stay as they are; only the name of the preset is forgotten.
+                if (_store.Current.PresetSelected.Length > 0)
+                {
+                    _store.Update(s => s.PresetSelected = string.Empty);
+                    RaisePresetChoice();
+                }
+
+                return;
+            }
+
+            if (value == PresetIndex && !IsPresetModified)
             {
                 return;
             }
 
             ApplyPreset(items[value].Name);
         }
+    }
+
+    /// <summary>
+    /// The chosen item, for the drop-down list. When the list is replaced (a preset saved, renamed or deleted), the drop-down list is given the item of
+    /// the new list: bound to the place or to the name, it kept a choice that did not change and showed nothing.
+    /// </summary>
+    public PresetItem? SelectedPreset
+    {
+        get => PresetItems[PresetIndex];
+        set
+        {
+            if (value is null)
+            {
+                return; // nothing is chosen while the list is replaced: that is not "Custom"
+            }
+
+            var index = PresetItems.ToList().FindIndex(i => string.Equals(i.Name, value.Name, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0)
+            {
+                PresetIndex = index;
+            }
+        }
+    }
+
+    private void RaisePresetChoice()
+    {
+        Raise(nameof(PresetIndex));
+        Raise(nameof(SelectedPreset));
+        Raise(nameof(PresetStateText));
     }
 
     /// <summary>Puts the values of the preset of this name into the settings (empty: no preset, the settings stay) and shows them all again.</summary>
@@ -263,8 +405,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             ConversionPreset.Find(s, name)?.ApplyTo(s);
             s.PresetSelected = ConversionPreset.Find(s, name)?.Name ?? string.Empty;
         });
-        Raise(string.Empty); // every setting of the steps may have changed
-        RefreshPrompts();
+        _applyingPreset = true;
+        try
+        {
+            _dpiText = _store.Current.Images.Dpi.ToString(CultureInfo.InvariantCulture); // the box keeps its own text: it would show the DPI from before
+            Raise(string.Empty); // every setting of the steps may have changed
+            RefreshPrompts();
+        }
+        finally
+        {
+            _applyingPreset = false;
+        }
     }
 
     /// <summary>The settings were changed after the preset was chosen.</summary>
@@ -279,13 +430,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var trimmed = name.Trim();
         _store.Update(s =>
         {
-            s.Presets.RemoveAll(p => string.Equals(p.Name, trimmed, StringComparison.OrdinalIgnoreCase));
-            s.Presets.Add(ConversionPreset.From(s, trimmed));
+            // A preset of the same name is replaced where it is, so the list keeps its order.
+            var index = s.Presets.FindIndex(p => string.Equals(p.Name, trimmed, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0)
+            {
+                s.Presets[index] = ConversionPreset.From(s, trimmed);
+            }
+            else
+            {
+                s.Presets.Add(ConversionPreset.From(s, trimmed));
+            }
+
             s.PresetSelected = trimmed;
         });
-        Raise(nameof(PresetItems));
-        Raise(nameof(PresetIndex));
-        Raise(nameof(PresetStateText));
+        SyncPresetItems();
+        RaisePresetChoice();
     }
 
     /// <summary>Renames a preset of the user; the choice follows it.</summary>
@@ -303,8 +462,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 }
             }
         });
-        Raise(nameof(PresetItems));
-        Raise(nameof(PresetIndex));
+
+        // The item is renamed, not replaced: the drop-down list keeps showing it when it is the chosen one.
+        _presetItems.Skip(1 + ConversionPreset.BuiltIn.Count).FirstOrDefault(i => string.Equals(i.Name, oldName, StringComparison.OrdinalIgnoreCase))?.Change(trimmed, trimmed);
+        SyncPresetItems();
+        RaisePresetChoice();
     }
 
     /// <summary>Deletes a preset of the user; when it was chosen, the choice becomes "Custom" (the settings stay).</summary>
@@ -318,9 +480,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 s.PresetSelected = string.Empty;
             }
         });
-        Raise(nameof(PresetItems));
-        Raise(nameof(PresetIndex));
-        Raise(nameof(PresetStateText));
+
+        // The choice moves first, then the item goes: a chosen item that goes leaves the drop-down list with nothing chosen.
+        RaisePresetChoice();
+        SyncPresetItems();
+        RaisePresetChoice();
     }
 
     /// <summary>The names of the presets of the user, for the window that manages them.</summary>
@@ -761,6 +925,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(LanguageIsJapanese));
         Raise(nameof(LanguageIsEnglish));
         Raise(nameof(LanguageIsSystem));
+        SyncPresetItems(); // the names of "Custom" and of the built-in presets
         RaiseConnection();
         Raise(nameof(ConditionSummaryText));
         Status = _statusSource();

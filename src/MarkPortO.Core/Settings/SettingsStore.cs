@@ -41,6 +41,9 @@ public sealed class SettingsStore : IDisposable
     private readonly string _path;
     private readonly TimeSpan _debounce;
     private readonly object _gate = new();
+
+    // Held by a save from reading the settings to writing the file (Flush).
+    private readonly object _writeGate = new();
     private Timer? _timer;
     private bool _dirty;
     private bool _disposed;
@@ -143,37 +146,44 @@ public sealed class SettingsStore : IDisposable
     }
 
     /// <summary>Saves now if there are unsaved changes.</summary>
+    /// <remarks>
+    /// One save at a time: the save of the timer and a save asked for (on closing) could run together, and the older settings were then written last.
+    /// The file is written outside <c>_gate</c>, so a change is not kept waiting for the disk.
+    /// </remarks>
     public void Flush()
     {
-        string json;
-        lock (_gate)
+        lock (_writeGate)
         {
-            if (!_dirty)
-            {
-                return;
-            }
-
-            _dirty = false;
-            if (IsReadOnly)
-            {
-                return;
-            }
-
-            json = JsonDefaults.Serialize(Current);
-        }
-
-        try
-        {
-            AtomicFile.WriteAllText(_path, json);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
+            string json;
             lock (_gate)
             {
-                _dirty = true;
+                if (!_dirty)
+                {
+                    return;
+                }
+
+                _dirty = false;
+                if (IsReadOnly)
+                {
+                    return;
+                }
+
+                json = JsonDefaults.Serialize(Current);
             }
 
-            SaveFailed?.Invoke(this, ex);
+            try
+            {
+                AtomicFile.WriteAllText(_path, json);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                lock (_gate)
+                {
+                    _dirty = true;
+                }
+
+                SaveFailed?.Invoke(this, ex);
+            }
         }
     }
 

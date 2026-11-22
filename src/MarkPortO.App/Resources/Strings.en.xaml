@@ -62,7 +62,7 @@
   <sys:String x:Key="Preset_Rename">Rename…</sys:String>
   <sys:String x:Key="Preset_Delete">Delete</sys:String>
   <sys:String x:Key="Preset_DeleteConfirm">Delete the preset "{0}"? (The settings now do not change.)</sys:String>
-  <sys:String x:Key="Preset_None">There is no saved preset. The built-in presets (for people to read, for a language model) cannot be changed or deleted.</sys:String>
+  <sys:String x:Key="Preset_None">There is no saved preset. The built-in presets (For reading, For RAG) cannot be changed or deleted.</sys:String>
   <sys:String x:Key="Main_Cond_RowDocx">Word</sys:String>
   <sys:String x:Key="Main_Cond_RowXlsx">Excel</sys:String>
   <sys:String x:Key="Main_Cond_RowPptx">PowerPoint</sys:String>

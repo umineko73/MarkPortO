@@ -114,8 +114,8 @@ public sealed class ConversionPreset
     /// <summary>The name that the screen shows: the built-in ones in the language of the screen, the others as they are.</summary>
     public static string DisplayName(string name) => name switch
     {
-        _ when string.Equals(name, Human, StringComparison.OrdinalIgnoreCase) => Loc.T("For people to read"),
-        _ when string.Equals(name, Rag, StringComparison.OrdinalIgnoreCase) => Loc.T("For a language model (RAG)"),
+        _ when string.Equals(name, Human, StringComparison.OrdinalIgnoreCase) => Loc.T("For reading"),
+        _ when string.Equals(name, Rag, StringComparison.OrdinalIgnoreCase) => Loc.T("For RAG"),
         _ => name,
     };
 

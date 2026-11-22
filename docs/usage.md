@@ -19,8 +19,8 @@ While a conversion runs, the conditions cannot be changed. The values are saved 
 
 | Preset | For | Main settings |
 |---|---|---|
-| For people to read | Moving from Office documents to Markdown | bold and italic written, pictures and shapes saved, no page images in the Markdown, Step3 adds what the figures show, no description at the top |
-| For a language model (RAG) | Documents read by a language model | no bold and italic, pictures and shapes saved, the page images as comments (a passage can be traced to its page), Step3 adds what the figures show, the description at the top |
+| For reading (`human`) | Moving from Office documents to Markdown | bold and italic written, pictures and shapes saved, no page images in the Markdown, Step3 adds what the figures show, no description at the top |
+| For RAG (`rag`) | Documents read by a language model | no bold and italic, pictures and shapes saved, the page images as comments (a passage can be traced to its page), Step3 adds what the figures show, the description at the top |
 
 - Both use the tables of the extracted text, leave out repeated tables, and write the VLM results into the Markdown of the document.
 - Step3 is turned on only when a VLM connection is chosen, so a preset never stops a conversion on a machine without one.

@@ -604,11 +604,11 @@
   <data name="No repeated tables" xml:space="preserve">
     <value>繰り返しの表を除く</value>
   </data>
-  <data name="For people to read" xml:space="preserve">
-    <value>人が読む</value>
+  <data name="For reading" xml:space="preserve">
+    <value>閲覧用</value>
   </data>
-  <data name="For a language model (RAG)" xml:space="preserve">
-    <value>RAG（LLMが読む）</value>
+  <data name="For RAG" xml:space="preserve">
+    <value>RAG用</value>
   </data>
   <data name="No description at the top" xml:space="preserve">
     <value>冒頭の説明なし</value>
