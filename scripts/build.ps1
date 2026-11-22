@@ -72,6 +72,12 @@ if ($Task -eq 'Publish') {
     Invoke-Step 'publish cli' { dotnet publish src/MarkPortO.Cli -c $Configuration --no-build -o $package }
     Copy-Item README.md, README.ja.md -Destination $package
 
+    # The usage guides and the screenshots go to docs/ as in the repository, so the links of the READMEs and of the guides work in the ZIP too.
+    $docs = Join-Path $package 'docs'
+    New-Item -ItemType Directory -Force (Join-Path $docs 'images') | Out-Null
+    Copy-Item docs/usage.md, docs/usage.ja.md -Destination $docs
+    Copy-Item docs/images/*.png -Destination (Join-Path $docs 'images')
+
     # The version is the one in Directory.Build.props, the single place where it is set.
     $version = ([xml](Get-Content (Join-Path $repository 'Directory.Build.props') -Raw)).SelectSingleNode('//Version').InnerText
     $zip = Join-Path $out "MarkPortO-$version-win-x64.zip"
