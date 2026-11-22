@@ -200,6 +200,26 @@ public class Step3SupplementTests
         Assert.DoesNotContain("vlm:figure", MarkdownRenderer.Render(work.Document), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("NONE", true)]
+    [InlineData("なし", true)]
+    [InlineData("アイコン・飾りの画像・写真など、文書の内容として付け加えることがないもの: NONE", true)] // what Gemma E4B answered
+    [InlineData("画面の写し:\nNONE", true)]
+    [InlineData("**NONE**。", true)]
+    [InlineData("- アクセスキー: なし", false)] // a value that was read
+    [InlineData("| 項目 | 値 |\n|---|---|\n| 状態 | NONE |", false)] // a table with a value NONE
+    [InlineData("July 196 ms, August 183 ms.", false)]
+    [InlineData("The status is NONEXISTENT", false)]
+    public void AnAnswerThatSaysNothingToAdd_IsTakenAsNothing(string answer, bool nothing) =>
+        Assert.Equal(nothing, Step3Worker.FigureAnswer(answer).Length == 0);
+
+    [Fact]
+    public void ALongAnswerThatEndsWithNone_IsKept()
+    {
+        var answer = "- 種類: OpenAI互換のサーバー\n- 名前: local\n- URL: http://localhost:1234/v1\n- アクセスキー: NONE";
+        Assert.Equal(answer, Step3Worker.FigureAnswer(answer));
+    }
+
     [Fact]
     public async Task EachPictureOfAPage_IsReadOnce_AndAJpegIsSentAsAPng()
     {

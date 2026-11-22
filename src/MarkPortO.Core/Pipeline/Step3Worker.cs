@@ -434,11 +434,38 @@ public sealed class Step3Worker : IPipelineStep<DocumentWork>
     }
 
     /// <summary>What the VLM wrote about a picture, without a fence around it; empty when it answered that it has nothing to add (<c>NONE</c>).</summary>
+    /// <remarks>
+    /// A small model may say it in a sentence: "Icons and decorative pictures: NONE". A short answer (at most <see cref="MaxNothingAnswerCharacters"/>
+    /// characters and two lines) whose last line ends with NONE is taken as nothing too. A longer answer is kept, also when a value in it is NONE.
+    /// </remarks>
     internal static string FigureAnswer(string answer)
     {
         var text = AnswerFences.Strip(answer).Trim();
-        var bare = text.Trim('*', '`', '.', '。', ' ', '"', '「', '」');
-        return bare.Length == 0 || string.Equals(bare, "NONE", StringComparison.OrdinalIgnoreCase) || bare == "なし" ? string.Empty : text;
+        if (IsNothing(text))
+        {
+            return string.Empty;
+        }
+
+        var lines = text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        return text.Length <= MaxNothingAnswerCharacters && lines.Count <= 2 && EndsWithNothing(lines[^1]) ? string.Empty : text;
+    }
+
+    /// <summary>The longest answer that is still taken as "nothing to add" when it ends with NONE (FR-150).</summary>
+    internal const int MaxNothingAnswerCharacters = 150;
+
+    private static readonly char[] AroundNothing = ['*', '`', '.', '。', ' ', '"', '「', '」', '>', '-', '（', '）', '(', ')'];
+
+    private static bool IsNothing(string text)
+    {
+        var bare = text.Trim(AroundNothing);
+        return bare.Length == 0 || string.Equals(bare, "NONE", StringComparison.OrdinalIgnoreCase) || bare == "なし";
+    }
+
+    private static bool EndsWithNothing(string line)
+    {
+        // Only NONE, the word the prompt asks for: "…: なし" is often a value that was read ("Access key: なし").
+        var bare = line.TrimEnd(AroundNothing);
+        return bare.EndsWith("NONE", StringComparison.Ordinal) && (bare.Length == 4 || !char.IsLetterOrDigit(bare[^5]));
     }
 
     /// <summary>The text of a page for the prompt, and what it says about a table that runs over pages.</summary>
