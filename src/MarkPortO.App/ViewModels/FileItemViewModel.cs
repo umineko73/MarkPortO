@@ -115,6 +115,44 @@ public sealed class FileItemViewModel : ObservableObject
     /// <summary>The pages, for the detail view.</summary>
     public IReadOnlyList<PageRow> Pages => _row.Pages;
 
+    /// <summary>The colour of the mark before the state: <c>done</c>, <c>partly</c> (some pages failed), <c>failed</c>, <c>running</c> or <c>idle</c>.</summary>
+    public string StateKind => _row.State switch
+    {
+        FileDisplayState.Done => "done",
+        FileDisplayState.DoneWithPageFailures => "partly",
+        FileDisplayState.Failed => "failed",
+        FileDisplayState.Step1Running or FileDisplayState.Step2Running or FileDisplayState.Step3Running => "running",
+        _ => "idle",
+    };
+
+    /// <summary>Step3 is reading the pages of the file: the bar under the text of Step3 shows how many are read.</summary>
+    public bool ShowsStep3Progress => _row.StepStates[2] == StepStatus.Running && _row.Step3Total > 0;
+
+    /// <summary>The pages read by Step3, in percent of the pages it reads.</summary>
+    public double Step3Percent => _row.Step3Total > 0 ? 100.0 * Math.Min(_row.Step3Read, _row.Step3Total) / _row.Step3Total : 0;
+
+    /// <summary>
+    /// The usage in short: the total of the tokens (and the cost), or the text as it is (<c>none (not sent)</c>, <c>unavailable</c>). The whole of it is in
+    /// <see cref="UsageText"/>, shown as the tooltip.
+    /// </summary>
+    public string UsageShort => ShortUsage(_row.UsageText);
+
+    internal static string ShortUsage(string usage)
+    {
+        var total = System.Text.RegularExpressions.Regex.Match(usage, @"\btotal=(\d+)");
+        if (!total.Success)
+        {
+            return usage;
+        }
+
+        var tokens = long.Parse(total.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture).ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+        var cost = System.Text.RegularExpressions.Regex.Match(usage, @"\bcost=(\S+)");
+        return cost.Success ? $"{tokens} tokens  {cost.Groups[1].Value}" : $"{tokens} tokens";
+    }
+
+    /// <summary>The file is finished, well or not: it counts for the progress of the run.</summary>
+    public bool IsFinished => _row.State is FileDisplayState.Done or FileDisplayState.DoneWithPageFailures or FileDisplayState.Failed;
+
     /// <summary>Makes the texts of the row again from its document, after the language was changed.</summary>
     public void Reproject()
     {

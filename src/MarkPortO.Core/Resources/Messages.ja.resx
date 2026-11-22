@@ -583,4 +583,25 @@
   <data name="none (not sent)" xml:space="preserve">
     <value>なし（送らず）</value>
   </data>
+  <data name="No bold and italic" xml:space="preserve">
+    <value>太字・斜体なし</value>
+  </data>
+  <data name="Page images: image" xml:space="preserve">
+    <value>印刷イメージ: 画像</value>
+  </data>
+  <data name="Page images: link" xml:space="preserve">
+    <value>印刷イメージ: リンク</value>
+  </data>
+  <data name="VLM results in a separate file" xml:space="preserve">
+    <value>VLMの結果は別ファイル</value>
+  </data>
+  <data name="Tables: the extracted text" xml:space="preserve">
+    <value>表: 抽出テキストを採用</value>
+  </data>
+  <data name="Tables: not in the VLM result" xml:space="preserve">
+    <value>表: VLMの結果には残さない</value>
+  </data>
+  <data name="No repeated tables" xml:space="preserve">
+    <value>繰り返しの表を除く</value>
+  </data>
 </root>

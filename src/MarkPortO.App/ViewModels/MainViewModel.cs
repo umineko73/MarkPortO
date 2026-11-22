@@ -86,7 +86,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis) or nameof(ExtractPictures) or nameof(ExtractShapes) or nameof(GroupNearShapes)
                 or nameof(ExtractorDocx) or nameof(ExtractorXlsx) or nameof(ExtractorPptx) or nameof(ExtractorPdf)
                 or nameof(IncludeHiddenSheets) or nameof(IncludeHiddenSlides) or nameof(IncludeOffSlideText) or nameof(UsePdfText)
-                or nameof(ExcelColumns) or nameof(ExcelSheet) or nameof(ExcelPrintArea))
+                or nameof(ExcelColumns) or nameof(ExcelSheet) or nameof(ExcelPrintArea)
+                or nameof(PageImageIndex) or nameof(Step2) or nameof(Step3) or nameof(VlmSeparate) or nameof(Step1TablesIndex) or nameof(DropRepeatedTables))
             {
                 Raise(nameof(ConditionSummaryText));
             }
@@ -122,7 +123,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 _ = RefreshPreviousAsync(showFiles: true);
             }
         };
-        Files.CollectionChanged += (_, _) => UpdateRunCommands();
+        Files.CollectionChanged += (_, _) =>
+        {
+            UpdateRunCommands();
+            RaiseProgress();
+        };
         foreach (var choice in PromptChoices)
         {
             choice.PropertyChanged += (_, e) =>
@@ -352,6 +357,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (Set(ref _running, value))
             {
                 RaiseEditState();
+                RaiseProgress();
                 Raise(nameof(CanReread));
                 Raise(nameof(CanMarkSelectedForReread));
                 foreach (var command in new[] { StartCommand, StartChangedCommand, RedoAllCommand, InterruptCommand, ResumeCommand, RereadCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
@@ -1650,6 +1656,24 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 item.Update(row);
             }
         }
+
+        RaiseProgress();
+    }
+
+    /// <summary>The files of the list that are finished (well or not), for the bar of the progress of a run.</summary>
+    public int FinishedCount => Files.Count(f => f.IsFinished);
+
+    /// <summary>The bar of the progress is shown while a run goes on.</summary>
+    public System.Windows.Visibility ProgressVisibility => IsRunning && Files.Count > 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+
+    /// <summary>"3 / 15": the files finished and the files of the run.</summary>
+    public string ProgressText => $"{FinishedCount} / {Files.Count}";
+
+    private void RaiseProgress()
+    {
+        Raise(nameof(FinishedCount));
+        Raise(nameof(ProgressVisibility));
+        Raise(nameof(ProgressText));
     }
 }
 

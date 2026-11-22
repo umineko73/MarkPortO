@@ -73,6 +73,36 @@ public static class ConditionSummary
             parts.Add(Loc.T("No PDF text"));
         }
 
+        // The details of the steps, which are in the folded part too: the engine and the DPI always, the others when they are not the usual ones.
+        parts.Add((settings.Engine.Kind == EngineKind.Office ? "Office" : "LibreOffice") + " " + settings.Images.Dpi.ToString(System.Globalization.CultureInfo.InvariantCulture) + "dpi");
+        if (!settings.Input.Emphasis)
+        {
+            parts.Add(Loc.T("No bold and italic"));
+        }
+
+        if (settings.Steps.Step2 && settings.Steps.PageImage != PageImageStyle.Reference)
+        {
+            parts.Add(settings.Steps.PageImage == PageImageStyle.Image ? Loc.T("Page images: image") : Loc.T("Page images: link"));
+        }
+
+        if (settings.Steps.Step3)
+        {
+            if (settings.Steps.VlmSeparate)
+            {
+                parts.Add(Loc.T("VLM results in a separate file"));
+            }
+
+            if (settings.Steps.Step1Tables != Step1TablesMode.Off)
+            {
+                parts.Add(settings.Steps.Step1Tables == Step1TablesMode.Replace ? Loc.T("Tables: the extracted text") : Loc.T("Tables: not in the VLM result"));
+            }
+
+            if (settings.Steps.DropRepeatedTables)
+            {
+                parts.Add(Loc.T("No repeated tables"));
+            }
+        }
+
         return string.Join(Separator, parts);
     }
 }

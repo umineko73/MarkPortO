@@ -44,6 +44,7 @@
   <sys:String x:Key="Main_Cond_TypesNote">(used when a folder is given)</sys:String>
   <sys:String x:Key="Main_Cond_Targets">Kinds in a folder</sys:String>
   <sys:String x:Key="Main_Cond_OptionsRow">Extraction options</sys:String>
+  <sys:String x:Key="Main_Cond_Details">Details of the steps</sys:String>
   <sys:String x:Key="Main_Cond_RowDocx">Word</sys:String>
   <sys:String x:Key="Main_Cond_RowXlsx">Excel</sys:String>
   <sys:String x:Key="Main_Cond_RowPptx">PowerPoint</sys:String>
@@ -202,7 +203,6 @@
   <sys:String x:Key="Preview_PaneText">Extracted text</sys:String>
   <sys:String x:Key="Preview_PaneVlm">VLM result</sys:String>
   <sys:String x:Key="Main_PreviewTip">Choose a file in the list (it needs pages, made by Step 1).</sys:String>
-  <sys:String x:Key="Preview_GroupAction">Actions</sys:String>
   <sys:String x:Key="Preview_GroupMarkdown">Markdown</sys:String>
   <sys:String x:Key="Preview_Title">Preview - {0}</sys:String>
   <sys:String x:Key="Preview_Follow">Follow</sys:String>

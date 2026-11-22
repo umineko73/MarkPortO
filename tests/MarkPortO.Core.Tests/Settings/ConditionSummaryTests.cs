@@ -60,23 +60,23 @@ public class ConditionSummaryTests
             s.Input.UsePdfText = false;
         });
 
-        Assert.Equal("docx xlsx pptx pdf | サブフォルダ | Excel: 全体を1シート | 非表示のシート | 非表示のスライド | スライド外の文字なし | PDFの抽出テキストなし", Build(settings, "ja"));
+        Assert.Equal("docx xlsx pptx pdf | サブフォルダ | Excel: 全体を1シート | 非表示のシート | 非表示のスライド | スライド外の文字なし | PDFの抽出テキストなし | LibreOffice 150dpi", Build(settings, "ja"));
 
         // An option of a kind that is not converted is not written.
         settings.Input.Types = [DocumentKind.Docx];
-        Assert.Equal("docx | サブフォルダ", Build(settings, "ja"));
+        Assert.Equal("docx | サブフォルダ | LibreOffice 150dpi", Build(settings, "ja"));
     }
 
     [Fact]
     public void TheChoices_AreInOneLine_InJapanese()
     {
-        Assert.Equal("docx xlsx pptx pdf | サブフォルダ", Build(Settings(), "ja"));
+        Assert.Equal("docx xlsx pptx pdf | サブフォルダ | LibreOffice 150dpi", Build(Settings(), "ja"));
     }
 
     [Fact]
     public void TheChoices_AreInOneLine_InEnglish()
     {
-        Assert.Equal("docx xlsx pptx pdf | Sub-folders", Build(Settings(), "en"));
+        Assert.Equal("docx xlsx pptx pdf | Sub-folders | LibreOffice 150dpi", Build(Settings(), "en"));
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public class ConditionSummaryTests
             s.Input.Emphasis = false;
         });
 
-        Assert.Equal("docx pdf", Build(settings, "ja"));
+        Assert.Equal("docx pdf | Office 300dpi | 太字・斜体なし", Build(settings, "ja"));
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class ConditionSummaryTests
             s.Input.Extractors.Pdf = " docling ";
         });
 
-        Assert.Equal("docx(pandoc) xlsx pptx pdf(docling) | Sub-folders", Build(settings, "en"));
+        Assert.Equal("docx(pandoc) xlsx pptx pdf(docling) | Sub-folders | LibreOffice 150dpi", Build(settings, "en"));
     }
 
     [Fact]
@@ -115,17 +115,36 @@ public class ConditionSummaryTests
             s.Input.Extractors.Pdf = "docling";
         });
 
-        Assert.Equal("docx | Sub-folders", Build(settings, "en"));
+        Assert.Equal("docx | Sub-folders | LibreOffice 150dpi", Build(settings, "en"));
     }
 
     [Fact]
-    public void TheEngineTheDpiAndTheEmphasis_AreNotInTheLine()
+    public void TheDetailsOfTheSteps_AreInTheLine_TheEngineAndTheDpiAlways_TheOthersWhenTheyAreNotTheUsualOnes()
     {
-        var line = Build(Settings(s => { s.Engine.Kind = EngineKind.Office; s.Images.Dpi = 300; s.Input.Emphasis = false; }), "ja");
+        // The details of the steps are in the folded part (2026-11-22), so the line says them.
+        Assert.EndsWith(" | Office 300dpi | 太字・斜体なし", Build(Settings(s => { s.Engine.Kind = EngineKind.Office; s.Images.Dpi = 300; s.Input.Emphasis = false; }), "ja"), StringComparison.Ordinal);
 
-        Assert.DoesNotContain("Office", line, StringComparison.Ordinal);
-        Assert.DoesNotContain("DPI", line, StringComparison.Ordinal);
-        Assert.DoesNotContain("太字", line, StringComparison.Ordinal);
+        var line = Build(Settings(s =>
+        {
+            s.Steps.Step2 = true;
+            s.Steps.PageImage = PageImageStyle.Link;
+            s.Steps.Step3 = true;
+            s.Steps.VlmSeparate = true;
+            s.Steps.Step1Tables = Step1TablesMode.Replace;
+            s.Steps.DropRepeatedTables = true;
+        }), "ja");
+        Assert.EndsWith(" | LibreOffice 150dpi | 印刷イメージ: リンク | VLMの結果は別ファイル | 表: 抽出テキストを採用 | 繰り返しの表を除く", line, StringComparison.Ordinal);
+
+        // The settings of Step3 are not said while Step3 is off, nor the page image while Step2 is off.
+        line = Build(Settings(s =>
+        {
+            s.Steps.Step2 = false;
+            s.Steps.PageImage = PageImageStyle.Link;
+            s.Steps.Step3 = false;
+            s.Steps.VlmSeparate = true;
+            s.Steps.Step1Tables = Step1TablesMode.Omit;
+        }), "en");
+        Assert.EndsWith(" | LibreOffice 150dpi", line, StringComparison.Ordinal);
     }
 
     [Fact]

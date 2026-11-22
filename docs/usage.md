@@ -13,34 +13,37 @@
 
 While a conversion runs, the conditions cannot be changed. The values are saved to `%APPDATA%\MarkPortO\settings.json` and restored at the next start.
 
-The **Conditions** have these rows:
+The **Conditions** have a part that can be folded (**Kinds of file and options**) and the rows of Step1 to Step3. What is chosen for each run is in the rows of the steps; what is set once is in the part that can be folded.
 
-| Row | What it sets |
-|---|---|
-| Kinds of file | The kinds of file in a folder, and whether sub-folders are included |
-| Extractor | Who extracts the text of each kind: built-in or an external command |
-| Options of each kind | The range of an Excel sheet and so on (grey when an external command is chosen) |
-| Step1 | The engine, the DPI, bold and italic, the pictures of the document and the shapes |
-| Step2 | Whether the page images are written in the Markdown, and how |
-| Step3 | Reading with the VLM (a model that reads images), and how it is used |
+| Where | Item | What it sets |
+|---|---|---|
+| Kinds of file and options | Kinds of file | The kinds of file in a folder, and whether sub-folders are included |
+| 〃 | Extractor | Who extracts the text of each kind: built-in or an external command (shown when a command is registered) |
+| 〃 | Extraction options | The range of an Excel sheet and so on (grey when an external command is chosen) |
+| 〃 | Details of the steps | Step1: the engine, the DPI, bold and italic. Step2: how the page image is written. Step3: write the results to a separate file, tables, leave out repeated tables |
+| Rows of the steps | Step1 | Save the pictures of the document, cut out the shapes, group the shapes that are near |
+| 〃 | Step2 | Whether the page images are written in the Markdown |
+| 〃 | Step3 | Reading with the VLM (a model that reads images), the use of the VLM, the connection, the prompts, the page range |
 
 For one file, a **page range** (like `3-5,8`) limits the pages that Step3 reads.
 
-The upper part of the conditions can be folded: a line then says what is chosen, and the rows of the steps stay in view. The list of files and the list of pages share the height; drag the bar between them to change it.
+Folded, **Kinds of file and options** shows in one line what is chosen (the engine and the DPI, and the other settings that are not the usual ones); the rows of the steps stay in view. The list of files and the list of pages share the height; drag the bar between them to change it.
+
+The **State** of a file has a coloured mark: green done, orange some pages failed, red failed, the accent colour of Windows running, grey waiting or interrupted. While Step3 reads the pages of a file, a bar under its Step3 column shows how far it is. **VLM usage** shows the total of the tokens; point at it for the parts (prompt and completion). During a run, the bottom of the window shows how many files are finished.
 
 ### Reading with the VLM (Step3)
 
-Step3 adds what a VLM reads in the images to the text that Step1 took from the document. The row of Step3 has these items:
+Step3 adds what a VLM reads in the images to the text that Step1 took from the document. The items of Step3 are:
 
-| Item | What it does |
-|---|---|
-| Extract text from print images with the VLM | Turns Step3 on or off. When it is off, the other items are hidden. |
-| Use of the VLM | **Add to the text** (the default) or **Read every page**. See below. |
-| Write the results to a separate file (name_vlm.md) | The results of the VLM go to `name_vlm.md`, not into the Markdown of the document (`name.md`). |
-| Tables | What is done with the tables that the VLM wrote, on a page that it read whole. See "Tables and repeated tables" below. |
-| Leave out repeated tables | On a page that the VLM read whole, a table that it wrote twice or more is written once. |
-| Connection | The VLM connection to use. Set them up in **VLM connection settings…**. |
-| Prompt | The prompt for each kind of file. Edit them in **Prompt settings…**. |
+| Where | Item | What it does |
+|---|---|---|
+| Row of Step3 | Extract text from print images with the VLM | Turns Step3 on or off. When it is off, the other items are hidden. |
+| 〃 | Use of the VLM | **Add to the text** (the default) or **Read every page**. See below. |
+| 〃 | Connection | The VLM connection to use. Set them up with the gear button beside it (**VLM connection settings…**). |
+| 〃 | Prompt | The prompt for each kind of file. Edit them with the pencil button beside them (**Prompt settings…**). |
+| Details of the steps | Write the results to a separate file (name_vlm.md) | The results of the VLM go to `name_vlm.md`, not into the Markdown of the document (`name.md`). |
+| 〃 | Tables | What is done with the tables that the VLM wrote, on a page that it read whole. See "Tables and repeated tables" below. |
+| 〃 | Leave out repeated tables | On a page that the VLM read whole, a table that it wrote twice or more is written once. |
 
 The VLM is sent a page image (or the image of a figure) and the text that Step1 took from the document. With a connection to a service outside your network, the images and the text of your documents leave the network.
 

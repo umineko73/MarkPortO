@@ -44,6 +44,7 @@
   <sys:String x:Key="Main_Cond_TypesNote">(フォルダを指定したときに使います)</sys:String>
   <sys:String x:Key="Main_Cond_Targets">フォルダ内の対象</sys:String>
   <sys:String x:Key="Main_Cond_OptionsRow">抽出オプション</sys:String>
+  <sys:String x:Key="Main_Cond_Details">ステップの詳細</sys:String>
   <sys:String x:Key="Main_Cond_RowDocx">Word</sys:String>
   <sys:String x:Key="Main_Cond_RowXlsx">Excel</sys:String>
   <sys:String x:Key="Main_Cond_RowPptx">PowerPoint</sys:String>
@@ -202,7 +203,6 @@
   <sys:String x:Key="Preview_PaneText">抽出テキスト</sys:String>
   <sys:String x:Key="Preview_PaneVlm">VLMの結果</sys:String>
   <sys:String x:Key="Main_PreviewTip">ファイルを選ぶと押せます(変換でページができたあと)。</sys:String>
-  <sys:String x:Key="Preview_GroupAction">操作</sys:String>
   <sys:String x:Key="Preview_GroupMarkdown">Markdown</sys:String>
   <sys:String x:Key="Preview_Title">プレビュー - {0}</sys:String>
   <sys:String x:Key="Preview_Follow">追従</sys:String>

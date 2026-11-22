@@ -23,27 +23,27 @@
     <!-- Menu bar (FR-032) -->
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="{DynamicResource Menu_File}">
-        <MenuItem Header="{DynamicResource Menu_OpenPast}" Click="OnOpenPastClick" />
+        <MenuItem Header="{DynamicResource Menu_OpenPast}" Click="OnOpenPastClick"><MenuItem.Icon><TextBlock Text="&#xE838;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
       </MenuItem>
       <MenuItem Header="{DynamicResource Menu_Settings}">
-        <MenuItem Header="{DynamicResource Menu_Language}">
+        <MenuItem Header="{DynamicResource Menu_Language}"><MenuItem.Icon><TextBlock Text="&#xE774;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon>
           <MenuItem Header="{DynamicResource Menu_Lang_System}" Tag="system" Click="OnLanguageClick" IsCheckable="True" IsChecked="{Binding LanguageIsSystem, Mode=OneWay}" />
           <MenuItem Header="{DynamicResource Menu_Lang_Ja}" Tag="ja" Click="OnLanguageClick" IsCheckable="True" IsChecked="{Binding LanguageIsJapanese, Mode=OneWay}" />
           <MenuItem Header="{DynamicResource Menu_Lang_En}" Tag="en" Click="OnLanguageClick" IsCheckable="True" IsChecked="{Binding LanguageIsEnglish, Mode=OneWay}" />
         </MenuItem>
-        <MenuItem Header="{DynamicResource Menu_Theme}">
+        <MenuItem Header="{DynamicResource Menu_Theme}"><MenuItem.Icon><TextBlock Text="&#xE790;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon>
           <MenuItem Header="{DynamicResource Menu_Theme_System}" Tag="system" Click="OnThemeClick" IsCheckable="True" IsChecked="{Binding ThemeIsSystem, Mode=OneWay}" />
           <MenuItem Header="{DynamicResource Menu_Theme_Light}" Tag="light" Click="OnThemeClick" IsCheckable="True" IsChecked="{Binding ThemeIsLight, Mode=OneWay}" />
           <MenuItem Header="{DynamicResource Menu_Theme_Dark}" Tag="dark" Click="OnThemeClick" IsCheckable="True" IsChecked="{Binding ThemeIsDark, Mode=OneWay}" />
         </MenuItem>
         <Separator />
-        <MenuItem Header="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" />
-        <MenuItem Header="{DynamicResource Menu_Prompts}" Command="{Binding PromptsCommand}" />
-        <MenuItem Header="{DynamicResource Menu_ExtractorSettings}" Command="{Binding ExtractorSettingsCommand}" />
+        <MenuItem Header="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}"><MenuItem.Icon><TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
+        <MenuItem Header="{DynamicResource Menu_Prompts}" Command="{Binding PromptsCommand}"><MenuItem.Icon><TextBlock Text="&#xE70F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
+        <MenuItem Header="{DynamicResource Menu_ExtractorSettings}" Command="{Binding ExtractorSettingsCommand}"><MenuItem.Icon><TextBlock Text="&#xE756;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
       </MenuItem>
       <MenuItem Header="{DynamicResource Menu_Help}">
-        <MenuItem Header="{DynamicResource Menu_About}" Click="OnAboutClick" />
-        <MenuItem Header="{DynamicResource Menu_Licenses}" Click="OnLicensesClick" />
+        <MenuItem Header="{DynamicResource Menu_About}" Click="OnAboutClick"><MenuItem.Icon><TextBlock Text="&#xE946;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
+        <MenuItem Header="{DynamicResource Menu_Licenses}" Click="OnLicensesClick"><MenuItem.Icon><TextBlock Text="&#xE8A5;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
       </MenuItem>
     </Menu>
 
@@ -95,6 +95,14 @@
       <!-- Conditions: one row for each kind of setting -->
       <GroupBox Grid.Row="2" Header="{DynamicResource Main_Conditions}" Padding="6" Margin="0,6,0,0">
         <GroupBox.Resources>
+          <!-- A small button with a symbol of Segoe Fluent Icons (Segoe MDL2 Assets on Windows 10); its name is in the tooltip. -->
+          <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+          </Style>
           <!-- A text has no disabled look of its own: the labels of a locked item are shown dimmed too (FR-066). -->
           <Style TargetType="TextBlock">
             <Style.Triggers>
@@ -128,6 +136,7 @@
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -194,10 +203,56 @@
             </StackPanel>
           </Grid>
 
+          <!-- The details of the steps: set once, so they are folded with the rest; the summary of the header says the ones that are not the usual ones. -->
+          <TextBlock Grid.Row="3" Text="{DynamicResource Main_Cond_Details}" VerticalAlignment="Top" Margin="0,8,0,0" />
+          <Grid Grid.Row="3" Grid.Column="1" Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="100" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
+            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}">
+              <TextBlock Text="{DynamicResource Main_Cond_Engine}" VerticalAlignment="Center" Margin="0,0,6,0" />
+              <ComboBox x:Name="EngineBox" ItemsSource="{Binding EngineChoices}" DisplayMemberPath="Name" SelectedValuePath="Kind"
+                        SelectedValue="{Binding SelectedEngine}" Width="170" Margin="0,0,20,0" />
+              <TextBlock Text="{DynamicResource Main_Cond_Dpi}" VerticalAlignment="Center" Margin="0,0,6,0" />
+              <TextBox x:Name="DpiBox" Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="68" VerticalContentAlignment="Center" Margin="0,0,20,0" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <TextBlock Grid.Row="1" Text="Step2" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditPageImage}" />
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+              <TextBlock Text="{DynamicResource Main_Cond_PageImage}" VerticalAlignment="Center" Margin="0,0,6,0" IsEnabled="{Binding CanEditPageImage}" />
+              <ComboBox SelectedIndex="{Binding PageImageIndex}" IsEnabled="{Binding CanEditPageImage}" VerticalAlignment="Center" MinWidth="200" ToolTip="{DynamicResource Main_Cond_PageImageTip}">
+                <ComboBoxItem Content="{DynamicResource Main_Cond_PageImageImage}" />
+                <ComboBoxItem Content="{DynamicResource Main_Cond_PageImageReference}" />
+                <ComboBoxItem Content="{DynamicResource Main_Cond_PageImageLink}" />
+              </ComboBox>
+            </StackPanel>
+
+            <TextBlock Grid.Row="2" Text="Step3" VerticalAlignment="Center" IsEnabled="{Binding CanEditVlmSeparate}" />
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,20,0" />
+              <TextBlock Text="{DynamicResource Main_Cond_Tables}" VerticalAlignment="Center" Margin="0,0,6,0" IsEnabled="{Binding CanEditStep1Tables}" />
+              <ComboBox SelectedIndex="{Binding Step1TablesIndex}" ToolTip="{DynamicResource Main_Cond_TablesTip}" IsEnabled="{Binding CanEditStep1Tables}" VerticalAlignment="Center" Margin="0,0,20,0" MinWidth="170">
+                <ComboBoxItem Content="{DynamicResource Main_Cond_TablesVlm}" />
+                <ComboBoxItem Content="{DynamicResource Main_Cond_TablesReplace}" />
+                <ComboBoxItem Content="{DynamicResource Main_Cond_TablesOmit}" />
+              </ComboBox>
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_DropRepeated}" ToolTip="{DynamicResource Main_Cond_DropRepeatedTip}" IsChecked="{Binding DropRepeatedTables}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Grid>
+
           </Grid>
           </Expander>
 
-          <!-- Steps: always shown, also when the part above is folded (FR-102) -->
+          <!-- Steps: always shown, also when the part above is folded (FR-102). Only what is chosen for a run is here; the details are folded. -->
           <Grid>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="56" />
@@ -207,82 +262,70 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
           <!-- Step1 always runs: it is shown, and it cannot be changed (FR-039) -->
-          <TextBlock Grid.Row="0" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <TextBlock Grid.Row="0" Text="Step1" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,6" />
           <WrapPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,6">
-            <TextBlock Text="{DynamicResource Main_Cond_Step1}" VerticalAlignment="Center" Margin="0,0,20,0" />
-            <!-- The engine and the size of the print images, and the bold and italic of the text, are settings of Step1 -->
+            <TextBlock Text="{DynamicResource Main_Cond_Step1}" VerticalAlignment="Center" Margin="0,0,20,0" Foreground="{DynamicResource SubtleTextBrush}" />
             <StackPanel Orientation="Horizontal" IsEnabled="{Binding CanEditNewRun}">
-              <TextBlock Text="{DynamicResource Main_Cond_Engine}" VerticalAlignment="Center" Margin="0,0,6,0" />
-              <ComboBox x:Name="EngineBox" ItemsSource="{Binding EngineChoices}" DisplayMemberPath="Name" SelectedValuePath="Kind"
-                        SelectedValue="{Binding SelectedEngine}" Width="170" Margin="0,0,20,0" />
-              <TextBlock Text="{DynamicResource Main_Cond_Dpi}" VerticalAlignment="Center" Margin="0,0,6,0" />
-              <TextBox x:Name="DpiBox" Text="{Binding DpiText, UpdateSourceTrigger=LostFocus}" Width="68" VerticalContentAlignment="Center" Margin="0,0,20,0" />
-              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Emphasis}" IsChecked="{Binding Emphasis}" ToolTip="{DynamicResource Main_Cond_EmphasisTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
-              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Pictures}" IsChecked="{Binding ExtractPictures}" ToolTip="{DynamicResource Main_Cond_PicturesTip}" VerticalAlignment="Center" Margin="0,0,12,0" />
-              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Shapes}" IsChecked="{Binding ExtractShapes}" ToolTip="{DynamicResource Main_Cond_ShapesTip}" VerticalAlignment="Center" Margin="0,0,12,0" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Pictures}" IsChecked="{Binding ExtractPictures}" ToolTip="{DynamicResource Main_Cond_PicturesTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Shapes}" IsChecked="{Binding ExtractShapes}" ToolTip="{DynamicResource Main_Cond_ShapesTip}" VerticalAlignment="Center" Margin="0,0,20,0" />
               <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_GroupShapes}" IsChecked="{Binding GroupNearShapes}" IsEnabled="{Binding ExtractShapes}" ToolTip="{DynamicResource Main_Cond_GroupShapesTip}" VerticalAlignment="Center" />
             </StackPanel>
           </WrapPanel>
 
-          <TextBlock Grid.Row="1" Text="Step2" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <TextBlock Grid.Row="1" Text="Step2" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,6" />
           <WrapPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,6">
-            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
-            <TextBlock Text="{DynamicResource Main_Cond_PageImage}" VerticalAlignment="Center" Margin="0,0,4,0" />
-            <ComboBox SelectedIndex="{Binding PageImageIndex}" IsEnabled="{Binding CanEditPageImage}" VerticalAlignment="Center" MinWidth="200" ToolTip="{DynamicResource Main_Cond_PageImageTip}">
-              <ComboBoxItem Content="{DynamicResource Main_Cond_PageImageImage}" />
-              <ComboBoxItem Content="{DynamicResource Main_Cond_PageImageReference}" />
-              <ComboBoxItem Content="{DynamicResource Main_Cond_PageImageLink}" />
-            </ComboBox>
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Step2}" IsChecked="{Binding Step2}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" />
           </WrapPanel>
 
-          <TextBlock Grid.Row="2" Text="Step3" VerticalAlignment="Center" />
-          <WrapPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
-            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,16,0" />
+          <!-- Step3: what a run chooses (on or off, how the VLM is used, the connection, the prompts, the pages) -->
+          <TextBlock Grid.Row="2" Text="Step3" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,6" />
+          <WrapPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Step3}" IsChecked="{Binding Step3}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" Margin="0,0,20,0" />
             <!-- How Step3 uses the VLM (FR-150) -->
-            <TextBlock Text="{DynamicResource Main_Cond_Step3Mode}" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="{Binding Step3DetailsVisibility}" />
-            <ComboBox SelectedIndex="{Binding Step3ModeIndex}" IsEnabled="{Binding CanEditStep1Tables}" ToolTip="{DynamicResource Main_Cond_Step3ModeTip}" VerticalAlignment="Center" Margin="0,0,16,0" MinWidth="150" Visibility="{Binding Step3DetailsVisibility}">
-              <ComboBoxItem Content="{DynamicResource Main_Cond_Step3ModeSupplement}" />
-              <ComboBoxItem Content="{DynamicResource Main_Cond_Step3ModeTranscribe}" />
-            </ComboBox>
-            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" Visibility="{Binding Step3DetailsVisibility}" />
-            <TextBlock Text="{DynamicResource Main_Cond_Tables}" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="{Binding Step3DetailsVisibility}" />
-            <ComboBox SelectedIndex="{Binding Step1TablesIndex}" ToolTip="{DynamicResource Main_Cond_TablesTip}" IsEnabled="{Binding CanEditStep1Tables}" VerticalAlignment="Center" Margin="0,0,16,0" MinWidth="170" Visibility="{Binding Step3DetailsVisibility}">
-              <ComboBoxItem Content="{DynamicResource Main_Cond_TablesVlm}" />
-              <ComboBoxItem Content="{DynamicResource Main_Cond_TablesReplace}" />
-              <ComboBoxItem Content="{DynamicResource Main_Cond_TablesOmit}" />
-            </ComboBox>
-            <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_DropRepeated}" ToolTip="{DynamicResource Main_Cond_DropRepeatedTip}" IsChecked="{Binding DropRepeatedTables}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,16,0" Visibility="{Binding Step3DetailsVisibility}" />
-            <TextBlock Text="{DynamicResource Main_Cond_Connection}" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="{Binding Step3DetailsVisibility}" />
-            <ComboBox ItemsSource="{Binding ConnectionItems}" SelectedIndex="{Binding ConnectionIndex}" IsEnabled="{Binding CanEdit}" MinWidth="190" Margin="0,0,6,0" Visibility="{Binding Step3DetailsVisibility}" />
-            <Button Content="{DynamicResource Menu_VlmSettings}" Command="{Binding ConnectionSettingsCommand}" Padding="8,2" Visibility="{Binding Step3DetailsVisibility}" />
-            <Button Content="{DynamicResource Menu_Prompts}" Command="{Binding PromptsCommand}" Padding="8,2" Margin="6,0,0,0" Visibility="{Binding Step3DetailsVisibility}" />
-            <!-- The prompt of each kind of file that Step3 sends to the VLM (FR-115) -->
-            <StackPanel Orientation="Horizontal" Margin="16,0,0,0" IsEnabled="{Binding CanEditPrompts}" Visibility="{Binding Step3DetailsVisibility}">
-              <TextBlock Text="{DynamicResource Main_Cond_Prompt}" VerticalAlignment="Center" Margin="0,0,6,0" />
-              <ItemsControl ItemsSource="{Binding PromptChoices}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <WrapPanel Orientation="Horizontal" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                      <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                      <ComboBox ItemsSource="{Binding Items}" SelectedIndex="{Binding SelectedIndex}" MinWidth="150" />
-                    </StackPanel>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+            <StackPanel Orientation="Horizontal" Margin="0,0,20,0" Visibility="{Binding Step3DetailsVisibility}">
+              <TextBlock Text="{DynamicResource Main_Cond_Step3Mode}" VerticalAlignment="Center" Margin="0,0,6,0" IsEnabled="{Binding CanEditStep1Tables}" />
+              <ComboBox SelectedIndex="{Binding Step3ModeIndex}" IsEnabled="{Binding CanEditStep1Tables}" ToolTip="{DynamicResource Main_Cond_Step3ModeTip}" VerticalAlignment="Center" MinWidth="130">
+                <ComboBoxItem Content="{DynamicResource Main_Cond_Step3ModeSupplement}" />
+                <ComboBoxItem Content="{DynamicResource Main_Cond_Step3ModeTranscribe}" />
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,20,0" Visibility="{Binding Step3DetailsVisibility}">
+              <TextBlock Text="{DynamicResource Main_Cond_Connection}" VerticalAlignment="Center" Margin="0,0,6,0" IsEnabled="{Binding CanEdit}" />
+              <ComboBox ItemsSource="{Binding ConnectionItems}" SelectedIndex="{Binding ConnectionIndex}" IsEnabled="{Binding CanEdit}" MinWidth="190" VerticalAlignment="Center" />
+              <Button Style="{StaticResource IconButton}" Content="&#xE713;" Command="{Binding ConnectionSettingsCommand}" Margin="4,0,0,0"
+                      ToolTip="{DynamicResource Menu_VlmSettings}" AutomationProperties.Name="{DynamicResource Menu_VlmSettings}" />
             </StackPanel>
             <!-- The pages that Step3 reads: for one file only (FR-097) -->
-            <StackPanel Orientation="Horizontal" Margin="16,0,0,0" IsEnabled="{Binding CanEditPages}" ToolTip="{Binding PagesTip}" ToolTipService.ShowOnDisabled="True" Visibility="{Binding PagesVisibility}">
+            <StackPanel Orientation="Horizontal" IsEnabled="{Binding CanEditPages}" ToolTip="{Binding PagesTip}" ToolTipService.ShowOnDisabled="True" Visibility="{Binding PagesVisibility}">
               <TextBlock Text="{DynamicResource Main_Cond_Pages}" VerticalAlignment="Center" Margin="0,0,6,0" />
               <TextBox Text="{Binding PageRangeText, UpdateSourceTrigger=PropertyChanged}" Width="110" VerticalContentAlignment="Center" />
             </StackPanel>
+          </WrapPanel>
+
+          <!-- The prompt of each kind of file that Step3 sends to the VLM (FR-115) -->
+          <WrapPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Visibility="{Binding Step3DetailsVisibility}">
+            <TextBlock Text="{DynamicResource Main_Cond_Prompt}" VerticalAlignment="Center" Margin="0,0,10,0" IsEnabled="{Binding CanEditPrompts}" />
+            <ItemsControl ItemsSource="{Binding PromptChoices}" IsEnabled="{Binding CanEditPrompts}" VerticalAlignment="Center">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
+                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <ComboBox ItemsSource="{Binding Items}" SelectedIndex="{Binding SelectedIndex}" MinWidth="140" />
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Style="{StaticResource IconButton}" Content="&#xE70F;" Command="{Binding PromptsCommand}"
+                    ToolTip="{DynamicResource Menu_Prompts}" AutomationProperties.Name="{DynamicResource Menu_Prompts}" />
           </WrapPanel>
 
           </Grid>
@@ -296,6 +339,27 @@
           <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="VerticalAlignment" Value="Center" />
           </Style>
+          <!-- A button with a symbol before its text: the symbol (Segoe Fluent Icons) is in Tag. -->
+          <Style x:Key="GlyphButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ContentTemplate">
+              <Setter.Value>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Tag, RelativeSource={RelativeSource AncestorType=Button}}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                               FontSize="13" VerticalAlignment="Center" Margin="0,1,8,0" />
+                    <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </DataTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+          <!-- The main buttons ("Start", "Resume") in the accent colour of Windows, so that the next step is seen at a glance. -->
+          <Style x:Key="PrimaryGlyphButton" TargetType="Button" BasedOn="{StaticResource GlyphButton}">
+            <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentControlElevationBorderBrush}" />
+          </Style>
           <Style x:Key="ActionGroup" TargetType="Border">
             <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
             <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
@@ -307,15 +371,15 @@
         <!-- The conversion (FR-129). The list of files decides which of the four can be pressed. -->
         <Border DockPanel.Dock="Left" Style="{StaticResource ActionGroup}">
           <StackPanel Orientation="Horizontal">
-            <Button Content="{DynamicResource Main_Start}" Command="{Binding StartCommand}" MinWidth="90" Padding="12,6" Margin="0,0,8,0" FontWeight="SemiBold"
+            <Button Style="{StaticResource PrimaryGlyphButton}" Tag="&#xE768;" Content="{DynamicResource Main_Start}" Command="{Binding StartCommand}" MinWidth="90" Padding="12,6" Margin="0,0,8,0" FontWeight="SemiBold"
                     ToolTip="{DynamicResource Main_StartTip}" ToolTipService.ShowOnDisabled="True" />
-            <Button Content="{DynamicResource Main_Resume}" Command="{Binding ResumeCommand}" Padding="12,6" Margin="0,0,8,0"
+            <Button Style="{StaticResource PrimaryGlyphButton}" Tag="&#xE768;" Content="{DynamicResource Main_Resume}" Command="{Binding ResumeCommand}" Padding="12,6" Margin="0,0,8,0" FontWeight="SemiBold"
                     ToolTip="{DynamicResource Main_ResumeTip}" ToolTipService.ShowOnDisabled="True" />
-            <Button Content="{DynamicResource Main_RedoAll}" Command="{Binding RedoAllCommand}" Padding="12,6" Margin="0,0,8,0"
+            <Button Style="{StaticResource GlyphButton}" Tag="&#xE72C;" Content="{DynamicResource Main_RedoAll}" Command="{Binding RedoAllCommand}" Padding="12,6" Margin="0,0,8,0"
                     ToolTip="{DynamicResource Main_RedoAllTip}" ToolTipService.ShowOnDisabled="True" />
-            <Button Content="{DynamicResource Main_ChangedOnly}" Command="{Binding StartChangedCommand}" Padding="12,6" Margin="0,0,16,0"
+            <Button Style="{StaticResource GlyphButton}" Tag="&#xE895;" Content="{DynamicResource Main_ChangedOnly}" Command="{Binding StartChangedCommand}" Padding="12,6" Margin="0,0,16,0"
                     ToolTip="{DynamicResource Main_ChangedOnlyTip}" ToolTipService.ShowOnDisabled="True" />
-            <Button Content="{DynamicResource Main_Interrupt}" Command="{Binding InterruptCommand}" MinWidth="90" Padding="12,6" />
+            <Button Style="{StaticResource GlyphButton}" Tag="&#xE71A;" Content="{DynamicResource Main_Interrupt}" Command="{Binding InterruptCommand}" MinWidth="90" Padding="12,6" />
           </StackPanel>
         </Border>
         <!-- FR-129: what "Start" and "Redo all" do with a file that was converted before. -->
@@ -409,14 +473,64 @@
                 <TextBlock Text="{DynamicResource Main_Col_Type}" />
               </DataGridTextColumn.Header>
             </DataGridTextColumn>
-            <DataGridTextColumn Binding="{Binding StateText}" Width="150">
-              <DataGridTextColumn.Header>
+            <!-- The state with a coloured mark: green done, orange some pages failed, red failed, accent running, grey waiting or interrupted -->
+            <DataGridTemplateColumn Width="150" SortMemberPath="StateText">
+              <DataGridTemplateColumn.Header>
                 <TextBlock Text="{DynamicResource Main_Col_State}" />
-              </DataGridTextColumn.Header>
-            </DataGridTextColumn>
+              </DataGridTemplateColumn.Header>
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="8" Height="8" Margin="2,0,7,0" VerticalAlignment="Center">
+                      <Ellipse.Style>
+                        <Style TargetType="Ellipse">
+                          <Setter Property="Fill" Value="{DynamicResource SubtleTextBrush}" />
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding StateKind}" Value="done">
+                              <Setter Property="Fill" Value="{DynamicResource SucceededBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding StateKind}" Value="partly">
+                              <Setter Property="Fill" Value="{DynamicResource PartlyFailedBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding StateKind}" Value="failed">
+                              <Setter Property="Fill" Value="{DynamicResource FailedBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding StateKind}" Value="running">
+                              <Setter Property="Fill" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="{Binding StateText}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
             <DataGridTextColumn Header="Step1" Binding="{Binding Step1Text}" Width="80" />
             <DataGridTextColumn Header="Step2" Binding="{Binding Step2Text}" Width="80" />
-            <DataGridTextColumn Header="Step3" Binding="{Binding Step3Text}" Width="100" />
+            <!-- Step3 with a thin bar while it reads the pages -->
+            <DataGridTemplateColumn Header="Step3" Width="110" SortMemberPath="Step3Text">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Step3Text}" />
+                    <ProgressBar Height="3" MinHeight="3" Margin="0,1,6,0" Maximum="100" Value="{Binding Step3Percent, Mode=OneWay}">
+                      <ProgressBar.Style>
+                        <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
+                          <Setter Property="Visibility" Value="Collapsed" />
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding ShowsStep3Progress}" Value="True">
+                              <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </ProgressBar.Style>
+                    </ProgressBar>
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
             <DataGridTextColumn Binding="{Binding PageCount}" Width="64">
               <DataGridTextColumn.Header>
                 <TextBlock Text="{DynamicResource Main_Col_Pages}" />
@@ -432,7 +546,7 @@
                 </Style>
               </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
-            <DataGridTextColumn Binding="{Binding UsageText}" Width="240">
+            <DataGridTextColumn Binding="{Binding UsageShort}" Width="150">
               <DataGridTextColumn.Header>
                 <TextBlock Text="{DynamicResource Main_Col_Usage}" />
               </DataGridTextColumn.Header>
@@ -536,8 +650,14 @@
         </GroupBox>
       </Grid>
 
-      <!-- Status -->
-      <TextBlock Grid.Row="5" Text="{Binding Status}" TextWrapping="Wrap" Margin="0,8,0,0" />
+      <!-- Status, with the progress of a run: the files finished of the files of the list -->
+      <DockPanel Grid.Row="5" Margin="0,8,0,0">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Visibility="{Binding ProgressVisibility}" Margin="12,0,0,0">
+          <ProgressBar Width="200" Height="4" MinHeight="4" VerticalAlignment="Center" Maximum="{Binding Files.Count, Mode=OneWay}" Value="{Binding FinishedCount, Mode=OneWay}" />
+          <TextBlock Text="{Binding ProgressText}" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource SubtleTextBrush}" />
+        </StackPanel>
+        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" VerticalAlignment="Center" />
+      </DockPanel>
     </Grid>
   </DockPanel>
 </Window>

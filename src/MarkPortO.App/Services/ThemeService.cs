@@ -71,6 +71,7 @@ public static class ThemeService
         resources["FailedBrush"] = Frozen(IsDark ? Color.FromRgb(0xFF, 0x6B, 0x6B) : Colors.Firebrick);
         resources["PartlyFailedBrush"] = Frozen(IsDark ? Color.FromRgb(0xFF, 0xB3, 0x47) : Colors.DarkOrange);
         resources["SubtleTextBrush"] = Frozen(IsDark ? Color.FromRgb(0xA0, 0xA0, 0xA0) : Colors.Gray);
+        resources["SucceededBrush"] = Frozen(IsDark ? Color.FromRgb(0x6C, 0xCB, 0x5F) : Color.FromRgb(0x0F, 0x7B, 0x0F));
 
         if (!_watching)
         {
