@@ -167,7 +167,16 @@ def same_model(asked: str, answered) -> bool:
     return n1 == n2 and (p1 is None or p2 is None or p1 == p2)
 
 
-def embed(texts: list[str]) -> list[list[float]]:
+def answered_name(model) -> str | None:
+    """The name of the model that answered, to be compared with another answer as it is (the publisher too): None when the API does not say."""
+    if not isinstance(model, str) or not model.strip():
+        return None
+    s = model.strip().lower()
+    return s[:-len(":latest")] if s.endswith(":latest") else s
+
+
+def embed(texts: list[str]) -> tuple[list[list[float]], str | None]:
+    """The vectors of the texts, and the model that answered (as the API says it)."""
     headers = {"Content-Type": "application/json"}
     if EMB.get("apiKeyEnv") and os.environ.get(EMB["apiKeyEnv"]):
         headers["Authorization"] = "Bearer " + os.environ[EMB["apiKeyEnv"]]
@@ -182,7 +191,7 @@ def embed(texts: list[str]) -> list[list[float]]:
     data = answer["data"]
     if len(data) != len(texts):
         raise ValueError(f"the embedding API gave {len(data)} vectors for {len(texts)} texts")
-    return [d["embedding"] for d in sorted(data, key=lambda d: d["index"])]
+    return [d["embedding"] for d in sorted(data, key=lambda d: d["index"])], answered_name(answer.get("model"))
 
 
 def cos(a, b) -> float:
@@ -202,6 +211,7 @@ class Index:
         self.vectors: list = []
         self.embedding_ok = False
         self.dimension: int | None = None
+        self.answered: str | None = None  # the model that made the vectors kept, as the API said it (None: it did not say)
         self.warnings: list[str] = []
         self.file_warnings: list[str] = []
         self.embedding_warnings: list[str] = []
@@ -292,8 +302,9 @@ class Index:
     def embed_chunks(self, files: list[Path]):
         self.embedding_warnings = []
         reached = True
+        answered: set[str] = set()
         if EMB.get("enabled", True):
-            self.vectors, reached = self.load_vectors(files)
+            self.vectors, reached, answered = self.load_vectors(files)
         else:
             self.vectors = [None] * len(self.chunks)
         self.embedding_ok = bool(self.chunks) and all(v is not None for v in self.vectors)
@@ -301,16 +312,22 @@ class Index:
         if len(lengths) > 1:  # vectors of two models: the search by meaning would compare things that do not go together
             self.embedding_warnings.append(f"the embeddings have different dimensions {sorted(lengths)}; the search by meaning is off")
             self.embedding_ok = False
+        if any(not same_model(x, y) for x in answered for y in answered):  # two models of the same dimension ("a/e5", "b/e5") do not go together either
+            self.embedding_warnings.append(f"the embeddings were made by different models {sorted(answered)}; the search by meaning is off")
+            self.embedding_ok = False
         self.dimension = next(iter(lengths)) if len(lengths) == 1 else None
+        self.answered = max(answered, key=len) if answered and self.embedding_ok else None  # the fullest name ("a/e5" rather than "e5")
         self.retry_at = time.monotonic() + float(EMB.get("retrySeconds", 30)) if not reached else 0.0  # tried again at a later search
         self.warnings = self.file_warnings + self.embedding_warnings
         for w in self.warnings:
             log("markporto-rag: " + w)
         log(f"markporto-rag: {len(files)} files, {len(self.chunks)} chunks, embeddings: {self.embedding_ok}")
 
-    def load_vectors(self, files: list[Path]) -> tuple[list, bool]:
-        """The vectors of the chunks, in their order (None where there is none), and whether the API could be reached when it was needed."""
+    def load_vectors(self, files: list[Path]) -> tuple[list, bool, set[str]]:
+        """The vectors of the chunks, in their order (None where there is none), whether the API could be reached when it was needed, and
+        the models that made them (as the API said it)."""
         vectors: list = []
+        answered: set[str] = set()
         reachable = True
         signature = json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], EMB["passageChars"]]).encode()
         for path in files:
@@ -324,22 +341,31 @@ class Index:
                 continue
             cache = CACHE / (hashlib.sha1(str(path).encode()).hexdigest() + ".json")
             got = None
+            model = None
             if cache.exists():
                 try:
                     saved = json.loads(cache.read_text(encoding="utf-8"))
                     kept = saved["vectors"]
-                    if saved.get("digest") == digest and isinstance(kept, list) and len(kept) == len(mine) and all(isinstance(v, list) and v for v in kept):
+                    if saved.get("digest") == digest and isinstance(kept, list) and len(kept) == len(mine) and all(isinstance(v, list) and v for v in kept)                             and "model" in saved:  # kept before the model that answered was kept: made again once
                         got = kept
+                        model = answered_name(saved.get("model"))
                 except (OSError, ValueError, KeyError, TypeError, AttributeError):
                     got = None  # a broken cache is made again
             if got is None and reachable:
                 try:
                     texts = [EMB["passagePrefix"] + " > ".join(c["headings"]) + "\n" + c["text"][:EMB["passageChars"]] for c in mine]
                     got = []
+                    models = set()
                     for i in range(0, len(texts), 16):
-                        got += embed(texts[i:i + 16])
+                        part, by = embed(texts[i:i + 16])
+                        got += part
+                        if by:
+                            models.add(by)
+                    if any(not same_model(x, y) for x in models for y in models):
+                        raise OtherModel(f"the embedding API answered with the models {sorted(models)} for one document")
+                    model = next(iter(models), None)
                     CACHE.mkdir(parents=True, exist_ok=True)
-                    cache.write_text(json.dumps({"digest": digest, "vectors": got}), encoding="utf-8")
+                    cache.write_text(json.dumps({"digest": digest, "model": model, "vectors": got}), encoding="utf-8")
                 except OtherModel as ex:  # vectors of another model would be kept as if they were of this one
                     self.embedding_warnings.append(str(ex) + "; the search by meaning is off")
                     reachable = False
@@ -348,8 +374,10 @@ class Index:
                     log(f"markporto-rag: no embeddings ({ex})")
                     reachable = False
                     got = None
+            if got is not None and model:
+                answered.add(model)
             vectors += got if got is not None else [None] * len(mine)
-        return vectors, reachable
+        return vectors, reachable, answered
 
 
 def is_str_list(v) -> bool:
@@ -431,13 +459,22 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
     if not query or not query.strip():
         return {"error": "The question (query) is empty."}
     INDEX.refresh()
-    needle = path.replace("\\", "/").strip("/").lower() if path and path.strip() else None
+    folder_only = bool(path) and path.strip().replace("\\", "/").endswith("/")  # "v1.2/": that folder, never a part of a name
+    needle = path.replace("\\", "/").strip().strip("/").lower() if path and path.strip() else None
+    partial = None
     idx = [i for i, c in enumerate(INDEX.chunks) if not source or source.lower() in c["source"].lower()]
     if needle:
         # Whole folders and names first, so that "v1.2" is not also "v1.20"; a part of a name ("設計") when nothing is whole.
         whole = re.compile(r"(?:^|/)" + re.escape(needle) + r"(?:/|$)")
         exact = [i for i in idx if whole.search(where(INDEX.chunks[i]).lower())]
-        idx = exact or [i for i in idx if needle in where(INDEX.chunks[i]).lower()]
+        if exact or folder_only:
+            idx = exact
+        else:
+            idx = [i for i in idx if needle in where(INDEX.chunks[i]).lower()]
+            if idx:
+                names = sorted({where(INDEX.chunks[i]) for i in idx})
+                partial = (f"No folder or name is \"{path.strip()}\" as a whole; these were found by a part of their names: "
+                           + ", ".join(names[:5]) + (" ..." if len(names) > 5 else "") + f". Write \"{needle}/\" for that folder only.")
     if not idx:
         return {"mode": "none", "results": [], "note": "No chunks (check the folders, or the values of source and path)."}
 
@@ -462,8 +499,12 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
     note = None
     if INDEX.embedding_ok:
         try:
-            qv = embed([EMB["queryPrefix"] + query])[0]
-            if len(qv) != INDEX.dimension:
+            vectors, by = embed([EMB["queryPrefix"] + query])
+            qv = vectors[0]
+            if INDEX.answered and not same_model(INDEX.answered, by):
+                note = f"The question was embedded by {by}, the documents by {INDEX.answered}: their vectors do not go together. Keywords only."
+                log("markporto-rag: " + note)
+            elif len(qv) != INDEX.dimension:
                 # Another model answered (LM Studio answers with the embedding model that is loaded): its vectors do not go with those kept.
                 note = f"The embedding API gave {len(qv)} dimensions, the kept embeddings have {INDEX.dimension}: another model answered. Keywords only."
                 log("markporto-rag: " + note)
@@ -484,8 +525,9 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
         return {"mode": mode, "results": [], "note": f"{note} {none}" if note else none}
     fused = sorted(((sum(1 / (60 + rk[i]) for rk in ranks if i in rk), i) for i in found), reverse=True)[:top]
     result = {"mode": mode, "results": [view(INDEX.chunks[i], s) for s, i in fused]}
-    if note:
-        result["note"] = note
+    notes = [n for n in (partial, note) if n]
+    if notes:
+        result["note"] = " ".join(notes)
     return result
 
 

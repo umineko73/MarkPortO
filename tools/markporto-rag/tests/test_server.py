@@ -69,6 +69,7 @@ class Embeddings:
         self.up = True
         self.model: str | None = None  # the name it answers with; None: the name asked for
         self.inputs = 0  # the texts it was asked for
+        self.pick = None  # the model it answers with for a text, when it is not always the same
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -80,7 +81,8 @@ class Embeddings:
                     self.end_headers()
                     return
                 data = [{"index": i, "embedding": [b / 255 for b in hashlib.sha256(t.encode()).digest()[:8]]} for i, t in enumerate(body["input"])]
-                answer = json.dumps({"object": "list", "model": outer.model or body["model"], "data": data}).encode()
+                model = (outer.pick(body["input"][0]) if outer.pick else None) or outer.model or body["model"]
+                answer = json.dumps({"object": "list", "model": model, "data": data}).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(answer)))
@@ -210,7 +212,18 @@ def embedding_cases(api: Embeddings):
         check("another publisher's model of the same name: keywords only", res.get("mode") == "keyword", res)
         api.model = None
 
-    return comes_back, other_model, other_model_for_the_question, publishers
+    async def documents_and_question_of_two_publishers(call):
+        # The configuration names no publisher: each answer agrees with it, but not with the other.
+        api.pick = lambda text: "org-b/test-model" if text.startswith("q: ") else "org-a/test-model"
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("documents by org-a/…, question by org-b/…: keywords only, with a note",
+              res.get("mode") == "keyword" and "org-b/test-model" in (res.get("note") or ""), res)
+        api.pick = lambda text: "org-a/test-model"
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("... the question by the same model as the documents: by meaning", res.get("mode") == "hybrid", res)
+        api.pick = None
+
+    return comes_back, other_model, other_model_for_the_question, publishers, documents_and_question_of_two_publishers
 
 
 async def three_folders_two_names(call):
@@ -239,6 +252,15 @@ async def whole_folders(call):
     check("'v1.20' is its own", [x["path"] for x in res.get("results", [])] == ["v1.20/設計書.docx"], res)
     res = await call("search_docs", {"query": "タイムアウト", "path": "設計"})
     check("a part of a name still narrows when no folder is whole", len(res.get("results", [])) == 2, res)
+    check("... and the note says it was a part of the names", "a part of their names" in (res.get("note") or ""), res)
+
+
+async def only_a_longer_version(call):
+    res = await call("search_docs", {"query": "タイムアウト", "path": "v1.2/"})
+    check("'v1.2/' with only v1.20 there: nothing", res.get("results") == [], res)
+    res = await call("search_docs", {"query": "タイムアウト", "path": "v1.2"})
+    check("'v1.2' with only v1.20 there: found by a part, and the note names it",
+          [x["path"] for x in res.get("results", [])] == ["v1.20/設計書.docx"] and "v1.20/設計書.docx" in (res.get("note") or ""), res)
 
 
 async def main():
@@ -278,6 +300,7 @@ async def main():
     write(versions / "a", [chunk("c0001", "v1.2 のタイムアウト", path="v1.2/設計書.docx")])
     write(versions / "b", [chunk("c0001", "v1.20 のタイムアウト", path="v1.20/設計書.docx")])
     await run("whole-folders", {"roots": [str(versions)], "embedding": off}, whole_folders)
+    await run("only-a-longer-version", {"roots": [str(versions / "b")], "embedding": off}, only_a_longer_version)
 
     sharp = BASE / "sharp"
     write(sharp / "C#設計" / "設計書", [chunk("c0001", "前の塊", next_="c0002"), chunk("c0002", "後ろの塊", prev="c0001")])
@@ -285,10 +308,12 @@ async def main():
 
     api = Embeddings()
     emb = {"url": api.url, "model": "test-model", "queryPrefix": "", "passagePrefix": "", "retrySeconds": 1}
-    comes_back, other_model, other_model_for_the_question, publishers = embedding_cases(api)
+    comes_back, other_model, other_model_for_the_question, publishers, two_publishers = embedding_cases(api)
     await run("embeddings-come-back", {"roots": [str(one)], "embedding": dict(emb)}, comes_back)
     await run("other-model", {"roots": [str(one)], "embedding": dict(emb)}, other_model)
     await run("other-model-for-the-question", {"roots": [str(one)], "embedding": dict(emb)}, other_model_for_the_question)
+    await run("documents-and-question-of-two-publishers", {"roots": [str(one)], "embedding": dict(emb, queryPrefix="q: ", passagePrefix="p: ")},
+              two_publishers)
     await run("publishers", {"roots": [str(one)], "embedding": dict(emb, model="lab/test-model")}, publishers)
 
     # The vectors kept for one API are not used for another of the same model name.
@@ -301,6 +326,18 @@ async def main():
         check("another API: the passages are embedded by it, not taken from the cache of the first",
               res.get("mode") == "hybrid" and other.inputs > 1, (res.get("mode"), other.inputs))
 
+    async def old_cache(call):
+        for f in Path(shared).glob("*.json"):  # as kept before the answering model was kept
+            saved = json.loads(f.read_text(encoding="utf-8"))
+            del saved["model"]
+            f.write_text(json.dumps(saved), encoding="utf-8")
+        before = api.inputs
+        await call("search_docs", {"query": "タイムアウト"})
+        check("vectors kept without the answering model are made again", api.inputs - before > 1, api.inputs - before)
+        kept = [json.loads(f.read_text(encoding="utf-8")) for f in Path(shared).glob("*.json")]
+        check("... and now say it", kept and all(k.get("model") == "test-model" for k in kept), [k.get("model") for k in kept])
+
+    await run("old-cache", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": shared}, old_cache)
     await run("cache-second-api", {"roots": [str(one)], "embedding": dict(emb, url=other.url), "cacheDir": shared}, second_api)
     other.http.shutdown()
     api.http.shutdown()
