@@ -31,7 +31,9 @@ import json
 import math
 import os
 import re
+import functools
 import sys
+import threading
 import time
 import urllib.request
 from collections import Counter
@@ -134,6 +136,18 @@ LABELS = root_labels(ROOTS)
 
 mcp = FastMCP("markporto-rag")
 
+# The tools run in threads, and a search can wait for the embedding API. One tool at a time, so that a search reads one index from start
+# to end, and two rebuilds of the index cannot cross (the server has one user; a call waits for the one before).
+TOOL_LOCK = threading.Lock()
+
+
+def one_at_a_time(fn):
+    @functools.wraps(fn)
+    def run(*args, **kwargs):
+        with TOOL_LOCK:
+            return fn(*args, **kwargs)
+    return run
+
 
 # ---- reading ----------------------------------------------------------------
 
@@ -181,6 +195,27 @@ def fullest(names) -> str | None:
     return max(names, key=lambda n: ("/" in n, len(n), n)) if names else None
 
 
+def valid_vectors(vectors, count: int) -> bool:
+    """count vectors of one length, each of finite numbers (not true/false): what the API gave and what was kept are checked alike."""
+    if not isinstance(vectors, list) or len(vectors) != count:
+        return False
+    length = None
+    for v in vectors:
+        if not isinstance(v, list) or not v or (length is not None and len(v) != length):
+            return False
+        length = len(v)
+        for x in v:
+            if isinstance(x, bool) or not isinstance(x, (int, float)):
+                return False
+            try:
+                f = float(x)
+            except OverflowError:  # an integer too large for a float (10**400)
+                return False
+            if not math.isfinite(f) or abs(f) > 1e100:  # no embedding has such values, and their squares would not fit a float
+                return False
+    return True
+
+
 def embed(texts: list[str]) -> tuple[list[list[float]], str | None]:
     """The vectors of the texts, and the model that answered (as the API says it)."""
     headers = {"Content-Type": "application/json"}
@@ -195,9 +230,15 @@ def embed(texts: list[str]) -> tuple[list[list[float]], str | None]:
     if not same_model(EMB["model"], answer.get("model")):
         raise OtherModel(f"the embedding API answered with the model {answer.get('model')}, not {EMB['model']} (is {EMB['model']} there?)")
     data = answer["data"]
-    if len(data) != len(texts):
-        raise ValueError(f"the embedding API gave {len(data)} vectors for {len(texts)} texts")
-    return [d["embedding"] for d in sorted(data, key=lambda d: d["index"])], answered_name(answer.get("model"))
+    if not isinstance(data, list) or len(data) != len(texts):
+        raise ValueError(f"the embedding API gave {len(data) if isinstance(data, list) else 'no'} vectors for {len(texts)} texts")
+    indexes = [d.get("index") if isinstance(d, dict) else None for d in data]
+    if sorted(i for i in indexes if isinstance(i, int) and not isinstance(i, bool)) != list(range(len(texts))):  # each text once: else a vector would go to another text
+        raise ValueError(f"the embedding API gave the indexes {indexes} for {len(texts)} texts")
+    vectors = [d["embedding"] for d in sorted(data, key=lambda d: d["index"])]
+    if not valid_vectors(vectors, len(texts)):
+        raise ValueError("the embedding API gave vectors that are not lists of numbers of one length")
+    return vectors, answered_name(answer.get("model"))
 
 
 def cos(a, b) -> float:
@@ -221,7 +262,11 @@ class Index:
         self.warnings: list[str] = []
         self.file_warnings: list[str] = []
         self.embedding_warnings: list[str] = []
-        self.retry_at = 0.0  # when the embeddings are tried again, after the API could not be reached
+        self.retry_at = 0.0  # when the embeddings are tried again, after the API could not be reached or gave two models
+        self.mixed = False  # the kept embeddings were made by two models: made again, not taken from the cache, when tried again
+        self.api_down_until = 0.0  # the API could not be reached: no call to it (documents or questions) before this; files changing keep it
+        self.stale = False  # a question was answered by the model of the configuration, the kept vectors by another: made again
+        self.read_digest: dict[str, str] = {}  # the hash of the bytes each file's chunks were read from (not of the file as it is later)
 
     def files(self) -> tuple[list[Path], list[str]]:
         found: dict[str, Path] = {}
@@ -246,20 +291,25 @@ class Index:
                 pass
         stamp = tuple(stamp)
         if stamp == self.stamp:
-            if self.vectors_missing() and time.monotonic() >= self.retry_at:
-                self.embed_chunks([Path(s[0]) for s in stamp])  # the API could not be reached before: it may be there now
+            if (self.vectors_missing() or self.mixed or self.stale) and time.monotonic() >= max(self.retry_at, self.api_down_until):
+                self.embed_chunks(files, use_cache=not (self.mixed or self.stale))  # the API may be there, or answer as one model, now
             return
         chunks = []
+        read_digest: dict[str, str] = {}
+        unread: set[str] = set()
         for path in [Path(s[0]) for s in stamp]:
             root_index = max((i for i, r in enumerate(ROOTS) if path.is_relative_to(r)), key=lambda i: len(ROOTS[i].parts), default=None)
             rel = path.relative_to(ROOTS[root_index]).as_posix() if root_index is not None else path.name
             label = LABELS[root_index] if root_index is not None else ""
             base = f"{label}/{rel}" if label else rel  # the document part of the keys: one for each file, though two folders have the same place
             try:
-                lines = path.read_text(encoding="utf-8-sig").splitlines()
+                raw = path.read_bytes()
+                lines = raw.decode("utf-8-sig").splitlines()
             except (OSError, UnicodeDecodeError) as ex:
                 warnings.append(f"{path}: could not be read ({ex}); skipped")
+                unread.add(str(path))
                 continue
+            read_digest[str(path)] = hashlib.sha1(raw).hexdigest()
             bad = 0
             ids = set()
             for line in lines:
@@ -298,53 +348,67 @@ class Index:
         self.terms = [Counter(tokens(" ".join(c["headings"]) + "\n" + c["text"])) for c in chunks]
         self.df = Counter(t for d in self.terms for t in d)
         self.avg = (sum(sum(d.values()) for d in self.terms) / len(self.terms)) if self.terms else 1.0
-        self.stamp = stamp
-        self.embed_chunks(files)
+        self.read_digest = read_digest
+        self.stamp = tuple(x for x in stamp if x[0] not in unread)  # a file that could not be read (locked a moment) is read again next time
+        # The keywords of a new or changed file are there at once; the API waits for retry_at when it could not be reached a moment ago.
+        self.embed_chunks(files, use_cache=True, call_api=time.monotonic() >= max(self.retry_at, self.api_down_until))
 
     def vectors_missing(self) -> bool:
         """Some chunks have no embedding because the API could not be reached (not because the embeddings are off)."""
         return EMB.get("enabled", True) and bool(self.chunks) and any(v is None for v in self.vectors)
 
-    def embed_chunks(self, files: list[Path]):
+    def embed_chunks(self, files: list[Path], use_cache: bool = True, call_api: bool = True):
         self.embedding_warnings = []
         reached = True
         answered: set[str] = set()
+
+        def lengths_of(vectors) -> set[int]:
+            return {len(v) for v in vectors if v is not None}
+
+        def mixed(names, vectors) -> bool:
+            # Two models (by their names, or by the dimensions of what they made): their vectors do not go together.
+            return any(not same_model(x, y) for x in names for y in names) or len(lengths_of(vectors)) > 1
+
         if EMB.get("enabled", True):
-            self.vectors, reached, answered = self.load_vectors(files)
+            self.vectors, reached, answered = self.load_vectors(files, use_cache, call_api)
+            if call_api and reached and use_cache and mixed(answered, self.vectors):
+                # Kept by two models (the API answered as another one for a while): all made again by the model that answers now.
+                self.vectors, reached, answered = self.load_vectors(files, use_cache=False)
         else:
             self.vectors = [None] * len(self.chunks)
-        self.embedding_ok = bool(self.chunks) and all(v is not None for v in self.vectors)
-        lengths = {len(v) for v in self.vectors if v is not None}
-        if len(lengths) > 1:  # vectors of two models: the search by meaning would compare things that do not go together
+        lengths = lengths_of(self.vectors)
+        self.mixed = mixed(answered, self.vectors)
+        self.embedding_ok = bool(self.chunks) and all(v is not None for v in self.vectors) and not self.mixed
+        if len(lengths) > 1:
             self.embedding_warnings.append(f"the embeddings have different dimensions {sorted(lengths)}; the search by meaning is off")
-            self.embedding_ok = False
-        if any(not same_model(x, y) for x in answered for y in answered):  # two models of the same dimension ("a/e5", "b/e5") do not go together either
+        elif self.mixed:  # two models of the same dimension ("a/e5", "b/e5") do not go together either
             self.embedding_warnings.append(f"the embeddings were made by different models {sorted(answered)}; the search by meaning is off")
-            self.embedding_ok = False
         self.dimension = next(iter(lengths)) if len(lengths) == 1 else None
         self.answered = fullest(answered) if self.embedding_ok else None
-        self.retry_at = time.monotonic() + float(EMB.get("retrySeconds", 30)) if not reached else 0.0  # tried again at a later search
+        self.stale = False
+        if call_api:  # without calling the API, the time it is tried again stays as it was
+            self.retry_at = time.monotonic() + retry_seconds() if not reached or self.mixed else 0.0  # tried again at a later search
         self.warnings = self.file_warnings + self.embedding_warnings
         for w in self.warnings:
             log("markporto-rag: " + w)
         log(f"markporto-rag: {len(files)} files, {len(self.chunks)} chunks, embeddings: {self.embedding_ok}")
 
-    def load_vectors(self, files: list[Path]) -> tuple[list, bool, set[str]]:
+    def load_vectors(self, files: list[Path], use_cache: bool = True, call_api: bool = True) -> tuple[list, bool, set[str]]:
         """The vectors of the chunks, in their order (None where there is none), whether the API could be reached when it was needed, and
-        the models that made them (as the API said it)."""
+        the models that made them (as the API said it). Without call_api, only what was kept."""
         vectors: list = []
         answered: set[str] = set()
-        reachable = True
+        reachable = call_api
         signature = json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], EMB["passageChars"]]).encode()
         for path in files:
             mine = [c for c in self.chunks if c["file"] == str(path)]
             if not mine:
                 continue
-            try:
-                digest = hashlib.sha1(path.read_bytes() + signature).hexdigest()
-            except OSError:
+            read = self.read_digest.get(str(path))
+            if read is None:
                 vectors += [None] * len(mine)
                 continue
+            digest = hashlib.sha1(read.encode() + signature).hexdigest()  # of the bytes the chunks came from, not of the file now
             cache = CACHE / (hashlib.sha1(str(path).encode()).hexdigest() + ".json")
             got = None
             model = None
@@ -352,11 +416,12 @@ class Index:
                 try:
                     saved = json.loads(cache.read_text(encoding="utf-8"))
                     kept = saved["vectors"]
-                    if saved.get("digest") == digest and isinstance(kept, list) and len(kept) == len(mine) and all(isinstance(v, list) and v for v in kept)                             and "model" in saved:  # kept before the model that answered was kept: made again once
+                    # Kept before the model that answered was kept ("model"), or not numbers: made again.
+                    if use_cache and saved.get("digest") == digest and "model" in saved and valid_vectors(kept, len(mine)):
                         got = kept
                         model = answered_name(saved.get("model"))
-                except (OSError, ValueError, KeyError, TypeError, AttributeError):
-                    got = None  # a broken cache is made again
+                except Exception:  # a broken cache, whatever is wrong with it, is made again
+                    got = None
             if got is None and reachable:
                 try:
                     texts = [EMB["passagePrefix"] + " > ".join(c["headings"]) + "\n" + c["text"][:EMB["passageChars"]] for c in mine]
@@ -369,6 +434,8 @@ class Index:
                             models.add(by)
                     if any(not same_model(x, y) for x in models for y in models):
                         raise OtherModel(f"the embedding API answered with the models {sorted(models)} for one document")
+                    if not valid_vectors(got, len(mine)):  # each request was right, but not of one dimension together
+                        raise ValueError("the embedding API gave vectors of different dimensions for one document")
                     model = fullest(models)
                     CACHE.mkdir(parents=True, exist_ok=True)
                     cache.write_text(json.dumps({"digest": digest, "model": model, "vectors": got}), encoding="utf-8")
@@ -378,12 +445,25 @@ class Index:
                     got = None
                 except Exception as ex:  # no embeddings: the keyword search alone, and the API is tried again later
                     log(f"markporto-rag: no embeddings ({ex})")
+                    self.api_down_until = time.monotonic() + retry_seconds()
                     reachable = False
                     got = None
             if got is not None and model:
                 answered.add(model)
             vectors += got if got is not None else [None] * len(mine)
+        if not call_api and any(v is None for v in vectors):
+            reachable = False  # some were needed and the API was not called: still to be tried
+        elif not call_api:
+            reachable = True
         return vectors, reachable, answered
+
+
+def retry_seconds() -> float:
+    try:
+        value = float(EMB.get("retrySeconds", 30))
+    except (TypeError, ValueError, OverflowError):
+        return 30.0
+    return min(max(value, 0.0), 86400.0) if math.isfinite(value) else 30.0  # at most a day
 
 
 def is_str_list(v) -> bool:
@@ -449,6 +529,7 @@ def no_roots() -> dict | None:
 # ---- tools ------------------------------------------------------------------
 
 @mcp.tool()
+@one_at_a_time
 def search_docs(query: str, k: int = 5, source: str | None = None, path: str | None = None) -> dict:
     """Search the documents converted by MarkPortO (design documents, manuals ...) for the chunks that answer a question.
 
@@ -485,7 +566,9 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
     if not idx:
         return {"mode": "none", "results": [], "note": "No chunks (check the folders, or the values of source and path)."}
 
-    q = set(tokens(query))
+    words = query.lower().split()
+    q = {t for w in words for t in tokens(w)}  # no pairs across the space between two words
+    singles = [w for w in words if not tokens(w)]  # "図" of "図 表": too short for a pair
     n = len(INDEX.chunks)
     bm25 = []
     for i in idx:
@@ -497,6 +580,9 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
                 idf = math.log(1 + (n - INDEX.df[t] + 0.5) / (INDEX.df[t] + 0.5))
                 tf = d[t]
                 s += idf * tf * 2.2 / (tf + 1.2 * (0.25 + 0.75 * length / INDEX.avg))
+        if singles:  # looked for as they are, each on its own
+            text = (" ".join(INDEX.chunks[i]["headings"]) + "\n" + INDEX.chunks[i]["text"]).lower()
+            s += float(sum(1 for w in singles if w in text))
         if s > 0:  # a chunk with none of the words of the question is not found by the keyword search
             bm25.append((s, i))
     bm25.sort(reverse=True)
@@ -504,16 +590,19 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
 
     mode = "keyword"
     note = None
-    if INDEX.embedding_ok:
+    if INDEX.embedding_ok and time.monotonic() < INDEX.api_down_until:
+        note = "The embedding API could not be reached a moment ago; keywords only until it is tried again."
+    elif INDEX.embedding_ok:
         try:
             vectors, by = embed([EMB["queryPrefix"] + query])
             qv = vectors[0]
-            if INDEX.answered and not same_model(INDEX.answered, by):
-                note = f"The question was embedded by {by}, the documents by {INDEX.answered}: their vectors do not go together. Keywords only."
-                log("markporto-rag: " + note)
-            elif len(qv) != INDEX.dimension:
-                # Another model answered (LM Studio answers with the embedding model that is loaded): its vectors do not go with those kept.
-                note = f"The embedding API gave {len(qv)} dimensions, the kept embeddings have {INDEX.dimension}: another model answered. Keywords only."
+            if (INDEX.answered and not same_model(INDEX.answered, by)) or len(qv) != INDEX.dimension:
+                # The API answers now as the model of the configuration (else OtherModel), the kept vectors are of another one (the model was
+                # changed under the same name): they are made again at the next search.
+                INDEX.stale = True
+                INDEX.retry_at = 0.0
+                note = (f"The question was embedded by {by or EMB['model']} ({len(qv)} dimensions), the documents by "
+                        f"{INDEX.answered or 'another model'} ({INDEX.dimension}): keywords only; the documents are embedded again at the next search.")
                 log("markporto-rag: " + note)
             else:
                 sem = sorted(((cos(qv, INDEX.vectors[i]), i) for i in idx), reverse=True)
@@ -522,7 +611,9 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
         except OtherModel as ex:
             note = f"{ex}. Keywords only."
             log("markporto-rag: " + note)
-        except Exception as ex:
+        except Exception as ex:  # not waited for again at each question: the documents' vectors are kept, the API is tried after retrySeconds
+            INDEX.api_down_until = time.monotonic() + retry_seconds()
+            note = "The embedding API could not be reached; keywords only."
             log(f"markporto-rag: query embedding failed ({ex})")
 
     top = max(1, min(k, CONFIG["maxResults"]))
@@ -539,6 +630,7 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
 
 
 @mcp.tool()
+@one_at_a_time
 def read_chunk(key: str, neighbors: int = 1) -> dict:
     """Read a chunk by the key that search_docs gave (or its prev / next), with up to 3 chunks before and after it. The text is whole."""
     if (error := no_roots()) is not None:
@@ -565,6 +657,7 @@ def read_chunk(key: str, neighbors: int = 1) -> dict:
 
 
 @mcp.tool()
+@one_at_a_time
 def list_documents() -> dict:
     """The documents that are searched (the original file, its path in the folder that was converted, the number of chunks, when the file
     was changed, its Markdown), and the embedding
@@ -578,7 +671,7 @@ def list_documents() -> dict:
                                         "sourceModified": c.get("sourceModified"), "chunks": 0})
         d["chunks"] += 1
     embedding = {
-        "available": INDEX.embedding_ok,  # the search by meaning is used
+        "available": INDEX.embedding_ok and not INDEX.stale and time.monotonic() >= INDEX.api_down_until,  # the search by meaning is used now
         "model": EMB["model"] if EMB.get("enabled", True) else None,
         "url": EMB["url"] if EMB.get("enabled", True) else None,
         "dimension": INDEX.dimension,  # of the kept vectors: it tells which model made them (e5-small 384, e5-base 768 ...)
