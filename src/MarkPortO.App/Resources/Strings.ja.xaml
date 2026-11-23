@@ -148,7 +148,6 @@
   <sys:String x:Key="Main_OpenFolder">出力フォルダを開く</sys:String>
   <sys:String x:Key="Main_OpenMarkdown">Markdownを開く</sys:String>
   <sys:String x:Key="Main_OpenVlm">VLMの結果のMarkdownを開く</sys:String>
-  <sys:String x:Key="Main_Cond_Tables">表</sys:String>
   <sys:String x:Key="Main_Cond_TablesTip">「補足」で図だけを読むページでは、どの選択でも本文には Step1 の表が残ります。PDF などでページ全体を読むときは、この設定で出力する表を選びます。置き換え・省略は Step1 で表を抽出できたページに適用します。</sys:String>
   <sys:String x:Key="Main_Cond_TablesVlm">VLMの結果を採用</sys:String>
   <sys:String x:Key="Main_Cond_TablesReplace">抽出テキストを採用</sys:String>

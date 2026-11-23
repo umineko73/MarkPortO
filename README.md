@@ -3,7 +3,7 @@
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4.svg)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)
-![Version](https://img.shields.io/badge/version-0.4.0-2ea44f.svg)
+![Version](https://img.shields.io/badge/version-0.4.1-2ea44f.svg)
 
 **English** | [日本語](README.ja.md)
 
@@ -16,7 +16,8 @@ MarkPortO is a **Windows app that converts Word, Excel, PowerPoint and PDF files
 - Convert headings, tables, lists, code and equations into Markdown, read directly from the Office file.
 - Compare the result with the original page images in a preview.
 - Choose a preset for the purpose: **For reading** (people read the Markdown) or **For RAG** (a language model reads it).
-- Chunks for RAG (`_chunks.jsonl`): the document in chunks for search, each with its headings, pages and page images; tables and code are not cut in the middle.
+- Chunks for RAG (`_chunks.jsonl`): the document in chunks for search, each with its headings, pages and page images; tables and code are not cut in the middle. A small MCP server in `tools\markporto-rag\` lets Claude Code, Codex, OpenCode or Copilot search them ([rag/README.md](tools/markporto-rag/README.md)).
+- Write an Excel book as one Markdown for each sheet; put the output of a folder with or without a folder of its name.
 - Optionally let an image-capable model (VLM) add what the figures, charts and shapes show, or read whole pages (scans).
 - Convert folders of documents and resume interrupted runs.
 - Use an external command (MarkItDown, Docling and so on) to write the Markdown of a kind of file; recommended for PDF files.

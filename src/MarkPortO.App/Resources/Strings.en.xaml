@@ -148,7 +148,6 @@
   <sys:String x:Key="Main_OpenFolder">Open the output folder</sys:String>
   <sys:String x:Key="Main_OpenMarkdown">Open the Markdown</sys:String>
   <sys:String x:Key="Main_OpenVlm">Open the Markdown of the VLM results</sys:String>
-  <sys:String x:Key="Main_Cond_Tables">Tables</sys:String>
   <sys:String x:Key="Main_Cond_TablesTip">When the VLM reads only figures, the document keeps its Step1 tables with any selection. This setting controls tables on pages read in full, including PDFs. Replacement and omission apply only where Step1 extracted a table.</sys:String>
   <sys:String x:Key="Main_Cond_TablesVlm">use the VLM result</sys:String>
   <sys:String x:Key="Main_Cond_TablesReplace">use the extracted text</sys:String>

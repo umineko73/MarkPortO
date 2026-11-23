@@ -461,3 +461,5 @@ for c in chunks:
         print(f'{c["source"]} p.{pages} / {" > ".join(c["headings"])}')
         # Give the chunks before and after it too, when a section is cut in two: by_id[c["prev"]], by_id[c["next"]]
 ```
+
+To search them from an AI tool (Claude Code, Codex, OpenCode, GitHub Copilot), use the small MCP server `markporto-rag` in the folder `tools\markporto-rag\` of the ZIP. It needs only [uv](https://docs.astral.sh/uv/) and a configuration (the folders to search); it searches by keywords and by embeddings (LM Studio and so on) and gives the chunks with their source. See [tools/markporto-rag/README.md](../tools/markporto-rag/README.md) for setting it up.

@@ -70,13 +70,20 @@ if ($Task -eq 'Publish') {
     $package = Join-Path $out 'MarkPortO'
     Invoke-Step 'publish app' { dotnet publish src/MarkPortO.App -c $Configuration --no-build -o $package }
     Invoke-Step 'publish cli' { dotnet publish src/MarkPortO.Cli -c $Configuration --no-build -o $package }
-    Copy-Item README.md, README.ja.md -Destination $package
+    # LICENSE as it is named in the repository too (the app has LICENSE.txt), so that the license link of the READMEs works in the ZIP.
+    Copy-Item README.md, README.ja.md, LICENSE -Destination $package
 
     # The usage guides and the screenshots go to docs/ as in the repository, so the links of the READMEs and of the guides work in the ZIP too.
     $docs = Join-Path $package 'docs'
     New-Item -ItemType Directory -Force (Join-Path $docs 'images') | Out-Null
     Copy-Item docs/usage.md, docs/usage.ja.md -Destination $docs
     Copy-Item docs/images/*.png -Destination (Join-Path $docs 'images')
+
+    # The MCP server that searches the chunks for RAG (FR-152): Python run by uv, which fetches the MCP package itself; nothing of it is bundled.
+    # The same path as in the repository, so that the links of the READMEs and of the usage guides work in the ZIP too.
+    $rag = Join-Path $package 'tools/markporto-rag'
+    New-Item -ItemType Directory -Force $rag | Out-Null
+    Copy-Item tools/markporto-rag/server.py, tools/markporto-rag/markporto-rag.sample.json, tools/markporto-rag/README.md, tools/markporto-rag/README.ja.md -Destination $rag
 
     # The version is the one in Directory.Build.props, the single place where it is set.
     $version = ([xml](Get-Content (Join-Path $repository 'Directory.Build.props') -Raw)).SelectSingleNode('//Version').InnerText

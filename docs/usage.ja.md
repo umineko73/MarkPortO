@@ -527,3 +527,5 @@ for c in chunks:
         # 前後の塊も渡すと、節が2つに分かれていても答えやすくなります: by_id[c["prev"]]、by_id[c["next"]]
 ```
 
+AI の道具（Claude Code・Codex・OpenCode・GitHub Copilot）から検索するには、ZIP の `tools\markporto-rag\` フォルダにある小さな MCP サーバー `markporto-rag` を使います。[uv](https://docs.astral.sh/uv/) と設定ファイル（検索するフォルダ）だけで動き、キーワードと埋め込み（LM Studio など）で探して、出どころつきの塊を返します。準備と登録は [tools/markporto-rag/README.ja.md](../tools/markporto-rag/README.ja.md) を見てください。
+

@@ -3,7 +3,7 @@
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4.svg)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)
-![Version](https://img.shields.io/badge/version-0.4.0-2ea44f.svg)
+![Version](https://img.shields.io/badge/version-0.4.1-2ea44f.svg)
 
 [English](README.md) | **日本語**
 
@@ -16,7 +16,8 @@ Word・Excel・PowerPoint・PDFを、**Markdownとページごとの画像に変
 - 文書の見出し・表・箇条書き・コード・数式などを、Officeのファイルから直接読んでMarkdownに変換
 - 元のページ画像と変換結果を並べて確認
 - 目的に合わせたプリセット：**閲覧用**（人が読む）と **RAG用**（言語モデルが読む）
-- RAG用の小分け（`_chunks.jsonl`）：見出し・ページ・ページ画像つきの検索用の塊。表とコードは途中で切らない
+- RAG用の小分け（`_chunks.jsonl`）：見出し・ページ・ページ画像つきの検索用の塊。表とコードは途中で切らない。`tools\markporto-rag\` の小さな MCP サーバーで、Claude Code・Codex・OpenCode・Copilot から検索できる（[rag/README.ja.md](tools/markporto-rag/README.ja.md)）
+- Excel をシートごとに別の Markdown に、フォルダの出力はフォルダごと／中身だけを選べる
 - 画像を読めるモデル（VLM）で、図・グラフ・図形の中身を書き足す。スキャンなどはページ全体を読み取る（任意）
 - フォルダごとの一括変換と、中断した処理の再開
 - 種類ごとに外部コマンド（MarkItDown・Doclingなど）でMarkdownを作成。PDFにはこちらをおすすめします
