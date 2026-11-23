@@ -99,6 +99,24 @@ public class PerSheetMarkdownTests
     }
 
     [Fact]
+    public void TheChunksOfOneSheetThatCannotBeWritten_KeepTheirWarning_ThoughTheNextSheetIsWritten()
+    {
+        using var dir = new TempDir();
+        var doc = Book(dir.Path);
+        Directory.CreateDirectory(dir.Combine("報告書_売上_chunks.jsonl")); // the first sheet's file cannot be written: a folder is in its place
+
+        MarkdownRenderer.Write(doc);
+
+        Assert.True(File.Exists(dir.Combine("報告書_費用_chunks.jsonl"))); // the sheets after it are written
+        Assert.Single(doc.Warnings, w => w.Code == ChunksWriter.FailedWarning);
+
+        // Written again when it can be: the warning of the run before goes.
+        Directory.Delete(dir.Combine("報告書_売上_chunks.jsonl"));
+        MarkdownRenderer.Write(doc);
+        Assert.DoesNotContain(doc.Warnings, w => w.Code == ChunksWriter.FailedWarning);
+    }
+
+    [Fact]
     public void WrittenAsOneMarkdownAgain_TheFilesOfTheSheetsGo_ButNoOtherFile()
     {
         using var dir = new TempDir();

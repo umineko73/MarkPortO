@@ -32,6 +32,7 @@ import math
 import os
 import re
 import sys
+import time
 import urllib.request
 from collections import Counter
 from pathlib import Path
@@ -55,6 +56,7 @@ DEFAULTS = {
         "passagePrefix": "passage: ",
         "passageChars": 1500,
         "timeoutSeconds": 120,
+        "retrySeconds": 30,
     },
     "cacheDir": "",
     "textChars": 1500,
@@ -110,6 +112,21 @@ ROOTS = [Path(os.path.expandvars(p)) for p in CONFIG["roots"]]
 EMB = CONFIG["embedding"]
 CACHE = Path(os.path.expandvars(CONFIG["cacheDir"])) if CONFIG["cacheDir"] else Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "markporto-rag" / "cache"
 
+def root_labels(roots: list[Path]) -> list[str]:
+    """What goes before the key of a chunk for each folder searched, so that the same place in two folders gives two keys: nothing with
+    one folder (the keys stay as they were), else the name of the folder ("out-2" and so on when two folders have the same name)."""
+    if len(roots) < 2:
+        return [""] * len(roots)
+    labels, seen = [], Counter()
+    for r in roots:
+        name = r.name or str(r).rstrip("\\/:") or "root"
+        seen[name.lower()] += 1
+        labels.append(name if seen[name.lower()] == 1 else f"{name}-{seen[name.lower()]}")
+    return labels
+
+
+LABELS = root_labels(ROOTS)
+
 mcp = FastMCP("markporto-rag")
 
 
@@ -124,6 +141,22 @@ def tokens(s: str) -> list[str]:
     return pairs + words
 
 
+class OtherModel(Exception):
+    """The embedding API answered with a model other than the one asked for (LM Studio answers with the embedding model that is loaded)."""
+
+
+def same_model(asked: str, answered) -> bool:
+    """The names name the same model: "publisher/name" and "name", "name:latest" and "name" are the same; an API that does not say is believed."""
+    if not isinstance(answered, str) or not answered.strip():
+        return True
+
+    def short(s: str) -> str:
+        s = s.strip().lower().rsplit("/", 1)[-1]
+        return s[:-len(":latest")] if s.endswith(":latest") else s
+
+    return short(asked) == short(answered)
+
+
 def embed(texts: list[str]) -> list[list[float]]:
     headers = {"Content-Type": "application/json"}
     if EMB.get("apiKeyEnv") and os.environ.get(EMB["apiKeyEnv"]):
@@ -133,7 +166,12 @@ def embed(texts: list[str]) -> list[list[float]]:
         data=json.dumps({"model": EMB["model"], "input": texts}).encode("utf-8"),
         headers=headers)
     with urllib.request.urlopen(req, timeout=EMB["timeoutSeconds"]) as r:
-        data = json.load(r)["data"]
+        answer = json.load(r)
+    if not same_model(EMB["model"], answer.get("model")):
+        raise OtherModel(f"the embedding API answered with the model {answer.get('model')}, not {EMB['model']} (is {EMB['model']} there?)")
+    data = answer["data"]
+    if len(data) != len(texts):
+        raise ValueError(f"the embedding API gave {len(data)} vectors for {len(texts)} texts")
     return [d["embedding"] for d in sorted(data, key=lambda d: d["index"])]
 
 
@@ -155,6 +193,9 @@ class Index:
         self.embedding_ok = False
         self.dimension: int | None = None
         self.warnings: list[str] = []
+        self.file_warnings: list[str] = []
+        self.embedding_warnings: list[str] = []
+        self.retry_at = 0.0  # when the embeddings are tried again, after the API could not be reached
 
     def files(self) -> tuple[list[Path], list[str]]:
         found: dict[str, Path] = {}
@@ -179,17 +220,22 @@ class Index:
                 pass
         stamp = tuple(stamp)
         if stamp == self.stamp:
+            if self.vectors_missing() and time.monotonic() >= self.retry_at:
+                self.embed_chunks([Path(s[0]) for s in stamp])  # the API could not be reached before: it may be there now
             return
         chunks = []
         for path in [Path(s[0]) for s in stamp]:
-            root = max((r for r in ROOTS if path.is_relative_to(r)), key=lambda r: len(r.parts), default=path.parent)
-            rel = path.relative_to(root).as_posix()
+            root_index = max((i for i, r in enumerate(ROOTS) if path.is_relative_to(r)), key=lambda i: len(ROOTS[i].parts), default=None)
+            rel = path.relative_to(ROOTS[root_index]).as_posix() if root_index is not None else path.name
+            label = LABELS[root_index] if root_index is not None else ""
+            base = f"{label}/{rel}" if label else rel  # the document part of the keys: one for each file, though two folders have the same place
             try:
                 lines = path.read_text(encoding="utf-8-sig").splitlines()
             except (OSError, UnicodeDecodeError) as ex:
                 warnings.append(f"{path}: could not be read ({ex}); skipped")
                 continue
             bad = 0
+            ids = set()
             for line in lines:
                 if not line.strip():
                     continue
@@ -201,42 +247,66 @@ class Index:
                 if not isinstance(c, dict):
                     bad += 1
                     continue
-                if c.get("schemaVersion", 0) > SCHEMA_VERSION:
-                    warnings.append(f"{path}: schemaVersion {c.get('schemaVersion')} is newer than this server ({SCHEMA_VERSION}); skipped")
-                    break
-                if not usable(c):
+                version = c.get("schemaVersion", 0)
+                if not isinstance(version, int) or isinstance(version, bool):
                     bad += 1
                     continue
-                c["key"] = f"{rel}#{c['id']}"
+                if version > SCHEMA_VERSION:
+                    warnings.append(f"{path}: schemaVersion {version} is newer than this server ({SCHEMA_VERSION}); skipped")
+                    break
+                if not usable(c) or c["id"] in ids:
+                    bad += 1
+                    continue
+                ids.add(c["id"])
+                c["base"] = base
+                c["rel"] = rel
+                c["key"] = f"{base}#{c['id']}"
                 c["file"] = str(path)
                 c["folder"] = str(path.parent)
                 chunks.append(c)
             if bad:
                 warnings.append(f"{path}: {bad} line(s) that are not chunks of MarkPortO were skipped")
         self.chunks = chunks
-        self.warnings = warnings
+        self.file_warnings = warnings
         self.by_key = {c["key"]: c for c in chunks}
         self.terms = [Counter(tokens(" ".join(c["headings"]) + "\n" + c["text"])) for c in chunks]
         self.df = Counter(t for d in self.terms for t in d)
         self.avg = (sum(sum(d.values()) for d in self.terms) / len(self.terms)) if self.terms else 1.0
-        self.vectors = self.load_vectors(files) if EMB.get("enabled", True) else [None] * len(chunks)
-        self.embedding_ok = bool(chunks) and all(v is not None for v in self.vectors)
+        self.stamp = stamp
+        self.embed_chunks(files)
+
+    def vectors_missing(self) -> bool:
+        """Some chunks have no embedding because the API could not be reached (not because the embeddings are off)."""
+        return EMB.get("enabled", True) and bool(self.chunks) and any(v is None for v in self.vectors)
+
+    def embed_chunks(self, files: list[Path]):
+        self.embedding_warnings = []
+        reached = True
+        if EMB.get("enabled", True):
+            self.vectors, reached = self.load_vectors(files)
+        else:
+            self.vectors = [None] * len(self.chunks)
+        self.embedding_ok = bool(self.chunks) and all(v is not None for v in self.vectors)
         lengths = {len(v) for v in self.vectors if v is not None}
         if len(lengths) > 1:  # vectors of two models: the search by meaning would compare things that do not go together
-            warnings.append(f"the embeddings have different dimensions {sorted(lengths)}; the search by meaning is off")
+            self.embedding_warnings.append(f"the embeddings have different dimensions {sorted(lengths)}; the search by meaning is off")
             self.embedding_ok = False
         self.dimension = next(iter(lengths)) if len(lengths) == 1 else None
-        self.stamp = stamp
-        for w in warnings:
+        self.retry_at = time.monotonic() + float(EMB.get("retrySeconds", 30)) if not reached else 0.0  # tried again at a later search
+        self.warnings = self.file_warnings + self.embedding_warnings
+        for w in self.warnings:
             log("markporto-rag: " + w)
-        log(f"markporto-rag: {len(files)} files, {len(chunks)} chunks, embeddings: {self.embedding_ok}")
+        log(f"markporto-rag: {len(files)} files, {len(self.chunks)} chunks, embeddings: {self.embedding_ok}")
 
-    def load_vectors(self, files: list[Path]) -> list:
+    def load_vectors(self, files: list[Path]) -> tuple[list, bool]:
+        """The vectors of the chunks, in their order (None where there is none), and whether the API could be reached when it was needed."""
         vectors: list = []
         reachable = True
         signature = json.dumps([EMB["model"], EMB["passagePrefix"], EMB["passageChars"]]).encode()
         for path in files:
             mine = [c for c in self.chunks if c["file"] == str(path)]
+            if not mine:
+                continue
             try:
                 digest = hashlib.sha1(path.read_bytes() + signature).hexdigest()
             except OSError:
@@ -247,11 +317,12 @@ class Index:
             if cache.exists():
                 try:
                     saved = json.loads(cache.read_text(encoding="utf-8"))
-                    if saved.get("digest") == digest and len(saved["vectors"]) == len(mine):
-                        got = saved["vectors"]
+                    kept = saved["vectors"]
+                    if saved.get("digest") == digest and isinstance(kept, list) and len(kept) == len(mine) and all(isinstance(v, list) and v for v in kept):
+                        got = kept
                 except (OSError, ValueError, KeyError, TypeError, AttributeError):
                     got = None  # a broken cache is made again
-            if got is None and reachable and mine:
+            if got is None and reachable:
                 try:
                     texts = [EMB["passagePrefix"] + " > ".join(c["headings"]) + "\n" + c["text"][:EMB["passageChars"]] for c in mine]
                     got = []
@@ -259,19 +330,31 @@ class Index:
                         got += embed(texts[i:i + 16])
                     CACHE.mkdir(parents=True, exist_ok=True)
                     cache.write_text(json.dumps({"digest": digest, "vectors": got}), encoding="utf-8")
-                except Exception as ex:  # no embeddings: the keyword search alone
+                except OtherModel as ex:  # vectors of another model would be kept as if they were of this one
+                    self.embedding_warnings.append(str(ex) + "; the search by meaning is off")
+                    reachable = False
+                    got = None
+                except Exception as ex:  # no embeddings: the keyword search alone, and the API is tried again later
                     log(f"markporto-rag: no embeddings ({ex})")
                     reachable = False
                     got = None
             vectors += got if got is not None else [None] * len(mine)
-        return vectors
+        return vectors, reachable
+
+
+def is_str_list(v) -> bool:
+    return isinstance(v, list) and all(isinstance(x, str) for x in v)
 
 
 def usable(c: dict) -> bool:
-    """A line has what the server reads: an id, a source, a Markdown, headings and a text."""
-    return (isinstance(c.get("id"), str) and isinstance(c.get("source"), str) and isinstance(c.get("markdown"), str)
-            and isinstance(c.get("headings"), list) and isinstance(c.get("text"), str)
-            and (c.get("pages") is None or isinstance(c.get("pages"), list)) and isinstance(c.get("pageImages", []), list))
+    """A line has what the server reads, of the right types: an id, a source, a Markdown, headings, a kind and a text; pages, page images,
+    prev / next, path and sheet when they are there. A line that does not is skipped (with a warning), so that it cannot stop a search."""
+    optional_str = ("prev", "next", "path", "sheet")
+    return (isinstance(c.get("id"), str) and c["id"] != "" and isinstance(c.get("source"), str) and isinstance(c.get("markdown"), str)
+            and is_str_list(c.get("headings")) and isinstance(c.get("kind"), str) and isinstance(c.get("text"), str)
+            and (c.get("pages") is None or (isinstance(c["pages"], list) and all(isinstance(p, int) and not isinstance(p, bool) for p in c["pages"])))
+            and is_str_list(c.get("pageImages", []))
+            and all(c.get(k) is None or isinstance(c[k], str) for k in optional_str))
 
 
 def where(c: dict) -> str:
@@ -279,7 +362,7 @@ def where(c: dict) -> str:
     then the place of its file in the searched folder, which follows the folders that were converted (the default layout)."""
     if isinstance(c.get("path"), str) and c["path"]:
         return c["path"].replace("\\", "/")
-    return c["key"].split("#")[0]
+    return c["rel"]
 
 
 INDEX = Index()
@@ -289,7 +372,7 @@ def view(c: dict, score: float | None = None, full: bool = False) -> dict:
     """A chunk with its source. The paths are absolute, so that the page image and the Markdown can be opened."""
     limit = CONFIG["textChars"]
     text = c["text"] if full or len(c["text"]) <= limit else c["text"][:limit] + "…"
-    base = c["key"].split("#")[0]
+    base = c["base"]
     out = {
         "key": c["key"],
         "source": c["source"],
@@ -356,7 +439,8 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
                 idf = math.log(1 + (n - INDEX.df[t] + 0.5) / (INDEX.df[t] + 0.5))
                 tf = d[t]
                 s += idf * tf * 2.2 / (tf + 1.2 * (0.25 + 0.75 * length / INDEX.avg))
-        bm25.append((s, i))
+        if s > 0:  # a chunk with none of the words of the question is not found by the keyword search
+            bm25.append((s, i))
     bm25.sort(reverse=True)
     ranks = [{i: r for r, (_, i) in enumerate(bm25)}]
 
@@ -373,11 +457,18 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
                 sem = sorted(((cos(qv, INDEX.vectors[i]), i) for i in idx), reverse=True)
                 ranks.append({i: r for r, (_, i) in enumerate(sem)})
                 mode = "hybrid"
+        except OtherModel as ex:
+            note = f"{ex}. Keywords only."
+            log("markporto-rag: " + note)
         except Exception as ex:
             log(f"markporto-rag: query embedding failed ({ex})")
 
     top = max(1, min(k, CONFIG["maxResults"]))
-    fused = sorted(((sum(1 / (60 + rk[i]) for rk in ranks), i) for i in idx), reverse=True)[:top]
+    found = [i for i in idx if any(i in rk for rk in ranks)]
+    if not found:
+        none = "No chunk has the words of the question. Try other words; if it is still not found, it is not in the documents."
+        return {"mode": mode, "results": [], "note": f"{note} {none}" if note else none}
+    fused = sorted(((sum(1 / (60 + rk[i]) for rk in ranks if i in rk), i) for i in found), reverse=True)[:top]
     result = {"mode": mode, "results": [view(INDEX.chunks[i], s) for s, i in fused]}
     if note:
         result["note"] = note
@@ -397,13 +488,13 @@ def read_chunk(key: str, neighbors: int = 1) -> dict:
     before, after = [], []
     cur = c
     for _ in range(steps):
-        cur = INDEX.by_key.get(f"{cur['key'].split('#')[0]}#{cur['prev']}") if cur.get("prev") else None
+        cur = INDEX.by_key.get(f"{cur['base']}#{cur['prev']}") if cur.get("prev") else None
         if not cur:
             break
         before.insert(0, view(cur, full=True))
     cur = c
     for _ in range(steps):
-        cur = INDEX.by_key.get(f"{cur['key'].split('#')[0]}#{cur['next']}") if cur.get("next") else None
+        cur = INDEX.by_key.get(f"{cur['base']}#{cur['next']}") if cur.get("next") else None
         if not cur:
             break
         after.append(view(cur, full=True))

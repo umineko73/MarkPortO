@@ -36,6 +36,7 @@ The file named by `MARKPORTO_RAG_CONFIG`, else `%APPDATA%\MarkPortO\markporto-ra
 | `embedding.apiKeyEnv` | `""` | For an API that needs a key: **the name of the environment variable that has the key** (the key is not written in the JSON) |
 | `embedding.queryPrefix` / `passagePrefix` | `"query: "` / `"passage: "` | What e5 models expect; **`""` for other models** |
 | `embedding.passageChars` | `1500` | How much of a chunk is embedded |
+| `embedding.timeoutSeconds` / `retrySeconds` | `120` / `30` | Seconds to wait for the API / when the API could not be reached, seconds before a later search tries it again (keywords only until then) |
 | `cacheDir` | `%LOCALAPPDATA%\markporto-rag\cache` | Where the embeddings are kept (computed again only when a jsonl changes) |
 | `textChars` / `maxResults` | `1500` / `20` | How much text a search result has / the most results |
 

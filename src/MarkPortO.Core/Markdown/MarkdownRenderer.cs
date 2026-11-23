@@ -554,6 +554,9 @@ public static partial class MarkdownRenderer
             DeleteQuietly(Path.Combine(document.OutputFolder, MarkdownFileName(name)));
             DeleteQuietly(Path.Combine(document.OutputFolder, VlmFileName(name)));
             DeleteQuietly(Path.Combine(document.OutputFolder, ChunksWriter.FileName(name)));
+
+            // A warning of the chunks is of this run: one sheet that could not be written keeps it, though the next one was.
+            document.Warnings.RemoveAll(w => w.Code == ChunksWriter.FailedWarning);
             foreach (var sheet in sheets)
             {
                 AtomicFile.WriteAllText(Path.Combine(document.OutputFolder, sheet.BaseName + ".md"), Render(document, sheet));
@@ -567,7 +570,7 @@ public static partial class MarkdownRenderer
                     DeleteQuietly(sheetVlm);
                 }
 
-                ChunksWriter.Write(document, Path.Combine(document.OutputFolder, sheet.BaseName + "_chunks.jsonl"), sheet.BaseName + ".md", sheet.Pages);
+                ChunksWriter.Write(document, Path.Combine(document.OutputFolder, sheet.BaseName + "_chunks.jsonl"), sheet.BaseName + ".md", sheet.Pages, oneOfMany: true);
             }
 
             document.SheetFiles = written;

@@ -56,7 +56,9 @@ public static class ChunksWriter
     /// <summary>Writes (or removes) one file of chunks: that of the whole document, or that of one sheet (FR-153).</summary>
     /// <param name="markdown">The name of the Markdown file that the chunks are of.</param>
     /// <param name="pages">Only these pages; null for every page.</param>
-    public static void Write(DocumentRecord document, string path, string markdown, IReadOnlySet<int>? pages)
+    /// <param name="oneOfMany">One of the files of the sheets: a file written does not take away the warning of another that was not
+    /// (the caller takes it away before the first).</param>
+    public static void Write(DocumentRecord document, string path, string markdown, IReadOnlySet<int>? pages, bool oneOfMany = false)
     {
         if (!document.Chunks)
         {
@@ -80,7 +82,10 @@ public static class ChunksWriter
         try
         {
             AtomicFile.WriteAllText(path, Render(document, markdown, pages));
-            document.Warnings.RemoveAll(w => w.Code == FailedWarning);
+            if (!oneOfMany)
+            {
+                document.Warnings.RemoveAll(w => w.Code == FailedWarning);
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

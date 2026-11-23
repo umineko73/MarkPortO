@@ -10,7 +10,8 @@
     "queryPrefix": "query: ",
     "passagePrefix": "passage: ",
     "passageChars": 1500,
-    "timeoutSeconds": 120
+    "timeoutSeconds": 120,
+    "retrySeconds": 30
   },
   "cacheDir": "",
   "textChars": 1500,
