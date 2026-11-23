@@ -22,7 +22,7 @@
 | プリセット | 向いている使い方 | 主な設定 |
 |---|---|---|
 | 閲覧用（`human`） | Officeの文書をやめて、Markdownで読み書きしたい | 太字・斜体を書く、画像・図形を取り出す、ページ画像は書かない、Step3は補足（図の中身を本文に足す）、冒頭の説明は書かない |
-| RAG用（`rag`） | 文書をLLMやRAGに読ませたい | 太字・斜体は書かない、画像・図形を取り出す、ページ画像は参照のコメント（ページへたどれる）、Step3は補足、冒頭の説明を書く |
+| RAG用（`rag`） | 文書をLLMやRAGに読ませたい | 太字・斜体は書かない、画像・図形を取り出す、ページ画像は参照のコメント（ページへたどれる）、Step3は補足、冒頭の説明を書く、RAG用の小分け（`_chunks.jsonl`）を書く |
 
 - どちらも、表は「抽出テキストを採用」、「繰り返しの表を除く」はオン、VLMの結果は本文の中に書きます。
 - Step3は、VLMの接続を選んでいるときだけオンになります（接続がなくても、プリセットを選んだだけで変換できなくなることはありません）。
@@ -38,7 +38,7 @@
 | 対象とオプション | フォルダ内の対象 | ファイルの種類と、サブフォルダを含めるか |
 | 〃 | 抽出方法 | 内蔵の処理、または外部コマンド（外部コマンドを登録したときに表示） |
 | 〃 | 抽出オプション | Excelの範囲など。外部コマンドを選ぶと無効になります |
-| 〃 | ステップの詳細 | Step1: 印刷エンジン、DPI、太字・斜体。Step2: 印刷イメージの書き方。Step3: 結果を別ファイルに書く、表、繰り返しの表を除く。Markdown: 冒頭に「このMarkdownの構造」の説明を書く |
+| 〃 | ステップの詳細 | Step1: 印刷エンジン、DPI、太字・斜体。Step2: 印刷イメージの書き方。Step3: 結果を別ファイルに書く、表、繰り返しの表を除く。Markdown: 冒頭に「このMarkdownの構造」の説明を書く、RAG用の小分け（`_chunks.jsonl`）を書く |
 | Stepの行 | Step1 | 文書の画像を取り出す、図形を画像にする、近くの図形をまとめる |
 | 〃 | Step2 | Markdownへのページ画像の挿入 |
 | 〃 | Step3 | VLM（画像を読めるモデル）による読み取り、VLMの使い方、接続、プロンプト、ページ範囲 |
@@ -302,6 +302,7 @@ markporto-cli check-connection --settings settings.json
 | `--page-image image\|reference\|link` | ページ画像の書き方（Step2のとき）。reference（既定）はコメント `<!-- page-image: images/page-001.png -->`（ビューアには表示されず、プログラムやモデルは読める）、image は `![ページ 1](images/page-001.png)`（ビューアに表示される）、link は `[ページ 1](images/page-001.png)`（画像ではなくリンクが表示される）。 |
 | `--preset human\|rag\|<名前>` | プリセット（Step1〜3のおすすめの設定）を使う。一緒に指定したオプションが優先。 |
 | `--structure-note on\|off` | Markdownの冒頭に「このMarkdownの構造」の説明を書く（既定はon）。 |
+| `--chunks on\|off` | RAG用の小分け `<名前>_chunks.jsonl` を書く（既定はoff、プリセット `rag` ではon）。下の「RAG用の小分け」を参照。 |
 | `--step3 on\|off` | VLMで読み取る（読み方は `--step3-mode`）。 |
 | `--step3-mode supplement\|transcribe` | Step3の使い方。supplement（既定）: Step1の本文を使い、図だけを読んで書き足す（本文がほとんどないページ・PDFはページ全体）。transcribe: すべてのページを書き写す。「VLMで読み取る（Step3）」の節を参照。 |
 | `--connection <名前>` | 使うVLM接続。 |
@@ -465,6 +466,7 @@ xlsxはセルの並びをそのまま表にします。
 out/report/
 ├── report.md          # 元のファイル名と、構造の説明から始まります
 ├── report_vlm.md      # --vlm-separate on のときだけ: Step3の結果（「補足」のページは本文と図の読み取り）
+├── report_chunks.jsonl # RAG用の小分けのときだけ: 検索のための塊（1行に1つ）
 ├── report.log         # ページごとの記録(大きさ、画像、削除ページ・空白ページ)、警告、失敗
 ├── images/            # ページ画像（Step2）
 │   ├── page-001.png
@@ -476,4 +478,38 @@ out/report/
 結合セルは notePM 方式で書きます（`<` は左のセル、`^` は上のセルと結合）。
 取り消し線の付いた文字は、`~~文字~~` で囲んで書きます。
 `<!-- page: N -->` の行が、各ページの始まりです。
+
+### RAG用の小分け（`_chunks.jsonl`）
+
+「ステップの詳細」の「RAG 用の小分け（_chunks.jsonl）を書く」をオンにすると（プリセット「RAG用」では既定でオン、CLIは `--chunks on`）、Markdown の隣に、文書を検索（RAG）のための塊に分けたファイル `<名前>_chunks.jsonl` を書きます。Markdown を書き直すたびに（Step3 のあと、読み直し、再開など）書き直します。
+
+- 1行に1つの JSON です（JSON Lines、UTF-8・BOMなし・改行はLF）。
+- 塊は見出しで区切り、段落は1,500文字までまとめます。表とコードブロックは途中で切らず、それだけで1つの塊にします（大きい表は行で分け、どの塊も見出しの行から始めます）。ページをまたぐ表とコードは1つの塊です。
+- 図の読み取り（Step3 の補足）は、その図と同じ塊に入ります。文字のないページ（スキャンなど）は、VLM の読み取りが塊になります。
+- 冒頭の「このMarkdownの構造」、目次、削除ページ、ページの区切りなどのコメントは入れません。
+
+| 項目 | 内容 |
+|---|---|
+| `schemaVersion` | 形式の版（今は `1`） |
+| `id`・`prev`・`next` | 塊の ID（`c0001` から）と、前・次の塊の ID |
+| `source`・`sourceModified` | 元のファイル名（フォルダは含めない）と、その更新日時（UTC） |
+| `markdown` | 同じフォルダの Markdown のファイル名 |
+| `headings` | 見出しの道筋（例: `["2. データモデル", "2. ジョブと再開状態"]`） |
+| `kind` | `text`・`table`・`code`・`slide`・`page` |
+| `pages`・`pageImages` | ページの範囲（例: `[6, 7]`）と、そのページ画像。外部コマンドで抽出した文書は `null` と空 |
+| `sheet` | xlsx のシート名（xlsx のときだけ） |
+| `text` | 塊の本文（Markdown） |
+
+使い方の例（Python）: 塊を読み、検索で見つかった塊の出どころを示します。答えの根拠は `source` と `pages` で示し、モデルにページ番号を書かせないようにします（小さいモデルは、ないページを書くことがあります）。
+
+```python
+import json
+chunks = [json.loads(line) for line in open("report/report_chunks.jsonl", encoding="utf-8")]
+by_id = {c["id"]: c for c in chunks}
+for c in chunks:
+    if "再開" in c["text"]:
+        pages = "-".join(map(str, sorted(set(c["pages"])))) if c["pages"] else "?"
+        print(f'{c["source"]} p.{pages} / {" > ".join(c["headings"])}')
+        # 前後の塊も渡すと、節が2つに分かれていても答えやすくなります: by_id[c["prev"]]、by_id[c["next"]]
+```
 

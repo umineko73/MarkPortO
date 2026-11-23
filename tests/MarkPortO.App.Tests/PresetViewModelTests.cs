@@ -190,6 +190,24 @@ public sealed class PresetViewModelTests
     });
 
     [Fact]
+    public void TheRagPreset_TurnsTheChunksOn_AndChangingThemIsAChangeOfThePreset() => Sta.Run(screen =>
+    {
+        screen.Combo.SelectedIndex = Rag;
+        screen.Pump();
+        Assert.True(screen.Model.Chunks); // FR-152
+        Assert.True(screen.Settings.Output.Chunks);
+
+        screen.Model.Chunks = false;
+        Assert.Equal("Preset_Modified", screen.Model.PresetStateText);
+        screen.Model.Chunks = true;
+        Assert.Equal(string.Empty, screen.Model.PresetStateText);
+
+        screen.Combo.SelectedIndex = Human;
+        screen.Pump();
+        Assert.False(screen.Model.Chunks);
+    });
+
+    [Fact]
     public void WithoutAConnection_APresetLeavesStep3Off_AndIsNotChanged() => Sta.Run(screen =>
     {
         screen.Combo.SelectedIndex = Human;

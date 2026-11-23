@@ -368,7 +368,7 @@ public static partial class MarkdownRenderer
     /// breaks (the text sent with each page image is only the rows of the page); here the parts are one table, written where the table starts, and
     /// on the later pages a quote tells where the rows went.
     /// </summary>
-    private static string[] JoinTableParts(IReadOnlyList<Block> blocks, IReadOnlyList<int> effectivePages, string language)
+    internal static string[] JoinTableParts(IReadOnlyList<Block> blocks, IReadOnlyList<int> effectivePages, string language)
     {
         var texts = blocks.Select(b => b.Markdown).ToArray();
         var head = -1;
@@ -509,6 +509,9 @@ public static partial class MarkdownRenderer
             {
             }
         }
+
+        // The chunks for retrieval follow the Markdown: they are written again each time it is (FR-152).
+        ChunksWriter.Write(document);
     }
 
     /// <summary>The file of the VLM results of a document (FR-058): the document name plus <c>_vlm.md</c>.</summary>

@@ -46,6 +46,8 @@
   <sys:String x:Key="Main_Cond_OptionsRow">Extraction options</sys:String>
   <sys:String x:Key="Main_Cond_Details">Details of the steps</sys:String>
   <sys:String x:Key="Main_Cond_StructureNote">Write "About this Markdown" at the top</sys:String>
+  <sys:String x:Key="Main_Cond_Chunks">Write the chunks for RAG (_chunks.jsonl)</sys:String>
+  <sys:String x:Key="Main_Cond_ChunksTip">Next to the Markdown, a file with the document cut into chunks for search (RAG): one JSON object on each line, with the headings, the pages and the page images of each chunk. Tables and code blocks are not cut in the middle. For a language model or a search tool; a reader of the document does not need it.</sys:String>
   <sys:String x:Key="Main_Cond_StructureNoteTip">A quote at the top of the Markdown that tells how to read the page separators and the marks. It helps a language model; for people who read the document it can be in the way. The title, the comment of the converter and the page separators are written also when it is off.</sys:String>
   <sys:String x:Key="Main_Preset">Preset</sys:String>
   <sys:String x:Key="Main_PresetTip">Puts the recommended settings of Step1 to Step3 for a purpose. They can still be changed afterwards. The inputs, the output folder, the engine, the VLM connection and the kinds of file do not change.</sys:String>

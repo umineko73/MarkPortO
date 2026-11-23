@@ -83,6 +83,9 @@ public sealed record ConvertArgs
     /// <summary>Write the description of the structure at the top of the Markdown (FR-151): on or off.</summary>
     public string? StructureNote { get; init; }
 
+    /// <summary>Write the chunks for retrieval next to the Markdown (FR-152): on or off.</summary>
+    public string? Chunks { get; init; }
+
     /// <summary>The name of the prompt for each kind that has it (FR-115).</summary>
     public string? Prompt { get; init; }
 
@@ -264,6 +267,7 @@ public static class ConvertArgsResolver
         ApplyOnOff("--vlm-separate", args.VlmSeparate, value => settings.Steps.VlmSeparate = value, errors);
         ApplyOnOff("--drop-repeated-tables", args.DropRepeatedTables, value => settings.Steps.DropRepeatedTables = value, errors);
         ApplyOnOff("--structure-note", args.StructureNote, value => settings.Output.StructureNote = value, errors);
+        ApplyOnOff("--chunks", args.Chunks, value => settings.Output.Chunks = value, errors);
         ApplyOnOff("--same-folder", args.SameFolder, value => settings.Output.SameFolder = value, errors);
         foreach (var (kind, value) in new[] { (DocumentKind.Docx, args.ExtractorDocx), (DocumentKind.Xlsx, args.ExtractorXlsx), (DocumentKind.Pptx, args.ExtractorPptx), (DocumentKind.Pdf, args.ExtractorPdf) })
         {

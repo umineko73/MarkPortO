@@ -62,6 +62,9 @@ public sealed class ConversionPreset
 
     public bool StructureNote { get; set; } = true;
 
+    /// <summary>Write the chunks for retrieval (FR-152).</summary>
+    public bool Chunks { get; set; }
+
     /// <summary>The built-in presets, in the order the list shows them.</summary>
     public static IReadOnlyList<ConversionPreset> BuiltIn { get; } =
     [
@@ -81,6 +84,7 @@ public sealed class ConversionPreset
             Step1Tables = Step1TablesMode.Replace,
             DropRepeatedTables = true,
             StructureNote = false,
+            Chunks = false,
         },
         new()
         {
@@ -98,6 +102,7 @@ public sealed class ConversionPreset
             Step1Tables = Step1TablesMode.Replace,
             DropRepeatedTables = true,
             StructureNote = true,
+            Chunks = true,
         },
     ];
 
@@ -143,6 +148,7 @@ public sealed class ConversionPreset
             Pdf = settings.Vlm.Prompts.PdfVariants.Selected,
         },
         StructureNote = settings.Output.StructureNote,
+        Chunks = settings.Output.Chunks,
     };
 
     /// <summary>Puts the values of the preset into the settings. A prompt name that the settings do not have becomes the standard prompt.</summary>
@@ -161,6 +167,7 @@ public sealed class ConversionPreset
         settings.Steps.Step1Tables = Step1Tables;
         settings.Steps.DropRepeatedTables = DropRepeatedTables;
         settings.Output.StructureNote = StructureNote;
+        settings.Output.Chunks = Chunks;
         foreach (var kind in new[] { DocumentKind.Docx, DocumentKind.Xlsx, DocumentKind.Pptx, DocumentKind.Pdf })
         {
             var variants = settings.Vlm.Prompts.VariantsOf(kind);
@@ -189,7 +196,7 @@ public sealed class ConversionPreset
         return Emphasis == now.Emphasis && ExtractPictures == now.ExtractPictures && ExtractShapes == now.ExtractShapes && GroupNearShapes == now.GroupNearShapes
             && Dpi == now.Dpi && Step2 == now.Step2 && PageImage == now.PageImage && Step3For(settings) == now.Step3 && Step3Mode == now.Step3Mode
             && VlmSeparate == now.VlmSeparate && Step1Tables == now.Step1Tables && DropRepeatedTables == now.DropRepeatedTables
-            && StructureNote == now.StructureNote
+            && StructureNote == now.StructureNote && Chunks == now.Chunks
             && SamePrompt(DocumentKind.Docx) && SamePrompt(DocumentKind.Xlsx) && SamePrompt(DocumentKind.Pptx) && SamePrompt(DocumentKind.Pdf);
     }
 

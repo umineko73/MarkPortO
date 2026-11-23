@@ -296,6 +296,12 @@ public static class ResumePlanner
                 File.Delete(vlmMarkdown);
             }
 
+            var chunks = Path.Combine(document.OutputFolder, Markdown.ChunksWriter.FileName(Path.GetFileNameWithoutExtension(document.SourcePath)));
+            if (File.Exists(chunks))
+            {
+                File.Delete(chunks);
+            }
+
             var images = Path.Combine(document.OutputFolder, "images");
             if (Directory.Exists(images))
             {

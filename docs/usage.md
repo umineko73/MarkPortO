@@ -20,7 +20,7 @@ While a conversion runs, the conditions cannot be changed. The values are saved 
 | Preset | For | Main settings |
 |---|---|---|
 | For reading (`human`) | Moving from Office documents to Markdown | bold and italic written, pictures and shapes saved, no page images in the Markdown, Step3 adds what the figures show, no description at the top |
-| For RAG (`rag`) | Documents read by a language model | no bold and italic, pictures and shapes saved, the page images as comments (a passage can be traced to its page), Step3 adds what the figures show, the description at the top |
+| For RAG (`rag`) | Documents read by a language model | no bold and italic, pictures and shapes saved, the page images as comments (a passage can be traced to its page), Step3 adds what the figures show, the description at the top, the chunks for RAG (`_chunks.jsonl`) |
 
 - Both use the tables of the extracted text, leave out repeated tables, and write the VLM results into the Markdown of the document.
 - Step3 is turned on only when a VLM connection is chosen, so a preset never stops a conversion on a machine without one.
@@ -36,7 +36,7 @@ The **Conditions** have a part that can be folded (**Kinds of file and options**
 | Kinds of file and options | Kinds of file | The kinds of file in a folder, and whether sub-folders are included |
 | 〃 | Extractor | Who extracts the text of each kind: built-in or an external command (shown when a command is registered) |
 | 〃 | Extraction options | The range of an Excel sheet and so on (grey when an external command is chosen) |
-| 〃 | Details of the steps | Step1: the engine, the DPI, bold and italic. Step2: how the page image is written. Step3: write the results to a separate file, tables, leave out repeated tables. Markdown: write "About this Markdown" at the top |
+| 〃 | Details of the steps | Step1: the engine, the DPI, bold and italic. Step2: how the page image is written. Step3: write the results to a separate file, tables, leave out repeated tables. Markdown: write "About this Markdown" at the top, write the chunks for RAG (`_chunks.jsonl`) |
 | Rows of the steps | Step1 | Save the pictures of the document, cut out the shapes, group the shapes that are near |
 | 〃 | Step2 | Whether the page images are written in the Markdown |
 | 〃 | Step3 | Reading with the VLM (a model that reads images), the use of the VLM, the connection, the prompts, the page range |
@@ -272,6 +272,7 @@ markporto-cli check-connection --settings settings.json
 | `--page-image image\|reference\|link` | How the page image is written (with Step2). `reference` (the default) is a comment `<!-- page-image: images/page-001.png -->` that a Markdown viewer does not show but a program or a model can read; `image` is `![Page 1](images/page-001.png)`, which a viewer shows; `link` is `[Page 1](images/page-001.png)`, a link that a viewer shows instead of the image. |
 | `--preset human\|rag\|<name>` | Use a preset (the recommended settings of Step1 to Step3). The options given with it win over it. |
 | `--structure-note on\|off` | Write "About this Markdown" at the top of the Markdown (the default is on). |
+| `--chunks on\|off` | Write the chunks for RAG, `<name>_chunks.jsonl` (the default is off; on with the preset `rag`). See "Chunks for RAG" below. |
 | `--step3 on\|off` | Read with the VLM (how: `--step3-mode`). |
 | `--step3-mode supplement\|transcribe` | How Step3 uses the VLM. supplement (the default): keep the text of Step1 and read only the figures, and add what they show (a page that Step1 has almost no text of, and a PDF, are written out whole). transcribe: write out every page. See "Reading with the VLM (Step3)". |
 | `--connection <name>` | The VLM connection to use. |
@@ -402,6 +403,7 @@ For each image the command is run once, in an empty temporary folder, **without 
 out/report/
 ├── report.md          # starts with the source file name and a description of the structure
 ├── report_vlm.md      # only with --vlm-separate on: the results of Step3 (with "Add to the text", also the text and what was read in the figures)
+├── report_chunks.jsonl # only with the chunks for RAG: the chunks for search, one on each line
 ├── report.log         # what was made of each page (size, image, deleted or blank page), the warnings and the failures
 ├── images/            # the page images (Step2)
 │   ├── page-001.png
@@ -411,3 +413,37 @@ out/report/
 ```
 
 Merged table cells are written in the notePM style (`<` joins the cell on the left, `^` the cell above). Text with a strikethrough is written as `~~text~~`. A `<!-- page: N -->` line starts each page.
+
+### Chunks for RAG (`_chunks.jsonl`)
+
+With "Write the chunks for RAG (_chunks.jsonl)" on in "Details of the steps" (on in the preset For RAG; `--chunks on` on the command line), a file `<name>_chunks.jsonl` is written next to the Markdown: the document cut into chunks for search (RAG). It is written again each time the Markdown is (after Step3, a re-reading, a resume).
+
+- One JSON object on each line (JSON Lines, UTF-8 without BOM, LF).
+- A new chunk starts at each heading; paragraphs are put together up to 1,500 characters. A table or a code block is a chunk of its own and is not cut in the middle (a long table is cut between its rows, and every part starts with the header row). A table or code over several pages is one chunk.
+- What the VLM read in a figure (Step3, "Add to the text") is in the chunk of the figure. A page without text (a scan) becomes a chunk of what the VLM read.
+- "About this Markdown", the table of contents, deleted pages and the comments of the page separators are left out.
+
+| Item | Content |
+|---|---|
+| `schemaVersion` | The version of the format (`1` now) |
+| `id`, `prev`, `next` | The ID of the chunk (from `c0001`) and of the chunks before and after it |
+| `source`, `sourceModified` | The name of the source file (without its folders) and when it was last changed (UTC) |
+| `markdown` | The name of the Markdown file in the same folder |
+| `headings` | The headings the chunk is under (for example `["2. Data model", "2. Jobs and resuming"]`) |
+| `kind` | `text`, `table`, `code`, `slide` or `page` |
+| `pages`, `pageImages` | The pages (for example `[6, 7]`) and their page images; `null` and empty for a document of an extractor |
+| `sheet` | The name of the sheet (xlsx only) |
+| `text` | The text of the chunk (Markdown) |
+
+An example in Python: read the chunks and show where a chunk that was found comes from. Give the source of an answer from `source` and `pages`, not from the model (a small model can write a page that does not exist).
+
+```python
+import json
+chunks = [json.loads(line) for line in open("report/report_chunks.jsonl", encoding="utf-8")]
+by_id = {c["id"]: c for c in chunks}
+for c in chunks:
+    if "resume" in c["text"]:
+        pages = "-".join(map(str, sorted(set(c["pages"])))) if c["pages"] else "?"
+        print(f'{c["source"]} p.{pages} / {" > ".join(c["headings"])}')
+        # Give the chunks before and after it too, when a section is cut in two: by_id[c["prev"]], by_id[c["next"]]
+```

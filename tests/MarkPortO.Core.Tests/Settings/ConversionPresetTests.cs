@@ -46,12 +46,14 @@ public class ConversionPresetTests
         Assert.Equal(Step1TablesMode.Replace, settings.Steps.Step1Tables);
         Assert.True(settings.Steps.DropRepeatedTables);
         Assert.False(settings.Output.StructureNote);
+        Assert.False(settings.Output.Chunks);
 
         ConversionPreset.FindBuiltIn("RAG")!.ApplyTo(settings);
         Assert.False(settings.Input.Emphasis);
         Assert.True(settings.Steps.Step2);
         Assert.Equal(PageImageStyle.Reference, settings.Steps.PageImage);
         Assert.True(settings.Output.StructureNote);
+        Assert.True(settings.Output.Chunks); // FR-152
 
         // Not in a preset: the inputs, the output folder, the engine, the options of each kind of file.
         Assert.Equal(["D:\\docs"], settings.Input.Paths);
@@ -167,6 +169,9 @@ public class ConversionPresetTests
         Assert.False(options.StructureNote);
         Assert.True(JsonDefaults.Deserialize<OptionsSnapshot>("{}")!.StructureNote); // a job from before wrote the description
         Assert.True(JsonDefaults.Deserialize<DocumentRecord>("{}")!.StructureNote);
+        Assert.False(JsonDefaults.Deserialize<OptionsSnapshot>("{}")!.Chunks); // a job from before wrote no chunks (FR-152)
+        Assert.False(JsonDefaults.Deserialize<DocumentRecord>("{}")!.Chunks);
+        Assert.False(JsonDefaults.Deserialize<AppSettings>("{}")!.Output.Chunks);
     }
 
     [Fact]
@@ -212,6 +217,8 @@ public class ConversionPresetTests
         Assert.True(rag.Step2);
         Assert.False(human.StructureNote);
         Assert.True(rag.StructureNote);
+        Assert.False(human.Chunks);
+        Assert.True(rag.Chunks);
 
         // What they share.
         foreach (var preset in new[] { human, rag })
@@ -496,6 +503,7 @@ public class ConversionPresetTests
         ["step1 tables"] = s => s.Steps.Step1Tables = Step1TablesMode.Off,
         ["repeated tables"] = s => s.Steps.DropRepeatedTables = !s.Steps.DropRepeatedTables,
         ["structure note"] = s => s.Output.StructureNote = !s.Output.StructureNote,
+        ["chunks"] = s => s.Output.Chunks = !s.Output.Chunks,
         ["prompt docx"] = s => s.Vlm.Prompts.DocxVariants.Selected = PromptPresets.CloudName,
         ["prompt xlsx"] = s => s.Vlm.Prompts.XlsxVariants.Selected = PromptPresets.LocalName,
         ["prompt pptx"] = s => s.Vlm.Prompts.PptxVariants.Selected = PromptPresets.CloudName,

@@ -264,6 +264,7 @@
             <TextBlock Grid.Row="3" Text="{DynamicResource Preview_GroupMarkdown}" VerticalAlignment="Center" Margin="0,6,0,0" IsEnabled="{Binding CanEdit}" />
             <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
               <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_StructureNote}" ToolTip="{DynamicResource Main_Cond_StructureNoteTip}" IsChecked="{Binding StructureNote}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Margin="16,0,0,0" Content="{DynamicResource Main_Cond_Chunks}" ToolTip="{DynamicResource Main_Cond_ChunksTip}" IsChecked="{Binding Chunks}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" />
             </StackPanel>
           </Grid>
 

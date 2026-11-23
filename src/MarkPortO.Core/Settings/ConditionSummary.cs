@@ -85,6 +85,11 @@ public static class ConditionSummary
             parts.Add(Loc.T("No description at the top"));
         }
 
+        if (settings.Output.Chunks)
+        {
+            parts.Add(Loc.T("Chunks for RAG"));
+        }
+
         if (settings.Steps.Step2 && settings.Steps.PageImage != PageImageStyle.Reference)
         {
             parts.Add(settings.Steps.PageImage == PageImageStyle.Image ? Loc.T("Page images: image") : Loc.T("Page images: link"));

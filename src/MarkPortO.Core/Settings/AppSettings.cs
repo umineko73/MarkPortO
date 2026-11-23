@@ -366,6 +366,9 @@ public sealed class OutputSettings
 
     /// <summary>Write the description of the structure ("About this Markdown") at the top of the Markdown (FR-151). A reader of the document may not want it.</summary>
     public bool StructureNote { get; set; } = true;
+
+    /// <summary>Write the chunks for retrieval (RAG) next to the Markdown, as <c>&lt;name&gt;_chunks.jsonl</c> (FR-152).</summary>
+    public bool Chunks { get; set; }
 }
 
 /// <summary>The language and the theme of the screen (FR-033, FR-035). <c>system</c> follows the operating system.</summary>

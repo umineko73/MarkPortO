@@ -73,6 +73,10 @@ public sealed class Block
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool HasDrawing { get; set; }
+
+    /// <summary>A line of the table of contents of a Word document (style "toc N", FR-145): left out of the chunks for retrieval (FR-152). False in a state written before this was recorded.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsToc { get; set; }
 }
 
 public sealed class PageRecord
@@ -212,6 +216,9 @@ public sealed class DocumentRecord
     /// <summary>The description of the structure is written at the top of the Markdown (FR-151). A document from before this setting had it.</summary>
     public bool StructureNote { get; set; } = true;
 
+    /// <summary>The chunks for retrieval are written next to the Markdown (FR-152). A document from before this setting had none.</summary>
+    public bool Chunks { get; set; }
+
     /// <summary>The preset of the conversion (FR-151), with " (modified)" when its values were changed; null when none was chosen.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Preset { get; set; }
@@ -335,6 +342,9 @@ public sealed class OptionsSnapshot
 
     /// <summary>The description of the structure is written at the top of the Markdown (FR-151). A job from before this setting wrote it.</summary>
     public bool StructureNote { get; set; } = true;
+
+    /// <summary>The chunks for retrieval are written next to the Markdown (FR-152). A job from before this setting wrote none.</summary>
+    public bool Chunks { get; set; }
 
     /// <summary>The preset of the conversion (FR-151), with " (modified)" when its values were changed; null when none was chosen.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

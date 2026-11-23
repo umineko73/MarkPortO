@@ -55,6 +55,7 @@ public static class ConvertResultJson
         VlmMarkdown = document.VlmInSeparateFile && document.Step3 != StepStatus.NotApplicable
             ? Markdown.MarkdownRenderer.VlmFileName(Path.GetFileNameWithoutExtension(document.SourcePath))
             : null,
+        Chunks = document.Chunks ? Markdown.ChunksWriter.FileName(Path.GetFileNameWithoutExtension(document.SourcePath)) : null,
         State = StateOf(document),
         Pages = document.Pages.Count,
         DeletedPages = [.. document.Pages.Where(p => p.IsDeleted).Select(p => p.Index)],
@@ -85,6 +86,9 @@ public static class ConvertResultJson
 
         /// <summary>The file name of the VLM results when they are in a separate file (FR-058); otherwise null.</summary>
         public string? VlmMarkdown { get; set; }
+
+        /// <summary>The file name of the chunks for retrieval when they are written (FR-152); otherwise null.</summary>
+        public string? Chunks { get; set; }
 
         public string State { get; set; } = string.Empty;
 

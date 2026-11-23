@@ -87,7 +87,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 or nameof(ExtractorDocx) or nameof(ExtractorXlsx) or nameof(ExtractorPptx) or nameof(ExtractorPdf)
                 or nameof(IncludeHiddenSheets) or nameof(IncludeHiddenSlides) or nameof(IncludeOffSlideText) or nameof(UsePdfText)
                 or nameof(ExcelColumns) or nameof(ExcelSheet) or nameof(ExcelPrintArea)
-                or nameof(PageImageIndex) or nameof(Step2) or nameof(Step3) or nameof(VlmSeparate) or nameof(Step1TablesIndex) or nameof(DropRepeatedTables) or nameof(StructureNote))
+                or nameof(PageImageIndex) or nameof(Step2) or nameof(Step3) or nameof(VlmSeparate) or nameof(Step1TablesIndex) or nameof(DropRepeatedTables) or nameof(StructureNote) or nameof(Chunks))
             {
                 Raise(nameof(ConditionSummaryText));
             }
@@ -500,6 +500,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             _store.Update(s => s.Output.StructureNote = value);
+            Raise();
+        }
+    }
+
+    /// <summary>Write the chunks for retrieval next to the Markdown, as <c>&lt;name&gt;_chunks.jsonl</c> (FR-152).</summary>
+    public bool Chunks
+    {
+        get => _store.Current.Output.Chunks;
+        set
+        {
+            _store.Update(s => s.Output.Chunks = value);
             Raise();
         }
     }
@@ -1626,6 +1637,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 DropRepeatedTables = snapshot.Steps.DropRepeatedTables,
                 Step3Mode = snapshot.Steps.Step3Mode,
                 StructureNote = snapshot.Output.StructureNote,
+                Chunks = snapshot.Output.Chunks,
             },
             token));
     }

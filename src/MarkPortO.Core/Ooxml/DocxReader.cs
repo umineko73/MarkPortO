@@ -649,7 +649,10 @@ public static partial class DocxReader
             else
             {
                 context.ListIndents.Clear();
-                blocks.Add(New(BlockKind.Paragraph, escaped, text) with { Splittable = markdown == text, IsToc = context.IsTocStyle(properties?.ParagraphStyleId?.Val?.Value) });
+                var isToc = context.IsTocStyle(properties?.ParagraphStyleId?.Val?.Value);
+                var item = New(BlockKind.Paragraph, escaped, text) with { Splittable = markdown == text, IsToc = isToc };
+                item.Block.IsToc = isToc;
+                blocks.Add(item);
             }
         }
 

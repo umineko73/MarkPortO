@@ -174,6 +174,7 @@ public class CliParsingTests
         Assert.False(rag.Input.Emphasis);
         Assert.True(rag.Steps.Step2);
         Assert.True(rag.Output.StructureNote);
+        Assert.True(rag.Output.Chunks); // FR-152
         Assert.Equal("rag", rag.PresetSelected);
         Assert.False(rag.Steps.Step3); // no VLM connection is chosen: the preset does not turn Step3 on, so the conversion can start
 
@@ -187,6 +188,9 @@ public class CliParsingTests
         var human = Resolved(new ConvertArgs { Preset = "human", StructureNote = "on", Step3Mode = "transcribe" }, FromFile());
         Assert.True(human.Input.Emphasis);
         Assert.True(human.Output.StructureNote); // the option, not the preset
+        Assert.False(human.Output.Chunks);
+        Assert.False(Resolved(new ConvertArgs { Preset = "rag", Chunks = "off" }, FromFile()).Output.Chunks);
+        Assert.True(Resolved(new ConvertArgs { Chunks = "ON" }, FromFile()).Output.Chunks);
         Assert.Equal(Step3Mode.Transcribe, human.Steps.Step3Mode);
 
         var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { Preset = "nothing" }, FromFile());

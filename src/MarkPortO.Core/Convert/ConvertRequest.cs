@@ -91,6 +91,7 @@ public sealed class ConvertRequest
         DropRepeatedTables = settings.Steps.DropRepeatedTables,
         Step3Mode = settings.Steps.Step3Mode,
         StructureNote = settings.Output.StructureNote,
+        Chunks = settings.Output.Chunks,
         Preset = ConversionPreset.RecordText(settings),
         Connection = settings.Steps.Step3 ? settings.Vlm.Selected : null,
         PromptNames = new Settings.PromptNames

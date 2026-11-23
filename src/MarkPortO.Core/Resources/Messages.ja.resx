@@ -625,4 +625,10 @@
   <data name="presets: the DPI of '{0}' must be between {1} and {2} (was {3})." xml:space="preserve">
     <value>presets: 「{0}」の DPI は {1} から {2} にしてください（{3}）。</value>
   </data>
+  <data name="Chunks for RAG" xml:space="preserve">
+    <value>RAG 用の小分け</value>
+  </data>
+  <data name="The chunks for RAG could not be written: {0}" xml:space="preserve">
+    <value>RAG 用の小分け（_chunks.jsonl）を書けませんでした: {0}</value>
+  </data>
 </root>

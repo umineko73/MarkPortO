@@ -43,6 +43,39 @@ public class PresetCliTests
     }
 
     [Fact]
+    public async Task TheRagPreset_WritesTheChunks_AndTheResultFileNamesThem()
+    {
+        using var dir = new TempDir();
+        var input = PdfFactory.Create(dir.Combine("in", "a.pdf"), PageSize.A4, "Alpha text");
+
+        var run = await Cli.RunAsync("convert", input, "--out", dir.Combine("out"), "--preset", "rag", "--result", dir.Combine("result.json"), "--settings", Settings(dir));
+
+        Assert.Equal(ExitCodes.Success, run.ExitCode);
+        var lines = File.ReadAllLines(dir.Combine("out", "a", "a_chunks.jsonl"));
+        using var chunk = System.Text.Json.JsonDocument.Parse(Assert.Single(lines));
+        Assert.Equal("a.pdf", chunk.RootElement.GetProperty("source").GetString());
+        Assert.Equal("images/page-001.png", chunk.RootElement.GetProperty("pageImages")[0].GetString());
+        Assert.Contains("Alpha text", chunk.RootElement.GetProperty("text").GetString(), StringComparison.Ordinal);
+        using var result = System.Text.Json.JsonDocument.Parse(File.ReadAllText(dir.Combine("result.json")));
+        Assert.Equal("a_chunks.jsonl", result.RootElement.GetProperty("documents")[0].GetProperty("chunks").GetString());
+    }
+
+    [Fact]
+    public async Task TheChunksOption_TurnsThemOffOverThePreset_AndAWrongValueIsAnErrorOfTheArguments()
+    {
+        using var dir = new TempDir();
+        var input = PdfFactory.Create(dir.Combine("in", "a.pdf"), PageSize.A4, "Alpha text");
+
+        var run = await Cli.RunAsync("convert", input, "--out", dir.Combine("out"), "--preset", "rag", "--chunks", "off", "--settings", Settings(dir));
+        Assert.Equal(ExitCodes.Success, run.ExitCode);
+        Assert.False(File.Exists(dir.Combine("out", "a", "a_chunks.jsonl")));
+
+        var wrong = await Cli.RunAsync("convert", input, "--out", dir.Combine("out2"), "--chunks", "maybe", "--settings", Settings(dir));
+        Assert.Equal(ExitCodes.InvalidArguments, wrong.ExitCode);
+        Assert.Contains("--chunks", wrong.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task TheHumanPreset_LeavesOutThePageImagesAndTheDescription()
     {
         using var dir = new TempDir();
