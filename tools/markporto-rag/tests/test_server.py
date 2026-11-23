@@ -68,11 +68,13 @@ class Embeddings:
     def __init__(self):
         self.up = True
         self.model: str | None = None  # the name it answers with; None: the name asked for
+        self.inputs = 0  # the texts it was asked for
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                outer.inputs += len(body["input"])
                 if not outer.up:
                     self.send_response(503)
                     self.end_headers()
@@ -199,7 +201,44 @@ def embedding_cases(api: Embeddings):
         check("'publisher/name:latest' is the same model as 'name'", res.get("mode") == "hybrid", res)
         api.model = None
 
-    return comes_back, other_model, other_model_for_the_question
+    async def publishers(call):
+        api.model = "lab/test-model"
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("the same publisher and name: by meaning", res.get("mode") == "hybrid", res)
+        api.model = "other-lab/test-model"
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("another publisher's model of the same name: keywords only", res.get("mode") == "keyword", res)
+        api.model = None
+
+    return comes_back, other_model, other_model_for_the_question, publishers
+
+
+async def three_folders_two_names(call):
+    res = await call("search_docs", {"query": "タイムアウト", "k": 5})
+    keys = [x["key"] for x in res.get("results", [])]
+    check("folders 'out', 'out', 'out-2' give three keys", len(keys) == 3 and len(set(keys)) == 3, keys)
+    texts = set()
+    for key in keys:
+        texts.add((await call("read_chunk", {"key": key})).get("chunk", {}).get("text", "")[:2])
+    check("... and each key reads its own chunk", texts == {"A：", "B：", "C："}, texts)
+
+
+async def no_pages(call):
+    res = await call("search_docs", {"query": "ページのない塊"})
+    check("a chunk without pages is found", len(res.get("results", [])) == 1 and res["results"][0]["pages"] is None, res)
+    out = await call("read_chunk", {"key": "設計書/設計書_chunks.jsonl#c0001"})
+    check("... and read", out.get("chunk", {}).get("pages", "x") is None, out)
+
+
+async def whole_folders(call):
+    res = await call("search_docs", {"query": "タイムアウト", "path": "v1.2"})
+    check("'v1.2' is not 'v1.20'", [x["path"] for x in res.get("results", [])] == ["v1.2/設計書.docx"], res)
+    res = await call("search_docs", {"query": "タイムアウト", "path": "v1.2/"})
+    check("'v1.2/' is not 'v1.20' either", [x["path"] for x in res.get("results", [])] == ["v1.2/設計書.docx"], res)
+    res = await call("search_docs", {"query": "タイムアウト", "path": "v1.20"})
+    check("'v1.20' is its own", [x["path"] for x in res.get("results", [])] == ["v1.20/設計書.docx"], res)
+    res = await call("search_docs", {"query": "タイムアウト", "path": "設計"})
+    check("a part of a name still narrows when no folder is whole", len(res.get("results", [])) == 2, res)
 
 
 async def main():
@@ -223,16 +262,47 @@ async def main():
     write(broken / "設計書", [chunk("c0001", "正しい塊 ふくろう"), chunk("c0009", "重複 一つ目"), chunk("c0009", "重複 二つ目")] + bad)
     await run("broken-lines", {"roots": [str(broken)], "embedding": off}, broken_lines)
 
+    three = BASE / "three"
+    for folder, text in [("x/out", "A：タイムアウト"), ("y/out", "B：タイムアウト"), ("z/out-2", "C：タイムアウト")]:
+        write(three / folder / "設計書", [chunk("c0001", text)])
+    await run("three-folders-two-names", {"roots": [str(three / f) for f in ["x/out", "y/out", "z/out-2"]], "embedding": off},
+              three_folders_two_names)
+
+    nopages = BASE / "no-pages"
+    row = chunk("c0001", "ページのない塊")
+    del row["pages"]
+    write(nopages / "設計書", [row])
+    await run("no-pages", {"roots": [str(nopages)], "embedding": off}, no_pages)
+
+    versions = BASE / "versions"
+    write(versions / "a", [chunk("c0001", "v1.2 のタイムアウト", path="v1.2/設計書.docx")])
+    write(versions / "b", [chunk("c0001", "v1.20 のタイムアウト", path="v1.20/設計書.docx")])
+    await run("whole-folders", {"roots": [str(versions)], "embedding": off}, whole_folders)
+
     sharp = BASE / "sharp"
     write(sharp / "C#設計" / "設計書", [chunk("c0001", "前の塊", next_="c0002"), chunk("c0002", "後ろの塊", prev="c0001")])
     await run("hash-in-a-folder", {"roots": [str(sharp)], "embedding": off}, hash_in_a_folder)
 
     api = Embeddings()
     emb = {"url": api.url, "model": "test-model", "queryPrefix": "", "passagePrefix": "", "retrySeconds": 1}
-    comes_back, other_model, other_model_for_the_question = embedding_cases(api)
+    comes_back, other_model, other_model_for_the_question, publishers = embedding_cases(api)
     await run("embeddings-come-back", {"roots": [str(one)], "embedding": dict(emb)}, comes_back)
     await run("other-model", {"roots": [str(one)], "embedding": dict(emb)}, other_model)
     await run("other-model-for-the-question", {"roots": [str(one)], "embedding": dict(emb)}, other_model_for_the_question)
+    await run("publishers", {"roots": [str(one)], "embedding": dict(emb, model="lab/test-model")}, publishers)
+
+    # The vectors kept for one API are not used for another of the same model name.
+    shared = str(BASE / "shared-cache")
+    await run("cache-first-api", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": shared}, lambda call: call("search_docs", {"query": "タイムアウト"}))
+    other = Embeddings()
+
+    async def second_api(call):
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("another API: the passages are embedded by it, not taken from the cache of the first",
+              res.get("mode") == "hybrid" and other.inputs > 1, (res.get("mode"), other.inputs))
+
+    await run("cache-second-api", {"roots": [str(one)], "embedding": dict(emb, url=other.url), "cacheDir": shared}, second_api)
+    other.http.shutdown()
     api.http.shutdown()
 
     print(f"\n{count - len(failures)}/{count} passed")

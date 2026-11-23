@@ -117,11 +117,16 @@ def root_labels(roots: list[Path]) -> list[str]:
     one folder (the keys stay as they were), else the name of the folder ("out-2" and so on when two folders have the same name)."""
     if len(roots) < 2:
         return [""] * len(roots)
-    labels, seen = [], Counter()
+    labels: list[str] = []
+    taken: set[str] = set()
     for r in roots:
         name = r.name or str(r).rstrip("\\/:") or "root"
-        seen[name.lower()] += 1
-        labels.append(name if seen[name.lower()] == 1 else f"{name}-{seen[name.lower()]}")
+        label, n = name, 1
+        while label.lower() in taken:  # "out", "out", "out-2": the second is "out-3", not a second "out-2"
+            n += 1
+            label = f"{name}-{n}"
+        taken.add(label.lower())
+        labels.append(label)
     return labels
 
 
@@ -146,15 +151,20 @@ class OtherModel(Exception):
 
 
 def same_model(asked: str, answered) -> bool:
-    """The names name the same model: "publisher/name" and "name", "name:latest" and "name" are the same; an API that does not say is believed."""
+    """The names name the same model: "name:latest" and "name" are the same, and so are "publisher/name" and "name" (one of them does not
+    say the publisher); "a/name" and "b/name" are not. An API that does not say which model answered is believed."""
     if not isinstance(answered, str) or not answered.strip():
         return True
 
-    def short(s: str) -> str:
-        s = s.strip().lower().rsplit("/", 1)[-1]
-        return s[:-len(":latest")] if s.endswith(":latest") else s
+    def parts(s: str) -> tuple[str | None, str]:
+        s = s.strip().lower()
+        if s.endswith(":latest"):
+            s = s[:-len(":latest")]
+        publisher, _, name = s.rpartition("/")
+        return (publisher or None), name
 
-    return short(asked) == short(answered)
+    (p1, n1), (p2, n2) = parts(asked), parts(answered)
+    return n1 == n2 and (p1 is None or p2 is None or p1 == p2)
 
 
 def embed(texts: list[str]) -> list[list[float]]:
@@ -302,7 +312,7 @@ class Index:
         """The vectors of the chunks, in their order (None where there is none), and whether the API could be reached when it was needed."""
         vectors: list = []
         reachable = True
-        signature = json.dumps([EMB["model"], EMB["passagePrefix"], EMB["passageChars"]]).encode()
+        signature = json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], EMB["passageChars"]]).encode()
         for path in files:
             mine = [c for c in self.chunks if c["file"] == str(path)]
             if not mine:
@@ -379,7 +389,7 @@ def view(c: dict, score: float | None = None, full: bool = False) -> dict:
         "path": where(c),
         "sourceModified": c.get("sourceModified"),
         "markdown": str(Path(c["folder"]) / c["markdown"]),
-        "pages": c["pages"],
+        "pages": c.get("pages"),
         "headings": c["headings"],
         "kind": c["kind"],
         "text": text,
@@ -412,7 +422,7 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
     source: "source" (the original file), "path" (where it is in the folder that was converted, e.g. "v1.2/設計書.docx"), "pages",
     "headings" (where it is in the document) and "pageImages" (the printed pages). Give these sources in the answer; do not make up
     page numbers. Read the chunks before and after with read_chunk (prev / next) when the context is needed.
-    "source" limits the search to the documents whose file name contains it; "path" to those whose path contains it, e.g. a
+    "source" limits the search to the documents whose file name contains it; "path" to those whose path has it as whole folders (a part of a name when none has), e.g. a
     folder of a version ("v1.2") when the documents are kept in a folder for each version - search one version, not all of them
     mixed, and say which version an answer comes from.
     """
@@ -422,8 +432,12 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
         return {"error": "The question (query) is empty."}
     INDEX.refresh()
     needle = path.replace("\\", "/").strip("/").lower() if path and path.strip() else None
-    idx = [i for i, c in enumerate(INDEX.chunks)
-           if (not source or source.lower() in c["source"].lower()) and (not needle or needle in where(c).lower())]
+    idx = [i for i, c in enumerate(INDEX.chunks) if not source or source.lower() in c["source"].lower()]
+    if needle:
+        # Whole folders and names first, so that "v1.2" is not also "v1.20"; a part of a name ("設計") when nothing is whole.
+        whole = re.compile(r"(?:^|/)" + re.escape(needle) + r"(?:/|$)")
+        exact = [i for i in idx if whole.search(where(INDEX.chunks[i]).lower())]
+        idx = exact or [i for i in idx if needle in where(INDEX.chunks[i]).lower()]
     if not idx:
         return {"mode": "none", "results": [], "note": "No chunks (check the folders, or the values of source and path)."}
 

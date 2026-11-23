@@ -12,7 +12,7 @@ A small MCP server that searches the chunks for RAG that MarkPortO writes (`<nam
 
 | Tool | What it does |
 |---|---|
-| `search_docs(query, k=5, source=None, path=None)` | The k chunks closest to the question; `source` limits it to the original files whose name contains it, `path` to the documents whose path in the converted folder contains it (for example the folder of a version, `"v1.2"`) |
+| `search_docs(query, k=5, source=None, path=None)` | The k chunks closest to the question; `source` limits it to the original files whose name contains it, `path` to the documents whose path in the converted folder contains it (for example the folder of a version, `"v1.2"`; whole folder names are matched first, so `v1.20` is not mixed in) |
 | `read_chunk(key, neighbors=1)` | A chunk with up to three chunks before and after it |
 | `list_documents()` | The documents that are searched, and the embedding in use (the model of the configuration, the dimension of the vectors); another dimension means another model answered |
 
