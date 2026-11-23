@@ -281,6 +281,7 @@ public class ChunkBuilderTests
         using var dir = new TempDir();
         var doc = Doc(DocumentKind.Docx, 2, H("# 1\\. 節", 1), P("一つ目。"), T("| a |\n|---|\n| 1 |", 2));
         doc.OutputFolder = dir.Path;
+        doc.DisplayName = @"v1.2\基本設計\設計書.docx"; // as the list of files shows it: from the folder that was given
         var path = Path.Combine(dir.Path, "設計書_chunks.jsonl");
 
         ChunksWriter.Write(doc);
@@ -294,8 +295,9 @@ public class ChunkBuilderTests
         Assert.Equal(2, lines.Length);
         using var first = JsonDocument.Parse(lines[0]);
         var root = first.RootElement;
-        Assert.Equal(["schemaVersion", "id", "prev", "next", "source", "sourceModified", "markdown", "headings", "kind", "pages", "pageImages", "text"],
+        Assert.Equal(["schemaVersion", "id", "prev", "next", "source", "path", "sourceModified", "markdown", "headings", "kind", "pages", "pageImages", "text"],
             root.EnumerateObject().Select(p => p.Name));
+        Assert.Equal("v1.2/基本設計/設計書.docx", root.GetProperty("path").GetString()); // the folders of the versions, with /
         Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("c0001", root.GetProperty("id").GetString());
         Assert.Equal(JsonValueKind.Null, root.GetProperty("prev").ValueKind);
@@ -313,6 +315,20 @@ public class ChunkBuilderTests
         doc.Chunks = false;
         ChunksWriter.Write(doc);
         Assert.False(File.Exists(path));
+    }
+
+    [Theory]
+    [InlineData(@"v1.2\設計書.docx", "v1.2/設計書.docx")]
+    [InlineData("設計書.docx", "設計書.docx")]
+    [InlineData("", "設計書.docx")] // a document from before the name was kept: its file name
+    [InlineData(@"C:\Users\someone\設計書.docx", "設計書.docx")] // never the folders from the root of a drive
+    [InlineData(@"..\..\設計書.docx", "設計書.docx")]
+    public void ThePath_IsFromTheFolderThatWasGiven_AndNeverFromTheRootOfADrive(string displayName, string expected)
+    {
+        var doc = Doc(DocumentKind.Docx, 1);
+        doc.DisplayName = displayName;
+
+        Assert.Equal(expected, ChunksWriter.RelativePath(doc));
     }
 
     [Fact]

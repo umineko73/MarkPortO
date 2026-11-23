@@ -91,6 +91,21 @@ public static class ChunksWriter
         }
     }
 
+    /// <summary>
+    /// Where the document is in the folder that was given, with <c>/</c> (as the list of files shows it, FR-013a): <c>v1.2/設計書.docx</c>. A
+    /// document given on its own is its file name. Never a path from the root of a drive: the folders of the user are not written (FR-152).
+    /// </summary>
+    internal static string RelativePath(DocumentRecord document)
+    {
+        var name = document.DisplayName;
+        if (name.Length == 0 || Path.IsPathRooted(name) || name.Split('\\', '/').Contains(".."))
+        {
+            name = Path.GetFileName(document.SourcePath);
+        }
+
+        return name.Replace('\\', '/');
+    }
+
     /// <summary>The lines of the file: one chunk on each line, each line ends with LF. A document without chunks gives an empty text.</summary>
     public static string Render(DocumentRecord document) =>
         Render(document, MarkdownRenderer.MarkdownFileName(Path.GetFileNameWithoutExtension(document.SourcePath)), pages: null);
@@ -98,6 +113,7 @@ public static class ChunksWriter
     private static string Render(DocumentRecord document, string markdown, IReadOnlySet<int>? pages)
     {
         var chunks = ChunkBuilder.Build(document, pages);
+        var path = RelativePath(document);
         var source = Path.GetFileName(document.SourcePath);
         var modified = document.Fingerprint.LastWriteUtcTicks > 0
             ? new DateTime(document.Fingerprint.LastWriteUtcTicks, DateTimeKind.Utc).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture)
@@ -118,6 +134,7 @@ public static class ChunksWriter
                 json.WriteString("prev", i > 0 ? chunks[i - 1].Id : null);
                 json.WriteString("next", i + 1 < chunks.Count ? chunks[i + 1].Id : null);
                 json.WriteString("source", source);
+                json.WriteString("path", path);
                 json.WriteString("sourceModified", modified);
                 json.WriteString("markdown", markdown);
                 json.WriteStartArray("headings");

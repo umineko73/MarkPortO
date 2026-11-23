@@ -442,6 +442,7 @@ With "Write the chunks for RAG (_chunks.jsonl)" on in "Details of the steps" (on
 | `schemaVersion` | The version of the format (`1` now) |
 | `id`, `prev`, `next` | The ID of the chunk (from `c0001`) and of the chunks before and after it |
 | `source`, `sourceModified` | The name of the source file (without its folders) and when it was last changed (UTC) |
+| `path` | Where the document is in the folder that was converted (for example `v1.2/basic design/design.docx`); the file name for a file added on its own |
 | `markdown` | The name of the Markdown file in the same folder |
 | `headings` | The headings the chunk is under (for example `["2. Data model", "2. Jobs and resuming"]`) |
 | `kind` | `text`, `table`, `code`, `slide` or `page` |
@@ -494,3 +495,4 @@ Register the small MCP server `markporto-rag` (in `tools\markporto-rag\` of the 
 
 - The documents do not leave the computer (only when the embedding API is a cloud service, the text of the chunks is sent to it).
 - A new or repeated conversion is read again at the next search. Old output of the same document in the same folders gives the same text more than once.
+- **Documents kept in a folder for each version**: with every version searched, the versions of the same section fill the top results, and an answer can come from an old version or mix them. Search only the output of the latest version (`roots`), or narrow `search_docs` to a version with `path` (for example `"v1.2"`; ask "in the design documents of v1.2, ..."). Convert with "Make the folder" (the default) so that the versions can be told apart. To see what changed between versions, compare their Markdown with WinMerge or a similar tool.

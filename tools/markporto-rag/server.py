@@ -274,6 +274,14 @@ def usable(c: dict) -> bool:
             and (c.get("pages") is None or isinstance(c.get("pages"), list)) and isinstance(c.get("pageImages", []), list))
 
 
+def where(c: dict) -> str:
+    """The path of the document in the folder that was converted ("v1.2/設計書.docx"). A chunk written before MarkPortO kept it has none:
+    then the place of its file in the searched folder, which follows the folders that were converted (the default layout)."""
+    if isinstance(c.get("path"), str) and c["path"]:
+        return c["path"].replace("\\", "/")
+    return c["key"].split("#")[0]
+
+
 INDEX = Index()
 
 
@@ -285,6 +293,7 @@ def view(c: dict, score: float | None = None, full: bool = False) -> dict:
     out = {
         "key": c["key"],
         "source": c["source"],
+        "path": where(c),
         "sourceModified": c.get("sourceModified"),
         "markdown": str(Path(c["folder"]) / c["markdown"]),
         "pages": c["pages"],
@@ -313,22 +322,27 @@ def no_roots() -> dict | None:
 # ---- tools ------------------------------------------------------------------
 
 @mcp.tool()
-def search_docs(query: str, k: int = 5, source: str | None = None) -> dict:
+def search_docs(query: str, k: int = 5, source: str | None = None, path: str | None = None) -> dict:
     """Search the documents converted by MarkPortO (design documents, manuals ...) for the chunks that answer a question.
 
     The keyword search and, when it can be used, the search by meaning are mixed; the best k are returned. Each result has its
-    source: "source" (the original file), "pages", "headings" (where it is in the document) and "pageImages" (the printed pages).
-    Give these sources in the answer; do not make up page numbers. Read the chunks before and after with read_chunk (prev / next)
-    when the context is needed. "source" limits the search to the documents whose file name contains it.
+    source: "source" (the original file), "path" (where it is in the folder that was converted, e.g. "v1.2/設計書.docx"), "pages",
+    "headings" (where it is in the document) and "pageImages" (the printed pages). Give these sources in the answer; do not make up
+    page numbers. Read the chunks before and after with read_chunk (prev / next) when the context is needed.
+    "source" limits the search to the documents whose file name contains it; "path" to those whose path contains it, e.g. a
+    folder of a version ("v1.2") when the documents are kept in a folder for each version - search one version, not all of them
+    mixed, and say which version an answer comes from.
     """
     if (error := no_roots()) is not None:
         return error
     if not query or not query.strip():
         return {"error": "The question (query) is empty."}
     INDEX.refresh()
-    idx = [i for i, c in enumerate(INDEX.chunks) if not source or source.lower() in c["source"].lower()]
+    needle = path.replace("\\", "/").strip("/").lower() if path and path.strip() else None
+    idx = [i for i, c in enumerate(INDEX.chunks)
+           if (not source or source.lower() in c["source"].lower()) and (not needle or needle in where(c).lower())]
     if not idx:
-        return {"mode": "none", "results": [], "note": "No chunks (check the folders, or the value of source)."}
+        return {"mode": "none", "results": [], "note": "No chunks (check the folders, or the values of source and path)."}
 
     q = set(tokens(query))
     n = len(INDEX.chunks)
@@ -398,14 +412,15 @@ def read_chunk(key: str, neighbors: int = 1) -> dict:
 
 @mcp.tool()
 def list_documents() -> dict:
-    """The documents that are searched (the original file, the number of chunks, when the file was changed, its Markdown), and the embedding
+    """The documents that are searched (the original file, its path in the folder that was converted, the number of chunks, when the file
+    was changed, its Markdown), and the embedding
     in use: the model of the configuration and the dimension of the vectors kept, which tells which model really made them."""
     if (error := no_roots()) is not None:
         return error
     INDEX.refresh()
     docs: dict[str, dict] = {}
     for c in INDEX.chunks:
-        d = docs.setdefault(c["file"], {"source": c["source"], "markdown": str(Path(c["folder"]) / c["markdown"]),
+        d = docs.setdefault(c["file"], {"source": c["source"], "path": where(c), "markdown": str(Path(c["folder"]) / c["markdown"]),
                                         "sourceModified": c.get("sourceModified"), "chunks": 0})
         d["chunks"] += 1
     embedding = {

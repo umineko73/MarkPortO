@@ -12,7 +12,7 @@ A small MCP server that searches the chunks for RAG that MarkPortO writes (`<nam
 
 | Tool | What it does |
 |---|---|
-| `search_docs(query, k=5, source=None)` | The k chunks closest to the question; `source` limits it to the original files whose name contains it |
+| `search_docs(query, k=5, source=None, path=None)` | The k chunks closest to the question; `source` limits it to the original files whose name contains it, `path` to the documents whose path in the converted folder contains it (for example the folder of a version, `"v1.2"`) |
 | `read_chunk(key, neighbors=1)` | A chunk with up to three chunks before and after it |
 | `list_documents()` | The documents that are searched, and the embedding in use (the model of the configuration, the dimension of the vectors); another dimension means another model answered |
 
@@ -64,12 +64,47 @@ Use the path of this folder. A tool sees the server after it is opened again.
 
 The way to write these can change with the version of a tool; see its documentation when it does not work.
 
-## Example
+## Examples
 
-Ask the tool something like "Find in the design documents how an interrupted job is resumed, with the pages." It searches with `search_docs`, reads the chunks around with `read_chunk` when it needs to, and answers with the pages. The page images in `pageImages` show the pages as they are printed.
+### Asking
+
+Say where to look (the documents, the version), what to find, and how to give the source. The model searches with `search_docs`, reads the chunks around with `read_chunk` when it needs to, and answers with the pages; the page images in `pageImages` show the pages as they are printed.
+
+```
+In the design documents of v1.2, find the specification of the connection timeout.
+Give the file and the page with every answer. If it is not found, say so; do not guess.
+```
+
+| To | Ask, for example | Why it works |
+|---|---|---|
+| Look up a specification | "In the design documents of v1.2, find when a job is resumed, with the pages." | Naming the version makes the model narrow the search with `path` |
+| Compare versions | "How does the timeout differ between v1.1 and v1.2? Search the design documents of each and compare." | One search for each version. To see every change of a document, compare its Markdown with WinMerge or a similar tool |
+| Check the grounds | "Read the sections before and after it too, and check that the condition has no exception." | `read_chunk` reads the chunks around |
+| Find all | "Search a few times with other words too: timeout, wait, time limit." | Other wordings find what one wording misses |
+| Find what is affected | "List every place that uses the error code E102, in the design documents and in the protocol specification." | "Every" and "in both" make it search more and in each document |
+| See the original | "Give me the path of the page image of that table." | A table or a figure can be checked on its page image |
+
+### Rules in the instructions of the tool
+
+So that you do not have to say it each time, write it in `CLAUDE.md` for Claude Code, or `AGENTS.md` for Codex, OpenCode and GitHub Copilot (for one project, or for every project). Change the folders of the versions and the latest version to those of your documents.
+
+```markdown
+## Searching the design documents (markporto-rag)
+- For a question about a specification or the design, search the design documents with search_docs of markporto-rag before answering. Do not answer from your own knowledge only.
+- The documents are in a folder for each version (for example v1.1, v1.2). Unless a version is asked for, search the latest one (v1.2) with path, and say which version the answer comes from.
+- Give the source of every answer: the path and the page (for example v1.2/basic design/design.docx p.13). Take page numbers only from pages of the search results; never make one up.
+- When a section seems cut, read the chunks before and after it with read_chunk.
+- If two or three searches with other words find nothing, answer that the design documents do not say it.
+- Check the numbers of a table or a figure on its page image (pageImages) when it matters.
+```
+
+- Always keep "do not guess" and "say that it is not found": without them, a model can make up a likely answer from its own knowledge.
+- Let it take page numbers only from `pages` of the results, so that it does not write a page that does not exist.
+- Say which version is the latest: a model cannot tell it from the names of the folders. Change that line when a new version comes.
 
 ## Notes
 
 - A small model that writes the answer may write page numbers it was not given; take the source from `source` and `pages` of the results.
 - An old document gives an old answer: convert a design document again after it changes (the server reads it again by itself).
 - Several conversions of the same document in the searched folders give the same text more than once; narrow `roots` or remove the old output.
+- For documents kept in a folder for each version, search only the output of the latest version (`roots`), or narrow the search to a version with `path` (mixed versions can give an answer from an old one).
