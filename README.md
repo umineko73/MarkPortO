@@ -16,7 +16,7 @@ MarkPortO is a **Windows app that converts Word, Excel, PowerPoint and PDF files
 - Convert headings, tables, lists, code and equations into Markdown, read directly from the Office file.
 - Compare the result with the original page images in a preview.
 - Choose a preset for the purpose: **For reading** (people read the Markdown) or **For RAG** (a language model reads it).
-- Chunks for RAG (`_chunks.jsonl`): the document in chunks for search, each with its headings, pages and page images; tables and code are not cut in the middle. A small MCP server in `tools\markporto-rag\` lets Claude Code, Codex, OpenCode or Copilot search them ([tools/markporto-rag/README.md](tools/markporto-rag/README.md)).
+- Chunks for RAG (`_chunks.jsonl`): the document in chunks for search, each with its headings, pages and page images; tables and code are not cut in the middle. A small MCP server in `tools\markporto-rag\` lets tools such as Claude Code search them ([tools/markporto-rag/README.md](tools/markporto-rag/README.md)).
 - Write an Excel book as one Markdown for each sheet; put the output of a folder with or without a folder of its name.
 - Optionally let an image-capable model (VLM) add what the figures, charts and shapes show, or read whole pages (scans).
 - Convert folders of documents and resume interrupted runs.

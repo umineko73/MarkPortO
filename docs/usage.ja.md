@@ -530,7 +530,7 @@ for c in chunks:
 
 ### Claude Code などから検索する
 
-ZIP の `tools\markporto-rag\` にある小さな MCP サーバー `markporto-rag` を Claude Code・Codex・OpenCode・GitHub Copilot などの道具に登録すると、そのモデルが `_chunks.jsonl` を検索して、出どころ（元のファイル・ページ・見出し・ページ画像）つきで答えられます。データベースは要りません。
+ZIP の `tools\markporto-rag\` にある小さな MCP サーバー `markporto-rag` を Claude Code などの道具に登録すると、そのモデルが `_chunks.jsonl` を検索して、出どころ（元のファイル・ページ・見出し・ページ画像）つきで答えられます。データベースは要りません。
 
 1. RAG用の小分けをオンにして変換します（上の節。プリセット「RAG用」ならオン）。
 2. [uv](https://docs.astral.sh/uv/) を入れます（`winget install astral-sh.uv`）。MCP の部品は、初回の起動で uv が取ってきます（インターネットが要ります）。
@@ -555,7 +555,7 @@ ZIP の `tools\markporto-rag\` にある小さな MCP サーバー `markporto-ra
    claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp python C:\MarkPortO\tools\markporto-rag\server.py
    ```
 
-   Codex・OpenCode・GitHub Copilot の書き方と、設定のすべての項目は [tools/markporto-rag/README.ja.md](../tools/markporto-rag/README.ja.md) にあります。
+   ほかの道具の書き方と、設定のすべての項目は [tools/markporto-rag/README.ja.md](../tools/markporto-rag/README.ja.md) にあります。
 5. 道具に頼みます。例:「設計書から、中断した変換の再開の仕方を調べて。ページも示して」。モデルは `search_docs` で探し、必要なら `read_chunk` で前後の塊を読んで、ページを付けて答えます。ページ画像（`pageImages`）で原文を確かめられます。
 
 - 文書は PC の外へ出ません（埋め込みの API をクラウドにしたときだけ、塊の文字がその API へ送られます）。

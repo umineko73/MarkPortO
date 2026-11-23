@@ -16,7 +16,7 @@ Word・Excel・PowerPoint・PDFを、**Markdown・ページ画像（PNG）・RAG
 - 文書の見出し・表・箇条書き・コード・数式などを、Officeのファイルから直接読んでMarkdownに変換
 - 元のページ画像と変換結果を並べて確認
 - 目的に合わせたプリセット：**閲覧用**（人が読む）と **RAG用**（言語モデルが読む）
-- RAG用の小分け（`_chunks.jsonl`）：見出し・ページ・ページ画像つきの検索用の塊。表とコードは途中で切らない。`tools\markporto-rag\` の小さな MCP サーバーで、Claude Code・Codex・OpenCode・Copilot から検索できる（[tools/markporto-rag/README.ja.md](tools/markporto-rag/README.ja.md)）
+- RAG用の小分け（`_chunks.jsonl`）：見出し・ページ・ページ画像つきの検索用の塊。表とコードは途中で切らない。`tools\markporto-rag\` の小さな MCP サーバーで、Claude Code などから検索できる（[tools/markporto-rag/README.ja.md](tools/markporto-rag/README.ja.md)）
 - Excel をシートごとに別の Markdown に、フォルダの出力はフォルダごと／中身だけを選べる
 - 画像を読めるモデル（VLM）で、図・グラフ・図形の中身を書き足す。スキャンなどはページ全体を読み取る（任意）
 - フォルダごとの一括変換と、中断した処理の再開

@@ -465,7 +465,7 @@ for c in chunks:
 
 ### Searching from Claude Code and similar tools
 
-Register the small MCP server `markporto-rag` (in `tools\markporto-rag\` of the ZIP) in a tool such as Claude Code, Codex, OpenCode or GitHub Copilot, and its model can search the `_chunks.jsonl` files and answer with the source (the original file, the pages, the headings and the page images). No database is needed.
+Register the small MCP server `markporto-rag` (in `tools\markporto-rag\` of the ZIP) in a tool such as Claude Code, and its model can search the `_chunks.jsonl` files and answer with the source (the original file, the pages, the headings and the page images). No database is needed.
 
 1. Convert with the chunks for RAG on (the section above; on in the preset For RAG).
 2. Install [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`). The MCP package is fetched by uv the first time (this needs the internet).
@@ -490,7 +490,7 @@ Register the small MCP server `markporto-rag` (in `tools\markporto-rag\` of the 
    claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp python C:\MarkPortO\tools\markporto-rag\server.py
    ```
 
-   Codex, OpenCode and GitHub Copilot, and every item of the configuration, are in [tools/markporto-rag/README.md](../tools/markporto-rag/README.md).
+   Other tools, and every item of the configuration, are in [tools/markporto-rag/README.md](../tools/markporto-rag/README.md).
 5. Ask the tool, for example "Find in the design documents how an interrupted conversion is resumed, with the pages." It searches with `search_docs`, reads the chunks around with `read_chunk` when it needs to, and answers with the pages; the page images (`pageImages`) show the original.
 
 - The documents do not leave the computer (only when the embedding API is a cloud service, the text of the chunks is sent to it).
