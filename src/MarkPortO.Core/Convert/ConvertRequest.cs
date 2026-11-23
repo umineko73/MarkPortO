@@ -27,7 +27,8 @@ namespace MarkPortO.Core.Convert;
 public sealed record PlannedInput(string Path, string RelativeDirectory = "");
 
 /// <summary>Where a document was written by an earlier conversion, and the name the file list showed for it.</summary>
-public sealed record PreviousOutput(string OutputFolder, string DisplayName);
+/// <param name="SheetFiles">The files of the sheets that the earlier conversion wrote (FR-153), so that they are removed with its other output.</param>
+public sealed record PreviousOutput(string OutputFolder, string DisplayName, IReadOnlyList<string>? SheetFiles = null);
 
 /// <summary>What to convert and how (the input of <see cref="ConvertService"/>).</summary>
 public sealed class ConvertRequest
@@ -92,6 +93,8 @@ public sealed class ConvertRequest
         Step3Mode = settings.Steps.Step3Mode,
         StructureNote = settings.Output.StructureNote,
         Chunks = settings.Output.Chunks,
+        FolderLayout = settings.Output.FolderLayout,
+        ExcelPerSheet = settings.Output.ExcelPerSheet,
         Preset = ConversionPreset.RecordText(settings),
         Connection = settings.Steps.Step3 ? settings.Vlm.Selected : null,
         PromptNames = new Settings.PromptNames

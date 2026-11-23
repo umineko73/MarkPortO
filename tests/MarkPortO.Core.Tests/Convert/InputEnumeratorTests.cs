@@ -150,6 +150,24 @@ public class InputEnumeratorTests
     }
 
     [Fact]
+    public void WithTheContentsOnly_AFolderHasNoInputFolder_AndNoPrefixOfItsName()
+    {
+        using var dir = new TempDir();
+        var folderA = dir.Combine("A");
+        var folderB = dir.Combine("B");
+        Touch(Path.Combine(folderA, "x.docx"), Path.Combine(folderA, "sub", "z.docx"), Path.Combine(folderB, "y.docx"));
+
+        var single = InputEnumerator.Enumerate([folderA], All, recurse: true, FolderLayout.Contents);
+        var both = InputEnumerator.Enumerate([folderA, folderB], All, recurse: true, FolderLayout.Contents);
+
+        Assert.Null(single.InputFolder); // FR-154: no folder of its name in the output folder
+        Assert.Equal(new[] { ("", "x.docx"), ("sub", "z.docx") }, single.Inputs.Select(i => (i.RelativeDirectory, Path.GetFileName(i.Path))));
+        Assert.Null(both.InputFolder);
+        Assert.Equal(new[] { ("", "x.docx"), ("", "y.docx"), ("sub", "z.docx") }, both.Inputs.Select(i => (i.RelativeDirectory, Path.GetFileName(i.Path))));
+        Assert.Equal(folderA, InputEnumerator.Enumerate([folderA], All, recurse: true).InputFolder); // the default makes the folder, as before
+    }
+
+    [Fact]
     public void ProblemsAreReportedAsWarnings_NotErrors()
     {
         using var dir = new TempDir();

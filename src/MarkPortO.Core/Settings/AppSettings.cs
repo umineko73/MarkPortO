@@ -369,6 +369,12 @@ public sealed class OutputSettings
 
     /// <summary>Write the chunks for retrieval (RAG) next to the Markdown, as <c>&lt;name&gt;_chunks.jsonl</c> (FR-152).</summary>
     public bool Chunks { get; set; }
+
+    /// <summary>Where the output of a folder that was given goes (FR-154): in a folder of its name (the default), or straight into the output folder.</summary>
+    public FolderLayout FolderLayout { get; set; }
+
+    /// <summary>An xlsx is written as one Markdown for each sheet, <c>&lt;book&gt;_&lt;sheet&gt;.md</c>, in the folder of the book (FR-153).</summary>
+    public bool ExcelPerSheet { get; set; }
 }
 
 /// <summary>The language and the theme of the screen (FR-033, FR-035). <c>system</c> follows the operating system.</summary>

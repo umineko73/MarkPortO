@@ -46,6 +46,18 @@
   <sys:String x:Key="Main_Cond_OptionsRow">抽出オプション</sys:String>
   <sys:String x:Key="Main_Cond_Details">ステップの詳細</sys:String>
   <sys:String x:Key="Main_Cond_StructureNote">冒頭に「このMarkdownの構造」の説明を書く</sys:String>
+  <sys:String x:Key="Main_Cond_ExcelPerSheet">シートごとに別ファイルにする</sys:String>
+  <sys:String x:Key="Main_Cond_ExcelPerSheetTip">ブックのフォルダの中に、シートごとの Markdown（「ブック名_シート名.md」）を書きます。ブック全体の Markdown は書きません。ページ画像と図は共有します。外部コマンドで抽出する xlsx には効きません。</sys:String>
+  <sys:String x:Key="Main_Cond_VlmOutput">VLMの結果</sys:String>
+  <sys:String x:Key="Main_Cond_VlmOutputInline">Markdown の中に書く</sys:String>
+  <sys:String x:Key="Main_Cond_VlmOutputSeparate">別ファイル（名前_vlm.md）に書く</sys:String>
+  <sys:String x:Key="Main_Cond_VlmOutputTip">VLM の読み取りを書く場所です。「Markdown の中に書く」は文書の Markdown の各ページに、「別ファイル」は同じフォルダの「名前_vlm.md」に書きます。Step3 がオンのときだけ選べます。</sys:String>
+  <sys:String x:Key="Main_Cond_WholeTables">ページ全体を読んだ結果の表</sys:String>
+  <sys:String x:Key="Main_Cond_ExtraOutput">追加の出力</sys:String>
+  <sys:String x:Key="Main_Cond_FolderLayout">フォルダの出力:</sys:String>
+  <sys:String x:Key="Main_Cond_FolderLayoutFolder">フォルダごと作る</sys:String>
+  <sys:String x:Key="Main_Cond_FolderLayoutContents">中身だけを置く</sys:String>
+  <sys:String x:Key="Main_Cond_FolderLayoutTip">フォルダを追加したときの出力の作り方です。「フォルダごと作る」は、出力先にそのフォルダと同じ名前のフォルダを作り、その中に書きます。「中身だけを置く」は、そのフォルダを作らず、中のファイルとサブフォルダを出力先の直下に作ります。ファイルを1つずつ追加したものは、どちらでも出力先の直下に作ります。</sys:String>
   <sys:String x:Key="Main_Cond_Chunks">RAG 用の小分け（_chunks.jsonl）を書く</sys:String>
   <sys:String x:Key="Main_Cond_ChunksTip">Markdown の隣に、文書を検索（RAG）のための塊に分けたファイルを書きます。1行に1つの JSON で、塊ごとに見出し・ページ・ページ画像を持ちます。表とコードは途中で切りません。LLM や検索の仕組みに読ませるためのもので、人が読むときは要りません。</sys:String>
   <sys:String x:Key="Main_Cond_StructureNoteTip">Markdown の冒頭に、ページの区切りや印の読み方を説明する引用を書きます。LLM に読ませるときは役に立ち、人が読む資料ではじゃまになることがあります。見出し、変換ツールのコメント、ページの区切りは、オフでも書きます。</sys:String>
@@ -147,7 +159,6 @@
   <sys:String x:Key="Main_Cond_Step3ModeSupplement">補足</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTranscribe">書き写し</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTip">補足: Step1 の本文・表・コードをそのまま使い、VLM は Step1 で取り出した図だけを1つずつ読んで、本文にない情報を図の直後に書き足します。Step1 の本文がほとんどないページと PDF は、ページ全体を読みます。Step1 の本文で足りるページは送りません。Word の図形は、ページ画像から図形だけを読みます。Step1 の「文書の画像を取り出す」をオンにしてください（オフだと、代替テキストのある画像のページはページ全体を読み、代替テキストのない画像は読まれません）。書き写し: すべてのページの画像を VLM が読み、書き起こします（これまでの動き）。</sys:String>
-  <sys:String x:Key="Main_Cond_VlmSeparate">結果を別ファイル(名前__vlm.md)に書く</sys:String>
   <sys:String x:Key="Main_Cond_Step3">VLMで印刷イメージからテキスト抽出</sys:String>
   <sys:String x:Key="Main_Cond_Pages">ページの範囲</sys:String>
   <sys:String x:Key="Main_Cond_PagesTip">Step3で読むページを、3-5,8 のように書きます(空欄: すべて)。Step1は文書全体を変換します。</sys:String>

@@ -32,13 +32,22 @@ public sealed class PreviousOutputs
     }
 
     /// <summary>Reads the runs of the output folder, the newest first: the newest conversion of a file is the one that counts.</summary>
-    public static PreviousOutputs Load(string outputFolder)
+    /// <param name="layout">
+    /// Where the output of a folder goes now (FR-154). A run of a folder made with the other layout wrote to other places: its documents are not
+    /// taken as earlier conversions, so they are converted as new ones.
+    /// </param>
+    public static PreviousOutputs Load(string outputFolder, FolderLayout layout = FolderLayout.Folder)
     {
         var result = new PreviousOutputs();
         var outRoot = Path.GetFullPath(outputFolder);
         var store = new StateStore(outRoot);
         foreach (var job in store.ListJobs())
         {
+            if (job.Options.FolderLayout != layout && job.Inputs.Any(Directory.Exists))
+            {
+                continue;
+            }
+
             foreach (var docId in job.Documents)
             {
                 if (store.LoadDocument(job.JobId, docId) is not { } document || result._latest.ContainsKey(document.SourcePath))
@@ -95,7 +104,7 @@ public sealed class PreviousOutputs
         {
             if (Latest(path) is { } document)
             {
-                map[Path.GetFullPath(path)] = new PreviousOutput(document.OutputFolder, document.DisplayName);
+                map[Path.GetFullPath(path)] = new PreviousOutput(document.OutputFolder, document.DisplayName, document.SheetFiles);
             }
         }
 

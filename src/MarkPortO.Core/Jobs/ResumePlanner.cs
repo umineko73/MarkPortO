@@ -302,6 +302,10 @@ public static class ResumePlanner
                 File.Delete(chunks);
             }
 
+            // The files of the sheets of an xlsx written sheet by sheet (FR-153).
+            Markdown.MarkdownRenderer.DeleteSheetFiles(document, keep: []);
+            document.SheetFiles = null;
+
             var images = Path.Combine(document.OutputFolder, "images");
             if (Directory.Exists(images))
             {

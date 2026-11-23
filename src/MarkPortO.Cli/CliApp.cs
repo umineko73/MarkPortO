@@ -106,6 +106,8 @@ public static class CliApp
         var step3Mode = new Option<string?>("--step3-mode") { Description = "supplement or transcribe: how Step 3 uses the VLM. supplement keeps the text of Step 1 and reads only the pictures that Step 1 saved (--pictures on), and the pages that Step 1 has almost no text of; transcribe reads every page whole (default: the settings file, supplement)." };
         var preset = new Option<string?>("--preset") { Description = "The preset of the conversion: human (shown as 'For reading': a Markdown for people to read), rag (shown as 'For RAG': for a language model), or the name of a preset saved in the settings. It sets the options of Step 1 to Step 3; the options given here win over it." };
         var structureNote = new Option<string?>("--structure-note") { Description = "on or off: write the description of the structure (\"About this Markdown\") at the top of the Markdown (default: the settings file, on)." };
+        var folderLayout = new Option<string?>("--folder-layout") { Description = "folder or contents: where the output of a folder goes. folder makes a folder of its name in the output folder (default: the settings file, folder); contents puts what is in it straight into the output folder. Not used with --resume." };
+        var excelPerSheet = new Option<string?>("--excel-per-sheet") { Description = "on or off: write an xlsx as one Markdown for each sheet, <book>_<sheet>.md, in the folder of the book; the page images are shared (default: the settings file, off). Not for an xlsx of an extractor." };
         var chunks = new Option<string?>("--chunks") { Description = "on or off: write the chunks for retrieval (RAG) next to the Markdown, as <name>_chunks.jsonl: one JSON object on each line, with the headings, the pages and the page images of each chunk (default: the settings file, off; the preset rag turns it on)." };
         var dropRepeated = new Option<string?>("--drop-repeated-tables") { Description = "on or off: leave out the tables that the VLM wrote again on a page, after the last table (a small model can go on writing the same tables)." };
         var prompt = new Option<string?>("--prompt") { Description = "The name of the VLM prompt for every kind of file that has a prompt of this name (or 'standard'); a kind without it keeps its own choice. Not used with --resume." };
@@ -134,7 +136,7 @@ public static class CliApp
         foreach (var option in new Option[]
         {
             settings, output, types, recurse, noRecurse, includeHidden, noIncludeHidden, includeHiddenSheets, noIncludeHiddenSheets, includeHiddenSlides, noIncludeHiddenSlides, includeOffSlide, noIncludeOffSlide, emphasis, noEmphasis, pdfText, pictures, shapes, groupShapes, engine, dpi, excelRange, step2, step3, vlmSeparate,
-            pages, step1Tables, pageImage, dropRepeated, step3Mode, preset, structureNote, chunks, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, sameFolder, result, quiet,
+            pages, step1Tables, pageImage, dropRepeated, step3Mode, preset, structureNote, chunks, folderLayout, excelPerSheet, prompt, promptDocx, promptXlsx, promptPptx, promptPdf, extractorDocx, extractorXlsx, extractorPptx, extractorPdf, connection, maxPages, maxCost, parallel, resume, job, retryFailed, changedOnly, sameFolder, result, quiet,
         })
         {
             convert.Options.Add(option);
@@ -173,6 +175,8 @@ public static class CliApp
                 Preset = parse.GetValue(preset),
                 StructureNote = parse.GetValue(structureNote),
                 Chunks = parse.GetValue(chunks),
+                FolderLayout = parse.GetValue(folderLayout),
+                ExcelPerSheet = parse.GetValue(excelPerSheet),
                 Prompt = parse.GetValue(prompt),
                 PromptDocx = parse.GetValue(promptDocx),
                 PromptXlsx = parse.GetValue(promptXlsx),
@@ -301,6 +305,12 @@ public static class CliApp
             return ExitCodes.InvalidArguments;
         }
 
+        if (resuming && args.FolderLayout is not null)
+        {
+            await stderr.WriteLineAsync("error: --folder-layout cannot be used with --resume; the job keeps where its output goes.");
+            return ExitCodes.InvalidArguments;
+        }
+
         if (resuming)
         {
             return await ResumeAsync(args, settings, stdout, stderr, cancellationToken);
@@ -312,7 +322,7 @@ public static class CliApp
         }
 
         // 3. the documents
-        var found = InputEnumerator.Enumerate(settings.Input.Paths, settings.Input.Types, settings.Input.Recurse);
+        var found = InputEnumerator.Enumerate(settings.Input.Paths, settings.Input.Types, settings.Input.Recurse, settings.Output.FolderLayout);
         foreach (var warning in found.Warnings)
         {
             await stderr.WriteLineAsync("warning: " + warning);
@@ -357,7 +367,7 @@ public static class CliApp
         // Only the files that changed since their last conversion, written to their earlier folders (FR-126).
         if (args.ChangedOnly)
         {
-            if (PreviousOutputs.Load(settings.Output.Folder).ChangedOnly(request) is not { } changed)
+            if (PreviousOutputs.Load(settings.Output.Folder, settings.Output.FolderLayout).ChangedOnly(request) is not { } changed)
             {
                 await stdout.WriteLineAsync("No file has changed since its last conversion.");
                 return ExitCodes.Success;
@@ -373,7 +383,7 @@ public static class CliApp
         else if (settings.Output.SameFolder)
         {
             // Every file, written to the folder of its earlier conversion (FR-129).
-            request = PreviousOutputs.Load(settings.Output.Folder).SameFolders(request);
+            request = PreviousOutputs.Load(settings.Output.Folder, settings.Output.FolderLayout).SameFolders(request);
         }
 
         // 4. run
@@ -445,6 +455,7 @@ public static class CliApp
             Step3Mode = ConvertArgsResolver.TryStep3Mode(args.Step3Mode),
             StructureNote = Step(args.StructureNote),
             Chunks = Step(args.Chunks),
+            ExcelPerSheet = Step(args.ExcelPerSheet),
             Connection = args.Connection,
         };
 

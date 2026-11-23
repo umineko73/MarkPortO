@@ -191,6 +191,9 @@ public class CliParsingTests
         Assert.False(human.Output.Chunks);
         Assert.False(Resolved(new ConvertArgs { Preset = "rag", Chunks = "off" }, FromFile()).Output.Chunks);
         Assert.True(Resolved(new ConvertArgs { Chunks = "ON" }, FromFile()).Output.Chunks);
+        Assert.True(Resolved(new ConvertArgs { ExcelPerSheet = "on" }, FromFile()).Output.ExcelPerSheet); // FR-153
+        Assert.False(Resolved(new ConvertArgs { Preset = "rag" }, FromFile()).Output.ExcelPerSheet); // not in a preset
+        Assert.Equal(FolderLayout.Contents, Resolved(new ConvertArgs { FolderLayout = "Contents" }, FromFile()).Output.FolderLayout); // FR-154
         Assert.Equal(Step3Mode.Transcribe, human.Steps.Step3Mode);
 
         var (settings, errors) = ConvertArgsResolver.Resolve(new ConvertArgs { Preset = "nothing" }, FromFile());

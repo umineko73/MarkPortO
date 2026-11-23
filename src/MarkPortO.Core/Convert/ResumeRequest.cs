@@ -54,6 +54,9 @@ public sealed class ResumeRequest
     /// <summary>Write the chunks for retrieval next to the Markdown (FR-152). <c>null</c>: as in the earlier run.</summary>
     public bool? Chunks { get; init; }
 
+    /// <summary>Write an xlsx as one Markdown for each sheet (FR-153). <c>null</c>: as in the earlier run.</summary>
+    public bool? ExcelPerSheet { get; init; }
+
     public string? Connection { get; init; }
 
     /// <summary>The prompts of this run, by name (FR-139: a re-reading uses the choice on the screen). <c>null</c>: as in the earlier run.</summary>

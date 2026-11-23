@@ -21,7 +21,7 @@ namespace MarkPortO.Core.Convert;
 
 /// <summary>The documents found for the given paths.</summary>
 /// <param name="Inputs">The documents, in a fixed order.</param>
-/// <param name="InputFolder">Set when exactly one folder was given: the output is then grouped in a folder of the same name.</param>
+/// <param name="InputFolder">Set when exactly one folder was given and its output goes into a folder of its name (<see cref="FolderLayout.Folder"/>).</param>
 /// <param name="Warnings">Things that were skipped (a path that does not exist, a file that is not a document ...).</param>
 public sealed record EnumerationResult(IReadOnlyList<PlannedInput> Inputs, string? InputFolder, IReadOnlyList<string> Warnings);
 
@@ -34,7 +34,11 @@ public static class InputEnumerator
     /// <param name="paths">Files and/or folders.</param>
     /// <param name="types">Which kinds a folder is searched for. A file that is named explicitly is taken whatever the types.</param>
     /// <param name="recurse">Also search the sub-folders of a folder.</param>
-    public static EnumerationResult Enumerate(IEnumerable<string> paths, IReadOnlyCollection<DocumentKind> types, bool recurse)
+    /// <param name="layout">
+    /// Where the output of a folder goes (FR-154): in a folder of its name, or straight into the output folder (the files of the folder then have
+    /// only the path inside it).
+    /// </param>
+    public static EnumerationResult Enumerate(IEnumerable<string> paths, IReadOnlyCollection<DocumentKind> types, bool recurse, FolderLayout layout = FolderLayout.Folder)
     {
         var given = paths.Where(p => !string.IsNullOrWhiteSpace(p)).Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var warnings = new List<string>();
@@ -42,13 +46,15 @@ public static class InputEnumerator
 
         var folders = given.Where(Directory.Exists).ToList();
         var singleFolder = given.Count == 1 && folders.Count == 1;
+        var contents = layout == FolderLayout.Contents;
 
         foreach (var path in given)
         {
             if (Directory.Exists(path))
             {
                 // With one folder the output is grouped under the folder's name already, so no extra level here.
-                var prefix = singleFolder ? string.Empty : ConvertRequest.FolderName(path);
+                // With the contents only (FR-154), no level of the folder's name either.
+                var prefix = singleFolder || contents ? string.Empty : ConvertRequest.FolderName(path);
                 foreach (var file in FilesIn(path, types, recurse))
                 {
                     var relative = Path.GetRelativePath(path, Path.GetDirectoryName(file)!);
@@ -81,7 +87,7 @@ public static class InputEnumerator
             .OrderBy(i => i.RelativeDirectory, StringComparer.Ordinal)
             .ThenBy(i => i.Path, StringComparer.Ordinal)
             .ToList();
-        return new EnumerationResult(ordered, singleFolder ? folders[0] : null, warnings);
+        return new EnumerationResult(ordered, singleFolder && !contents ? folders[0] : null, warnings);
     }
 
     private static IEnumerable<string> FilesIn(string folder, IReadOnlyCollection<DocumentKind> types, bool recurse)

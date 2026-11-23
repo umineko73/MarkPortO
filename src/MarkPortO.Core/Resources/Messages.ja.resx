@@ -631,4 +631,10 @@
   <data name="The chunks for RAG could not be written: {0}" xml:space="preserve">
     <value>RAG 用の小分け（_chunks.jsonl）を書けませんでした: {0}</value>
   </data>
+  <data name="Folder: contents only" xml:space="preserve">
+    <value>フォルダは中身だけ</value>
+  </data>
+  <data name="Excel: a file for each sheet" xml:space="preserve">
+    <value>Excel はシートごとに別ファイル</value>
+  </data>
 </root>

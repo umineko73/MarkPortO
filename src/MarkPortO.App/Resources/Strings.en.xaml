@@ -46,6 +46,18 @@
   <sys:String x:Key="Main_Cond_OptionsRow">Extraction options</sys:String>
   <sys:String x:Key="Main_Cond_Details">Details of the steps</sys:String>
   <sys:String x:Key="Main_Cond_StructureNote">Write "About this Markdown" at the top</sys:String>
+  <sys:String x:Key="Main_Cond_ExcelPerSheet">A file for each sheet</sys:String>
+  <sys:String x:Key="Main_Cond_ExcelPerSheetTip">Writes one Markdown for each sheet, "book_sheet.md", in the folder of the book, and no Markdown of the whole book. The page images and the pictures are shared. Not for an xlsx that an extractor converts.</sys:String>
+  <sys:String x:Key="Main_Cond_VlmOutput">VLM results</sys:String>
+  <sys:String x:Key="Main_Cond_VlmOutputInline">In the Markdown</sys:String>
+  <sys:String x:Key="Main_Cond_VlmOutputSeparate">In a separate file (name_vlm.md)</sys:String>
+  <sys:String x:Key="Main_Cond_VlmOutputTip">Where what the VLM read is written: "In the Markdown" on each page of the Markdown of the document, "In a separate file" in "name_vlm.md" in the same folder. Only when Step3 is on.</sys:String>
+  <sys:String x:Key="Main_Cond_WholeTables">Tables of the pages read whole</sys:String>
+  <sys:String x:Key="Main_Cond_ExtraOutput">More output</sys:String>
+  <sys:String x:Key="Main_Cond_FolderLayout">Output of a folder:</sys:String>
+  <sys:String x:Key="Main_Cond_FolderLayoutFolder">Make the folder</sys:String>
+  <sys:String x:Key="Main_Cond_FolderLayoutContents">Contents only</sys:String>
+  <sys:String x:Key="Main_Cond_FolderLayoutTip">When a folder is added: "Make the folder" makes a folder of its name in the output folder and writes into it. "Contents only" makes no such folder: the files and sub-folders in it go straight into the output folder. Files that were added one by one always go straight into the output folder.</sys:String>
   <sys:String x:Key="Main_Cond_Chunks">Write the chunks for RAG (_chunks.jsonl)</sys:String>
   <sys:String x:Key="Main_Cond_ChunksTip">Next to the Markdown, a file with the document cut into chunks for search (RAG): one JSON object on each line, with the headings, the pages and the page images of each chunk. Tables and code blocks are not cut in the middle. For a language model or a search tool; a reader of the document does not need it.</sys:String>
   <sys:String x:Key="Main_Cond_StructureNoteTip">A quote at the top of the Markdown that tells how to read the page separators and the marks. It helps a language model; for people who read the document it can be in the way. The title, the comment of the converter and the page separators are written also when it is off.</sys:String>
@@ -147,7 +159,6 @@
   <sys:String x:Key="Main_Cond_Step3ModeSupplement">add to the text</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTranscribe">read every page</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTip">Add to the text: the text, tables and code of Step1 are kept, and the VLM reads only the pictures that Step1 saved (one by one, after each picture it writes what the text does not have). A page that Step1 has almost no text of, and a PDF, are read whole. A page that the text of Step1 is enough for is not sent. The drawn shapes of Word are read from the page image, for the shapes only. Turn on &quot;Save the pictures of the document&quot; in Step1 (when it is off, a page with a picture that has an alternative text is read whole, and a picture without one is not read). Read every page: the VLM reads every page image whole and writes it out (as before).</sys:String>
-  <sys:String x:Key="Main_Cond_VlmSeparate">Write the results to a separate file (name__vlm.md)</sys:String>
   <sys:String x:Key="Main_Cond_Step3">Extract text from print images with the VLM</sys:String>
   <sys:String x:Key="Main_Cond_Pages">Pages</sys:String>
   <sys:String x:Key="Main_Cond_PagesTip">Write the pages that Step3 reads, like 3-5,8 (empty: all). Step1 still converts the whole file.</sys:String>

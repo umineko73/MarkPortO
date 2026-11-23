@@ -90,6 +90,16 @@ public static class ConditionSummary
             parts.Add(Loc.T("Chunks for RAG"));
         }
 
+        if (settings.Output.FolderLayout == Jobs.Models.FolderLayout.Contents)
+        {
+            parts.Add(Loc.T("Folder: contents only"));
+        }
+
+        if (settings.Output.ExcelPerSheet)
+        {
+            parts.Add(Loc.T("Excel: a file for each sheet"));
+        }
+
         if (settings.Steps.Step2 && settings.Steps.PageImage != PageImageStyle.Reference)
         {
             parts.Add(settings.Steps.PageImage == PageImageStyle.Image ? Loc.T("Page images: image") : Loc.T("Page images: link"));

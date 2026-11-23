@@ -57,8 +57,22 @@ public static partial class PagePreview
     public static IReadOnlyList<PreviewPage> Load(DocumentRecord document)
     {
         var name = Path.GetFileNameWithoutExtension(document.SourcePath);
-        var markdown = SplitPages(ReadOrEmpty(Path.Combine(document.OutputFolder, MarkdownRenderer.MarkdownFileName(name))));
-        var vlmFile = SplitPages(ReadOrEmpty(Path.Combine(document.OutputFolder, MarkdownRenderer.VlmFileName(name))));
+        var markdown = new Dictionary<int, string>(SplitPages(ReadOrEmpty(Path.Combine(document.OutputFolder, MarkdownRenderer.MarkdownFileName(name)))));
+        var vlmFile = new Dictionary<int, string>(SplitPages(ReadOrEmpty(Path.Combine(document.OutputFolder, MarkdownRenderer.VlmFileName(name)))));
+
+        // An xlsx written sheet by sheet (FR-153): each page is in the file of its sheet; the page numbers are those of the book.
+        foreach (var sheet in MarkdownRenderer.SheetOutputs(document))
+        {
+            foreach (var (index, text) in SplitPages(ReadOrEmpty(Path.Combine(document.OutputFolder, sheet.BaseName + ".md"))))
+            {
+                markdown[index] = text;
+            }
+
+            foreach (var (index, text) in SplitPages(ReadOrEmpty(Path.Combine(document.OutputFolder, sheet.BaseName + "_vlm.md"))))
+            {
+                vlmFile[index] = text;
+            }
+        }
 
         // The Markdown of an extractor has no pages: the whole of it is shown with every page, and it stays where it is when the page changes (FR-114).
         var whole = document.Extractor is null ? null : ReadOrEmpty(Path.Combine(document.OutputFolder, MarkdownRenderer.MarkdownFileName(name))).Trim();

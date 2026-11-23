@@ -33,13 +33,25 @@ The **Conditions** have a part that can be folded (**Kinds of file and options**
 
 | Where | Item | What it sets |
 |---|---|---|
-| Kinds of file and options | Kinds of file | The kinds of file in a folder, and whether sub-folders are included |
+| Kinds of file and options | Kinds of file | The kinds of file in a folder, whether sub-folders are included, and the output of a folder (make the folder, or contents only) |
 | 〃 | Extractor | Who extracts the text of each kind: built-in or an external command (shown when a command is registered) |
-| 〃 | Extraction options | The range of an Excel sheet and so on (grey when an external command is chosen) |
+| 〃 | Extraction options | The range of an Excel sheet, a file for each sheet, and so on (grey when an external command is chosen) |
 | 〃 | Details of the steps | Step1: the engine, the DPI, bold and italic. Step2: how the page image is written. Step3: write the results to a separate file, tables, leave out repeated tables. Markdown: write "About this Markdown" at the top, write the chunks for RAG (`_chunks.jsonl`) |
 | Rows of the steps | Step1 | Save the pictures of the document, cut out the shapes, group the shapes that are near |
 | 〃 | Step2 | Whether the page images are written in the Markdown |
 | 〃 | Step3 | Reading with the VLM (a model that reads images), the use of the VLM, the connection, the prompts, the page range |
+
+### The output of a folder, and a file for each sheet
+
+- **Output of a folder** (in the row "Kinds in a folder"; `--folder-layout` on the command line): when a folder is added, "Make the folder" (the default) makes a folder of its name in the output folder and writes into it. "Contents only" makes no such folder: the files and sub-folders in it go straight into the output folder. When several folders have documents of the same name, they are numbered, like `name (2)`. Files added one by one always go straight into the output folder.
+- **A file for each sheet** (in the row Excel; `--excel-per-sheet on`): one Markdown for each sheet, `<book>_<sheet>.md`, in the folder of the book, and no `<book>.md`. The page images and the pictures are shared, and the page numbers are those of the whole book. The separate file of the VLM results and the chunks for RAG are split by the sheets too. Not for an xlsx that an extractor converts. "Open Markdown" in the list opens the output folder.
+
+```text
+out/report/              # with "A file for each sheet"
+├── report_Sales.md
+├── report_Costs.md
+└── images/              # page-001.png (Sales), page-002.png (Costs) ...
+```
 
 For one file, a **page range** (like `3-5,8`) limits the pages that Step3 reads.
 
@@ -254,6 +266,8 @@ markporto-cli check-connection --settings settings.json
 |---|---|
 | `--engine office\|libreoffice` | The engine that prints the page images. |
 | `--dpi <72-600>` | The resolution of the page images. |
+| `--folder-layout folder\|contents` | Where the output of a folder goes: a folder of its name (the default), or what is in it straight into the output folder. Not with `--resume`. |
+| `--excel-per-sheet on\|off` | Write an Excel book as one Markdown for each sheet, `<book>_<sheet>.md` (the default is off). |
 | `--excel-range columns\|sheet\|print-area` | How an Excel sheet is cut into pages: every column on one page if possible / the whole sheet on one page / its print area. |
 | `--include-hidden` / `--no-include-hidden` | Include the hidden sheets and slides, or not. `--include-hidden-sheets` and `--include-hidden-slides` (and their `--no-` forms) set only one of them. |
 | `--include-off-slide` / `--no-include-off-slide` | Write the text of the shapes outside a slide (the default), or not (pptx). |

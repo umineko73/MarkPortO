@@ -161,6 +161,12 @@
             <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="pptx" IsChecked="{Binding TypePptx}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,20,0" />
             <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="pdf" IsChecked="{Binding TypePdf}" ToolTip="{DynamicResource Main_Cond_TypesNote}" VerticalAlignment="Center" Margin="0,0,40,0" />
             <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Recurse}" IsChecked="{Binding Recurse}" VerticalAlignment="Center" />
+            <!-- Where the output of a folder goes (FR-154) -->
+            <TextBlock Text="{DynamicResource Main_Cond_FolderLayout}" ToolTip="{DynamicResource Main_Cond_FolderLayoutTip}" VerticalAlignment="Center" Margin="24,0,8,0" />
+            <ComboBox SelectedIndex="{Binding FolderLayoutIndex}" ToolTip="{DynamicResource Main_Cond_FolderLayoutTip}" VerticalAlignment="Center" MinWidth="150">
+              <ComboBoxItem Content="{DynamicResource Main_Cond_FolderLayoutFolder}" />
+              <ComboBoxItem Content="{DynamicResource Main_Cond_FolderLayoutContents}" />
+            </ComboBox>
           </StackPanel>
 
           <!-- Who extracts the text of each kind . Shown when an extractor is registered. -->
@@ -193,13 +199,15 @@
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="{DynamicResource Main_Cond_RowXlsx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding XlsxOptionsEnabled}" />
-            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding XlsxOptionsEnabled}" ToolTip="{Binding XlsxOptionsTip}" ToolTipService.ShowOnDisabled="True">
+            <!-- A wrap panel: with the choice of a file for each sheet (FR-153) the row can be wider than the window; it goes on in a second line then. -->
+            <WrapPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding XlsxOptionsEnabled}" ToolTip="{Binding XlsxOptionsTip}" ToolTipService.ShowOnDisabled="True">
               <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_HiddenSheets}" IsChecked="{Binding IncludeHiddenSheets}" VerticalAlignment="Center" Margin="0,0,20,0" />
               <TextBlock Text="{DynamicResource Main_Cond_Excel}" VerticalAlignment="Center" Margin="0,0,10,0" />
               <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelColumns}" IsChecked="{Binding ExcelColumns}" ToolTip="{DynamicResource Main_Cond_ExcelColumnsTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
               <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelSheet}" IsChecked="{Binding ExcelSheet}" ToolTip="{DynamicResource Main_Cond_ExcelSheetTip}" VerticalAlignment="Center" Margin="0,0,16,0" />
-              <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelPrintArea}" IsChecked="{Binding ExcelPrintArea}" ToolTip="{DynamicResource Main_Cond_ExcelPrintAreaTip}" VerticalAlignment="Center" />
-            </StackPanel>
+              <RadioButton VerticalContentAlignment="Center" Padding="8,0,0,0" GroupName="ExcelRange" Content="{DynamicResource Main_Cond_ExcelPrintArea}" IsChecked="{Binding ExcelPrintArea}" ToolTip="{DynamicResource Main_Cond_ExcelPrintAreaTip}" VerticalAlignment="Center" Margin="0,0,24,0" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_ExcelPerSheet}" ToolTip="{DynamicResource Main_Cond_ExcelPerSheetTip}" IsChecked="{Binding ExcelPerSheet}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" />
+            </WrapPanel>
 
             <TextBlock Grid.Row="1" Text="{DynamicResource Main_Cond_RowPptx}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding PptxOptionsEnabled}" />
             <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding PptxOptionsEnabled}" ToolTip="{Binding PptxOptionsTip}" ToolTipService.ShowOnDisabled="True">
@@ -226,6 +234,8 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="Step1" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditNewRun}" />
@@ -248,23 +258,35 @@
               </ComboBox>
             </StackPanel>
 
-            <TextBlock Grid.Row="2" Text="Step3" VerticalAlignment="Center" IsEnabled="{Binding CanEditVlmSeparate}" />
-            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
-              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_VlmSeparate}" IsChecked="{Binding VlmSeparate}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" Margin="0,0,20,0" />
-              <TextBlock Text="{DynamicResource Main_Cond_Tables}" VerticalAlignment="Center" Margin="0,0,6,0" IsEnabled="{Binding CanEditStep1Tables}" />
-              <ComboBox SelectedIndex="{Binding Step1TablesIndex}" ToolTip="{DynamicResource Main_Cond_TablesTip}" IsEnabled="{Binding CanEditStep1Tables}" VerticalAlignment="Center" Margin="0,0,20,0" MinWidth="170">
+            <!-- Step3: where its results go, then what is done with the tables of the pages that the VLM read whole. Both only when Step3 is on. -->
+            <TextBlock Grid.Row="2" Text="Step3" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEditVlmSeparate}" />
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditVlmSeparate}">
+              <TextBlock Text="{DynamicResource Main_Cond_VlmOutput}" VerticalAlignment="Center" Margin="0,0,6,0" />
+              <ComboBox SelectedIndex="{Binding VlmSeparateIndex}" ToolTip="{DynamicResource Main_Cond_VlmOutputTip}" VerticalAlignment="Center" MinWidth="250">
+                <ComboBoxItem Content="{DynamicResource Main_Cond_VlmOutputInline}" />
+                <ComboBoxItem Content="{DynamicResource Main_Cond_VlmOutputSeparate}" />
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEditStep1Tables}">
+              <TextBlock Text="{DynamicResource Main_Cond_WholeTables}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource Main_Cond_TablesTip}" />
+              <ComboBox SelectedIndex="{Binding Step1TablesIndex}" ToolTip="{DynamicResource Main_Cond_TablesTip}" VerticalAlignment="Center" Margin="0,0,20,0" MinWidth="170">
                 <ComboBoxItem Content="{DynamicResource Main_Cond_TablesVlm}" />
                 <ComboBoxItem Content="{DynamicResource Main_Cond_TablesReplace}" />
                 <ComboBoxItem Content="{DynamicResource Main_Cond_TablesOmit}" />
               </ComboBox>
-              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_DropRepeated}" ToolTip="{DynamicResource Main_Cond_DropRepeatedTip}" IsChecked="{Binding DropRepeatedTables}" IsEnabled="{Binding CanEditVlmSeparate}" VerticalAlignment="Center" />
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_DropRepeated}" ToolTip="{DynamicResource Main_Cond_DropRepeatedTip}" IsChecked="{Binding DropRepeatedTables}" VerticalAlignment="Center" />
             </StackPanel>
 
-            <!-- The Markdown itself (FR-151) -->
-            <TextBlock Grid.Row="3" Text="{DynamicResource Preview_GroupMarkdown}" VerticalAlignment="Center" Margin="0,6,0,0" IsEnabled="{Binding CanEdit}" />
-            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
-              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_StructureNote}" ToolTip="{DynamicResource Main_Cond_StructureNoteTip}" IsChecked="{Binding StructureNote}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" />
-              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Margin="16,0,0,0" Content="{DynamicResource Main_Cond_Chunks}" ToolTip="{DynamicResource Main_Cond_ChunksTip}" IsChecked="{Binding Chunks}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Center" />
+            <!-- The Markdown itself (FR-151): it does not depend on the steps. -->
+            <TextBlock Grid.Row="4" Text="{DynamicResource Preview_GroupMarkdown}" VerticalAlignment="Center" Margin="0,0,0,6" IsEnabled="{Binding CanEdit}" />
+            <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6" IsEnabled="{Binding CanEdit}">
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_StructureNote}" ToolTip="{DynamicResource Main_Cond_StructureNoteTip}" IsChecked="{Binding StructureNote}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Files written besides the Markdown (FR-152): on their own. -->
+            <TextBlock Grid.Row="5" Text="{DynamicResource Main_Cond_ExtraOutput}" VerticalAlignment="Center" IsEnabled="{Binding CanEdit}" />
+            <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" IsEnabled="{Binding CanEdit}">
+              <CheckBox VerticalContentAlignment="Center" Padding="8,0,0,0" Content="{DynamicResource Main_Cond_Chunks}" ToolTip="{DynamicResource Main_Cond_ChunksTip}" IsChecked="{Binding Chunks}" VerticalAlignment="Center" />
             </StackPanel>
           </Grid>
 

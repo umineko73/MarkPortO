@@ -172,6 +172,10 @@ public class ConversionPresetTests
         Assert.False(JsonDefaults.Deserialize<OptionsSnapshot>("{}")!.Chunks); // a job from before wrote no chunks (FR-152)
         Assert.False(JsonDefaults.Deserialize<DocumentRecord>("{}")!.Chunks);
         Assert.False(JsonDefaults.Deserialize<AppSettings>("{}")!.Output.Chunks);
+        Assert.Equal(FolderLayout.Folder, JsonDefaults.Deserialize<AppSettings>("{}")!.Output.FolderLayout); // FR-154: as before
+        Assert.Equal(FolderLayout.Folder, JsonDefaults.Deserialize<OptionsSnapshot>("{}")!.FolderLayout);
+        Assert.Equal(FolderLayout.Contents, JsonDefaults.Deserialize<AppSettings>("""{"output":{"folderLayout":"contents"}}""")!.Output.FolderLayout);
+        Assert.Contains("\"folderLayout\": \"contents\"", JsonDefaults.Serialize(new OptionsSnapshot { FolderLayout = FolderLayout.Contents }), StringComparison.Ordinal);
     }
 
     [Fact]

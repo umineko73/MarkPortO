@@ -86,6 +86,12 @@ public sealed record ConvertArgs
     /// <summary>Write the chunks for retrieval next to the Markdown (FR-152): on or off.</summary>
     public string? Chunks { get; init; }
 
+    /// <summary>Where the output of a folder goes (FR-154): folder or contents.</summary>
+    public string? FolderLayout { get; init; }
+
+    /// <summary>Write an xlsx as one Markdown for each sheet (FR-153): on or off.</summary>
+    public string? ExcelPerSheet { get; init; }
+
     /// <summary>The name of the prompt for each kind that has it (FR-115).</summary>
     public string? Prompt { get; init; }
 
@@ -268,6 +274,7 @@ public static class ConvertArgsResolver
         ApplyOnOff("--drop-repeated-tables", args.DropRepeatedTables, value => settings.Steps.DropRepeatedTables = value, errors);
         ApplyOnOff("--structure-note", args.StructureNote, value => settings.Output.StructureNote = value, errors);
         ApplyOnOff("--chunks", args.Chunks, value => settings.Output.Chunks = value, errors);
+        ApplyOnOff("--excel-per-sheet", args.ExcelPerSheet, value => settings.Output.ExcelPerSheet = value, errors);
         ApplyOnOff("--same-folder", args.SameFolder, value => settings.Output.SameFolder = value, errors);
         foreach (var (kind, value) in new[] { (DocumentKind.Docx, args.ExtractorDocx), (DocumentKind.Xlsx, args.ExtractorXlsx), (DocumentKind.Pptx, args.ExtractorPptx), (DocumentKind.Pdf, args.ExtractorPdf) })
         {
@@ -298,6 +305,18 @@ public static class ConvertArgsResolver
             else
             {
                 errors.Add($"--step3-mode: '{args.Step3Mode}' is not one of supplement, transcribe.");
+            }
+        }
+
+        if (args.FolderLayout is not null)
+        {
+            if (TryFolderLayout(args.FolderLayout) is { } layout)
+            {
+                settings.Output.FolderLayout = layout;
+            }
+            else
+            {
+                errors.Add($"--folder-layout: '{args.FolderLayout}' is not one of folder, contents.");
             }
         }
 
@@ -410,6 +429,14 @@ public static class ConvertArgsResolver
         "off" => Step1TablesMode.Off,
         "on" or "replace" => Step1TablesMode.Replace,
         "omit" => Step1TablesMode.Omit,
+        _ => null,
+    };
+
+    /// <summary><c>folder</c> or <c>contents</c>; <c>null</c> for anything else (FR-154).</summary>
+    internal static FolderLayout? TryFolderLayout(string? value) => value?.ToLowerInvariant() switch
+    {
+        "folder" => MarkPortO.Core.Jobs.Models.FolderLayout.Folder,
+        "contents" => MarkPortO.Core.Jobs.Models.FolderLayout.Contents,
         _ => null,
     };
 

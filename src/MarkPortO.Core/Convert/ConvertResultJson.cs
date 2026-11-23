@@ -51,11 +51,22 @@ public static class ConvertResultJson
     {
         Source = document.SourcePath,
         OutputFolder = document.OutputFolder,
-        Markdown = Markdown.MarkdownRenderer.MarkdownFileName(Path.GetFileNameWithoutExtension(document.SourcePath)),
+        Markdown = Markdown.MarkdownRenderer.SheetOutputs(document) is { Count: > 0 } sheets
+            ? sheets[0].BaseName + ".md"
+            : Markdown.MarkdownRenderer.MarkdownFileName(Path.GetFileNameWithoutExtension(document.SourcePath)),
+        MarkdownFiles = Markdown.MarkdownRenderer.SheetOutputs(document) is { Count: > 0 } all
+            ? [.. all.Select(s => s.BaseName + ".md")]
+            : [Markdown.MarkdownRenderer.MarkdownFileName(Path.GetFileNameWithoutExtension(document.SourcePath))],
         VlmMarkdown = document.VlmInSeparateFile && document.Step3 != StepStatus.NotApplicable
-            ? Markdown.MarkdownRenderer.VlmFileName(Path.GetFileNameWithoutExtension(document.SourcePath))
+            ? Markdown.MarkdownRenderer.SheetOutputs(document) is { Count: > 0 } vlmSheets
+                ? vlmSheets[0].BaseName + "_vlm.md"
+                : Markdown.MarkdownRenderer.VlmFileName(Path.GetFileNameWithoutExtension(document.SourcePath))
             : null,
-        Chunks = document.Chunks ? Markdown.ChunksWriter.FileName(Path.GetFileNameWithoutExtension(document.SourcePath)) : null,
+        Chunks = document.Chunks
+            ? Markdown.MarkdownRenderer.SheetOutputs(document) is { Count: > 0 } chunkSheets
+                ? chunkSheets[0].BaseName + "_chunks.jsonl"
+                : Markdown.ChunksWriter.FileName(Path.GetFileNameWithoutExtension(document.SourcePath))
+            : null,
         State = StateOf(document),
         Pages = document.Pages.Count,
         DeletedPages = [.. document.Pages.Where(p => p.IsDeleted).Select(p => p.Index)],
@@ -83,6 +94,9 @@ public static class ConvertResultJson
 
         /// <summary>The file name of the Markdown, in <see cref="OutputFolder"/>.</summary>
         public string Markdown { get; set; } = string.Empty;
+
+        /// <summary>The Markdown files of the document: those of the sheets of an xlsx written sheet by sheet (FR-153), or the one Markdown.</summary>
+        public List<string> MarkdownFiles { get; set; } = [];
 
         /// <summary>The file name of the VLM results when they are in a separate file (FR-058); otherwise null.</summary>
         public string? VlmMarkdown { get; set; }

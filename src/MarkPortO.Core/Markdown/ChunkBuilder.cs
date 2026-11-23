@@ -59,9 +59,10 @@ public static partial class ChunkBuilder
     /// <summary>Paragraphs are put together up to this many characters; a table longer than this is cut between its rows.</summary>
     public const int MaxChars = 1500;
 
-    public static IReadOnlyList<Chunk> Build(DocumentRecord document)
+    /// <param name="pages">Only these pages (the pages of one sheet, FR-153); null for every page.</param>
+    public static IReadOnlyList<Chunk> Build(DocumentRecord document, IReadOnlySet<int>? pages = null)
     {
-        var chunks = document.Extractor is null ? FromBlocks(document) : FromExtractor(document);
+        var chunks = document.Extractor is null ? FromBlocks(document, pages) : FromExtractor(document);
         var digits = Math.Max(4, chunks.Count.ToString(System.Globalization.CultureInfo.InvariantCulture).Length);
         for (var i = 0; i < chunks.Count; i++)
         {
@@ -71,7 +72,7 @@ public static partial class ChunkBuilder
         return chunks;
     }
 
-    private static List<Chunk> FromBlocks(DocumentRecord document)
+    private static List<Chunk> FromBlocks(DocumentRecord document, IReadOnlySet<int>? only)
     {
         var language = document.MarkdownLanguage;
         var effectivePages = DocxPageAssigner.EffectivePages(document.Blocks, document.Pages.Count);
@@ -83,7 +84,7 @@ public static partial class ChunkBuilder
 
         foreach (var page in document.Pages.OrderBy(p => p.Index))
         {
-            if (page.IsDeleted)
+            if (page.IsDeleted || (only is not null && !only.Contains(page.Index)))
             {
                 continue;
             }

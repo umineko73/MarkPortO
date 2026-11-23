@@ -38,7 +38,59 @@ public static partial class MarkdownRenderer
     /// <summary>The separate file of the VLM results (FR-058): the page separators, the results, the usage, the failed and deleted pages.</summary>
     public static string RenderVlm(DocumentRecord document) => Render(document, vlmFile: true);
 
-    private static string Render(DocumentRecord document, bool vlmFile)
+    /// <summary>The Markdown of one sheet of an xlsx that is written sheet by sheet (FR-153): the same as that of the book, with the pages of the sheet only.</summary>
+    public static string Render(DocumentRecord document, SheetOutput sheet, bool vlmFile = false) => Render(document, vlmFile, sheet);
+
+    /// <summary>One file of a sheet of an xlsx written sheet by sheet (FR-153).</summary>
+    /// <param name="Sheet">The name of the sheet.</param>
+    /// <param name="BaseName">The name of its files without extension: <c>&lt;book&gt;_&lt;sheet&gt;</c>, numbered when two sheets give the same name.</param>
+    /// <param name="Pages">The pages of the sheet (its parts and the pages it runs over).</param>
+    public sealed record SheetOutput(string Sheet, string BaseName, IReadOnlySet<int> Pages);
+
+    /// <summary>The document is an xlsx written as one Markdown for each sheet (FR-153). An xlsx of an extractor is one Markdown: the extractor writes it.</summary>
+    public static bool IsPerSheet(DocumentRecord document) =>
+        document.ExcelPerSheet && document.Kind == DocumentKind.Xlsx && document.Extractor is null;
+
+    /// <summary>The files of the sheets, in the order of the sheets; empty when the document is not written sheet by sheet.</summary>
+    public static IReadOnlyList<SheetOutput> SheetOutputs(DocumentRecord document)
+    {
+        if (!IsPerSheet(document))
+        {
+            return [];
+        }
+
+        var book = Jobs.OutputNamer.Sanitize(Path.GetFileNameWithoutExtension(document.SourcePath));
+        var groups = new List<(string Sheet, HashSet<int> Pages)>();
+        foreach (var page in document.Pages.OrderBy(p => p.Index))
+        {
+            // A page without a sheet (it should not be) stays with the sheet before it.
+            var sheet = page.Sheet?.Name;
+            if (groups.Count == 0 || (sheet is not null && !string.Equals(groups[^1].Sheet, sheet, StringComparison.Ordinal)))
+            {
+                groups.Add((sheet ?? string.Empty, []));
+            }
+
+            groups[^1].Pages.Add(page.Index);
+        }
+
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<SheetOutput>();
+        foreach (var (sheet, pages) in groups)
+        {
+            var baseName = book + "_" + Jobs.OutputNamer.Sanitize(sheet.Length > 0 ? sheet : "Sheet");
+            var name = baseName;
+            for (var n = 2; !used.Add(name); n++)
+            {
+                name = baseName + " (" + n.ToString(CultureInfo.InvariantCulture) + ")";
+            }
+
+            result.Add(new SheetOutput(sheet, name, pages));
+        }
+
+        return result;
+    }
+
+    private static string Render(DocumentRecord document, bool vlmFile, SheetOutput? sheet = null)
     {
         var includeImages = document.Step2 == StepStatus.Done && !vlmFile;
         var hasVlm = document.Step3 != StepStatus.NotApplicable;
@@ -46,9 +98,14 @@ public static partial class MarkdownRenderer
         var fileName = Path.GetFileName(document.SourcePath);
         var language = document.MarkdownLanguage;
         var name = Path.GetFileNameWithoutExtension(document.SourcePath);
+        // The files of a sheet have names of their own (FR-153); the other parts of the Markdown are those of the book, for the pages of the sheet.
+        var mainName = sheet is null ? MarkdownFileName(name) : sheet.BaseName + ".md";
+        var vlmName = sheet is null ? VlmFileName(name) : sheet.BaseName + "_vlm.md";
+        var pages = sheet is null ? document.Pages : [.. document.Pages.Where(p => sheet.Pages.Contains(p.Index))];
 
         var builder = new StringBuilder();
-        builder.Append("# ").Append(MarkdownText.Escape(fileName).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
+        var title = sheet is null ? fileName : fileName + " - " + sheet.Sheet;
+        builder.Append("# ").Append(MarkdownText.Escape(title).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
         // What the VLM read in the pictures (FR-150), by file: a picture is written once, after its first reference.
         var figures = new Dictionary<string, string>(StringComparer.Ordinal);
         if (includeVlm)
@@ -69,7 +126,7 @@ public static partial class MarkdownRenderer
         {
             AppendStructureNote(builder, fileName, document.Kind, includeImages, document.PageImage, includeVlm, document.Pages.Any(p => p.Bands > 1),
                 document.Blocks.Any(b => MarkdownText.HasMarks(b.Markdown)), document.Blocks.Any(b => b.JoinedToPage is not null), document.ExtractPictures && (!vlmFile || step1InVlmFile), language,
-                vlmFile ? MarkdownFileName(name) : null, !vlmFile && hasVlm && document.VlmInSeparateFile ? VlmFileName(name) : null, figures.Count > 0, step1InVlmFile);
+                vlmFile ? mainName : null, !vlmFile && hasVlm && document.VlmInSeparateFile ? vlmName : null, figures.Count > 0, step1InVlmFile);
         }
 
         if (document.Converter is not null)
@@ -82,10 +139,10 @@ public static partial class MarkdownRenderer
                 .Append(" -->\n");
         }
 
-        if (includeVlm && TryUsageLine(document.Pages, language) is { } usageLine)
+        if (includeVlm && TryUsageLine(pages, language) is { } usageLine)
         {
             builder.Append('\n').Append(usageLine).Append('\n');
-            if (document.Pages.Where(p => !p.IsDeleted && p.CostUsd.HasValue).Sum(p => p.CostUsd) is > 0 and var total)
+            if (pages.Where(p => !p.IsDeleted && p.CostUsd.HasValue).Sum(p => p.CostUsd) is > 0 and var total)
             {
                 builder.Append("> ").Append(Loc.M("**VLM cost**: {0} US dollars in total", language, total.ToString("0.####", CultureInfo.InvariantCulture))).Append('\n');
             }
@@ -104,7 +161,7 @@ public static partial class MarkdownRenderer
             vlmTexts = VlmRepeatedTables.Apply(document, vlmTexts, language);
         }
 
-        foreach (var page in document.Pages.OrderBy(p => p.Index))
+        foreach (var page in pages.OrderBy(p => p.Index))
         {
             builder.Append('\n');
             AppendPage(builder, document, page, effectivePages, blockTexts, vlmTexts, figures, includeImages, includeVlm, vlmFile, language);
@@ -487,6 +544,40 @@ public static partial class MarkdownRenderer
     public static void Write(DocumentRecord document)
     {
         var name = Path.GetFileNameWithoutExtension(document.SourcePath);
+        var separateVlm = document.VlmInSeparateFile && document.Step3 != StepStatus.NotApplicable;
+        var sheets = SheetOutputs(document);
+        if (sheets.Count > 0)
+        {
+            // One Markdown for each sheet (FR-153): no Markdown of the whole book, so that nothing is written twice.
+            var written = sheets.Select(s => s.BaseName).ToList();
+            DeleteSheetFiles(document, keep: written);
+            DeleteQuietly(Path.Combine(document.OutputFolder, MarkdownFileName(name)));
+            DeleteQuietly(Path.Combine(document.OutputFolder, VlmFileName(name)));
+            DeleteQuietly(Path.Combine(document.OutputFolder, ChunksWriter.FileName(name)));
+            foreach (var sheet in sheets)
+            {
+                AtomicFile.WriteAllText(Path.Combine(document.OutputFolder, sheet.BaseName + ".md"), Render(document, sheet));
+                var sheetVlm = Path.Combine(document.OutputFolder, sheet.BaseName + "_vlm.md");
+                if (separateVlm)
+                {
+                    AtomicFile.WriteAllText(sheetVlm, Render(document, sheet, vlmFile: true));
+                }
+                else
+                {
+                    DeleteQuietly(sheetVlm);
+                }
+
+                ChunksWriter.Write(document, Path.Combine(document.OutputFolder, sheet.BaseName + "_chunks.jsonl"), sheet.BaseName + ".md", sheet.Pages);
+            }
+
+            document.SheetFiles = written;
+            return;
+        }
+
+        // Written as one Markdown (again): the files of the sheets of an earlier run are of no use.
+        DeleteSheetFiles(document, keep: []);
+        document.SheetFiles = null;
+
         var path = Path.Combine(document.OutputFolder, MarkdownFileName(name));
         if (document.Extractor is null)
         {
@@ -494,24 +585,54 @@ public static partial class MarkdownRenderer
         }
 
         var vlmPath = Path.Combine(document.OutputFolder, VlmFileName(name));
-        if (document.VlmInSeparateFile && document.Step3 != StepStatus.NotApplicable)
+        if (separateVlm)
         {
             AtomicFile.WriteAllText(vlmPath, RenderVlm(document));
         }
-        else if (File.Exists(vlmPath))
+        else
         {
             // The results went back into the Markdown of the document (or Step3 was switched off): the file of an earlier run is of no use.
-            try
-            {
-                File.Delete(vlmPath);
-            }
-            catch (IOException)
-            {
-            }
+            DeleteQuietly(vlmPath);
         }
 
         // The chunks for retrieval follow the Markdown: they are written again each time it is (FR-152).
         ChunksWriter.Write(document);
+    }
+
+    /// <summary>Removes the files of the sheets that were written before (FR-153), except those of <paramref name="keep"/>; no other file.</summary>
+    public static void DeleteSheetFiles(DocumentRecord document, IReadOnlyCollection<string> keep)
+    {
+        foreach (var baseName in document.SheetFiles ?? [])
+        {
+            if (keep.Contains(baseName, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            foreach (var suffix in new[] { ".md", "_vlm.md", "_chunks.jsonl" })
+            {
+                DeleteQuietly(Path.Combine(document.OutputFolder, baseName + suffix));
+            }
+        }
+    }
+
+    private static void DeleteQuietly(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     /// <summary>The file of the VLM results of a document (FR-058): the document name plus <c>_vlm.md</c>.</summary>

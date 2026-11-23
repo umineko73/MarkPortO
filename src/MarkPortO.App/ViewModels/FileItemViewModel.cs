@@ -82,15 +82,22 @@ public sealed class FileItemViewModel : ObservableObject
         }
     }
 
-    public string MarkdownPath => NamedFile(MarkdownRenderer.MarkdownFileName);
+    /// <summary>The Markdown to open: with an xlsx written sheet by sheet (FR-153) there are several, so the output folder is opened.</summary>
+    public string MarkdownPath => IsPerSheet ? OutputFolderPath : NamedFile(MarkdownRenderer.MarkdownFileName);
 
-    public string VlmPath => NamedFile(MarkdownRenderer.VlmFileName);
+    public string VlmPath => IsPerSheet ? OutputFolderPath : NamedFile(MarkdownRenderer.VlmFileName);
 
     public bool HasOutputFolder => OutputFolderPath.Length > 0 && Directory.Exists(OutputFolderPath);
 
-    public bool HasMarkdown => MarkdownPath.Length > 0 && File.Exists(MarkdownPath);
+    public bool HasMarkdown => IsPerSheet ? HasSheetFile(".md") : MarkdownPath.Length > 0 && File.Exists(MarkdownPath);
 
-    public bool HasVlm => VlmPath.Length > 0 && File.Exists(VlmPath);
+    public bool HasVlm => IsPerSheet ? HasSheetFile("_vlm.md") : VlmPath.Length > 0 && File.Exists(VlmPath);
+
+    private bool IsPerSheet => _row.Source is { } document && MarkdownRenderer.IsPerSheet(document);
+
+    private bool HasSheetFile(string suffix) =>
+        _row.Source is { } document && HasOutputFolder
+        && MarkdownRenderer.SheetOutputs(document).Any(s => File.Exists(Path.Combine(document.OutputFolder, s.BaseName + suffix)));
 
     private string NamedFile(Func<string, string> fileName) =>
         _row.Source is { } document && document.OutputFolder.Length > 0

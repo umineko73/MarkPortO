@@ -82,12 +82,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         // The line of the folded part is made again when one of its items changes (FR-102).
         PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(Recurse) or nameof(TypeDocx) or nameof(TypeXlsx) or nameof(TypePptx) or nameof(TypePdf)
+            if (e.PropertyName is nameof(Recurse) or nameof(FolderLayoutIndex) or nameof(TypeDocx) or nameof(TypeXlsx) or nameof(TypePptx) or nameof(TypePdf)
                 or nameof(SelectedEngine) or nameof(DpiText) or nameof(Emphasis) or nameof(ExtractPictures) or nameof(ExtractShapes) or nameof(GroupNearShapes)
                 or nameof(ExtractorDocx) or nameof(ExtractorXlsx) or nameof(ExtractorPptx) or nameof(ExtractorPdf)
                 or nameof(IncludeHiddenSheets) or nameof(IncludeHiddenSlides) or nameof(IncludeOffSlideText) or nameof(UsePdfText)
                 or nameof(ExcelColumns) or nameof(ExcelSheet) or nameof(ExcelPrintArea)
-                or nameof(PageImageIndex) or nameof(Step2) or nameof(Step3) or nameof(VlmSeparate) or nameof(Step1TablesIndex) or nameof(DropRepeatedTables) or nameof(StructureNote) or nameof(Chunks))
+                or nameof(PageImageIndex) or nameof(Step2) or nameof(Step3) or nameof(VlmSeparate) or nameof(Step1TablesIndex) or nameof(DropRepeatedTables) or nameof(StructureNote) or nameof(Chunks) or nameof(ExcelPerSheet))
             {
                 Raise(nameof(ConditionSummaryText));
             }
@@ -504,6 +504,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Write an xlsx as one Markdown for each sheet (FR-153).</summary>
+    public bool ExcelPerSheet
+    {
+        get => _store.Current.Output.ExcelPerSheet;
+        set
+        {
+            _store.Update(s => s.Output.ExcelPerSheet = value);
+            Raise();
+        }
+    }
+
     /// <summary>Write the chunks for retrieval next to the Markdown, as <c>&lt;name&gt;_chunks.jsonl</c> (FR-152).</summary>
     public bool Chunks
     {
@@ -757,6 +768,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             _store.Update(s => s.Input.Recurse = value);
+            Raise();
+        }
+    }
+
+    /// <summary>Where the output of a folder goes (FR-154): 0 makes a folder of its name, 1 puts what is in it straight into the output folder.</summary>
+    public int FolderLayoutIndex
+    {
+        get => _store.Current.Output.FolderLayout == FolderLayout.Contents ? 1 : 0;
+        set
+        {
+            _store.Update(s => s.Output.FolderLayout = value == 1 ? FolderLayout.Contents : FolderLayout.Folder);
             Raise();
         }
     }
@@ -1180,7 +1202,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             _store.Update(s => s.Steps.VlmSeparate = value);
             Raise();
+            Raise(nameof(VlmSeparateIndex));
         }
+    }
+
+    /// <summary>Where the results of Step3 go, as the list shows it: 0 in the Markdown, 1 in a separate file (FR-058).</summary>
+    public int VlmSeparateIndex
+    {
+        get => VlmSeparate ? 1 : 0;
+        set => VlmSeparate = value == 1;
     }
 
     /// <summary>What is done with the tables of the VLM result where the text of the page has a table: 0 they stay, 1 Step1 replaces them, 2 they are left out (FR-105).</summary>
@@ -1533,7 +1563,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private Task StartRunAsync(RunKind kind, IReadOnlyList<Guid> replaced) => RunAsync(async (service, snapshot, token) =>
     {
-        var found = InputEnumerator.Enumerate(snapshot.Input.Paths, snapshot.Input.Types, snapshot.Input.Recurse);
+        var found = InputEnumerator.Enumerate(snapshot.Input.Paths, snapshot.Input.Types, snapshot.Input.Recurse, snapshot.Output.FolderLayout);
         if (found.Inputs.Count == 0)
         {
             var reasons = found.Warnings.Count > 0 ? " " + string.Join(" ", found.Warnings) : string.Empty;
@@ -1551,9 +1581,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         request = kind switch
         {
-            RunKind.ChangedOnly => PreviousOutputs.Load(snapshot.Output.Folder).ChangedOnly(request)
+            RunKind.ChangedOnly => PreviousOutputs.Load(snapshot.Output.Folder, snapshot.Output.FolderLayout).ChangedOnly(request)
                 ?? throw new ConvertStartException(UiText.Get("Status_NothingChanged", found.Inputs.Count)),
-            RunKind.SameFolders => PreviousOutputs.Load(snapshot.Output.Folder).SameFolders(request),
+            RunKind.SameFolders => PreviousOutputs.Load(snapshot.Output.Folder, snapshot.Output.FolderLayout).SameFolders(request),
             _ => request,
         };
 
@@ -1588,7 +1618,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var previous = new Dictionary<string, PreviousOutput>(StringComparer.OrdinalIgnoreCase);
             foreach (var document in documents.Where(d => Directory.Exists(d.OutputFolder)))
             {
-                previous[Path.GetFullPath(document.SourcePath)] = new PreviousOutput(document.OutputFolder, document.DisplayName);
+                previous[Path.GetFullPath(document.SourcePath)] = new PreviousOutput(document.OutputFolder, document.DisplayName, document.SheetFiles);
             }
 
             var paths = documents.Select(d => d.SourcePath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -1638,6 +1668,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Step3Mode = snapshot.Steps.Step3Mode,
                 StructureNote = snapshot.Output.StructureNote,
                 Chunks = snapshot.Output.Chunks,
+                ExcelPerSheet = snapshot.Output.ExcelPerSheet,
             },
             token));
     }

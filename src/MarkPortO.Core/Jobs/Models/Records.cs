@@ -219,6 +219,16 @@ public sealed class DocumentRecord
     /// <summary>The chunks for retrieval are written next to the Markdown (FR-152). A document from before this setting had none.</summary>
     public bool Chunks { get; set; }
 
+    /// <summary>An xlsx is written as one Markdown for each sheet (FR-153). A document from before this setting was one Markdown.</summary>
+    public bool ExcelPerSheet { get; set; }
+
+    /// <summary>
+    /// The names (without extension) of the files of the sheets that were written (FR-153): they are removed when the Markdown is written
+    /// otherwise, and no other file. Empty when the document is one Markdown.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? SheetFiles { get; set; }
+
     /// <summary>The preset of the conversion (FR-151), with " (modified)" when its values were changed; null when none was chosen.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Preset { get; set; }
@@ -345,6 +355,12 @@ public sealed class OptionsSnapshot
 
     /// <summary>The chunks for retrieval are written next to the Markdown (FR-152). A job from before this setting wrote none.</summary>
     public bool Chunks { get; set; }
+
+    /// <summary>Where the output of a folder that was given went (FR-154). A job from before this setting made a folder of its name.</summary>
+    public FolderLayout FolderLayout { get; set; }
+
+    /// <summary>An xlsx is written as one Markdown for each sheet (FR-153). A job from before this setting wrote one Markdown.</summary>
+    public bool ExcelPerSheet { get; set; }
 
     /// <summary>The preset of the conversion (FR-151), with " (modified)" when its values were changed; null when none was chosen.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -159,6 +159,7 @@ public sealed class ConvertService
         var repeatedBefore = job.Options.DropRepeatedTables;
         var noteBefore = job.Options.StructureNote;
         var chunksBefore = job.Options.Chunks;
+        var perSheetBefore = job.Options.ExcelPerSheet;
         job.Options.Step2 = request.Step2 ?? job.Options.Step2;
         job.Options.Step3 = reread || (request.Step3 ?? job.Options.Step3);
         if (reread && request.PromptNames is { } promptNames)
@@ -172,6 +173,7 @@ public sealed class ConvertService
         job.Options.Step3Mode = request.Step3Mode ?? job.Options.Step3Mode;
         job.Options.StructureNote = request.StructureNote ?? job.Options.StructureNote;
         job.Options.Chunks = request.Chunks ?? job.Options.Chunks;
+        job.Options.ExcelPerSheet = request.ExcelPerSheet ?? job.Options.ExcelPerSheet;
         foreach (var document in documents)
         {
             document.VlmSeparate = job.Options.VlmSeparate;
@@ -181,6 +183,7 @@ public sealed class ConvertService
             document.Step3Mode = job.Options.Step3Mode;
             document.StructureNote = job.Options.StructureNote;
             document.Chunks = job.Options.Chunks;
+            document.ExcelPerSheet = job.Options.ExcelPerSheet;
         }
 
         job.Options.Connection = request.Connection ?? job.Options.Connection;
@@ -209,7 +212,7 @@ public sealed class ConvertService
         }
 
         // A step switched off or on changes the Markdown of finished files (image references, VLM results).
-        if (step2Before != job.Options.Step2 || step3Before != job.Options.Step3 || separateBefore != job.Options.VlmSeparate || tablesBefore != job.Options.Step1Tables || pageImageBefore != job.Options.PageImage || repeatedBefore != job.Options.DropRepeatedTables || noteBefore != job.Options.StructureNote || chunksBefore != job.Options.Chunks)
+        if (step2Before != job.Options.Step2 || step3Before != job.Options.Step3 || separateBefore != job.Options.VlmSeparate || tablesBefore != job.Options.Step1Tables || pageImageBefore != job.Options.PageImage || repeatedBefore != job.Options.DropRepeatedTables || noteBefore != job.Options.StructureNote || chunksBefore != job.Options.Chunks || perSheetBefore != job.Options.ExcelPerSheet)
         {
             foreach (var document in documents.Where(d => d.Step1 == StepStatus.Done && !toRun.Contains(d)))
             {
@@ -462,12 +465,15 @@ public sealed class ConvertService
                 Step3Mode = options.Step3Mode,
                 StructureNote = options.StructureNote,
                 Chunks = options.Chunks,
+                ExcelPerSheet = options.ExcelPerSheet,
                 Preset = options.Preset,
             };
 
             record.OutputFolderRel = Path.GetRelativePath(outRoot, record.OutputFolder);
             if (previous is not null)
             {
+                // The files of the sheets of the earlier conversion go with its other output (FR-153).
+                record.SheetFiles = previous.SheetFiles is { Count: > 0 } sheets ? [.. sheets] : null;
                 ResumePlanner.DeleteOwnOutput(record); // the pages of the earlier result are not left beside the new ones
             }
 

@@ -34,6 +34,17 @@ public enum EngineKind
     LibreOffice,
 }
 
+/// <summary>Where the output of a folder that was given goes (FR-154).</summary>
+[JsonConverter(typeof(LowercaseEnumConverter<FolderLayout>))]
+public enum FolderLayout
+{
+    /// <summary>A folder with the name of the input folder is made in the output folder, and the output goes into it (FR-004).</summary>
+    Folder,
+
+    /// <summary>No folder with the name of the input folder: what is in it goes straight into the output folder.</summary>
+    Contents,
+}
+
 /// <summary>How the print image of a page is written in the Markdown (FR-149); the images are made by Step2, which is on or off.</summary>
 [JsonConverter(typeof(LowercaseEnumConverter<PageImageStyle>))]
 public enum PageImageStyle

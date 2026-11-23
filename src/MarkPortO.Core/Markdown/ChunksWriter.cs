@@ -46,9 +46,18 @@ public static class ChunksWriter
     /// Writes the file of the chunks when the document asks for it, or removes the file of an earlier run when it does not. A file that cannot be
     /// written is a warning: the Markdown is there, so the document does not fail.
     /// </summary>
-    public static void Write(DocumentRecord document)
+    public static void Write(DocumentRecord document) =>
+        Write(
+            document,
+            Path.Combine(document.OutputFolder, FileName(Path.GetFileNameWithoutExtension(document.SourcePath))),
+            MarkdownRenderer.MarkdownFileName(Path.GetFileNameWithoutExtension(document.SourcePath)),
+            pages: null);
+
+    /// <summary>Writes (or removes) one file of chunks: that of the whole document, or that of one sheet (FR-153).</summary>
+    /// <param name="markdown">The name of the Markdown file that the chunks are of.</param>
+    /// <param name="pages">Only these pages; null for every page.</param>
+    public static void Write(DocumentRecord document, string path, string markdown, IReadOnlySet<int>? pages)
     {
-        var path = Path.Combine(document.OutputFolder, FileName(Path.GetFileNameWithoutExtension(document.SourcePath)));
         if (!document.Chunks)
         {
             if (File.Exists(path))
@@ -70,7 +79,7 @@ public static class ChunksWriter
 
         try
         {
-            AtomicFile.WriteAllText(path, Render(document));
+            AtomicFile.WriteAllText(path, Render(document, markdown, pages));
             document.Warnings.RemoveAll(w => w.Code == FailedWarning);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -83,11 +92,13 @@ public static class ChunksWriter
     }
 
     /// <summary>The lines of the file: one chunk on each line, each line ends with LF. A document without chunks gives an empty text.</summary>
-    public static string Render(DocumentRecord document)
+    public static string Render(DocumentRecord document) =>
+        Render(document, MarkdownRenderer.MarkdownFileName(Path.GetFileNameWithoutExtension(document.SourcePath)), pages: null);
+
+    private static string Render(DocumentRecord document, string markdown, IReadOnlySet<int>? pages)
     {
-        var chunks = ChunkBuilder.Build(document);
+        var chunks = ChunkBuilder.Build(document, pages);
         var source = Path.GetFileName(document.SourcePath);
-        var markdown = MarkdownRenderer.MarkdownFileName(Path.GetFileNameWithoutExtension(document.SourcePath));
         var modified = document.Fingerprint.LastWriteUtcTicks > 0
             ? new DateTime(document.Fingerprint.LastWriteUtcTicks, DateTimeKind.Utc).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture)
             : null;
