@@ -527,5 +527,36 @@ for c in chunks:
         # 前後の塊も渡すと、節が2つに分かれていても答えやすくなります: by_id[c["prev"]]、by_id[c["next"]]
 ```
 
-AI の道具（Claude Code・Codex・OpenCode・GitHub Copilot）から検索するには、ZIP の `tools\markporto-rag\` フォルダにある小さな MCP サーバー `markporto-rag` を使います。[uv](https://docs.astral.sh/uv/) と設定ファイル（検索するフォルダ）だけで動き、キーワードと埋め込み（LM Studio など）で探して、出どころつきの塊を返します。準備と登録は [tools/markporto-rag/README.ja.md](../tools/markporto-rag/README.ja.md) を見てください。
+### Claude Code などから検索する
+
+ZIP の `tools\markporto-rag\` にある小さな MCP サーバー `markporto-rag` を Claude Code・Codex・OpenCode・GitHub Copilot などの道具に登録すると、そのモデルが `_chunks.jsonl` を検索して、出どころ（元のファイル・ページ・見出し・ページ画像）つきで答えられます。データベースは要りません。
+
+1. RAG用の小分けをオンにして変換します（上の節。プリセット「RAG用」ならオン）。
+2. [uv](https://docs.astral.sh/uv/) を入れます（`winget install astral-sh.uv`）。MCP の部品は、初回の起動で uv が取ってきます（インターネットが要ります）。
+3. 設定ファイル `%APPDATA%\MarkPortO\markporto-rag.json` を作ります（`tools\markporto-rag\markporto-rag.sample.json` を写して直します）。一番小さい設定は、検索するフォルダだけです:
+
+   ```json
+   { "roots": ["D:\\MarkPort.out"] }
+   ```
+
+   既定では、LM Studio（`http://localhost:1234/v1`）の埋め込みのモデル `text-embedding-multilingual-e5-small` にもつなぎ、つながれば意味の検索も混ぜます。つながらないときは、キーワードだけで探します。ほかのモデルを使うときは、`embedding` を書きます（e5 以外のモデルでは、頭の文字を `""` にします）:
+
+   ```json
+   {
+     "roots": ["D:\\MarkPort.out"],
+     "embedding": { "url": "http://localhost:11434/v1", "model": "nomic-embed-text", "queryPrefix": "", "passagePrefix": "" }
+   }
+   ```
+
+4. 道具に登録します。Claude Code の例（パスは展開したフォルダに合わせます）:
+
+   ```
+   claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp python C:\MarkPortO\tools\markporto-rag\server.py
+   ```
+
+   Codex・OpenCode・GitHub Copilot の書き方と、設定のすべての項目は [tools/markporto-rag/README.ja.md](../tools/markporto-rag/README.ja.md) にあります。
+5. 道具に頼みます。例:「設計書から、中断した変換の再開の仕方を調べて。ページも示して」。モデルは `search_docs` で探し、必要なら `read_chunk` で前後の塊を読んで、ページを付けて答えます。ページ画像（`pageImages`）で原文を確かめられます。
+
+- 文書は PC の外へ出ません（埋め込みの API をクラウドにしたときだけ、塊の文字がその API へ送られます）。
+- 新しく変換したり変換し直したりすると、次の検索で自動で読み直します。同じ文書の古い出力が同じフォルダにあると、同じ内容が重なって見つかります。
 

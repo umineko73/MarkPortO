@@ -462,4 +462,35 @@ for c in chunks:
         # Give the chunks before and after it too, when a section is cut in two: by_id[c["prev"]], by_id[c["next"]]
 ```
 
-To search them from an AI tool (Claude Code, Codex, OpenCode, GitHub Copilot), use the small MCP server `markporto-rag` in the folder `tools\markporto-rag\` of the ZIP. It needs only [uv](https://docs.astral.sh/uv/) and a configuration (the folders to search); it searches by keywords and by embeddings (LM Studio and so on) and gives the chunks with their source. See [tools/markporto-rag/README.md](../tools/markporto-rag/README.md) for setting it up.
+### Searching from Claude Code and similar tools
+
+Register the small MCP server `markporto-rag` (in `tools\markporto-rag\` of the ZIP) in a tool such as Claude Code, Codex, OpenCode or GitHub Copilot, and its model can search the `_chunks.jsonl` files and answer with the source (the original file, the pages, the headings and the page images). No database is needed.
+
+1. Convert with the chunks for RAG on (the section above; on in the preset For RAG).
+2. Install [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`). The MCP package is fetched by uv the first time (this needs the internet).
+3. Make the configuration `%APPDATA%\MarkPortO\markporto-rag.json` (copy `tools\markporto-rag\markporto-rag.sample.json` and edit it). The smallest one has only the folders to search:
+
+   ```json
+   { "roots": ["D:\\MarkPort.out"] }
+   ```
+
+   By default the server also connects to the embedding model `text-embedding-multilingual-e5-small` of LM Studio (`http://localhost:1234/v1`) and mixes in a search by meaning when it can; when it cannot, it searches by keywords only. For another model, write `embedding` (with a model other than e5, set the prefixes to `""`):
+
+   ```json
+   {
+     "roots": ["D:\\MarkPort.out"],
+     "embedding": { "url": "http://localhost:11434/v1", "model": "nomic-embed-text", "queryPrefix": "", "passagePrefix": "" }
+   }
+   ```
+
+4. Register it in the tool. For Claude Code (use the folder where you unpacked the ZIP):
+
+   ```
+   claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp python C:\MarkPortO\tools\markporto-rag\server.py
+   ```
+
+   Codex, OpenCode and GitHub Copilot, and every item of the configuration, are in [tools/markporto-rag/README.md](../tools/markporto-rag/README.md).
+5. Ask the tool, for example "Find in the design documents how an interrupted conversion is resumed, with the pages." It searches with `search_docs`, reads the chunks around with `read_chunk` when it needs to, and answers with the pages; the page images (`pageImages`) show the original.
+
+- The documents do not leave the computer (only when the embedding API is a cloud service, the text of the chunks is sent to it).
+- A new or repeated conversion is read again at the next search. Old output of the same document in the same folders gives the same text more than once.

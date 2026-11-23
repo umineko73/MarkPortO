@@ -57,6 +57,10 @@ By default (**Add to the text**), the text, tables and code stay as Step1 read t
 
 The built-in extraction takes the text of a PDF simply (headings run into the text, a table is a line of words). For PDF files, choose **MarkItDown** or **Docling** as an external command; the page images, Step3 and the preview still work, and a scanned PDF is read by the VLM when Step3 is on. See [Detailed usage](docs/usage.md#pdf-files).
 
+## Using it for RAG (chunks for search)
+
+With the preset For RAG (or "Write the chunks for RAG (_chunks.jsonl)" in the details of the steps, `--chunks on` on the command line), a file `<name>_chunks.jsonl` is written next to the Markdown: one chunk (a JSON object) on each line, cut at the headings, with tables and code never cut in the middle. Each chunk has the headings it is under, its pages and page images, the original file and its date, and the chunks before and after it, so an answer can be traced to its page. With the MCP server `markporto-rag` in `tools\markporto-rag\`, Claude Code and similar tools can search them. See [Chunks for RAG](docs/usage.md#chunks-for-rag-_chunksjsonl) for the format and [Searching from Claude Code and similar tools](docs/usage.md#searching-from-claude-code-and-similar-tools) for setting up the server.
+
 ## Preview
 
 Double-click a file to open the preview. The image of each page is shown next to its Markdown, so you can check tables, merged cells, lists, code, equations and pictures against the original.

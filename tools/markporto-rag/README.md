@@ -2,7 +2,7 @@
 
 English | [日本語](README.ja.md)
 
-A small MCP server that searches the chunks for RAG that MarkPortO writes (`<name>_chunks.jsonl`). Registered in Claude Code, Codex, OpenCode, GitHub Copilot or another AI tool, it lets the AI search design documents and the like, and answer **with the source** (the original file, the pages, the headings and the page images).
+A small MCP server that searches the chunks for RAG that MarkPortO writes (`<name>_chunks.jsonl`). Registered in Claude Code, Codex, OpenCode, GitHub Copilot or a similar tool, it lets the model search design documents and the like, and answer **with the source** (the original file, the pages, the headings and the page images).
 
 - No database: every `*_chunks.jsonl` under the folders is read into memory (up to some thousands of chunks). A file that is added or changed is read again at the next search.
 - The search mixes keywords (pairs of characters for Japanese, words for English) with a search by meaning through an embedding API (OpenAI compatible: LM Studio, Ollama ...). Without the embedding API it uses the keywords only.
@@ -66,7 +66,7 @@ The way to write these can change with the version of a tool; see its documentat
 
 ## Example
 
-Ask the AI something like "Find in the design documents how an interrupted job is resumed, with the pages." It searches with `search_docs`, reads the chunks around with `read_chunk` when it needs to, and answers with the pages. The page images in `pageImages` show the pages as they are printed.
+Ask the tool something like "Find in the design documents how an interrupted job is resumed, with the pages." It searches with `search_docs`, reads the chunks around with `read_chunk` when it needs to, and answers with the pages. The page images in `pageImages` show the pages as they are printed.
 
 ## Notes
 
