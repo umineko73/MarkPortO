@@ -175,6 +175,12 @@ def answered_name(model) -> str | None:
     return s[:-len(":latest")] if s.endswith(":latest") else s
 
 
+def fullest(names) -> str | None:
+    """Of names of one model ("e5", "org-a/e5"), the one that says the most: with its publisher, so that "org-b/e5" is not taken for it."""
+    names = [n for n in names if n]
+    return max(names, key=lambda n: ("/" in n, len(n), n)) if names else None
+
+
 def embed(texts: list[str]) -> tuple[list[list[float]], str | None]:
     """The vectors of the texts, and the model that answered (as the API says it)."""
     headers = {"Content-Type": "application/json"}
@@ -316,7 +322,7 @@ class Index:
             self.embedding_warnings.append(f"the embeddings were made by different models {sorted(answered)}; the search by meaning is off")
             self.embedding_ok = False
         self.dimension = next(iter(lengths)) if len(lengths) == 1 else None
-        self.answered = max(answered, key=len) if answered and self.embedding_ok else None  # the fullest name ("a/e5" rather than "e5")
+        self.answered = fullest(answered) if self.embedding_ok else None
         self.retry_at = time.monotonic() + float(EMB.get("retrySeconds", 30)) if not reached else 0.0  # tried again at a later search
         self.warnings = self.file_warnings + self.embedding_warnings
         for w in self.warnings:
@@ -363,7 +369,7 @@ class Index:
                             models.add(by)
                     if any(not same_model(x, y) for x in models for y in models):
                         raise OtherModel(f"the embedding API answered with the models {sorted(models)} for one document")
-                    model = next(iter(models), None)
+                    model = fullest(models)
                     CACHE.mkdir(parents=True, exist_ok=True)
                     cache.write_text(json.dumps({"digest": digest, "model": model, "vectors": got}), encoding="utf-8")
                 except OtherModel as ex:  # vectors of another model would be kept as if they were of this one
@@ -465,7 +471,8 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
     idx = [i for i, c in enumerate(INDEX.chunks) if not source or source.lower() in c["source"].lower()]
     if needle:
         # Whole folders and names first, so that "v1.2" is not also "v1.20"; a part of a name ("設計") when nothing is whole.
-        whole = re.compile(r"(?:^|/)" + re.escape(needle) + r"(?:/|$)")
+        # A folder is followed by "/"; without "/" at the end, a whole name of a file is matched too.
+        whole = re.compile(r"(?:^|/)" + re.escape(needle) + (r"/" if folder_only else r"(?:/|$)"))
         exact = [i for i in idx if whole.search(where(INDEX.chunks[i]).lower())]
         if exact or folder_only:
             idx = exact

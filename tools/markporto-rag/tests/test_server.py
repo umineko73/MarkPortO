@@ -223,7 +223,18 @@ def embedding_cases(api: Embeddings):
         check("... the question by the same model as the documents: by meaning", res.get("mode") == "hybrid", res)
         api.pick = None
 
-    return comes_back, other_model, other_model_for_the_question, publishers, documents_and_question_of_two_publishers
+    def batches_of_two_names(first: str, second: str):
+        # 17 chunks go in two requests; each request answers with one name of the same model, one of them without its publisher.
+        async def body(call):
+            api.pick = lambda text: "org-b/test-model" if text.startswith("q: ") else (second if "第17" in text else first)
+            res = await call("search_docs", {"query": "タイムアウト"})
+            check(f"documents answered as {first} and {second}, question by org-b/…: keywords only",
+                  res.get("mode") == "keyword" and "org-b/test-model" in (res.get("note") or ""), res)
+            api.pick = None
+        return body
+
+    return (comes_back, other_model, other_model_for_the_question, publishers, documents_and_question_of_two_publishers,
+            batches_of_two_names)
 
 
 async def three_folders_two_names(call):
@@ -248,6 +259,10 @@ async def whole_folders(call):
     check("'v1.2' is not 'v1.20'", [x["path"] for x in res.get("results", [])] == ["v1.2/設計書.docx"], res)
     res = await call("search_docs", {"query": "タイムアウト", "path": "v1.2/"})
     check("'v1.2/' is not 'v1.20' either", [x["path"] for x in res.get("results", [])] == ["v1.2/設計書.docx"], res)
+    res = await call("search_docs", {"query": "タイムアウト", "path": "設計書.docx/"})
+    check("a name of a file with '/' after it is no folder: nothing", res.get("results") == [], res)
+    res = await call("search_docs", {"query": "タイムアウト", "path": "v1.2/設計書.docx"})
+    check("... the file is found by its whole path, without '/'", [x["path"] for x in res.get("results", [])] == ["v1.2/設計書.docx"], res)
     res = await call("search_docs", {"query": "タイムアウト", "path": "v1.20"})
     check("'v1.20' is its own", [x["path"] for x in res.get("results", [])] == ["v1.20/設計書.docx"], res)
     res = await call("search_docs", {"query": "タイムアウト", "path": "設計"})
@@ -308,12 +323,17 @@ async def main():
 
     api = Embeddings()
     emb = {"url": api.url, "model": "test-model", "queryPrefix": "", "passagePrefix": "", "retrySeconds": 1}
-    comes_back, other_model, other_model_for_the_question, publishers, two_publishers = embedding_cases(api)
+    comes_back, other_model, other_model_for_the_question, publishers, two_publishers, batches_of_two_names = embedding_cases(api)
     await run("embeddings-come-back", {"roots": [str(one)], "embedding": dict(emb)}, comes_back)
     await run("other-model", {"roots": [str(one)], "embedding": dict(emb)}, other_model)
     await run("other-model-for-the-question", {"roots": [str(one)], "embedding": dict(emb)}, other_model_for_the_question)
     await run("documents-and-question-of-two-publishers", {"roots": [str(one)], "embedding": dict(emb, queryPrefix="q: ", passagePrefix="p: ")},
               two_publishers)
+    many = BASE / "many"
+    write(many / "設計書", [chunk(f"c{i:04d}", f"第{i}の塊 タイムアウト") for i in range(1, 18)])
+    for n, (first, second) in enumerate([("org-a/test-model", "test-model"), ("test-model", "org-a/test-model")]):
+        await run(f"batches-of-two-names-{n}", {"roots": [str(many)], "embedding": dict(emb, queryPrefix="q: ", passagePrefix="p: ")},
+                  batches_of_two_names(first, second))
     await run("publishers", {"roots": [str(one)], "embedding": dict(emb, model="lab/test-model")}, publishers)
 
     # The vectors kept for one API are not used for another of the same model name.
