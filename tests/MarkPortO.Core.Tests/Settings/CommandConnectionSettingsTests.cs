@@ -159,7 +159,7 @@ public class CommandConnectionSettingsTests
     {
         const string json = """
         { "schemaVersion": 1, "vlm": { "selected": "local", "connections": [
-          { "name": "local", "baseUrl": "http://192.168.11.220:1234/v1", "model": "m", "timeoutSeconds": 300 } ] } }
+          { "name": "local", "baseUrl": "http://192.168.1.10:1234/v1", "model": "m", "timeoutSeconds": 300 } ] } }
         """;
 
         var settings = JsonDefaults.Deserialize<AppSettings>(json)!;

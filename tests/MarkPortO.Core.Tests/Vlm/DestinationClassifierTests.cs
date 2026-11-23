@@ -29,7 +29,7 @@ public class DestinationClassifierTests
     [InlineData("http://10.0.0.5/v1")]
     [InlineData("http://172.16.0.1/v1")]
     [InlineData("http://172.31.255.254/v1")]
-    [InlineData("http://192.168.11.220:1234/v1")]
+    [InlineData("http://192.168.1.10:1234/v1")]
     [InlineData("http://169.254.10.10/v1")]
     [InlineData("http://[fe80::1]/v1")]
     [InlineData("http://[fd12:3456::1]/v1")]

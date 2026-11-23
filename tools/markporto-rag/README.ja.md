@@ -14,7 +14,7 @@ MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索す
 |---|---|
 | `search_docs(query, k=5, source=None)` | 質問に近い塊を k 件。`source` で元のファイル名を絞る |
 | `read_chunk(key, neighbors=1)` | 塊を前後の塊（最大3つずつ）と一緒に読む |
-| `list_documents()` | 検索の対象の文書の一覧 |
+| `list_documents()` | 検索の対象の文書の一覧と、使っている埋め込み（設定のモデル、実際のベクトルの次元）。次元が違えば、別のモデルが答えている |
 
 ## 準備
 

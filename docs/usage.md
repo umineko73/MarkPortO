@@ -471,14 +471,14 @@ Register the small MCP server `markporto-rag` (in `tools\markporto-rag\` of the 
 3. Make the configuration `%APPDATA%\MarkPortO\markporto-rag.json` (copy `tools\markporto-rag\markporto-rag.sample.json` and edit it). The smallest one has only the folders to search:
 
    ```json
-   { "roots": ["D:\\MarkPort.out"] }
+   { "roots": ["D:\\MarkPortO-out"] }
    ```
 
    By default the server also connects to the embedding model `text-embedding-multilingual-e5-small` of LM Studio (`http://localhost:1234/v1`) and mixes in a search by meaning when it can; when it cannot, it searches by keywords only. For another model, write `embedding` (with a model other than e5, set the prefixes to `""`):
 
    ```json
    {
-     "roots": ["D:\\MarkPort.out"],
+     "roots": ["D:\\MarkPortO-out"],
      "embedding": { "url": "http://localhost:11434/v1", "model": "nomic-embed-text", "queryPrefix": "", "passagePrefix": "" }
    }
    ```

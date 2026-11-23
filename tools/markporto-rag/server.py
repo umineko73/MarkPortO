@@ -140,6 +140,7 @@ class Index:
         self.avg = 1.0
         self.vectors: list = []
         self.embedding_ok = False
+        self.dimension: int | None = None
         self.warnings: list[str] = []
 
     def files(self) -> list[Path]:
@@ -177,6 +178,11 @@ class Index:
         self.avg = (sum(sum(d.values()) for d in self.terms) / len(self.terms)) if self.terms else 1.0
         self.vectors = self.load_vectors(files) if EMB.get("enabled", True) else [None] * len(chunks)
         self.embedding_ok = bool(chunks) and all(v is not None for v in self.vectors)
+        lengths = {len(v) for v in self.vectors if v is not None}
+        if len(lengths) > 1:  # vectors of two models: the search by meaning would compare things that do not go together
+            warnings.append(f"the embeddings have different dimensions {sorted(lengths)}; the search by meaning is off")
+            self.embedding_ok = False
+        self.dimension = next(iter(lengths)) if len(lengths) == 1 else None
         self.stamp = stamp
         for w in warnings:
             log("markporto-rag: " + w)
@@ -280,18 +286,27 @@ def search_docs(query: str, k: int = 5, source: str | None = None) -> dict:
     ranks = [{i: r for r, (_, i) in enumerate(bm25)}]
 
     mode = "keyword"
+    note = None
     if INDEX.embedding_ok:
         try:
             qv = embed([EMB["queryPrefix"] + query])[0]
-            sem = sorted(((cos(qv, INDEX.vectors[i]), i) for i in idx), reverse=True)
-            ranks.append({i: r for r, (_, i) in enumerate(sem)})
-            mode = "hybrid"
+            if len(qv) != INDEX.dimension:
+                # Another model answered (LM Studio answers with the embedding model that is loaded): its vectors do not go with those kept.
+                note = f"The embedding API gave {len(qv)} dimensions, the kept embeddings have {INDEX.dimension}: another model answered. Keywords only."
+                log("markporto-rag: " + note)
+            else:
+                sem = sorted(((cos(qv, INDEX.vectors[i]), i) for i in idx), reverse=True)
+                ranks.append({i: r for r, (_, i) in enumerate(sem)})
+                mode = "hybrid"
         except Exception as ex:
             log(f"markporto-rag: query embedding failed ({ex})")
 
     top = max(1, min(k, CONFIG["maxResults"]))
     fused = sorted(((sum(1 / (60 + rk[i]) for rk in ranks), i) for i in idx), reverse=True)[:top]
-    return {"mode": mode, "results": [view(INDEX.chunks[i], s) for s, i in fused]}
+    result = {"mode": mode, "results": [view(INDEX.chunks[i], s) for s, i in fused]}
+    if note:
+        result["note"] = note
+    return result
 
 
 @mcp.tool()
@@ -322,7 +337,8 @@ def read_chunk(key: str, neighbors: int = 1) -> dict:
 
 @mcp.tool()
 def list_documents() -> dict:
-    """The documents that are searched: the original file, the number of chunks, when the file was changed, and its Markdown."""
+    """The documents that are searched (the original file, the number of chunks, when the file was changed, its Markdown), and the embedding
+    in use: the model of the configuration and the dimension of the vectors kept, which tells which model really made them."""
     if (error := no_roots()) is not None:
         return error
     INDEX.refresh()
@@ -331,7 +347,13 @@ def list_documents() -> dict:
         d = docs.setdefault(c["file"], {"source": c["source"], "markdown": str(Path(c["folder"]) / c["markdown"]),
                                         "sourceModified": c.get("sourceModified"), "chunks": 0})
         d["chunks"] += 1
-    return {"roots": [str(r) for r in ROOTS], "embeddings": INDEX.embedding_ok, "warnings": INDEX.warnings, "documents": list(docs.values())}
+    embedding = {
+        "available": INDEX.embedding_ok,  # the search by meaning is used
+        "model": EMB["model"] if EMB.get("enabled", True) else None,
+        "url": EMB["url"] if EMB.get("enabled", True) else None,
+        "dimension": INDEX.dimension,  # of the kept vectors: it tells which model made them (e5-small 384, e5-base 768 ...)
+    }
+    return {"roots": [str(r) for r in ROOTS], "embedding": embedding, "warnings": INDEX.warnings, "documents": list(docs.values())}
 
 
 if __name__ == "__main__":

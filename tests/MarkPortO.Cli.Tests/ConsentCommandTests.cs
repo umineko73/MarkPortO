@@ -51,7 +51,7 @@ public class ConsentCommandTests
         ["externalConsent"] = consent ? new { at = "2026-10-26T01:00:00+00:00", noticeVersion = ExternalConsent.CurrentNoticeVersion } : null,
     };
 
-    private static object LocalConnection() => new { name = "local", baseUrl = "http://192.168.11.220:1234/v1", model = "m" };
+    private static object LocalConnection() => new { name = "local", baseUrl = "http://192.168.1.10:1234/v1", model = "m" };
 
     private static JsonNode Read(string path) => JsonNode.Parse(File.ReadAllText(path))!;
 

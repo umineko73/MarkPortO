@@ -536,14 +536,14 @@ ZIP の `tools\markporto-rag\` にある小さな MCP サーバー `markporto-ra
 3. 設定ファイル `%APPDATA%\MarkPortO\markporto-rag.json` を作ります（`tools\markporto-rag\markporto-rag.sample.json` を写して直します）。一番小さい設定は、検索するフォルダだけです:
 
    ```json
-   { "roots": ["D:\\MarkPort.out"] }
+   { "roots": ["D:\\MarkPortO-out"] }
    ```
 
    既定では、LM Studio（`http://localhost:1234/v1`）の埋め込みのモデル `text-embedding-multilingual-e5-small` にもつなぎ、つながれば意味の検索も混ぜます。つながらないときは、キーワードだけで探します。ほかのモデルを使うときは、`embedding` を書きます（e5 以外のモデルでは、頭の文字を `""` にします）:
 
    ```json
    {
-     "roots": ["D:\\MarkPort.out"],
+     "roots": ["D:\\MarkPortO-out"],
      "embedding": { "url": "http://localhost:11434/v1", "model": "nomic-embed-text", "queryPrefix": "", "passagePrefix": "" }
    }
    ```

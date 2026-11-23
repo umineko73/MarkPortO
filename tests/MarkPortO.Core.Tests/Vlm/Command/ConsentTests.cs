@@ -30,7 +30,7 @@ public class ConsentTests
     [Fact]
     public void ALocalOpenAiConnection_NeedsNoConsent()
     {
-        var c = OpenAi("http://192.168.11.220:1234/v1");
+        var c = OpenAi("http://192.168.1.10:1234/v1");
 
         Assert.False(ExternalConsent.IsRequired(c));
         Assert.Equal(ConsentState.NotRequired, ExternalConsent.StateOf(c));
