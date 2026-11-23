@@ -411,7 +411,11 @@ public static partial class ChunkBuilder
                 _headings.Clear();
             }
 
-            _headings.Add((level, title));
+            // A heading is written without the spaces around it (a sheet can be named "  Sales  "); an empty one is not a heading.
+            if (title.Trim() is { Length: > 0 } trimmed)
+            {
+                _headings.Add((level, trimmed));
+            }
         }
 
         public void Text(string text, (int First, int Last)? pages, string? sheet, string kind)

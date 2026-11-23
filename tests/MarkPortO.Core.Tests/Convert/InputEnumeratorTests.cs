@@ -168,6 +168,21 @@ public class InputEnumeratorTests
     }
 
     [Fact]
+    public void ADocumentGivenTwice_InAFolderAndInsideIt_IsConvertedOnce_WhereItIsFoundFirst()
+    {
+        using var dir = new TempDir();
+        var root = dir.Combine("in");
+        var inner = Path.Combine(root, "sub", "b.docx");
+        Touch(Path.Combine(root, "a.docx"), inner);
+
+        var result = InputEnumerator.Enumerate([root, Path.Combine(root, "sub"), inner], All, recurse: true);
+
+        Assert.Equal(new[] { ("in", "a.docx"), (Path.Combine("in", "sub"), "b.docx") }, result.Inputs.Select(i => (i.RelativeDirectory, Path.GetFileName(i.Path))));
+        var fileFirst = InputEnumerator.Enumerate([inner, root], All, recurse: true);
+        Assert.Equal(new[] { ("", "b.docx"), ("in", "a.docx") }, fileFirst.Inputs.Select(i => (i.RelativeDirectory, Path.GetFileName(i.Path))));
+    }
+
+    [Fact]
     public void ProblemsAreReportedAsWarnings_NotErrors()
     {
         using var dir = new TempDir();

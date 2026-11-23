@@ -76,17 +76,30 @@ def config_path() -> Path | None:
     return next((p for p in candidates if p.is_file()), None)
 
 
+CONFIG_ERROR: str | None = None  # a configuration that could not be read: every tool says so
+
+
 def load_config() -> dict:
+    global CONFIG_ERROR
     config = json.loads(json.dumps(DEFAULTS))
     path = config_path()
     if path:
-        given = json.loads(path.read_text(encoding="utf-8-sig"))
-        for key, value in given.items():
-            if isinstance(value, dict) and isinstance(config.get(key), dict):
-                config[key].update(value)
-            else:
-                config[key] = value
-        log(f"markporto-rag: configuration {path}")
+        try:
+            given = json.loads(path.read_text(encoding="utf-8-sig"))
+            if not isinstance(given, dict):
+                raise ValueError("the top level is not an object { ... }")
+            for key, value in given.items():
+                if isinstance(value, dict) and isinstance(config.get(key), dict):
+                    config[key].update(value)
+                else:
+                    config[key] = value
+            if isinstance(config["roots"], str):  # one folder written without [ ]
+                config["roots"] = [config["roots"]]
+            log(f"markporto-rag: configuration {path}")
+        except (OSError, ValueError) as ex:
+            CONFIG_ERROR = f"The configuration {path} could not be read: {ex}"
+            log("markporto-rag: " + CONFIG_ERROR)
+            config = json.loads(json.dumps(DEFAULTS))
     if os.environ.get("MARKPORTO_RAG_ROOT"):
         config["roots"] = [p for p in os.environ["MARKPORTO_RAG_ROOT"].split(";") if p.strip()]
     return config
@@ -132,7 +145,7 @@ def cos(a, b) -> float:
 
 class Index:
     def __init__(self):
-        self.stamp: tuple = ()
+        self.stamp: tuple | None = None  # not read yet (an empty tuple would be "no files", which needs its warnings too)
         self.chunks: list[dict] = []
         self.by_key: dict[str, dict] = {}
         self.terms: list[Counter] = []
@@ -143,33 +156,63 @@ class Index:
         self.dimension: int | None = None
         self.warnings: list[str] = []
 
-    def files(self) -> list[Path]:
-        found = []
+    def files(self) -> tuple[list[Path], list[str]]:
+        found: dict[str, Path] = {}
+        warnings = []
         for root in ROOTS:
-            if root.is_dir():
-                found += [p for p in root.rglob("*_chunks.jsonl") if ".markporto" not in p.parts]
-        return sorted(found)
+            if not root.is_dir():
+                warnings.append(f"{root}: not a folder that is there; not searched")
+                continue
+            for p in root.rglob("*_chunks.jsonl"):
+                if ".markporto" not in p.parts:
+                    found.setdefault(os.path.normcase(str(p.resolve())), p)  # roots inside one another: each file once
+        return sorted(found.values()), warnings
 
     def refresh(self):
-        files = self.files()
-        stamp = tuple((str(p), p.stat().st_mtime_ns, p.stat().st_size) for p in files)
+        files, warnings = self.files()
+        stamp = []
+        for p in files:
+            try:
+                st = p.stat()
+                stamp.append((str(p), st.st_mtime_ns, st.st_size))
+            except OSError:  # gone since it was found
+                pass
+        stamp = tuple(stamp)
         if stamp == self.stamp:
             return
-        chunks, warnings = [], []
-        for path in files:
-            root = next((r for r in ROOTS if path.is_relative_to(r)), path.parent)
+        chunks = []
+        for path in [Path(s[0]) for s in stamp]:
+            root = max((r for r in ROOTS if path.is_relative_to(r)), key=lambda r: len(r.parts), default=path.parent)
             rel = path.relative_to(root).as_posix()
-            for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                lines = path.read_text(encoding="utf-8-sig").splitlines()
+            except (OSError, UnicodeDecodeError) as ex:
+                warnings.append(f"{path}: could not be read ({ex}); skipped")
+                continue
+            bad = 0
+            for line in lines:
                 if not line.strip():
                     continue
-                c = json.loads(line)
+                try:
+                    c = json.loads(line)
+                except ValueError:
+                    bad += 1
+                    continue
+                if not isinstance(c, dict):
+                    bad += 1
+                    continue
                 if c.get("schemaVersion", 0) > SCHEMA_VERSION:
                     warnings.append(f"{path}: schemaVersion {c.get('schemaVersion')} is newer than this server ({SCHEMA_VERSION}); skipped")
                     break
+                if not usable(c):
+                    bad += 1
+                    continue
                 c["key"] = f"{rel}#{c['id']}"
                 c["file"] = str(path)
                 c["folder"] = str(path.parent)
                 chunks.append(c)
+            if bad:
+                warnings.append(f"{path}: {bad} line(s) that are not chunks of MarkPortO were skipped")
         self.chunks = chunks
         self.warnings = warnings
         self.by_key = {c["key"]: c for c in chunks}
@@ -194,13 +237,20 @@ class Index:
         signature = json.dumps([EMB["model"], EMB["passagePrefix"], EMB["passageChars"]]).encode()
         for path in files:
             mine = [c for c in self.chunks if c["file"] == str(path)]
-            digest = hashlib.sha1(path.read_bytes() + signature).hexdigest()
+            try:
+                digest = hashlib.sha1(path.read_bytes() + signature).hexdigest()
+            except OSError:
+                vectors += [None] * len(mine)
+                continue
             cache = CACHE / (hashlib.sha1(str(path).encode()).hexdigest() + ".json")
             got = None
             if cache.exists():
-                saved = json.loads(cache.read_text(encoding="utf-8"))
-                if saved.get("digest") == digest and len(saved["vectors"]) == len(mine):
-                    got = saved["vectors"]
+                try:
+                    saved = json.loads(cache.read_text(encoding="utf-8"))
+                    if saved.get("digest") == digest and len(saved["vectors"]) == len(mine):
+                        got = saved["vectors"]
+                except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                    got = None  # a broken cache is made again
             if got is None and reachable and mine:
                 try:
                     texts = [EMB["passagePrefix"] + " > ".join(c["headings"]) + "\n" + c["text"][:EMB["passageChars"]] for c in mine]
@@ -215,6 +265,13 @@ class Index:
                     got = None
             vectors += got if got is not None else [None] * len(mine)
         return vectors
+
+
+def usable(c: dict) -> bool:
+    """A line has what the server reads: an id, a source, a Markdown, headings and a text."""
+    return (isinstance(c.get("id"), str) and isinstance(c.get("source"), str) and isinstance(c.get("markdown"), str)
+            and isinstance(c.get("headings"), list) and isinstance(c.get("text"), str)
+            and (c.get("pages") is None or isinstance(c.get("pages"), list)) and isinstance(c.get("pageImages", []), list))
 
 
 INDEX = Index()
@@ -246,6 +303,8 @@ def view(c: dict, score: float | None = None, full: bool = False) -> dict:
 
 
 def no_roots() -> dict | None:
+    if CONFIG_ERROR:
+        return {"error": CONFIG_ERROR}
     if ROOTS:
         return None
     return {"error": "No folder to search. Write \"roots\" in the configuration (markporto-rag.json) or set MARKPORTO_RAG_ROOT."}
@@ -264,6 +323,8 @@ def search_docs(query: str, k: int = 5, source: str | None = None) -> dict:
     """
     if (error := no_roots()) is not None:
         return error
+    if not query or not query.strip():
+        return {"error": "The question (query) is empty."}
     INDEX.refresh()
     idx = [i for i, c in enumerate(INDEX.chunks) if not source or source.lower() in c["source"].lower()]
     if not idx:

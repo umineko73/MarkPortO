@@ -160,6 +160,21 @@ public class PerSheetMarkdownTests
     }
 
     [Fact]
+    public void TheSpacesAroundTheNameOfASheet_AreNotInTheTitleNorInTheHeadings_ButTheSheetKeepsItsName()
+    {
+        using var dir = new TempDir();
+        var doc = Book(dir.Path);
+        doc.Pages[2].Sheet = new SheetInfo("  費用  ", "A:C", 1, 1);
+
+        MarkdownRenderer.Write(doc);
+
+        Assert.StartsWith("# 報告書.xlsx - 費用\n", File.ReadAllText(dir.Combine("報告書_費用.md")), StringComparison.Ordinal);
+        using var chunk = JsonDocument.Parse(Assert.Single(File.ReadAllLines(dir.Combine("報告書_費用_chunks.jsonl"))));
+        Assert.Equal(["費用"], chunk.RootElement.GetProperty("headings").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal("  費用  ", chunk.RootElement.GetProperty("sheet").GetString());
+    }
+
+    [Fact]
     public void AnXlsxOfAnExtractor_OrAnotherKind_IsOneMarkdown()
     {
         using var dir = new TempDir();

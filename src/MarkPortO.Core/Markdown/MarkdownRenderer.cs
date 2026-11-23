@@ -104,7 +104,7 @@ public static partial class MarkdownRenderer
         var pages = sheet is null ? document.Pages : [.. document.Pages.Where(p => sheet.Pages.Contains(p.Index))];
 
         var builder = new StringBuilder();
-        var title = sheet is null ? fileName : fileName + " - " + sheet.Sheet;
+        var title = sheet is null || sheet.Sheet.Trim().Length == 0 ? fileName : fileName + " - " + sheet.Sheet.Trim();
         builder.Append("# ").Append(MarkdownText.Escape(title).Replace("\n", " ", StringComparison.Ordinal)).Append("\n\n");
         // What the VLM read in the pictures (FR-150), by file: a picture is written once, after its first reference.
         var figures = new Dictionary<string, string>(StringComparer.Ordinal);

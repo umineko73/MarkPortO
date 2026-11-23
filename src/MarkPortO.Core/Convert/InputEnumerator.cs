@@ -48,6 +48,9 @@ public static class InputEnumerator
         var singleFolder = given.Count == 1 && folders.Count == 1;
         var contents = layout == FolderLayout.Contents;
 
+        // A document is converted once, also when a folder and a folder or file inside it are both given: where it is found first counts.
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var path in given)
         {
             if (Directory.Exists(path))
@@ -57,6 +60,11 @@ public static class InputEnumerator
                 var prefix = singleFolder || contents ? string.Empty : ConvertRequest.FolderName(path);
                 foreach (var file in FilesIn(path, types, recurse))
                 {
+                    if (!taken.Add(Path.GetFullPath(file)))
+                    {
+                        continue;
+                    }
+
                     var relative = Path.GetRelativePath(path, Path.GetDirectoryName(file)!);
                     relative = relative == "." ? string.Empty : relative;
                     inputs.Add(new PlannedInput(file, Combine(prefix, relative)));
@@ -72,7 +80,7 @@ public static class InputEnumerator
                 {
                     warnings.Add($"'{path}' is not a .docx, .xlsx, .pptx or .pdf file. Skipped.");
                 }
-                else
+                else if (taken.Add(path))
                 {
                     inputs.Add(new PlannedInput(path));
                 }

@@ -190,6 +190,63 @@ public sealed class PresetViewModelTests
     });
 
     [Fact]
+    public void TheItemsOfStep3_CanBeChangedOnlyWhenStep3IsOn_AndTheMarkdownItemsAlways() => Sta.Run(screen =>
+    {
+        screen.Model.Step3 = false;
+        Assert.False(screen.Model.CanEditVlmSeparate); // where the results go
+        Assert.False(screen.Model.CanEditStep1Tables); // the tables of the pages read whole, and the repeated tables
+        Assert.True(screen.Model.CanEdit); // the description at the top, the chunks: they do not depend on Step3
+
+        screen.Model.Step3 = true;
+        Assert.True(screen.Model.CanEditVlmSeparate);
+        Assert.True(screen.Model.CanEditStep1Tables);
+    }, prepare: s =>
+    {
+        s.Vlm.Connections = [new ConnectionProfile { Name = "local", BaseUrl = "http://localhost:1234/v1", Model = "m" }];
+        s.Vlm.Selected = "local";
+    });
+
+    [Fact]
+    public void TheListOfWhereTheVlmResultsGo_IsTheSettingOfTheSeparateFile() => Sta.Run(screen =>
+    {
+        screen.Model.VlmSeparateIndex = 1;
+        Assert.True(screen.Settings.Steps.VlmSeparate);
+        Assert.True(screen.Model.VlmSeparate);
+
+        screen.Model.VlmSeparate = false;
+        Assert.Equal(0, screen.Model.VlmSeparateIndex);
+        Assert.False(screen.Settings.Steps.VlmSeparate);
+    });
+
+    [Fact]
+    public void TheOutputOfAFolder_AndAFileForEachSheet_AreSaved_AndAreNotPartOfAPreset() => Sta.Run(screen =>
+    {
+        screen.Combo.SelectedIndex = Rag;
+        screen.Pump();
+
+        screen.Model.FolderLayoutIndex = 1; // FR-154
+        screen.Model.ExcelPerSheet = true; // FR-153
+        Assert.Equal(FolderLayout.Contents, screen.Settings.Output.FolderLayout);
+        Assert.True(screen.Settings.Output.ExcelPerSheet);
+        Assert.Equal(string.Empty, screen.Model.PresetStateText); // not a change of the preset
+
+        screen.Combo.SelectedIndex = Human;
+        screen.Pump();
+        Assert.Equal(1, screen.Model.FolderLayoutIndex); // a preset does not change them
+        Assert.True(screen.Model.ExcelPerSheet);
+
+        screen.Model.FolderLayoutIndex = 0;
+        Assert.Equal(FolderLayout.Folder, screen.Settings.Output.FolderLayout);
+        screen.Model.FolderLayoutIndex = 1;
+        screen.Store.Flush();
+        var read = new SettingsStore(screen.Store.FilePath);
+        read.Load();
+        Assert.Equal(FolderLayout.Contents, read.Current.Output.FolderLayout); // written to the file
+        Assert.True(read.Current.Output.ExcelPerSheet);
+        read.Dispose();
+    });
+
+    [Fact]
     public void TheRagPreset_TurnsTheChunksOn_AndChangingThemIsAChangeOfThePreset() => Sta.Run(screen =>
     {
         screen.Combo.SelectedIndex = Rag;

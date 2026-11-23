@@ -316,6 +316,23 @@ public class ChunkBuilderTests
     }
 
     [Fact]
+    public void OddCharacters_GoThroughTheJsonUnchanged()
+    {
+        using var dir = new TempDir();
+        var odd = "引用 \"x\" と \\ の C:\\path、タブ\tと制御文字\u0001、絵文字😀、<!-- ではない -- 記号 & < >";
+        var doc = Doc(DocumentKind.Docx, 1, H("# 見出し \"引用\" \\ 😀", 1), P(odd));
+        doc.OutputFolder = dir.Path;
+
+        ChunksWriter.Write(doc);
+
+        var line = Assert.Single(File.ReadAllLines(Path.Combine(dir.Path, "設計書_chunks.jsonl")));
+        Assert.DoesNotContain('\u0001', line); // escaped: one chunk stays on one line, and readers get a valid JSON
+        using var json = JsonDocument.Parse(line);
+        Assert.Equal(odd, json.RootElement.GetProperty("text").GetString());
+        Assert.Equal("見出し \"引用\" \\ 😀", json.RootElement.GetProperty("headings")[0].GetString());
+    }
+
+    [Fact]
     public void TheMarkdownWritesTheChunks_OnlyWhenTheDocumentAsksForThem()
     {
         using var dir = new TempDir();
