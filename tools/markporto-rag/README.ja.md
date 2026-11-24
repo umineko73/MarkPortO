@@ -20,7 +20,7 @@ MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索す
 ## 準備
 
 1. MarkPortO で、プリセット「RAG用」、または「ステップの詳細」の「RAG 用の小分け（_chunks.jsonl）を書く」をオンにして変換する（CLI は `--chunks on`）。
-2. [uv](https://docs.astral.sh/uv/) を入れる（`winget install astral-sh.uv`）。MCP の部品（Python の `mcp`）と計算の部品（`numpy`）は、初回の起動で uv が取ってきます（インターネットが要ります）。`numpy` がなくても動きますが、意味の検索が遅くなります（2万の塊で1回 0.3 秒ほど）。
+2. [uv](https://docs.astral.sh/uv/) を入れる（`winget install astral-sh.uv`）。MCP の部品（Python の `mcp`）と計算の部品（`numpy`）は、初回の起動で uv が取ってきます（インターネットが要ります。proxy がある PC は下の「proxy がある・インターネットにつながらない PC」）。`numpy` がなくても動きますが、意味の検索が遅くなります（2万の塊で1回 0.3 秒ほど）。
 3. 設定ファイルを作る: `markporto-rag.sample.json` を `%APPDATA%\MarkPortO\markporto-rag.json` に写して、`roots` に MarkPortO の出力先を書く。
 4. 意味の検索も使うなら、LM Studio で埋め込みのモデル（例: `multilingual-e5-small` の GGUF）を入れて、サーバーを起動しておく。
 
@@ -68,7 +68,26 @@ MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索す
 
 書き方は CLI の版で変わることがあります。うまくいかないときは、それぞれの説明書を確かめてください。
 
-**インターネットにつながらない（proxy などで uv が PyPI に届かない）PC**: uv は起動のたびに部品の版を確かめに行くので、`--no-project` の後ろに `--offline` を足します（例: `"run", "--no-project", "--offline", "--with", "mcp", ...`）。`--offline` では、部品（`mcp`、`numpy`）が uv のキャッシュにないと起動できません。一度つながる場所で起動しておくか、numpy が入れられないときは `--with numpy` を外します（遅くはなるが動く）。`--no-project` は残します（外すと、道具を開いたフォルダの Python プロジェクトの環境で動こうとすることがある）。
+### proxy がある・インターネットにつながらない PC
+
+uv は、初めての起動で部品（`mcp`、`numpy`）を PyPI から取ってきて、uv のキャッシュに入れます（numpy は 15MB ほど）。2回目からはキャッシュを使いますが、起動のたびに PyPI へ版を確かめに行きます。
+
+1. **proxy を通して、一度だけ部品を取ってくる**（PowerShell。proxy のアドレスは社内の案内に合わせる）:
+
+   ```powershell
+   $env:HTTPS_PROXY = "http://proxy.example.co.jp:8080"
+   $env:HTTP_PROXY  = $env:HTTPS_PROXY
+   uv run --no-project --with mcp --with numpy python -c "import mcp, numpy; print('ok')"
+   ```
+
+   `certificate` や `invalid peer certificate` のエラーが出るときは、会社の proxy が通信を検査しています。Windows に入っている会社の証明書を使うよう、`$env:UV_SYSTEM_CERTS = "true"` も足してもう一度実行します。proxy に ID とパスワードが要るときは、パスワードを設定ファイルや登録の命令に書かずに、社内の案内に従ってください。
+
+2. **登録の命令に `--offline` を足す**: `--no-project` の後ろに足します（例: `"run", "--no-project", "--offline", "--with", "mcp", "--with", "numpy", ...`）。キャッシュだけで起動するので、PyPI へ確かめに行きません。`--no-project` は残します（外すと、道具を開いたフォルダの Python プロジェクトの環境で動こうとすることがある）。
+
+   `--offline` を付けずに、`HTTPS_PROXY`（と必要なら `UV_SYSTEM_CERTS`）を Windows のユーザーの環境変数にしておく方法もあります（設定 → システム → バージョン情報 → システムの詳細設定 → 環境変数）。この場合、道具を開き直すと使われます。
+
+- 部品を取ってこられないときは、登録の命令から `--with numpy` を外しても動きます（意味の検索は遅くなる。2万の塊で1回 0.3 秒ほど）。`mcp` は外せません。
+- uv の版が古いと、証明書のオプションの名前が違います（`UV_NATIVE_TLS`）。`uv --version` が 0.11 より前なら `uv self update` で上げるか、そちらを使います。
 
 ## 使い方の例
 

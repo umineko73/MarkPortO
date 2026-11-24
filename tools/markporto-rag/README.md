@@ -20,7 +20,7 @@ A small MCP server that searches the chunks for RAG that MarkPortO writes (`<nam
 ## Setting up
 
 1. Convert with MarkPortO with the preset For RAG, or with "Write the chunks for RAG (_chunks.jsonl)" on in the details of the steps (`--chunks on` on the command line).
-2. Install [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`). The MCP package (`mcp` for Python) and `numpy` are fetched by uv the first time (this needs the internet). Without `numpy` the server still works, but the search by meaning is slower (about 0.3 seconds a search with 20,000 chunks).
+2. Install [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`). The MCP package (`mcp` for Python) and `numpy` are fetched by uv the first time (this needs the internet; behind a proxy, see "Behind a proxy, or without the internet" below). Without `numpy` the server still works, but the search by meaning is slower (about 0.3 seconds a search with 20,000 chunks).
 3. Make the configuration: copy `markporto-rag.sample.json` to `%APPDATA%\MarkPortO\markporto-rag.json` and write the output folder of MarkPortO in `roots`.
 4. For the search by meaning, load an embedding model in LM Studio (for example a GGUF of `multilingual-e5-small`) and start its server.
 
@@ -68,7 +68,26 @@ Use the path of this folder. A tool sees the server after it is opened again.
 
 The way to write these can change with the version of a tool; see its documentation when it does not work.
 
-**A computer that cannot reach the internet (uv cannot reach PyPI, through a proxy for example)**: uv looks up the versions of the packages at every start; add `--offline` after `--no-project` (for example `"run", "--no-project", "--offline", "--with", "mcp", ...`). With `--offline` the packages (`mcp`, `numpy`) must be in the cache of uv: start the server once where it can reach the internet, or leave out `--with numpy` when numpy cannot be had (slower, but it works). Keep `--no-project` (without it, uv may use the Python project of the folder the tool was opened in).
+### Behind a proxy, or without the internet
+
+The first time, uv fetches the packages (`mcp`, `numpy`; numpy is about 15 MB) from PyPI into its cache. Later starts use the cache, but uv still asks PyPI for the versions at every start.
+
+1. **Fetch the packages once through the proxy** (PowerShell; use the address of your proxy):
+
+   ```powershell
+   $env:HTTPS_PROXY = "http://proxy.example.com:8080"
+   $env:HTTP_PROXY  = $env:HTTPS_PROXY
+   uv run --no-project --with mcp --with numpy python -c "import mcp, numpy; print('ok')"
+   ```
+
+   An error about a `certificate` (`invalid peer certificate`) means that the proxy inspects the connections: add `$env:UV_SYSTEM_CERTS = "true"` so that uv uses the certificates installed in Windows, and run it again. If the proxy needs a user name and a password, do not write the password in a configuration or in the command that registers the server; follow the instructions of your organization.
+
+2. **Add `--offline` to the command that registers the server**, after `--no-project` (for example `"run", "--no-project", "--offline", "--with", "mcp", "--with", "numpy", ...`): it starts from the cache without asking PyPI. Keep `--no-project` (without it, uv may use the Python project of the folder the tool was opened in).
+
+   Instead of `--offline`, you can make `HTTPS_PROXY` (and `UV_SYSTEM_CERTS` if needed) environment variables of your Windows user (Settings > System > About > Advanced system settings > Environment Variables); the tools use them after they are opened again.
+
+- If the packages cannot be fetched, the server works without `--with numpy` (the search by meaning is slower: about 0.3 seconds a search with 20,000 chunks). `mcp` is needed.
+- Older versions of uv name the certificate option differently (`UV_NATIVE_TLS`): if `uv --version` is older than 0.11, update it with `uv self update`, or use that name.
 
 ## Examples
 
