@@ -552,7 +552,7 @@ ZIP の `tools\markporto-rag\` にある小さな MCP サーバー `markporto-ra
 4. 道具に登録します。Claude Code の例（パスは展開したフォルダに合わせます）:
 
    ```
-   claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp python C:\MarkPortO\tools\markporto-rag\server.py
+   claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp --with numpy python C:\MarkPortO\tools\markporto-rag\server.py
    ```
 
    ほかの道具の書き方と、設定のすべての項目は [tools/markporto-rag/README.ja.md](../tools/markporto-rag/README.ja.md) にあります。

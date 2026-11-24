@@ -11,7 +11,9 @@
     "passagePrefix": "passage: ",
     "passageChars": 1500,
     "timeoutSeconds": 120,
-    "retrySeconds": 30
+    "retrySeconds": 30,
+    "batchSize": 64,
+    "waitSeconds": 10
   },
   "cacheDir": "",
   "textChars": 1500,

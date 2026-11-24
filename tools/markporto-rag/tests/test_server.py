@@ -25,10 +25,12 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
 import time
+from array import array
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -62,6 +64,41 @@ def write(folder: Path, rows, raw=()) -> None:
     (folder / "設計書_chunks.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+MAGIC = b"MPRAG1\n"
+
+
+def kept_files(folder) -> list[Path]:
+    """The files of kept vectors: binary (since 0.4.4) or JSON (0.4.1-0.4.3)."""
+    return sorted(list(Path(folder).glob("*.bin")) + list(Path(folder).glob("*.json")))
+
+
+def read_kept(f: Path) -> dict:
+    if f.suffix == ".json":
+        return json.loads(f.read_text(encoding="utf-8"))
+    raw = f.read_bytes()
+    assert raw.startswith(MAGIC)
+    end = raw.index(b"\n", len(MAGIC))
+    head = json.loads(raw[len(MAGIC):end])
+    flat = array("f")
+    flat.frombytes(raw[end + 1:])
+    head["vectors"] = [list(flat[k * head["dim"]:(k + 1) * head["dim"]]) for k in range(head["count"])]
+    return head
+
+
+def write_kept_binary(f: Path, head: dict, vectors) -> None:
+    flat = array("f", [x for v in vectors for x in v])
+    head = {k: v for k, v in head.items() if k != "vectors"}
+    f.write_bytes(MAGIC + json.dumps(head).encode() + b"\n" + flat.tobytes())
+
+
+def to_old_json(folder) -> None:
+    """The kept vectors as 0.4.3 kept them (a JSON file of plain lists), to check that they are taken over, or made again when broken."""
+    for f in Path(folder).glob("*.bin"):
+        head = read_kept(f)
+        f.with_suffix(".json").write_text(json.dumps({"digest": head["digest"], "model": head["model"], "vectors": head["vectors"]}), encoding="utf-8")
+        f.unlink()
+
+
 class Embeddings:
     """An OpenAI compatible embedding API: a vector from the characters of the text; it can be down, or answer as another model."""
 
@@ -69,26 +106,41 @@ class Embeddings:
         self.up = True
         self.model: str | None = None  # the name it answers with; None: the name asked for
         self.inputs = 0  # the texts it was asked for
+        self.requests = 0  # the requests it answered or refused
         self.pick = None  # the model it answers with for a text, when it is not always the same
         self.same_index = False  # every vector with index 0, as a broken API might
         self.bool_index = False  # false / true for the indexes 0 and 1
         self.dims = None  # the length of the vector for a text, when it is not 8
         self.hook = None  # called with the texts of each request, before it is answered
+        self.zero = None  # texts whose vector is all 0
+        self.flat = False  # the same vector for every text (ties in the search by meaning)
+        self.seen: list[str] = []  # the first text of each request
+        self.fail = None  # texts whose request is refused (503), the API being up
+        self.alias = None  # the text whose vector a text gets (the same vector for several chunks)
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 outer.inputs += len(body["input"])
+                outer.requests += 1
+                outer.seen.append(body["input"][0])
                 if outer.hook:
                     outer.hook(body["input"])
-                if not outer.up:
+                if not outer.up or (outer.fail and any(outer.fail(t) for t in body["input"])):
                     self.send_response(503)
                     self.end_headers()
                     return
                 def vector(t):
                     n = outer.dims(t) if outer.dims else 8
-                    return [b / 255 for b in hashlib.sha256(t.encode()).digest()[:n]]
+                    if outer.zero and outer.zero(t):
+                        return [0.0] * n
+                    if outer.flat:
+                        return [1.0] + [0.0] * (n - 1)
+                    if outer.alias:
+                        t = outer.alias(t)
+                    raw = hashlib.sha256(t.encode()).digest()[:n] if n <= 32 else hashlib.shake_256(t.encode()).digest(n)
+                    return [b / 255 for b in raw]
 
                 def index(i):
                     return 0 if outer.same_index else (bool(i) if outer.bool_index else i)
@@ -105,7 +157,12 @@ class Embeddings:
             def log_message(self, *args):
                 pass
 
-        self.http = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        class Quiet(ThreadingHTTPServer):
+            def handle_error(self, request, client_address):  # a server process that ended dropped its connection: not a failure
+                if not isinstance(sys.exc_info()[1], ConnectionError):
+                    super().handle_error(request, client_address)
+
+        self.http = Quiet(("127.0.0.1", 0), Handler)
         threading.Thread(target=self.http.serve_forever, daemon=True).start()
         self.url = f"http://127.0.0.1:{self.http.server_address[1]}/v1"
 
@@ -223,7 +280,7 @@ def embedding_cases(api: Embeddings):
         check("another model answered: keywords only", res.get("mode") == "keyword", res)
         docs = await call("list_documents", {})
         check("... and a warning names it", any("another-embedding-model" in w for w in docs["warnings"]), docs["warnings"])
-        cache = list((BASE / "other-model" / "cache").glob("*.json"))
+        cache = kept_files(BASE / "other-model" / "cache")
         check("... and its vectors are not kept", cache == [], cache)
         api.model = None
 
@@ -297,7 +354,7 @@ def embedding_cases(api: Embeddings):
         api.same_index = True
         res = await call("search_docs", {"query": "タイムアウト"})
         check("an API that gives one index twice: keywords only", res.get("mode") == "keyword", res)
-        cache = list((BASE / "same-index" / "cache").glob("*.json"))
+        cache = kept_files(BASE / "same-index" / "cache")
         check("... and nothing kept", cache == [], cache)
         api.same_index = False
 
@@ -305,7 +362,7 @@ def embedding_cases(api: Embeddings):
         api.bool_index = True
         res = await call("search_docs", {"query": "タイムアウト"})
         check("indexes false / true are not 0 / 1: keywords only", res.get("mode") == "keyword", res)
-        cache = list((BASE / "bool-index" / "cache").glob("*.json"))
+        cache = kept_files(BASE / "bool-index" / "cache")
         check("... and nothing kept", cache == [], cache)
         api.bool_index = False
 
@@ -352,6 +409,33 @@ async def only_a_longer_version(call):
     res = await call("search_docs", {"query": "タイムアウト", "path": "v1.2"})
     check("'v1.2' with only v1.20 there: found by a part, and the note names it",
           [x["path"] for x in res.get("results", [])] == ["v1.20/設計書.docx"] and "v1.20/設計書.docx" in (res.get("note") or ""), res)
+
+
+UNIT = '\nimport importlib.util, json, os, sys, threading\nfrom pathlib import Path\nspec = importlib.util.spec_from_file_location("server", sys.argv[1])\nserver = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(server)\nout = {}\ncache = server.CACHE\ncache.mkdir(parents=True, exist_ok=True)\n# R1-04: two writers of one file at once: what is left is whole, and no temporary file stays\nwritten, errors = {1: 0, 100: 0}, []\ndef writer(n):\n    try:\n        for _ in range(30):\n            server.write_cache("doc", "d", "m", server.as_rows([[1.0, 0.0]] * n))\n            written[n] += 1\n    except Exception as ex:\n        errors.append(repr(ex))\nthreads = [threading.Thread(target=writer, args=(n,)) for n in (1, 100)]\n[t.start() for t in threads]\n[t.join() for t in threads]\nout["concurrent"] = [server.read_cache("doc", "d", n) is not None for n in (1, 100)]\nout["written"] = [written[1], written[100]]\nout["errors"] = errors\nout["tmp_left"] = [f.name for f in cache.glob("*.tmp")]\n# R1-05: a broken binary file next to a good JSON of 0.4.3: the JSON is used\nserver.cache_file("old", ".bin").write_bytes(server.CACHE_MAGIC + b"no line end")\nserver.cache_file("old", ".json").write_text(json.dumps({"digest": "d2", "model": "m", "vectors": [[3, 4]]}), encoding="utf-8")\ngot = server.read_cache("old", "d2", 1)\nout["broken_bin_json_used"] = got is not None and [round(float(x), 3) for x in got[0][0]] == [0.6, 0.8]\n# ... and when the binary form cannot be written, the JSON\'s vectors are used all the same, and the JSON stays\nserver.cache_file("old2", ".json").write_text(json.dumps({"digest": "d3", "model": "m", "vectors": [[3, 4]]}), encoding="utf-8")\ndef fail(*a, **k):\n    raise OSError("disk full")\nserver.write_cache = fail\ngot = server.read_cache("old2", "d3", 1)\nout["unwritable_json_used"] = got is not None and server.cache_file("old2", ".json").exists()\nimport time as _t\nold_tmp, new_tmp, others = cache / "markporto-rag.a.old.tmp", cache / "markporto-rag.b.new.tmp", cache / "accounting-recovery.tmp"\nfor f in (old_tmp, new_tmp, others):\n    f.write_bytes(b"x")\nfor f in (old_tmp, others):\n    os.utime(f, (_t.time() - 7200, _t.time() - 7200))\nserver.remove_old_temporary_files()\nout["tmp_cleanup"] = [old_tmp.exists(), new_tmp.exists(), others.exists()]\nimport struct\ndef rows_ok(values):\n    return server.rows_from_bytes(struct.pack("<%df" % len(values), *values), 1, len(values)) is not None\nout["tiny_rows"] = [rows_ok([0.6, 0.8]), rows_ok([0.0, 0.0]), rows_ok([-1e-8, 0.0])]\nprint(json.dumps(out))\n'
+
+
+def unit_checks():
+    """Checks of the functions that keep the vectors, run in a process of their own (the server module reads its configuration on import)."""
+    folder = BASE / "unit"
+    folder.mkdir(parents=True, exist_ok=True)
+    cfg = folder / "config.json"
+    cfg.write_text(json.dumps({"roots": [str(folder)], "cacheDir": str(folder / "cache")}), encoding="utf-8")
+    env = dict(os.environ, MARKPORTO_RAG_CONFIG=str(cfg))
+    run = subprocess.run([sys.executable, "-c", UNIT, str(SERVER)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=300)
+    print("unit")
+    try:
+        out = json.loads(run.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        check("the unit checks run", False, run.stderr[-500:])
+        return
+    check("two writers of one kept file at once: every write is done, without an error", out["written"] == [30, 30] and out["errors"] == [], out)
+    check("... and what is left is whole", any(out["concurrent"]), out["concurrent"])
+    check("... and no temporary file stays", out["tmp_left"] == [], out["tmp_left"])
+    check("a broken binary file next to a good JSON of 0.4.3: the JSON is used", out["broken_bin_json_used"], out)
+    check("the binary form cannot be written: the JSON's vectors are used all the same, and it stays", out["unwritable_json_used"], out)
+    check("temporary files of kept vectors: an old one goes, a new one (another server writing) stays, another app's stays",
+          out["tmp_cleanup"] == [False, True, True], out["tmp_cleanup"])
+    check("kept rows: length 1 and all 0 are taken, a tiny broken one is not", out["tiny_rows"] == [True, True, False], out["tiny_rows"])
 
 
 async def main():
@@ -424,7 +508,7 @@ async def main():
     many = BASE / "many"
     write(many / "設計書", [chunk(f"c{i:04d}", f"第{i}の塊 タイムアウト") for i in range(1, 18)])
     for n, (first, second) in enumerate([("org-a/test-model", "test-model"), ("test-model", "org-a/test-model")]):
-        await run(f"batches-of-two-names-{n}", {"roots": [str(many)], "embedding": dict(emb, queryPrefix="q: ", passagePrefix="p: ")},
+        await run(f"batches-of-two-names-{n}", {"roots": [str(many)], "embedding": dict(emb, queryPrefix="q: ", passagePrefix="p: ", batchSize=16)},
                   batches_of_two_names(first, second))
     await run("publishers", {"roots": [str(one)], "embedding": dict(emb, model="lab/test-model")}, publishers)
 
@@ -439,16 +523,17 @@ async def main():
               res.get("mode") == "hybrid" and other.inputs > 1, (res.get("mode"), other.inputs))
 
     async def old_cache(call):
-        for f in Path(shared).glob("*.json"):  # as kept before the answering model was kept
-            saved = json.loads(f.read_text(encoding="utf-8"))
-            del saved["model"]
-            f.write_text(json.dumps(saved), encoding="utf-8")
         before = api.inputs
         await call("search_docs", {"query": "タイムアウト"})
         check("vectors kept without the answering model are made again", api.inputs - before > 1, api.inputs - before)
-        kept = [json.loads(f.read_text(encoding="utf-8")) for f in Path(shared).glob("*.json")]
+        kept = [read_kept(f) for f in kept_files(shared)]
         check("... and now say it", kept and all(k.get("model") == "test-model" for k in kept), [k.get("model") for k in kept])
 
+    to_old_json(shared)
+    for f in Path(shared).glob("*.json"):  # as kept before the answering model was kept (0.4.1)
+        saved = json.loads(f.read_text(encoding="utf-8"))
+        del saved["model"]
+        f.write_text(json.dumps(saved), encoding="utf-8")
     await run("old-cache", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": shared}, old_cache)
     await run("cache-second-api", {"roots": [str(one)], "embedding": dict(emb, url=other.url), "cacheDir": shared}, second_api)
     other.http.shutdown()
@@ -457,19 +542,19 @@ async def main():
     write(twodocs / "文書A", [chunk("c0001", "文書A のタイムアウト")])
     write(twodocs / "文書B", [chunk("c0001", "文書B のタイムアウト")])
     mixed_cache = str(BASE / "mixed-cache")
-    await run("two-models-kept-then-one", {"roots": [str(twodocs)], "embedding": dict(emb, queryPrefix="q: "), "cacheDir": mixed_cache},
+    await run("two-models-kept-then-one", {"roots": [str(twodocs)], "embedding": dict(emb, queryPrefix="q: ", batchSize=1), "cacheDir": mixed_cache},
               two_models_kept_then_one)
 
     async def restarted(call):
         res = await call("search_docs", {"query": "タイムアウト"})
         check("vectors of two models kept, then a restart with one model: by meaning at once", res.get("mode") == "hybrid", res)
 
-    first = sorted(Path(mixed_cache).glob("*.json"))[0]  # as kept while the API answered as another model for one document
-    saved = json.loads(first.read_text(encoding="utf-8"))
+    first = kept_files(mixed_cache)[0]  # as kept while the API answered as another model for one document
+    saved = read_kept(first)
     saved["model"] = "b/test-model"
-    first.write_text(json.dumps(saved), encoding="utf-8")
+    write_kept_binary(first, saved, saved["vectors"])
     api.pick = lambda text: "a/test-model"
-    await run("restarted-with-one-model", {"roots": [str(twodocs)], "embedding": dict(emb, queryPrefix="q: "), "cacheDir": mixed_cache}, restarted)
+    await run("restarted-with-one-model", {"roots": [str(twodocs)], "embedding": dict(emb, queryPrefix="q: ", batchSize=1), "cacheDir": mixed_cache}, restarted)
     api.pick = None
 
     await run("question-not-reached", {"roots": [str(one)], "embedding": dict(emb)}, question_not_reached)
@@ -478,11 +563,13 @@ async def main():
     async def bad_cache(call):
         res = await call("search_docs", {"query": "タイムアウト"})
         check("a kept vector with a text in it is made again: by meaning", res.get("mode") == "hybrid", res)
-        saved = [json.loads(f.read_text(encoding="utf-8")) for f in Path(bad).glob("*.json")]
-        check("... and kept as numbers", saved and all(isinstance(x, float) for k in saved for v in k["vectors"] for x in v), "")
+        saved = [read_kept(f) for f in kept_files(bad)]
+        check("... and kept as numbers, in the binary form", saved and all(f.suffix == ".bin" for f in kept_files(bad))
+              and all(isinstance(x, float) for k in saved for v in k["vectors"] for x in v), [f.name for f in kept_files(bad)])
 
     bad = str(BASE / "bad-vectors")  # not the folder of a case, which holds its config.json
     await run("bad-cache-first", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": bad}, lambda call: call("search_docs", {"query": "タイムアウト"}))
+    to_old_json(bad)
     for f in Path(bad).glob("*.json"):
         saved = json.loads(f.read_text(encoding="utf-8"))
         saved["vectors"][0][0] = "bad"
@@ -492,6 +579,7 @@ async def main():
     # R2-05: an integer too large for a float in the kept vectors
     huge = str(BASE / "huge-vectors")
     await run("huge-first", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": huge}, lambda call: call("search_docs", {"query": "タイムアウト"}))
+    to_old_json(huge)
     for f in Path(huge).glob("*.json"):
         text = f.read_text(encoding="utf-8")
         saved = json.loads(text)
@@ -534,6 +622,371 @@ async def main():
 
     await run("growing", {"roots": [str(growing)], "embedding": dict(emb, retrySeconds=3600)}, grows)
 
+    # 0.4.4: small files go in one request (LM Studio takes about 2 s for each request, however many chunks it has)
+    small = BASE / "small-files"
+    for k in range(10):
+        write(small / f"文書{k}", [chunk("c0001", f"文書{k} のタイムアウト"), chunk("c0002", f"文書{k} の続き", prev="c0001")])
+
+    async def packed(call):
+        before = api.requests
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("10 files of 2 chunks: embedded in one request (and the question in one)", res.get("mode") == "hybrid" and api.requests - before == 2,
+              (res.get("mode"), api.requests - before))
+
+    await run("small-files-packed", {"roots": [str(small)], "embedding": dict(emb)}, packed)
+
+    async def batched(call):
+        before = api.requests
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("... with batchSize 4: in 5 requests (2 files each), and the question", res.get("mode") == "hybrid" and api.requests - before == 6,
+              (res.get("mode"), api.requests - before))
+
+    await run("small-files-batched", {"roots": [str(small)], "embedding": dict(emb, batchSize=4)}, batched)
+
+    unit_checks()
+
+    # R1-02 (0.4.4): retrySeconds 0 with the API down: the embedding thread does not ask without end
+    async def no_storm(call):
+        api.up = False
+        await call("list_documents", {})
+        before = api.requests
+        await asyncio.sleep(0.5)
+        check("retrySeconds 0, the API down: at most one request in half a second", api.requests - before <= 1, api.requests - before)
+        api.up = True
+
+    await run("no-storm", {"roots": [str(one)], "embedding": dict(emb, retrySeconds=0)}, no_storm)
+
+    # R1-03: one chunk whose vector is 0 does not stop the search by meaning of the others
+    async def zero_vector(call):
+        api.zero = lambda t: "別の話" in t
+        res = await call("search_docs", {"query": "タイムアウト"})
+        docs = await call("list_documents", {})
+        check("a chunk of vector 0: the others are searched by meaning", res.get("mode") == "hybrid" and docs["embedding"]["pendingChunks"] == 0, (res.get("mode"), docs["embedding"]))
+        api.zero = None
+
+    await run("zero-vector", {"roots": [str(one)], "embedding": dict(emb)}, zero_vector)
+
+    # R1-10: ties by meaning: the same order with and without numpy (the later chunk first, as 0.4.3)
+    ties = BASE / "ties"
+    write(ties / "設計書", [chunk("c0001", "aaa"), chunk("c0002", "bbb"), chunk("c0003", "ccc")])
+
+    async def tie(call):
+        api.flat = True
+        res = await call("search_docs", {"query": "zzz", "k": 1})
+        check("a tie by meaning: the later chunk first (with or without numpy)", [x["text"] for x in res.get("results", [])] == ["ccc"], res)
+        api.flat = False
+
+    await run("ties", {"roots": [str(ties)], "embedding": dict(emb)}, tie)
+
+    # R1-11, R1-12: the configuration
+    async def wrong_type(call):
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("passageChars written as a text: an error that names it", "passageChars" in (res.get("error") or ""), res)
+
+    await run("wrong-type", {"roots": [str(one)], "embedding": dict(emb, passageChars="1500")}, wrong_type)
+
+    async def keywords_only_no_url(call):
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("keywords only with no url: the search works", res.get("mode") == "keyword" and len(res.get("results", [])) == 1, res)
+
+    await run("keywords-only-no-url", {"roots": [str(one)], "embedding": {"enabled": False, "url": None}}, keywords_only_no_url)
+
+    # R1-06, R1-07: a large file, batch by batch
+    large = BASE / "large"
+    write(large / "大きい", [chunk(f"c{i:04d}", f"大きい文書 {i} タイムアウト") for i in range(1, 13)])
+    hold_large = threading.Event()
+
+    async def large_file(call):
+        api.hook = lambda texts: hold_large.wait(10) if any("大きい文書 1 " in t for t in texts) else None
+        await call("list_documents", {})
+        await asyncio.sleep(0.5)  # the first batch is held
+        (large / "大きい" / "設計書_chunks.jsonl").unlink()
+        write(large / "新しい", [chunk("c0001", "新しい文書 タイムアウト")])
+        await call("list_documents", {})
+        api.hook = None
+        before = len(api.seen)
+        hold_large.set()
+        await asyncio.sleep(1.0)
+        later = api.seen[before:]
+        check("a large file gone while its first batch is embedded: the rest of it is not sent", not any("大きい文書" in t for t in later), later)
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("... and the new file is embedded", res.get("mode") == "hybrid", res)
+
+    await run("large-file-gone", {"roots": [str(large)], "embedding": dict(emb, batchSize=1)}, large_file)
+
+    progress = BASE / "progress"
+    write(progress / "四つ", [chunk(f"c{i:04d}", f"四つの塊 {i}") for i in range(1, 5)])
+    hold_progress = threading.Event()
+
+    async def progress_of_a_large_file(call):
+        api.hook = lambda texts: hold_progress.wait(10) if any("四つの塊 3" in t for t in texts) else None
+        await call("list_documents", {})
+        await asyncio.sleep(0.8)  # the first batch (1, 2) is done, the second (3, 4) is held
+        docs = await call("list_documents", {})
+        api.hook = None
+        hold_progress.set()
+        check("a large file, half embedded: pendingChunks says 2", docs["embedding"]["pendingChunks"] == 2, docs["embedding"])
+
+    await run("progress-of-a-large-file", {"roots": [str(progress)], "embedding": dict(emb, batchSize=2)}, progress_of_a_large_file)
+
+    # R1-13: the warning of a file goes with it
+    warned = BASE / "warned"
+    write(warned / "文書A", [chunk("c0001", "文書A のタイムアウト")])
+
+    async def warning_goes(call):
+        await call("search_docs", {"query": "タイムアウト"})
+        api.pick = lambda t: "other/thing" if "文書B" in t else None
+        write(warned / "文書B", [chunk("c0001", "文書B のタイムアウト")])
+        await call("search_docs", {"query": "タイムアウト"})
+        docs = await call("list_documents", {})
+        had = any("search by meaning is off" in w for w in docs["warnings"])
+        (warned / "文書B" / "設計書_chunks.jsonl").unlink()
+        api.pick = None
+        await asyncio.sleep(1.5)
+        res = await call("search_docs", {"query": "タイムアウト"})
+        docs = await call("list_documents", {})
+        check("a file answered by another model, then gone: its warning goes too", had and res.get("mode") == "hybrid"
+              and not any("search by meaning is off" in w for w in docs["warnings"]), (had, res.get("mode"), docs["warnings"]))
+
+    await run("warning-goes", {"roots": [str(warned)], "embedding": dict(emb)}, warning_goes)
+
+    # R1-14: a JSON kept by 0.4.3, made here as 0.4.3 made it (not from this server's files): taken over, normalized
+    old43 = BASE / "kept-by-043"
+    write(old43 / "設計書", [chunk("c0001", "タイムアウト 旧版")])
+    f43 = old43 / "設計書" / "設計書_chunks.jsonl"
+    cache43 = BASE / "kept-by-043-cache"
+    cache43.mkdir(parents=True, exist_ok=True)
+    signature = json.dumps([emb["url"].rstrip("/"), emb["model"], emb["passagePrefix"], 1500]).encode()
+    digest43 = hashlib.sha1(hashlib.sha1(f43.read_bytes()).hexdigest().encode() + signature).hexdigest()
+    (cache43 / (hashlib.sha1(str(f43).encode()).hexdigest() + ".json")).write_text(
+        json.dumps({"digest": digest43, "model": "test-model", "vectors": [[3, 4, 0, 0, 0, 0, 0, 0]]}), encoding="utf-8")
+
+    async def kept_by_043(call):
+        before = api.inputs
+        res = await call("search_docs", {"query": "タイムアウト"})
+        kept = [read_kept(f) for f in kept_files(cache43)]
+        check("a JSON kept by 0.4.3: used without the API (only the question is sent)", res.get("mode") == "hybrid" and api.inputs - before == 1,
+              (res.get("mode"), api.inputs - before))
+        check("... kept as binary, normalized ([3, 4] -> [0.6, 0.8])", len(kept) == 1 and [round(x, 3) for x in kept[0]["vectors"][0][:2]] == [0.6, 0.8]
+              and kept_files(cache43)[0].suffix == ".bin", kept)
+
+    await run("kept-by-043", {"roots": [str(old43)], "embedding": dict(emb), "cacheDir": str(cache43)}, kept_by_043)
+
+    # R2-01 (0.4.4): a file that breaks the reading (a line nested too deep) does not keep the other files' changes out
+    deep = BASE / "deep"
+    write(deep / "A", [chunk("c0001", "before 変更前")])
+
+    async def deep_line(call):
+        await call("search_docs", {"query": "before"})
+        write(deep / "A", [chunk("c0001", "after-edit 変更後")])
+        write(deep / "Z", [chunk("c0001", "zzz")], raw=["[" * 100000 + "]" * 100000])
+        res = await call("search_docs", {"query": "after-edit"})
+        check("a line nested too deep in another file: the changed file is searched", [x["text"] for x in res.get("results", [])] == ["after-edit 変更後"], res)
+        (deep / "Z" / "設計書_chunks.jsonl").unlink()
+        out = await call("read_chunk", {"key": "A/設計書_chunks.jsonl#c0001"})
+        check("... and read", out.get("chunk", {}).get("text") == "after-edit 変更後", out)
+
+    await run("deep-line", {"roots": [str(deep)], "embedding": off}, deep_line)
+
+    # R2-04: a file replaced keeping its size and time is read again
+    same_size = BASE / "same-size"
+    write(same_size / "設計書", [chunk("c0001", "apple")])
+
+    async def replaced(call):
+        await call("search_docs", {"query": "apple"})
+        f = same_size / "設計書" / "設計書_chunks.jsonl"
+        st = f.stat()
+        tmp = f.with_name("new.tmp")
+        tmp.write_text(f.read_text(encoding="utf-8").replace("apple", "peach"), encoding="utf-8")
+        os.utime(tmp, ns=(st.st_atime_ns, st.st_mtime_ns))
+        os.replace(tmp, f)
+        write(same_size / "別", [chunk("c0001", "other")])
+        out = await call("read_chunk", {"key": "設計書/設計書_chunks.jsonl#c0001"})
+        check("a file replaced keeping its size and time: read again", out.get("chunk", {}).get("text") == "peach", out)
+
+    await run("replaced-same-size", {"roots": [str(same_size)], "embedding": off}, replaced)
+
+    # R2-08: a tie across files: the order of the files is that of 0.4.3 (Path order; on Windows without case)
+    cases = BASE / "cases"
+    write(cases / "Zoo", [chunk("c0001", "matching")])
+    write(cases / "alpha", [chunk("c0001", "matching")])
+
+    async def tie_across_files(call):
+        res = await call("search_docs", {"query": "matching", "k": 1})
+        expected = "Zoo/設計書_chunks.jsonl#c0001" if sys.platform == "win32" else "alpha/設計書_chunks.jsonl#c0001"
+        check("a tie across files: the later file first, files in Path order (as 0.4.3)", [x["key"] for x in res.get("results", [])] == [expected], res)
+
+    await run("tie-across-files", {"roots": [str(cases)], "embedding": off}, tie_across_files)
+
+    # R2-06, R2-07: the progress of a large file
+    four = BASE / "four"
+    write(four / "四つ", [chunk(f"c{i:04d}", f"四つ目の塊 {i}") for i in range(1, 5)])
+    hold_four = threading.Event()
+
+    async def progress_in_the_note(call):
+        api.hook = lambda texts: hold_four.wait(10) if any("四つ目の塊 3" in t for t in texts) else None
+        res = await call("search_docs", {"query": "四つ目"})
+        api.hook = None
+        hold_four.set()
+        check("a search that waited: its note counts the batches done (2 of 4)", "(2 of 4 chunks)" in (res.get("note") or ""), res.get("note"))
+
+    await run("progress-in-the-note", {"roots": [str(four)], "embedding": dict(emb, batchSize=2, waitSeconds=0.8)}, progress_in_the_note)
+
+    hold_fail = threading.Event()
+
+    async def failed_batch(call):
+        api.fail = lambda t: "四つ目の塊 3" in t
+        api.hook = lambda texts: hold_fail.wait(10) if any("四つ目の塊 3" in t for t in texts) else None
+        await call("list_documents", {})
+        await asyncio.sleep(0.8)
+        held = await call("list_documents", {})
+        api.hook = None
+        hold_fail.set()
+        await asyncio.sleep(0.8)
+        docs = await call("list_documents", {})
+        api.fail = None
+        check("the second batch of a large file held: 2 pending", held["embedding"]["pendingChunks"] == 2, held["embedding"])
+        check("... then failed: all 4 are pending again", docs["embedding"]["pendingChunks"] == 4, docs["embedding"])
+
+    await run("failed-batch", {"roots": [str(four)], "embedding": dict(emb, batchSize=2, retrySeconds=3600)}, failed_batch)
+
+    # R2-02, R2-03: vectors of two dimensions: not made again without end, and made again by the thread at retry_at
+    dims2 = BASE / "two-dims-2"
+    write(dims2 / "文書A", [chunk("c0001", "文書A のタイムアウト")])
+    write(dims2 / "文書B", [chunk("c0001", "文書B のタイムアウト")])
+
+    async def two_dims_storm(call):
+        api.dims = lambda t: 2 if "文書B" in t else 3
+        await call("list_documents", {})
+        await asyncio.sleep(1.0)
+        before = api.requests
+        await asyncio.sleep(1.0)
+        check("vectors of two dimensions, retrySeconds 0: at most one round (2 requests) a second", api.requests - before <= 2, api.requests - before)
+        api.dims = None
+
+    await run("two-dims-storm", {"roots": [str(dims2)], "embedding": dict(emb, batchSize=1, retrySeconds=0)}, two_dims_storm)
+
+    async def two_dims_by_itself(call):
+        api.dims = lambda t: 2 if "文書B" in t else 3
+        await call("list_documents", {})
+        await asyncio.sleep(0.5)  # made, made again, still of two dimensions: waits retrySeconds
+        api.dims = None
+        before = api.requests
+        await asyncio.sleep(2.0)
+        check("... the API gives one dimension again: the thread makes them again by itself at retry_at", api.requests - before >= 2, api.requests - before)
+        docs = await call("list_documents", {})
+        check("... and the search by meaning is there", docs["embedding"]["available"] is True, docs["embedding"])
+
+    await run("two-dims-by-itself", {"roots": [str(dims2)], "embedding": dict(emb, batchSize=1, retrySeconds=1)}, two_dims_by_itself)
+
+    # R3-01 (0.4.4): a file written over in place, its size and time kept: read again when the files change
+    in_place = BASE / "in-place"
+    write(in_place / "設計書", [chunk("c0001", "apple")])
+
+    async def written_in_place(call):
+        await call("search_docs", {"query": "apple"})
+        f = in_place / "設計書" / "設計書_chunks.jsonl"
+        st = f.stat()
+        f.write_text(f.read_text(encoding="utf-8").replace("apple", "peach"), encoding="utf-8")
+        os.utime(f, ns=(st.st_atime_ns, st.st_mtime_ns))
+        write(in_place / "別", [chunk("c0001", "other")])
+        out = await call("read_chunk", {"key": "設計書/設計書_chunks.jsonl#c0001"})
+        check("a file written over in place, size and time kept: read again", out.get("chunk", {}).get("text") == "peach", out)
+
+    await run("written-in-place", {"roots": [str(in_place)], "embedding": off}, written_in_place)
+
+    # R3-02: the question's vectors of another dimension than the documents', for good: the documents are not sent at each search
+    q_dims = BASE / "question-dims"
+    write(q_dims / "設計書", [chunk(f"c{i:04d}", f"質問と違う次元 {i}") for i in range(1, 4)])
+
+    async def question_of_another_dimension(call):
+        api.dims = lambda t: 3 if t.startswith("q: ") else 2
+        before = len(api.seen)
+        for _ in range(4):
+            await call("search_docs", {"query": "次元"})
+        await asyncio.sleep(0.5)
+        passages = [t for t in api.seen[before:] if not t.startswith("q: ")]
+        api.dims = None
+        check("the question of another dimension at every search: the documents sent at most twice", len(passages) <= 2, len(passages))
+
+    await run("question-of-another-dimension", {"roots": [str(q_dims)], "embedding": dict(emb, queryPrefix="q: ", retrySeconds=3600)},
+              question_of_another_dimension)
+
+    # R3-03: a file answered by another model, then gone: the others are searched by meaning at once
+    other_gone = BASE / "other-gone"
+    write(other_gone / "文書A", [chunk("c0001", "文書A のタイムアウト")])
+
+    async def other_model_gone(call):
+        await call("search_docs", {"query": "タイムアウト"})
+        api.pick = lambda t: "other/thing" if "文書B" in t else None
+        write(other_gone / "文書B", [chunk("c0001", "文書B のタイムアウト")])
+        await call("search_docs", {"query": "タイムアウト"})
+        (other_gone / "文書B" / "設計書_chunks.jsonl").unlink()
+        api.pick = None
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("a file of another model gone: the others by meaning at once (retrySeconds 3600)", res.get("mode") == "hybrid", res)
+
+    await run("other-model-gone", {"roots": [str(other_gone)], "embedding": dict(emb, retrySeconds=3600)}, other_model_gone)
+
+    # R3-06: the same vector for several chunks (384 dimensions): the same tie order with and without numpy
+    ties384 = BASE / "ties-384"
+    write(ties384 / "設計書", [chunk(f"c{i:04d}", f"同じ {i}") for i in range(1, 6)])
+
+    async def tie_384(call):
+        api.dims = lambda t: 384
+        api.alias = lambda t: t if t.startswith("q: ") else "the same passage"
+        res = await call("search_docs", {"query": "zzz", "k": 1})
+        api.dims = None
+        api.alias = None
+        check("5 chunks of one vector (384 dimensions): the later chunk first, with or without numpy", [x["text"] for x in res.get("results", [])] == ["同じ 5"], res)
+
+    await run("ties-384", {"roots": [str(ties384)], "embedding": dict(emb, queryPrefix="q: ")}, tie_384)
+
+    # R3-08: a line nested too deep is one bad line: the good chunks of the same file stay
+    deep_same = BASE / "deep-same"
+    write(deep_same / "設計書", [chunk("c0001", "正しい行 ふくろう")], raw=["[" * 100000 + "]" * 100000])
+
+    async def deep_in_the_same_file(call):
+        res = await call("search_docs", {"query": "ふくろう"})
+        check("a line nested too deep: the good chunk of the same file is found", [x["text"] for x in res.get("results", [])] == ["正しい行 ふくろう"], res)
+
+    await run("deep-in-the-same-file", {"roots": [str(deep_same)], "embedding": off}, deep_in_the_same_file)
+
+    # R3-09: the configuration
+    async def embedding_null(call):
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("embedding written as null: an error of the configuration", "embedding" in (res.get("error") or ""), res)
+
+    await run("embedding-null", {"roots": [str(one)], "embedding": None}, embedding_null)
+
+    async def timeout_text(call):
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("timeoutSeconds written as a text: an error that names it", "timeoutSeconds" in (res.get("error") or ""), res)
+
+    await run("timeout-text", {"roots": [str(one)], "embedding": dict(emb, timeoutSeconds="120")}, timeout_text)
+
+    # R4-01: vectors of two dimensions, and a file of another model waiting for its retry: the tools are not held
+    stuck = BASE / "stuck"
+    write(stuck / "文書A", [chunk("c0001", "文書A のタイムアウト")])
+    write(stuck / "文書B", [chunk("c0001", "文書B のタイムアウト")])
+
+    async def mixed_and_waiting(call):
+        api.dims = lambda t: 2 if "文書B" in t else 3
+        await call("list_documents", {})
+        await asyncio.sleep(0.6)  # made, made again, still mixed: waits retrySeconds
+        api.pick = lambda t: "other/thing" if "文書C" in t else None
+        write(stuck / "文書C", [chunk("c0001", "文書C のタイムアウト")])
+        await call("list_documents", {})
+        await asyncio.sleep(4.0)  # the retry of the mixed vectors is due (3 s), C waits for its own (asked again at ~3.6 s, then ~6.6 s)
+        started = time.monotonic()
+        await asyncio.wait_for(call("read_chunk", {"key": "文書A/設計書_chunks.jsonl#c0001"}), 10)
+        took = time.monotonic() - started
+        api.dims = None
+        api.pick = None
+        check("mixed vectors due again while a file waits for its own retry: a tool answers at once", took < 1.0, round(took, 2))
+
+    await run("mixed-and-waiting", {"roots": [str(stuck)], "embedding": dict(emb, batchSize=1, retrySeconds=3, waitSeconds=0)}, mixed_and_waiting)
+
     # R3-09: kept vectors are used again: after a restart only the question goes to the API
     reuse = str(BASE / "reuse-cache")
     await run("reuse-first", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": reuse}, lambda call: call("search_docs", {"query": "タイムアウト"}))
@@ -546,9 +999,40 @@ async def main():
 
     await run("reuse-again", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": reuse}, reused)
 
+    # 0.4.4: vectors kept as JSON by 0.4.3 are turned into the binary form, without asking the API again
+    taken = str(BASE / "taken-over-cache")
+    await run("taken-over-first", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": taken}, lambda call: call("search_docs", {"query": "タイムアウト"}))
+    to_old_json(taken)
+
+    async def taken_over(call):
+        before = api.inputs
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("vectors kept as JSON by 0.4.3: used without the API (only the question is sent)",
+              res.get("mode") == "hybrid" and api.inputs - before == 1, (res.get("mode"), api.inputs - before))
+        check("... and kept in the binary form instead", [f.suffix for f in kept_files(taken)] == [".bin"], [f.name for f in kept_files(taken)])
+
+    await run("taken-over", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": taken}, taken_over)
+
+    broken_bin = str(BASE / "broken-binary")
+    await run("broken-binary-first", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": broken_bin},
+              lambda call: call("search_docs", {"query": "タイムアウト"}))
+    for f in kept_files(broken_bin):
+        head = read_kept(f)
+        head["vectors"][0][0] = float("nan")
+        write_kept_binary(f, head, head["vectors"])
+
+    async def broken_binary(call):
+        before = api.inputs
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("a kept binary file with NaN is made again: by meaning", res.get("mode") == "hybrid" and api.inputs - before > 1,
+              (res.get("mode"), api.inputs - before))
+
+    await run("broken-binary", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": broken_bin}, broken_binary)
+
     # R3-07: a kept value whose square a float cannot hold
     big = str(BASE / "big-vectors")
     await run("big-first", {"roots": [str(one)], "embedding": dict(emb), "cacheDir": big}, lambda call: call("search_docs", {"query": "タイムアウト"}))
+    to_old_json(big)
     for f in Path(big).glob("*.json"):
         text = f.read_text(encoding="utf-8")
         first = json.dumps(json.loads(text)["vectors"][0][0])
@@ -641,6 +1125,26 @@ async def main():
 
     await run("search-and-change", {"roots": [str(versions2)], "embedding": dict(emb, queryPrefix="q: ")}, search_and_change)
 
+    # R1-01 (0.4.4): the same while the search waits for the documents' embeddings (not the question's)
+    versions3 = BASE / "versions-wait"
+    write(versions3 / "manual", [chunk("c0001", "apple りんご", path="v1/manual.docx")])
+    hold_docs = threading.Event()
+
+    async def search_waits_for_documents(call):
+        api.hook = lambda texts: hold_docs.wait(10) if any("apple" in t for t in texts) and not texts[0].startswith("q: ") else None
+        searching = asyncio.ensure_future(call("search_docs", {"query": "apple", "path": "v1/"}))
+        await asyncio.sleep(0.8)  # the search waits for the documents' embeddings
+        write(versions3 / "manual", [chunk("c0001", "pear なし", path="v2/manual.docx")])
+        listing = asyncio.ensure_future(call("list_documents", {}))
+        await asyncio.sleep(0.8)
+        api.hook = None
+        hold_docs.set()
+        res, docs = await asyncio.gather(searching, listing)
+        check("another call while a search waits for the documents' embeddings: the search answers from the index it began with",
+              [(x["path"], x["text"]) for x in res.get("results", [])] == [("v1/manual.docx", "apple りんご")], res)
+
+    await run("search-waits-for-documents", {"roots": [str(versions3)], "embedding": dict(emb, queryPrefix="q: ")}, search_waits_for_documents)
+
     # R3-02: two rebuilds of the index do not cross
     crossing = BASE / "crossing"
     write(crossing / "文書", [chunk("c0001", "ひとつめ first")])
@@ -657,7 +1161,8 @@ async def main():
         hold.set()
         await asyncio.gather(first, second)
         res = await call("search_docs", {"query": "ふたつめ"})
-        check("two rebuilds of the index at once: the later one stands, by meaning", res.get("mode") == "hybrid" and len(res.get("results", [])) >= 1, res)
+        check("a file read again while its old text is being embedded: the new chunks stand, by meaning",
+              res.get("mode") == "hybrid" and [(x["key"], x["text"]) for x in res.get("results", [])][:1] == [("文書/設計書_chunks.jsonl#c0002", "ふたつめ second")], res)
 
     await run("rebuilds-cross", {"roots": [str(crossing)], "embedding": dict(emb, queryPrefix="q: ")}, rebuilds_cross)
 
@@ -696,7 +1201,7 @@ async def main():
         res = await call("search_docs", {"query": "タイムアウト"})
         check("... one dimension again: by meaning, after retrySeconds", res.get("mode") == "hybrid", res)
 
-    await run("two-dims", {"roots": [str(dims_root)], "embedding": dict(emb), "cacheDir": dims_cache}, two_dims)
+    await run("two-dims", {"roots": [str(dims_root)], "embedding": dict(emb, batchSize=1), "cacheDir": dims_cache}, two_dims)  # one file a request
 
     # R2-01: a file changed while its neighbour was being embedded is embedded again from what it says now
     race = BASE / "race"
@@ -718,10 +1223,24 @@ async def main():
         await call("search_docs", {"query": "バナナ"})  # A is embedded, B changes meanwhile; B is embedded from the chunks read before
         before = api.inputs
         res = await call("search_docs", {"query": "ココナツ"})
-        check("a file changed while being embedded is embedded again", api.inputs - before >= 3, api.inputs - before)
         check("... and its new text is found", res.get("results") and "ココナツ" in res["results"][0]["text"], res)
 
-    await run("changed-while-embedding", {"roots": [str(race)], "embedding": dict(emb)}, changed_while_embedding)
+    def vectors_of(texts):  # as the fake API makes them, normalized (passagePrefix "", headings ["設計書"])
+        out = []
+        for t in texts:
+            v = [b / 255 for b in hashlib.sha256(("設計書\n" + t).encode()).digest()[:8]]
+            n = sum(x * x for x in v) ** 0.5
+            out.append([x / n for x in v])
+        return out
+
+    def same(a, b):
+        return len(a) == len(b) and all(len(u) == len(w) for u, w in zip(a, b)) and all(abs(x - y) < 1e-5 for u, w in zip(a, b) for x, y in zip(u, w))
+
+    race_cache = str(BASE / "race-cache")
+    await run("changed-while-embedding", {"roots": [str(race)], "embedding": dict(emb), "cacheDir": race_cache}, changed_while_embedding)
+    kept = [read_kept(f)["vectors"] for f in kept_files(race_cache)]
+    check("a file changed while being embedded: its vectors are of the new text", any(same(k, vectors_of(["ココナツ coconut", "ココナツの続き"])) for k in kept), "")
+    check("... and none of the old text is kept", not any(same(k, vectors_of(["バナナ banana", "バナナの続き"])) for k in kept), "")
     api.http.shutdown()
 
     print(f"\n{count - len(failures)}/{count} passed")

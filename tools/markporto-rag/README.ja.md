@@ -4,7 +4,8 @@
 
 MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索する、小さな MCP サーバーです。Claude Code などの道具に登録すると、そのモデルが設計書などを探し、**出どころ（元のファイル・ページ・見出し・ページ画像）つき**で答えられます。
 
-- データベースは使いません。フォルダの下の `*_chunks.jsonl` をすべてメモリに読みます（数千の塊まで）。ファイルが増えたり変わったりすると、次の検索で読み直します。
+- データベースは使いません。フォルダの下の `*_chunks.jsonl` をすべてメモリに読みます（2万の塊で、意味の検索1回が数ミリ秒）。ファイルが増えたり変わったりすると、次の検索でそのファイルだけ読み直します。
+- 埋め込みは裏で作ります。作っている間も検索はキーワードで答え、結果の `note` と `list_documents` の `pendingChunks` に進み具合が出ます。少しなら、検索が `waitSeconds` まで待って意味の検索も使います。作った埋め込みは残すので、次からは変わった文書だけです。
 - 検索は、キーワード（日本語は2文字ずつ、英語は単語）と、埋め込み（LM Studio・Ollama など OpenAI 互換の API）による意味の検索を混ぜます。埋め込みにつながらないときは、キーワードだけで動きます。
 - 文書は PC の外へ送りません（埋め込みの API をクラウドにしたときだけ、塊の文字をその API へ送ります）。
 
@@ -19,7 +20,7 @@ MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索す
 ## 準備
 
 1. MarkPortO で、プリセット「RAG用」、または「ステップの詳細」の「RAG 用の小分け（_chunks.jsonl）を書く」をオンにして変換する（CLI は `--chunks on`）。
-2. [uv](https://docs.astral.sh/uv/) を入れる（`winget install astral-sh.uv`）。MCP の部品（Python の `mcp`）は、初回の起動で uv が取ってきます（インターネットが要ります）。
+2. [uv](https://docs.astral.sh/uv/) を入れる（`winget install astral-sh.uv`）。MCP の部品（Python の `mcp`）と計算の部品（`numpy`）は、初回の起動で uv が取ってきます（インターネットが要ります）。`numpy` がなくても動きますが、意味の検索が遅くなります（2万の塊で1回 0.3 秒ほど）。
 3. 設定ファイルを作る: `markporto-rag.sample.json` を `%APPDATA%\MarkPortO\markporto-rag.json` に写して、`roots` に MarkPortO の出力先を書く。
 4. 意味の検索も使うなら、LM Studio で埋め込みのモデル（例: `multilingual-e5-small` の GGUF）を入れて、サーバーを起動しておく。
 
@@ -37,6 +38,8 @@ MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索す
 | `embedding.queryPrefix` / `passagePrefix` | `"query: "` / `"passage: "` | e5 系のモデルの決まり。**ほかのモデルでは `""` にする** |
 | `embedding.passageChars` | `1500` | 塊の何文字までを埋め込みにするか |
 | `embedding.timeoutSeconds` / `retrySeconds` | `120` / `30` | API を待つ秒数 / API につながらなかったとき、次の検索で試し直すまでの秒数（その間はキーワードだけ） |
+| `embedding.batchSize` | `64` | 埋め込みの API に1回で送る塊の数（小さい文書はまとめて送る）。LM Studio は1回ごとの手間が大きく、16 より 64 のほうが3倍ほど速かった。CPU だけの PC で時間切れになるなら下げる |
+| `embedding.waitSeconds` | `10` | 埋め込みを作っている途中の検索が、終わるのを待つ秒数（過ぎたらキーワードだけで答える） |
 | `cacheDir` | `%LOCALAPPDATA%\markporto-rag\cache` | 埋め込みを残す場所（jsonl が変わったときだけ計算し直す） |
 | `textChars` / `maxResults` | `1500` / `20` | 検索の結果に入れる本文の長さ / 返す件数の上限 |
 
@@ -46,24 +49,26 @@ MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索す
 
 - **Claude Code**（すべてのプロジェクトで使う）:
   ```
-  claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp python C:\MarkPortO\tools\markporto-rag\server.py
+  claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp --with numpy python C:\MarkPortO\tools\markporto-rag\server.py
   ```
 - **Codex**（`~/.codex/config.toml`）:
   ```toml
   [mcp_servers.markporto-rag]
   command = "uv"
-  args = ["run", "--no-project", "--with", "mcp", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"]
+  args = ["run", "--no-project", "--with", "mcp", "--with", "numpy", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"]
   ```
 - **OpenCode**（`opencode.json`）:
   ```json
-  { "mcp": { "markporto-rag": { "type": "local", "command": ["uv", "run", "--no-project", "--with", "mcp", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"], "enabled": true } } }
+  { "mcp": { "markporto-rag": { "type": "local", "command": ["uv", "run", "--no-project", "--with", "mcp", "--with", "numpy", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"], "enabled": true } } }
   ```
 - **GitHub Copilot**（VS Code の `.vscode/mcp.json`。最上位は `servers`）:
   ```json
-  { "servers": { "markporto-rag": { "command": "uv", "args": ["run", "--no-project", "--with", "mcp", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"] } } }
+  { "servers": { "markporto-rag": { "command": "uv", "args": ["run", "--no-project", "--with", "mcp", "--with", "numpy", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"] } } }
   ```
 
 書き方は CLI の版で変わることがあります。うまくいかないときは、それぞれの説明書を確かめてください。
+
+**インターネットにつながらない（proxy などで uv が PyPI に届かない）PC**: uv は起動のたびに部品の版を確かめに行くので、`--no-project` の後ろに `--offline` を足します（例: `"run", "--no-project", "--offline", "--with", "mcp", ...`）。`--offline` では、部品（`mcp`、`numpy`）が uv のキャッシュにないと起動できません。一度つながる場所で起動しておくか、numpy が入れられないときは `--with numpy` を外します（遅くはなるが動く）。`--no-project` は残します（外すと、道具を開いたフォルダの Python プロジェクトの環境で動こうとすることがある）。
 
 ## 使い方の例
 

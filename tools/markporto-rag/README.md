@@ -4,7 +4,8 @@ English | [日本語](README.ja.md)
 
 A small MCP server that searches the chunks for RAG that MarkPortO writes (`<name>_chunks.jsonl`). Registered in a tool such as Claude Code, it lets the model search design documents and the like, and answer **with the source** (the original file, the pages, the headings and the page images).
 
-- No database: every `*_chunks.jsonl` under the folders is read into memory (up to some thousands of chunks). A file that is added or changed is read again at the next search.
+- No database: every `*_chunks.jsonl` under the folders is read into memory (with 20,000 chunks, a search by meaning takes a few milliseconds). A file that is added or changed is read again, alone, at the next search.
+- The embeddings are made in the background. Meanwhile a search answers by keywords, and its `note` and the `pendingChunks` of `list_documents` say how far it is; with a few, a search waits up to `waitSeconds` and uses the search by meaning too. The embeddings are kept, so only changed documents are embedded again.
 - The search mixes keywords (pairs of characters for Japanese, words for English) with a search by meaning through an embedding API (OpenAI compatible: LM Studio, Ollama ...). Without the embedding API it uses the keywords only.
 - The documents do not leave the computer (only when the embedding API is a cloud service, the text of the chunks is sent to it).
 
@@ -19,7 +20,7 @@ A small MCP server that searches the chunks for RAG that MarkPortO writes (`<nam
 ## Setting up
 
 1. Convert with MarkPortO with the preset For RAG, or with "Write the chunks for RAG (_chunks.jsonl)" on in the details of the steps (`--chunks on` on the command line).
-2. Install [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`). The MCP package (`mcp` for Python) is fetched by uv the first time (this needs the internet).
+2. Install [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`). The MCP package (`mcp` for Python) and `numpy` are fetched by uv the first time (this needs the internet). Without `numpy` the server still works, but the search by meaning is slower (about 0.3 seconds a search with 20,000 chunks).
 3. Make the configuration: copy `markporto-rag.sample.json` to `%APPDATA%\MarkPortO\markporto-rag.json` and write the output folder of MarkPortO in `roots`.
 4. For the search by meaning, load an embedding model in LM Studio (for example a GGUF of `multilingual-e5-small`) and start its server.
 
@@ -37,6 +38,8 @@ The file named by `MARKPORTO_RAG_CONFIG`, else `%APPDATA%\MarkPortO\markporto-ra
 | `embedding.queryPrefix` / `passagePrefix` | `"query: "` / `"passage: "` | What e5 models expect; **`""` for other models** |
 | `embedding.passageChars` | `1500` | How much of a chunk is embedded |
 | `embedding.timeoutSeconds` / `retrySeconds` | `120` / `30` | Seconds to wait for the API / when the API could not be reached, seconds before a later search tries it again (keywords only until then) |
+| `embedding.batchSize` | `64` | Chunks sent to the embedding API in one request (small documents are sent together). LM Studio takes long for each request: 64 was about 3 times as fast as 16. Lower it if a computer without a GPU runs out of time |
+| `embedding.waitSeconds` | `10` | Seconds a search waits for the embedding under way to finish (after that it answers by keywords) |
 | `cacheDir` | `%LOCALAPPDATA%\markporto-rag\cache` | Where the embeddings are kept (computed again only when a jsonl changes) |
 | `textChars` / `maxResults` | `1500` / `20` | How much text a search result has / the most results |
 
@@ -46,24 +49,26 @@ Use the path of this folder. A tool sees the server after it is opened again.
 
 - **Claude Code** (in every project):
   ```
-  claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp python C:\MarkPortO\tools\markporto-rag\server.py
+  claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp --with numpy python C:\MarkPortO\tools\markporto-rag\server.py
   ```
 - **Codex** (`~/.codex/config.toml`):
   ```toml
   [mcp_servers.markporto-rag]
   command = "uv"
-  args = ["run", "--no-project", "--with", "mcp", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"]
+  args = ["run", "--no-project", "--with", "mcp", "--with", "numpy", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"]
   ```
 - **OpenCode** (`opencode.json`):
   ```json
-  { "mcp": { "markporto-rag": { "type": "local", "command": ["uv", "run", "--no-project", "--with", "mcp", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"], "enabled": true } } }
+  { "mcp": { "markporto-rag": { "type": "local", "command": ["uv", "run", "--no-project", "--with", "mcp", "--with", "numpy", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"], "enabled": true } } }
   ```
 - **GitHub Copilot** (`.vscode/mcp.json` in VS Code; the top level is `servers`):
   ```json
-  { "servers": { "markporto-rag": { "command": "uv", "args": ["run", "--no-project", "--with", "mcp", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"] } } }
+  { "servers": { "markporto-rag": { "command": "uv", "args": ["run", "--no-project", "--with", "mcp", "--with", "numpy", "python", "C:\\MarkPortO\\tools\\markporto-rag\\server.py"] } } }
   ```
 
 The way to write these can change with the version of a tool; see its documentation when it does not work.
+
+**A computer that cannot reach the internet (uv cannot reach PyPI, through a proxy for example)**: uv looks up the versions of the packages at every start; add `--offline` after `--no-project` (for example `"run", "--no-project", "--offline", "--with", "mcp", ...`). With `--offline` the packages (`mcp`, `numpy`) must be in the cache of uv: start the server once where it can reach the internet, or leave out `--with numpy` when numpy cannot be had (slower, but it works). Keep `--no-project` (without it, uv may use the Python project of the folder the tool was opened in).
 
 ## Examples
 

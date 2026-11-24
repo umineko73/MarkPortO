@@ -487,7 +487,7 @@ Register the small MCP server `markporto-rag` (in `tools\markporto-rag\` of the 
 4. Register it in the tool. For Claude Code (use the folder where you unpacked the ZIP):
 
    ```
-   claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp python C:\MarkPortO\tools\markporto-rag\server.py
+   claude mcp add --scope user markporto-rag -- uv run --no-project --with mcp --with numpy python C:\MarkPortO\tools\markporto-rag\server.py
    ```
 
    Other tools, and every item of the configuration, are in [tools/markporto-rag/README.md](../tools/markporto-rag/README.md).
