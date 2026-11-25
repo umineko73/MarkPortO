@@ -3,7 +3,7 @@
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4.svg)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)
-![Version](https://img.shields.io/badge/version-0.4.4-2ea44f.svg)
+![Version](https://img.shields.io/badge/version-0.4.5-2ea44f.svg)
 
 **English** | [日本語](README.ja.md)
 
@@ -78,7 +78,8 @@ You do not have to convert everything again to fix part of a result.
 - **Read some pages again with the VLM (from the preview)**: check the pages in the preview's page list, or press **Mark pages that could not be read**. Then press **Run Step 3 again** in the main window. Only the marked pages are read again, with the connection and prompt chosen on the screen. After you change the connection or a prompt, **Run Step 3 again** also reads the pages that were read with the earlier settings.
 - **Convert some files again**: select them in the list and press **Convert again from Step 1** (also in the right-click menu). Their Markdown and page images in the earlier folder are replaced.
 - **Convert the files that changed**: **Reconvert updated files** converts only the changed and new files.
-- **Resume**: goes on with an interrupted conversion, or runs the failed files and pages again.
+- **Resume**: goes on file by file: an interrupted file goes on, failed files and pages run again, and a step that was off is added (Step3 to files converted up to Step2, for example).
+- **Back to the earlier state**: choosing the files and folders to convert puts back their output folder, the file list and the conditions of last time. The inputs, the output folder and the conditions can be saved under a name as a **work set**. Each document folder keeps a record of its source, conditions and state (`conversion.json`).
 
 ## Command line
 
