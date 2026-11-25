@@ -31,6 +31,13 @@ public enum ResumeMode
 
     /// <summary>Read the pages that the user marked again with the VLM (FR-139); nothing else is done.</summary>
     Reread,
+
+    /// <summary>
+    /// Only the chosen documents of the job, whatever the state of the job (FR-157): each goes on from where it is. An unfinished one goes
+    /// on, a failed one is tried again, the pages that failed in Step3 are read again, and a step that is on now but was not then is
+    /// added. A step is never taken away. The other documents of the job are left as they are.
+    /// </summary>
+    Files,
 }
 
 /// <summary>What was decided for one document.</summary>
@@ -66,16 +73,21 @@ public static class ResumePlanner
     /// <param name="mode">Resume what is unfinished, or retry what failed.</param>
     /// <param name="step2">Whether step 2 is selected now (it may differ from the earlier run).</param>
     /// <param name="step3">Whether step 3 is selected now.</param>
+    /// <param name="only">With <see cref="ResumeMode.Files"/>: the documents to go on with; the others are left as they are.</param>
     public static IReadOnlyList<ResumeDecision> Plan(
         IReadOnlyList<DocumentRecord> documents,
         ResumeMode mode,
         bool step2,
-        bool step3)
+        bool step3,
+        IReadOnlyCollection<string>? only = null)
     {
         var decisions = new List<ResumeDecision>(documents.Count);
         foreach (var document in documents)
         {
-            decisions.Add(new ResumeDecision(document, Decide(document, mode, step2, step3)));
+            var action = mode == ResumeMode.Files
+                ? only is not null && only.Contains(document.DocId) ? DecideFile(document, step2, step3) : ResumeAction.Skip
+                : Decide(document, mode, step2, step3);
+            decisions.Add(new ResumeDecision(document, action));
         }
 
         return decisions;
@@ -180,6 +192,47 @@ public static class ResumePlanner
         document.Error = null;
         document.RereadTotal = marked.Count;
         return ResumeAction.Run;
+    }
+
+    /// <summary>One chosen document of <see cref="ResumeMode.Files"/> (FR-157).</summary>
+    /// <param name="step2">Step2 is on now: a document without it gets it. A document that has it keeps it, though it is off now.</param>
+    /// <param name="step3">Step3 is on now, in the same way.</param>
+    private static ResumeAction DecideFile(DocumentRecord document, bool step2, bool step3)
+    {
+        document.Step1 = Settle(document.Step1);
+        document.Step2 = Settle(document.Step2);
+        document.Step3 = Settle(document.Step3);
+        var want2 = step2 || document.Step2 != StepStatus.NotApplicable;
+        var want3 = step3 || document.Step3 != StepStatus.NotApplicable;
+        if (!File.Exists(document.SourcePath))
+        {
+            document.Step1 = StepStatus.Failed;
+            document.Error = new DocumentError(1, Loc.T("The input file was not found. It may have been deleted or moved since the earlier run."));
+            return ResumeAction.Fail;
+        }
+
+        if (StateStore.HasChanged(document.Fingerprint, document.SourcePath))
+        {
+            DiscardResult(document, want2, want3);
+            document.Warnings.Add(new Warning(
+                RestartedCode,
+                Loc.T("The input file changed since the earlier run, so the earlier result was discarded and the file is converted again.")));
+            return ResumeAction.Restart;
+        }
+
+        if (document.IsFailed())
+        {
+            document.Error = null;
+            ResetFailedSteps(document);
+        }
+
+        ApplySelection(document, want2, want3);
+        if (want3 && document.Step3 == StepStatus.Done)
+        {
+            ResetFailedPages(document); // the pages that failed in Step3 are read again (FR-013b)
+        }
+
+        return document.IsDone() ? ResumeAction.Skip : ResumeAction.Run;
     }
 
     private static StepStatus Settle(StepStatus status) =>

@@ -11,6 +11,10 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The records of conversions, written without converting (FR-157〜160). -->
+    <Compile Include="..\MarkPortO.Core.Tests\Fixtures\FakeRecords.cs" Link="FakeRecords.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\MarkPortO.Core\MarkPortO.Core.csproj" />
     <ProjectReference Include="..\..\src\MarkPortO.App\MarkPortO.App.csproj" />
   </ItemGroup>

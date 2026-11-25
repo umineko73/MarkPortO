@@ -79,7 +79,30 @@ public sealed class JobContext(
     public void Save(DocumentRecord document)
     {
         Store.SaveDocument(Job.JobId, document);
+        WriteRecord(document);
         Changed?.Invoke(document);
+    }
+
+    private readonly Dictionary<string, string> _recorded = [];
+
+    /// <summary>
+    /// Writes <c>conversion.json</c> in the document folder (FR-155) when a step started, ended, failed or was interrupted: not at every
+    /// page that Step3 reads (the steps are what the record tells).
+    /// </summary>
+    private void WriteRecord(DocumentRecord document)
+    {
+        var signature = Markdown.ConversionRecord.Signature(document);
+        lock (_recorded)
+        {
+            if (_recorded.TryGetValue(document.DocId, out var last) && last == signature)
+            {
+                return;
+            }
+
+            _recorded[document.DocId] = signature;
+        }
+
+        Markdown.ConversionRecord.Write(Job, document);
     }
 }
 

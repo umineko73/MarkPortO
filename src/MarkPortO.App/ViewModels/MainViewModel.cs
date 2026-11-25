@@ -53,10 +53,25 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _pageRangeText = string.Empty;
     private FileItemViewModel? _selected;
     private PreviousRun? _previous;
+
+    /// <summary>The files of the inputs, each with its last record in the output folder (FR-157); empty when not looked for.</summary>
+    private IReadOnlyList<FileEntry> _entries = [];
     private int _scanVersion;
 
     // The inputs are being set together with the list of files (a past output is opened): the change of the inputs does not refill the list.
     private bool _keepList;
+
+    // FR-156・FR-158: the first input and output folder whose conditions are on the screen (null: none); a work set stops both (FR-159)
+    // until the inputs are changed.
+    private string? _firstKey;
+    private bool _restoreSuspended;
+
+    // A note for the status that the next search of the states shows with its own text (FR-160, FR-159).
+    private string? _pendingNote;
+
+    // FR-159: the work set that was opened, and its conditions, until the inputs are changed.
+    private string? _workSetName;
+    private string? _workSetConditions;
 
     public MainViewModel(SettingsStore store, Dispatcher dispatcher)
     {
@@ -101,12 +116,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         // The four ways to convert; the list of files decides which can be pressed (FR-129):
         // empty: "Start". Something not finished: "Resume" and "Redo all". Everything done: "Redo all" and "Changed files only".
-        StartCommand = new RelayCommand(StartAllAsync, () => CanStart() && Files.Count == 0);
+        // FR-157: "Start" when the list is empty or no file has been converted; "Redo all" otherwise.
+        StartCommand = new RelayCommand(StartAllAsync, () => CanStart() && (Files.Count == 0 || ListIsNotConverted));
         ResumeCommand = new RelayCommand(
-            () => ResumeAsync(_previous is { CanResume: true } ? ResumeMode.Unfinished : ResumeMode.RetryFailed),
+            () => FileStates.ToResume(_entries).Count > 0
+                ? ResumeFilesAsync()
+                : ResumeAsync(_previous is { CanResume: true } ? ResumeMode.Unfinished : ResumeMode.RetryFailed),
             () => !IsRunning && HasPrevious);
-        RedoAllCommand = new RelayCommand(StartAllAsync, () => CanStart() && Files.Count > 0);
-        StartChangedCommand = new RelayCommand(() => StartAsync(RunKind.ChangedOnly), () => CanStart() && Files.Count > 0 && Files.All(f => f.IsDone));
+        RedoAllCommand = new RelayCommand(StartAllAsync, () => CanStart() && Files.Count > 0 && !ListIsNotConverted);
+        StartChangedCommand = new RelayCommand(
+            () => StartAsync(RunKind.ChangedOnly),
+            () => CanStart() && (_entries.Count > 0 ? _entries.Any(e => e.State == FileState.Changed) : Files.Count > 0 && Files.All(f => f.IsDone)));
         RereadCommand = new RelayCommand(() => RereadAsync(), () => CanReread);
         InterruptCommand = new RelayCommand(InterruptAsync, () => IsRunning);
         AddFilesCommand = new RelayCommand(AddFilesAsync, () => !IsRunning);
@@ -126,7 +146,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             UpdateRunCommands();
             if (!_keepList)
             {
-                _ = RefreshPreviousAsync(showFiles: true);
+                _restoreSuspended = false;
+                _workSetName = null;
+                _ = RefreshPreviousAsync(showFiles: true, inputsChanged: true);
             }
         };
         Files.CollectionChanged += (_, _) =>
@@ -144,7 +166,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 }
             };
         }
-        _ = RefreshPreviousAsync(showFiles: true, appendToStatus: true); // the earlier run in the output folder (FR-013e)
+        _ = RefreshPreviousAsync(showFiles: true, appendToStatus: true, inputsChanged: true); // the earlier state of the inputs (FR-156〜158)
     }
 
     /// <summary>Opens the window for VLM connections (set by the window).</summary>
@@ -422,7 +444,31 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool IsPresetModified => ConversionPreset.Find(_store.Current, _store.Current.PresetSelected) is { } preset && !preset.Matches(_store.Current);
 
     /// <summary>"(changed)" after the name of the preset when the settings no longer have its values; empty otherwise.</summary>
-    public string PresetStateText => IsPresetModified ? UiText.Get("Preset_Modified") : string.Empty;
+    public string PresetStateText =>
+        IsPresetModified ? UiText.Get("Preset_Modified")
+        : _workSetName is { } workSet && _store.Current.PresetSelected.Length == 0
+            ? UiText.Get("Preset_WorkSet", workSet) + (JsonDefaults.Serialize(ConditionSet.From(_store.Current)) == _workSetConditions ? string.Empty : " " + UiText.Get("Preset_Modified"))
+        : _store.IsHoldingConditions && _store.Current.PresetSelected.Length == 0 ? UiText.Get("Preset_Previous")
+        : string.Empty;
+
+    /// <summary>The conditions were put into the settings from elsewhere (an earlier conversion, a work set): every item is shown again.</summary>
+    private void RaiseAllConditions()
+    {
+        _applyingPreset = true;
+        try
+        {
+            _dpiText = _store.Current.Images.Dpi.ToString(CultureInfo.InvariantCulture);
+            Raise(string.Empty);
+            RefreshPrompts();
+            RaiseConnection();
+        }
+        finally
+        {
+            _applyingPreset = false;
+        }
+
+        UpdateRunCommands();
+    }
 
     /// <summary>Saves the settings now as a preset of the user with this name (an existing one of the same name is replaced) and chooses it.</summary>
     public void SavePreset(string name)
@@ -537,6 +583,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>Asks a yes/no question with the given text; true for yes (set by the window).</summary>
     public Func<string, bool>? Confirm { get; set; }
 
+    /// <summary>Asks whether to add inputs whose earlier output folder or conditions differ from the first (FR-160); true adds them.</summary>
+    public Func<string, bool>? ConfirmAdd { get; set; }
+
     /// <summary>Tells the user, in a dialog, why a conversion did not start or stopped because of the VLM (the status bar alone is easy to miss).</summary>
     public Action<string>? ShowStopped { get; set; }
 
@@ -619,7 +668,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public bool CanEdit => !IsRunning;
 
     /// <summary>A conversion of the output folder that can be resumed or retried is shown (FR-013e): its settings are used again.</summary>
-    public bool HasPrevious => _previous is { CanResume: true } or { CanRetryFailed: true };
+    public bool HasPrevious => _previous is { CanResume: true } or { CanRetryFailed: true } || FileStates.ToResume(_entries).Count > 0;
+
+    /// <summary>The list shows the files of the inputs and none of them has been converted into the output folder (FR-157).</summary>
+    private bool ListIsNotConverted => Files.Count > 0 && Files.All(f => f.Entry is { State: FileState.NotConverted });
 
     /// <summary>
     /// The types, the range and the conversion (engine, DPI). A resume does not use them (it goes on with those of its run), but they can be
@@ -769,6 +821,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             _store.Update(s => s.Input.Recurse = value);
             Raise();
+            RefreshEntriesForSteps();
         }
     }
 
@@ -780,6 +833,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             _store.Update(s => s.Output.FolderLayout = value == 1 ? FolderLayout.Contents : FolderLayout.Folder);
             Raise();
+            RefreshEntriesForSteps();
         }
     }
 
@@ -864,6 +918,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             _store.Update(s => s.Steps.Step2 = value);
             Raise();
+            RefreshEntriesForSteps();
             Raise(nameof(CanEditPageImage));
         }
     }
@@ -1287,6 +1342,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             _store.Update(s => s.Steps.Step3 = value);
+            RefreshEntriesForSteps();
             Raise(nameof(CanEditVlmSeparate));
             Raise(nameof(CanEditStep1Tables));
             Raise(nameof(CanEditPrompts));
@@ -1329,7 +1385,32 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _cancellation?.Cancel();
+        _elsewhereTimer?.Dispose();
         _store.Dispose();
+    }
+
+    private System.Threading.Timer? _elsewhereTimer;
+
+    /// <summary>
+    /// While the list has a file that another process converts (FR-157), its state is looked for again every 10 seconds, so that it can be
+    /// taken when that run has ended.
+    /// </summary>
+    private void ScheduleElsewhereCheck()
+    {
+        if (!_entries.Any(e => e.State == FileState.RunningElsewhere))
+        {
+            _elsewhereTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+            return;
+        }
+
+        _elsewhereTimer ??= new System.Threading.Timer(_ => _dispatcher.BeginInvoke(() =>
+        {
+            if (!IsRunning && _entries.Any(e => e.State == FileState.RunningElsewhere) && Files.Any(f => f.Entry is not null))
+            {
+                _ = RefreshPreviousAsync(showFiles: true);
+            }
+        }));
+        _elsewhereTimer.Change(TimeSpan.FromSeconds(10), Timeout.InfiniteTimeSpan);
     }
 
     private TaskCompletionSource? _runFinished;
@@ -1354,11 +1435,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private Task AddFilesAsync()
     {
-        foreach (var file in PickFiles?.Invoke() ?? [])
-        {
-            AddInput(file);
-        }
-
+        AddInputs([.. PickFiles?.Invoke() ?? []]);
         return Task.CompletedTask;
     }
 
@@ -1366,10 +1443,211 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         if (PickFolder?.Invoke(FolderPurpose.Input) is { } folder)
         {
-            AddInput(folder);
+            AddInputs([folder]);
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Adds inputs in their order. When the earlier output folder or conditions of one of them differ from those of the first (FR-160), one
+    /// question asks first: "Add" adds them (the output folder and the conditions stay those of the first), "Cancel" changes nothing.
+    /// </summary>
+    private void AddInputs(IReadOnlyList<string> paths)
+    {
+        var adding = paths.Where(p => !InputPaths.Contains(p, StringComparer.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (adding.Count == 0)
+        {
+            return;
+        }
+
+        var differences = AddDifferences(adding);
+        if (differences.Count > 0)
+        {
+            if (ConfirmAdd is { } confirm && !confirm(UiText.Get("Confirm_AddDifferent", string.Join(Environment.NewLine, differences))))
+            {
+                return;
+            }
+
+            _pendingNote = UiText.Get("Status_AddedAligned");
+        }
+
+        foreach (var path in adding)
+        {
+            InputPaths.Add(path);
+        }
+
+        SaveInputs();
+    }
+
+    /// <summary>
+    /// The added inputs whose earlier output folder or conditions differ from those of the first (FR-160), one line each. The first is that of
+    /// the list, or else the one of the added inputs that would be the first. The conditions of the first are those of its record.
+    /// </summary>
+    internal List<string> AddDifferences(IReadOnlyList<string> adding)
+    {
+        var history = _store.Current.History;
+        var output = _store.Current.Output.Folder;
+        IReadOnlyList<string> before = [.. InputPaths];
+        var first = PreviousState.FindFirst(output, before, history, out _) ?? PreviousState.FindFirst(output, [.. before, .. adding], history, out _);
+        var lines = new List<string>();
+        if (first is null)
+        {
+            return lines;
+        }
+
+        var firstConditions = PreviousState.ConditionsOf(first.Output, first.Input)?.Conditions;
+        foreach (var input in adding.Where(a => !string.Equals(a, first.Input, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (PreviousState.OfAdded(input, first.Output, history) is not { } added)
+            {
+                continue; // no record anywhere: a new file of the first's folder
+            }
+
+            var parts = new List<string>();
+            if (!PreviousState.SameFolder(added.Output, first.Output))
+            {
+                parts.Add(UiText.Get("Add_OtherOutput", added.Output));
+            }
+
+            if (added.Conditions is { } conditions && firstConditions is { } wanted)
+            {
+                parts.AddRange(conditions.Differences(wanted));
+            }
+
+            if (parts.Count > 0)
+            {
+                lines.Add($"{Path.GetFileName(input.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))}: {string.Join(UiText.Get("List_Separator"), parts)}");
+            }
+        }
+
+        return lines;
+    }
+
+    // ---- work sets (FR-159) ----
+
+    /// <summary>The names of the work sets, those opened lately first.</summary>
+    public IReadOnlyList<string> WorkSetNames =>
+        [.. _store.Current.WorkSets.OrderByDescending(w => w.OpenedAt ?? w.UpdatedAt).Select(w => w.Name)];
+
+    public bool WorkSetExists(string name) => _store.Current.WorkSets.Any(w => string.Equals(w.Name, name.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Saves the inputs, the output folder and the conditions on the screen as a work set (one of the same name is replaced). Also while a conversion runs.</summary>
+    public void SaveWorkSet(string name)
+    {
+        var trimmed = name.Trim();
+        var now = DateTimeOffset.Now;
+        _store.Update(s =>
+        {
+            var old = s.WorkSets.FirstOrDefault(w => string.Equals(w.Name, trimmed, StringComparison.OrdinalIgnoreCase));
+            var set = new WorkSet
+            {
+                Name = trimmed,
+                Inputs = [.. InputPaths],
+                Output = s.Output.Folder,
+                Conditions = ConditionSet.From(s),
+                CreatedAt = old?.CreatedAt ?? now,
+                UpdatedAt = now,
+                OpenedAt = old?.OpenedAt,
+            };
+            if (old is null)
+            {
+                s.WorkSets.Add(set);
+            }
+            else
+            {
+                s.WorkSets[s.WorkSets.IndexOf(old)] = set;
+            }
+        });
+        SetStatus(() => UiText.Get("Status_WorkSetSaved", trimmed));
+    }
+
+    public void RenameWorkSet(string oldName, string newName) => _store.Update(s =>
+    {
+        if (s.WorkSets.FirstOrDefault(w => string.Equals(w.Name, oldName, StringComparison.OrdinalIgnoreCase)) is { } set)
+        {
+            set.Name = newName.Trim();
+            set.UpdatedAt = DateTimeOffset.Now;
+        }
+    });
+
+    public void DeleteWorkSet(string name) => _store.Update(s => s.WorkSets.RemoveAll(w => string.Equals(w.Name, name, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>
+    /// Opens a work set (FR-159): the inputs, the output folder and the conditions of the screen are first put back to empty and to the
+    /// defaults, then those of the work set are put in, and saved. The output folder and the conditions do not follow the inputs (FR-156,
+    /// FR-158) until the inputs are changed. Returns false while a conversion runs.
+    /// </summary>
+    public bool OpenWorkSet(string name)
+    {
+        if (IsRunning || _store.Current.WorkSets.FirstOrDefault(w => string.Equals(w.Name, name, StringComparison.OrdinalIgnoreCase)) is not { } set)
+        {
+            return false;
+        }
+
+        var notes = new List<string>();
+        var inputs = set.Inputs.Where(p => File.Exists(p) || Directory.Exists(p)).ToList();
+        var gone = set.Inputs.Count - inputs.Count;
+        if (gone > 0)
+        {
+            notes.Add(UiText.Get("Status_WorkSetInputsGone", gone));
+        }
+
+        _store.KeepConditions();
+        var connectionFound = true;
+        _store.Update(s =>
+        {
+            ConditionSet.From(AppSettings.CreateDefault()).ApplyTo(s);
+            connectionFound = set.Conditions.ApplyTo(s);
+            if (!connectionFound || set.Conditions.Connection.Length == 0)
+            {
+                s.Vlm.Selected = string.Empty;
+            }
+
+            s.Output.Folder = set.Output;
+            s.Input.Paths = [.. inputs];
+            if (s.WorkSets.FirstOrDefault(w => w.Name == set.Name) is { } opened)
+            {
+                opened.OpenedAt = DateTimeOffset.Now;
+            }
+        });
+        if (!connectionFound)
+        {
+            notes.Add(UiText.Get("Status_ConnectionMissing", set.Conditions.Connection));
+        }
+
+        // The conditions of the work set win; how they differ from the earlier conversion is told.
+        var first = PreviousState.FindFirst(set.Output, inputs, new HistorySettings(), out _);
+        if (first is not null && PreviousState.ConditionsOf(set.Output, first.Input) is { } recorded
+            && set.Conditions.Differences(recorded.Conditions) is { Count: > 0 } differences)
+        {
+            notes.Add(UiText.Get("Status_WorkSetDiffers", string.Join(UiText.Get("List_Separator"), differences)));
+        }
+
+        _keepList = true;
+        try
+        {
+            InputPaths.Clear();
+            foreach (var path in inputs)
+            {
+                InputPaths.Add(path);
+            }
+        }
+        finally
+        {
+            _keepList = false;
+        }
+
+        _restoreSuspended = true;
+        _firstKey = null;
+        _entries = [];
+        _workSetName = set.Name;
+        _workSetConditions = JsonDefaults.Serialize(ConditionSet.From(_store.Current));
+        _pendingNote = string.Join(" ", [UiText.Get("Status_WorkSetOpened", set.Name), .. notes]);
+        Raise(nameof(OutputFolder));
+        RaiseAllConditions();
+        _ = RefreshPreviousAsync(showFiles: true);
+        return true;
     }
 
     private Task ClearInputsAsync()
@@ -1400,13 +1678,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        foreach (var path in paths)
-        {
-            if (System.IO.Directory.Exists(path) || (System.IO.File.Exists(path) && IsSupportedFile(path)))
-            {
-                AddInput(path);
-            }
-        }
+        AddInputs([.. paths.Where(path => System.IO.Directory.Exists(path) || (System.IO.File.Exists(path) && IsSupportedFile(path)))]);
     }
 
     /// <summary>Sets the output folder to the folder that was dropped (for a file, the folder it is in). Ignored while a conversion runs.</summary>
@@ -1438,15 +1710,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return Task.CompletedTask;
     }
 
-    private void AddInput(string path)
-    {
-        if (!InputPaths.Contains(path, StringComparer.OrdinalIgnoreCase))
-        {
-            InputPaths.Add(path);
-            SaveInputs();
-        }
-    }
-
     private void SaveInputs() => _store.Update(s => s.Input.Paths = [.. InputPaths]);
 
     private bool HasType(DocumentKind kind) => _store.Current.Input.Types.Contains(kind);
@@ -1468,6 +1731,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(PdfHintVisibility));
         Raise(nameof(ConditionSummaryText));
         RaiseOptions();
+        RefreshEntriesForSteps();
         UpdateRunCommands();
     }
 
@@ -1486,10 +1750,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// and the limits. <c>true</c> when nothing needs to be asked, or the user said yes. Without the consent nothing is asked
     /// here: the check before the run reports it.
     /// </summary>
-    private bool ConfirmSending()
+    /// <summary>The chosen connection sends outside the PC and the user has to be asked before each run (FR-114).</summary>
+    private bool SendingNeedsQuestion()
     {
         var settings = _store.Current;
-        if (!settings.Steps.Step3
+        return settings.FindConnection(settings.Vlm.Selected) is { } connection
+            && ExternalConsent.IsRequired(connection)
+            && ExternalConsent.MayUse(connection)
+            && Confirm is not null;
+    }
+
+    /// <param name="readsStep3">Whether the run reads pages with the VLM; by default, Step3 on the screen.</param>
+    private bool ConfirmSending(bool? readsStep3 = null)
+    {
+        var settings = _store.Current;
+        if (!(readsStep3 ?? settings.Steps.Step3)
             || settings.FindConnection(settings.Vlm.Selected) is not { } connection
             || !ExternalConsent.IsRequired(connection)
             || !ExternalConsent.MayUse(connection)
@@ -1561,9 +1836,53 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// </summary>
     private Task StartAllAsync() => StartAsync(SameFolder ? RunKind.SameFolders : RunKind.New);
 
-    private Task StartRunAsync(RunKind kind, IReadOnlyList<Guid> replaced) => RunAsync(async (service, snapshot, token) =>
+    private Task StartRunAsync(RunKind kind, IReadOnlyList<Guid> replaced)
+    {
+        RememberOutputs(onlyNew: kind == RunKind.ChangedOnly);
+        return StartRunCoreAsync(kind, replaced);
+    }
+
+    /// <summary>
+    /// Remembers the output folder of the inputs (FR-156): of all of them for "Start" and "Redo all"; of those not remembered yet for the
+    /// runs that convert files for the first time ("Resume", "changed files").
+    /// </summary>
+    private void RememberOutputs(bool onlyNew, IReadOnlyCollection<string>? only = null)
+    {
+        var output = _store.Current.Output.Folder;
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.Now;
+        _store.Update(s =>
+        {
+            foreach (var input in InputPaths.Where(i => only is null || only.Contains(i)))
+            {
+                if (!onlyNew || s.History.OutputOf(input) is null)
+                {
+                    s.History.Remember(input, output, now);
+                }
+            }
+        });
+    }
+
+    /// <summary>Forgets the output folders of the inputs (FR-156, "Clear history").</summary>
+    public void ClearHistory() => _store.Update(s => s.History.Outputs.Clear());
+
+    private Task StartRunCoreAsync(RunKind kind, IReadOnlyList<Guid> replaced) => RunAsync(async (service, snapshot, token) =>
     {
         var found = InputEnumerator.Enumerate(snapshot.Input.Paths, snapshot.Input.Types, snapshot.Input.Recurse, snapshot.Output.FolderLayout);
+        var elsewhere = RunElsewhere(snapshot);
+        if (elsewhere.Count > 0)
+        {
+            found = found with { Inputs = [.. found.Inputs.Where(i => !elsewhere.Contains(Path.GetFullPath(i.Path)))] };
+            if (found.Inputs.Count == 0)
+            {
+                throw new ConvertStartException(UiText.Get("Status_Files_Elsewhere", elsewhere.Count));
+            }
+        }
+
         if (found.Inputs.Count == 0)
         {
             var reasons = found.Warnings.Count > 0 ? " " + string.Join(" ", found.Warnings) : string.Empty;
@@ -1615,6 +1934,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         return RunAsync((service, snapshot, token) =>
         {
+            // A document whose job another process runs now is left out (FR-157).
+            var locks = new StateStore(snapshot.Output.Folder);
+            documents = [.. documents.Where(d => !locks.IsLocked(d.JobId))];
+            if (documents.Count == 0)
+            {
+                throw new ConvertStartException(UiText.Get("Status_Files_Elsewhere", 1));
+            }
+
             var previous = new Dictionary<string, PreviousOutput>(StringComparer.OrdinalIgnoreCase);
             foreach (var document in documents.Where(d => Directory.Exists(d.OutputFolder)))
             {
@@ -1673,6 +2000,144 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             token));
     }
 
+    /// <summary>
+    /// "Resume" per file (FR-157): the files of each earlier conversion (job) go on in turn, each from where it is (going on, retrying,
+    /// adding a step); then the files not converted yet are converted as one new run with the conditions of the screen. The list is one
+    /// for all of them. The states are looked for again just before, so that a file another process runs now is not taken.
+    /// </summary>
+    private async Task ResumeFilesAsync()
+    {
+        // The question before sending is about the files as they are now, not as the list showed them (a file may have changed since).
+        var current = _store.Current;
+        IReadOnlyList<string> inputs = [.. current.Input.Paths];
+        IReadOnlyList<DocumentKind> types = [.. current.Input.Types];
+        var (folder, recurse, layout, step2, step3) = (current.Output.Folder, current.Input.Recurse, current.Output.FolderLayout, current.Steps.Step2, current.Steps.Step3);
+        var planned = FileStates.ToResume(await Task.Run(() => FileStates.Find(folder, inputs, types, recurse, layout, step2, step3)));
+        if (IsRunning)
+        {
+            return;
+        }
+
+        var reads3 = FileStates.ReadsStep3(planned, step3);
+        if (!ConfirmSending(reads3))
+        {
+            return;
+        }
+
+        var asked = reads3 || !SendingNeedsQuestion();
+        var notConverted = planned.Where(e => e.State == FileState.NotConverted).Select(e => e.Path).ToList();
+
+        await RunAsync(async (service, snapshot, token) =>
+        {
+            var entries = FileStates.Find(
+                snapshot.Output.Folder, snapshot.Input.Paths, snapshot.Input.Types, snapshot.Input.Recurse, snapshot.Output.FolderLayout, snapshot.Steps.Step2, snapshot.Steps.Step3);
+            var take = FileStates.ToResume(entries);
+            if (take.Count == 0)
+            {
+                throw new ConvertStartException(UiText.Get("Status_Files_NothingToResume"));
+            }
+
+            if (!asked && FileStates.ReadsStep3(take, snapshot.Steps.Step3))
+            {
+                // A file changed after the question: it would now send pages that were not asked about.
+                throw new ConvertStartException(UiText.Get("Status_Files_ChangedBeforeStart"));
+            }
+
+            var options = WithPages(ConvertRequest.OptionsFrom(snapshot));
+            var documents = new List<DocumentRecord>();
+            ConvertResult? last = null;
+            foreach (var group in take.Where(e => e.Job is not null).GroupBy(e => e.Job!.JobId))
+            {
+                if (token.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                var ids = group.Select(e => e.Document!.DocId).ToHashSet(StringComparer.Ordinal);
+                last = await service.ResumeAsync(
+                    new ResumeRequest
+                    {
+                        OutputFolder = snapshot.Output.Folder,
+                        JobId = group.Key,
+                        Mode = ResumeMode.Files,
+                        DocumentIds = ids,
+                        Step2 = snapshot.Steps.Step2,
+                        Step3 = snapshot.Steps.Step3,
+                        VlmSeparate = snapshot.Steps.VlmSeparate,
+                        Step1Tables = snapshot.Steps.Step1Tables,
+                        PageImage = snapshot.Steps.PageImage,
+                        DropRepeatedTables = snapshot.Steps.DropRepeatedTables,
+                        Step3Mode = snapshot.Steps.Step3Mode,
+                        StructureNote = snapshot.Output.StructureNote,
+                        Chunks = snapshot.Output.Chunks,
+                        ExcelPerSheet = snapshot.Output.ExcelPerSheet,
+                        Connection = options.Connection,
+                        PromptNames = options.PromptNames,
+                    },
+                    token);
+                documents.AddRange(last.Documents.Where(d => ids.Contains(d.DocId)));
+                if (token.IsCancellationRequested || last.Job.StopReason is not null)
+                {
+                    return new ConvertResult(last.Job, documents); // the jobs not started yet and the new files stay as they were
+                }
+            }
+
+            var fresh = take.Where(e => e.State == FileState.NotConverted).Select(e => e.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (fresh.Count > 0 && !token.IsCancellationRequested)
+            {
+                var found = InputEnumerator.Enumerate(snapshot.Input.Paths, snapshot.Input.Types, snapshot.Input.Recurse, snapshot.Output.FolderLayout);
+                last = await service.RunAsync(
+                    new ConvertRequest
+                    {
+                        Inputs = [.. found.Inputs.Where(i => fresh.Contains(Path.GetFullPath(i.Path)))],
+                        GivenInputs = snapshot.Input.Paths,
+                        InputFolder = found.InputFolder,
+                        OutputFolder = snapshot.Output.Folder,
+                        Options = options,
+                    },
+                    token);
+                documents.AddRange(last.Documents);
+            }
+
+            return last is null ? throw new OperationCanceledException(token) : new ConvertResult(last.Job, documents);
+        }, fill: false, readsStep3: reads3);
+
+        // The inputs whose files were converted for the first time remember this output folder, when they had none (FR-156).
+        var newInputs = InputPaths.Where(i => notConverted.Any(p => IsSameOrUnder(p, i))).ToList();
+        RememberOutputs(onlyNew: true, only: newInputs);
+
+        // The list shows the state of each file after the run (FR-157), with the summary of the run before it.
+        await RefreshPreviousAsync(showFiles: true, appendToStatus: true);
+    }
+
+    /// <summary>
+    /// The files of the inputs whose last record another process converts now (FR-157): no action takes them, so that two runs do not write
+    /// the same folder. Looked for again just before the run.
+    /// </summary>
+    private static HashSet<string> RunElsewhere(AppSettings snapshot) =>
+        [.. FileStates.Find(snapshot.Output.Folder, snapshot.Input.Paths, snapshot.Input.Types, snapshot.Input.Recurse, snapshot.Output.FolderLayout, snapshot.Steps.Step2, snapshot.Steps.Step3)
+            .Where(e => e.State == FileState.RunningElsewhere)
+            .Select(e => e.Path)];
+
+    private static bool IsSameOrUnder(string path, string root)
+    {
+        var full = HistorySettings.Normalize(root);
+        return string.Equals(HistorySettings.Normalize(path), full, StringComparison.OrdinalIgnoreCase)
+            || HistorySettings.Normalize(path).StartsWith(full + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// A step switched on or off changes "Step2/3 not run", and the subfolders, the kinds and the folder layout change the files (FR-157): the
+    /// list is made again, also when it shows the rows of the run that has just ended.
+    /// </summary>
+    private void RefreshEntriesForSteps()
+    {
+        if (!IsRunning && InputPaths.Count > 0)
+        {
+            _ = RefreshPreviousAsync(showFiles: true);
+        }
+    }
+
     private Task InterruptAsync()
     {
         SetStatus(() => UiText.Get("Status_Interrupting"));
@@ -1680,10 +2145,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return Task.CompletedTask;
     }
 
-    private async Task RunAsync(Func<ConvertService, AppSettings, CancellationToken, Task<ConvertResult>> run, Action<string>? afterPlanned = null)
+    /// <param name="fill">The list is filled with the files of the run when it is planned; without it the rows of the list are updated (FR-157).</param>
+    /// <param name="readsStep3">
+    /// Whether the run reads pages with the VLM, when it is known better than by Step3 on the screen ("Resume" per file, FR-157): a run that
+    /// reads none does not need a connection, though Step3 is on (its files have it done).
+    /// </param>
+    private async Task RunAsync(Func<ConvertService, AppSettings, CancellationToken, Task<ConvertResult>> run, Action<string>? afterPlanned = null, bool fill = true, bool? readsStep3 = null)
     {
+        _store.KeepConditions();
         // The run uses a copy, so a change on the screen during the run does not change a run in progress.
         var snapshot = JsonDefaults.Deserialize<AppSettings>(JsonDefaults.Serialize(_store.Current))!;
+        if (readsStep3 == false)
+        {
+            snapshot.Steps.Step3 = false; // nothing is read with the VLM: no connection is needed, and no step is added
+        }
+
         var errors = snapshot.ValidateForRun();
         if (errors.Count > 0)
         {
@@ -1722,7 +2198,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         feed.Updated += rows => _dispatcher.BeginInvoke(() => Apply(rows));
         service.Planned += documents =>
         {
-            _dispatcher.Invoke(() => Fill(documents));
+            if (fill)
+            {
+                _dispatcher.Invoke(() => Fill(documents));
+            }
+
             afterPlanned?.Invoke(snapshot.Output.Folder);
         };
         service.DocumentChanged += feed.Post;
@@ -1812,14 +2292,94 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// Looks in the output folder for the earlier run (FR-013e). It decides whether "resume" and "retry failed only" can be
     /// pressed and, when <paramref name="showFiles"/> is set, shows the files of that run in the list.
     /// </summary>
-    private async Task RefreshPreviousAsync(bool showFiles, bool appendToStatus = false, Guid? jobId = null)
+    /// <param name="inputsChanged">The inputs changed (or the screen starts): the output folder may follow the first input (FR-156).</param>
+    private async Task RefreshPreviousAsync(bool showFiles, bool appendToStatus = false, Guid? jobId = null, bool inputsChanged = false)
     {
         var version = ++_scanVersion;
         var folder = _store.Current.Output.Folder;
         IReadOnlyList<string> inputs = [.. InputPaths];
+        var notes = new List<string>();
+        if (_pendingNote is { } pending && showFiles)
+        {
+            notes.Add(pending);
+            _pendingNote = null;
+        }
+
+        if (showFiles && jobId is null && !_restoreSuspended)
+        {
+            // FR-156: the first input, and the output folder it was converted into.
+            var history = _store.Current.History;
+            var (first, missing) = await Task.Run(() =>
+            {
+                var found = PreviousState.FindFirst(folder, inputs, history, out var gone);
+                return (found, gone);
+            });
+            if (version != _scanVersion || IsRunning)
+            {
+                return;
+            }
+
+            if (first is { Remembered: true } && !inputsChanged)
+            {
+                first = null; // the output folder was chosen: it is kept until the inputs change
+            }
+            else if (first is { Remembered: true } remembered)
+            {
+                folder = remembered.Output;
+                _store.Update(s => s.Output.Folder = remembered.Output);
+                Raise(nameof(OutputFolder));
+                notes.Add(UiText.Get("Status_OutputSwitched", remembered.Output));
+            }
+            else if (first is null && missing is not null && inputsChanged)
+            {
+                notes.Add(UiText.Get("Status_OutputMissing", missing));
+            }
+
+            // FR-158: the conditions follow the first; they come back when no file of the list has a record.
+            var key = first is null ? null : HistorySettings.Normalize(first.Input) + "|" + HistorySettings.Normalize(folder);
+            if (!string.Equals(key, _firstKey, StringComparison.OrdinalIgnoreCase))
+            {
+                _firstKey = key;
+                if (first is not null)
+                {
+                    var input = first.Input;
+                    var output = folder;
+                    var recorded = await Task.Run(() => PreviousState.ConditionsOf(output, input));
+                    if (version != _scanVersion || IsRunning)
+                    {
+                        _firstKey = null;
+                        return;
+                    }
+
+                    if (recorded is not null)
+                    {
+                        if (!_store.ShowConditions(recorded.Conditions))
+                        {
+                            notes.Add(UiText.Get("Status_ConnectionMissing", recorded.Conditions.Connection));
+                        }
+
+                        if (recorded.OthersDiffer > 0)
+                        {
+                            notes.Add(UiText.Get("Status_OtherConditions", recorded.OthersDiffer));
+                        }
+
+                        RaiseAllConditions();
+                    }
+                }
+                else if (_store.RevertConditions())
+                {
+                    RaiseAllConditions();
+                }
+            }
+        }
+
+        var current = _store.Current;
+        IReadOnlyList<DocumentKind> types = [.. current.Input.Types];
+        var (recurse, layout, step2, step3) = (current.Input.Recurse, current.Output.FolderLayout, current.Steps.Step2, current.Steps.Step3);
 
         // The run of the inputs of the screen (FR-130). Without a run to resume or retry, the newest run that finished is shown (FR-129).
         // "other": the output folder has a run of other inputs that can be resumed; it is not shown, but the status tells where to find it.
+        var entries = await Task.Run(() => FileStates.Find(folder, inputs, types, recurse, layout, step2, step3));
         var (run, finished, other) = await Task.Run(() =>
         {
             if (jobId is { } id)
@@ -1849,7 +2409,52 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         _previous = run;
-        if (showFiles)
+        _entries = entries;
+        ScheduleElsewhereCheck();
+        if (showFiles && jobId is null && entries.Count > 0)
+        {
+            // FR-157: each file of the inputs with its last record.
+            Files.Clear();
+            foreach (var entry in entries)
+            {
+                Files.Add(new FileItemViewModel(entry, OutputRoot));
+            }
+
+            string? text = null;
+            if (entries.Any(e => e.Document is not null))
+            {
+                var counted = entries.Where(e => e.State != FileState.RunningElsewhere).ToList();
+                var (done, resume, fresh, changed) = (
+                    counted.Count(e => e.State is FileState.Done or FileState.DonePartlyFailed),
+                    counted.Count(e => e.CanResume),
+                    counted.Count(e => e.State == FileState.NotConverted),
+                    counted.Count(e => e.State == FileState.Changed));
+                var elsewhere = entries.Count - counted.Count;
+                text = UiText.Get("Status_Files", done, resume, fresh, changed)
+                    + (elsewhere > 0 ? " " + UiText.Get("Status_Files_Elsewhere", elsewhere) : string.Empty);
+            }
+            else if (other)
+            {
+                text = UiText.Get("Status_Previous_Other");
+            }
+
+            if (notes.Count > 0)
+            {
+                text = string.Join(" ", notes) + (text is null ? string.Empty : " " + text);
+            }
+
+            if (text is not null)
+            {
+                var before = _statusSource;
+                var keepEarlier = appendToStatus && Status != UiText.Get("Status_Ready");
+                SetStatus(() => keepEarlier ? $"{before()} / {text}" : text);
+            }
+            else if (!appendToStatus)
+            {
+                SetStatus(() => UiText.Get("Status_Ready"));
+            }
+        }
+        else if (showFiles)
         {
             Files.Clear();
             if (finished is not null)
@@ -1928,6 +2533,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         SaveInputs();
+        _entries = [];
         Files.Clear();
         foreach (var document in documents)
         {
@@ -1987,7 +2593,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         foreach (var row in rows)
         {
-            var item = Files.FirstOrDefault(f => f.DocId == row.DocId);
+            var item = string.IsNullOrEmpty(row.FullPath)
+                ? Files.FirstOrDefault(f => f.DocId == row.DocId)
+                : Files.FirstOrDefault(f => string.Equals(f.FullPath, row.FullPath, StringComparison.OrdinalIgnoreCase));
             if (item is null)
             {
                 Files.Add(new FileItemViewModel(row, OutputRoot));

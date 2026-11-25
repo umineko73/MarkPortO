@@ -48,6 +48,10 @@ public sealed class SettingsStore : IDisposable
     private bool _dirty;
     private bool _disposed;
 
+    // FR-158: the conditions the file keeps while the screen shows those put back from an earlier conversion; null when none are put back.
+    private ConditionSet? _held;
+    private string? _shownConditions;
+
     public SettingsStore(string path, TimeSpan? debounce = null)
     {
         _path = Path.GetFullPath(path);
@@ -139,9 +143,81 @@ public sealed class SettingsStore : IDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             change(Current);
+            if (_held is not null && JsonDefaults.Serialize(ConditionSet.From(Current)) != _shownConditions)
+            {
+                _held = null; // the user changed a condition put back: from now on the conditions on the screen are saved (FR-158)
+                _shownConditions = null;
+            }
+
             _dirty = true;
             _timer ??= new Timer(_ => Flush(), null, Timeout.Infinite, Timeout.Infinite);
             _timer.Change(_debounce, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    /// <summary>The screen shows conditions put back from an earlier conversion, which are not saved (FR-158).</summary>
+    public bool IsHoldingConditions
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _held is not null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Puts conditions on the screen without saving them (FR-158, an exception to FR-018): the file keeps the conditions it had before the
+    /// first of these, until a condition is changed (<see cref="Update"/>), <see cref="KeepConditions"/> or <see cref="RevertConditions"/>.
+    /// </summary>
+    /// <returns>False when the connection of the conditions is not in the settings.</returns>
+    public bool ShowConditions(ConditionSet conditions)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _held ??= ConditionSet.From(Current);
+            var found = conditions.ApplyTo(Current);
+            _shownConditions = JsonDefaults.Serialize(ConditionSet.From(Current));
+            return found;
+        }
+    }
+
+    /// <summary>The conditions on the screen are saved from now on (a conversion starts with them).</summary>
+    public void KeepConditions()
+    {
+        lock (_gate)
+        {
+            if (_held is null)
+            {
+                return;
+            }
+
+            _held = null;
+            _shownConditions = null;
+        }
+
+        Update(_ => { });
+    }
+
+    /// <summary>The conditions that are saved come back on the screen (FR-158: the inputs were emptied, or no file of the list has a record).</summary>
+    /// <returns>True when conditions were put back before.</returns>
+    public bool RevertConditions()
+    {
+        lock (_gate)
+        {
+            if (_held is not { } held)
+            {
+                return false;
+            }
+
+            held.ApplyTo(Current);
+            Current.Vlm.Selected = held.Connection;
+            Current.PresetSelected = held.Preset;
+            _held = null;
+            _shownConditions = null;
+            return true;
         }
     }
 
@@ -168,7 +244,18 @@ public sealed class SettingsStore : IDisposable
                     return;
                 }
 
-                json = JsonDefaults.Serialize(Current);
+                if (_held is null)
+                {
+                    json = JsonDefaults.Serialize(Current);
+                }
+                else
+                {
+                    var saved = JsonDefaults.Deserialize<AppSettings>(JsonDefaults.Serialize(Current))!;
+                    _held.ApplyTo(saved);
+                    saved.Vlm.Selected = _held.Connection; // as it was, also a name that is gone
+                    saved.PresetSelected = _held.Preset;
+                    json = JsonDefaults.Serialize(saved);
+                }
             }
 
             try

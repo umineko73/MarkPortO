@@ -376,7 +376,7 @@ public sealed class PresetViewModelTests
     });
 
     /// <summary>The main view model, a ComboBox bound to it as in the main window, and their settings in a file of their own.</summary>
-    private sealed class Screen(SettingsStore store, MainViewModel model, ComboBox combo)
+    internal sealed class Screen(SettingsStore store, MainViewModel model, ComboBox combo)
     {
         public SettingsStore Store { get; } = store;
 
@@ -391,7 +391,7 @@ public sealed class PresetViewModelTests
     }
 
     /// <summary>Runs a test on a thread of its own with a dispatcher, as WPF needs.</summary>
-    private static class Sta
+    internal static class Sta
     {
         public static void Run(Action<Screen> test, Action<AppSettings>? prepare = null)
         {

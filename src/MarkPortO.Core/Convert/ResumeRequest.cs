@@ -61,4 +61,7 @@ public sealed class ResumeRequest
 
     /// <summary>The prompts of this run, by name (FR-139: a re-reading uses the choice on the screen). <c>null</c>: as in the earlier run.</summary>
     public Settings.PromptNames? PromptNames { get; init; }
+
+    /// <summary>With <see cref="ResumeMode.Files"/>: the documents of the job to go on with (FR-157).</summary>
+    public IReadOnlyCollection<string>? DocumentIds { get; init; }
 }

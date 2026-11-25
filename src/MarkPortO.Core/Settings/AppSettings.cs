@@ -49,6 +49,12 @@ public sealed class AppSettings
     /// <summary>The preset that was chosen last (FR-151); empty when none was ("custom").</summary>
     public string PresetSelected { get; set; } = string.Empty;
 
+    /// <summary>The output folders the inputs were converted into (FR-156).</summary>
+    public HistorySettings History { get; set; } = new();
+
+    /// <summary>The work sets (FR-159).</summary>
+    public List<WorkSet> WorkSets { get; set; } = [];
+
     public ExtractorProfile? FindExtractor(string name) =>
         Extractors.FirstOrDefault(e => string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
 

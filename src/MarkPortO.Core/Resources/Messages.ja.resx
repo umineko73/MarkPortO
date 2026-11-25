@@ -331,6 +331,75 @@
   <data name="Done" xml:space="preserve">
     <value>完了</value>
   </data>
+  <data name="on" xml:space="preserve">
+    <value>オン</value>
+  </data>
+  <data name="off" xml:space="preserve">
+    <value>オフ</value>
+  </data>
+  <data name="Kinds {0}" xml:space="preserve">
+    <value>対象の種類 {0}</value>
+  </data>
+  <data name="Subfolders {0}" xml:space="preserve">
+    <value>サブフォルダ {0}</value>
+  </data>
+  <data name="Extraction" xml:space="preserve">
+    <value>抽出の方法</value>
+  </data>
+  <data name="Engine {0}" xml:space="preserve">
+    <value>エンジン {0}</value>
+  </data>
+  <data name="Excel range {0}" xml:space="preserve">
+    <value>Excel の範囲 {0}</value>
+  </data>
+  <data name="Options of Step1" xml:space="preserve">
+    <value>Step1 のオプション</value>
+  </data>
+  <data name="Page image {0}" xml:space="preserve">
+    <value>ページ画像 {0}</value>
+  </data>
+  <data name="Use of Step3 {0}" xml:space="preserve">
+    <value>Step3 の使い方 {0}</value>
+  </data>
+  <data name="Connection {0}" xml:space="preserve">
+    <value>接続 {0}</value>
+  </data>
+  <data name="Prompts" xml:space="preserve">
+    <value>プロンプト</value>
+  </data>
+  <data name="Writing of the VLM results" xml:space="preserve">
+    <value>VLM の結果の書き方</value>
+  </data>
+  <data name="Structure note {0}" xml:space="preserve">
+    <value>冒頭の説明 {0}</value>
+  </data>
+  <data name="Chunks {0}" xml:space="preserve">
+    <value>塊 {0}</value>
+  </data>
+  <data name="Excel per sheet {0}" xml:space="preserve">
+    <value>シートごと {0}</value>
+  </data>
+  <data name="Folder layout {0}" xml:space="preserve">
+    <value>フォルダの出力 {0}</value>
+  </data>
+  <data name="Not converted" xml:space="preserve">
+    <value>未変換</value>
+  </data>
+  <data name="Not finished" xml:space="preserve">
+    <value>未完了</value>
+  </data>
+  <data name="Step2 not run" xml:space="preserve">
+    <value>Step2 未実行</value>
+  </data>
+  <data name="Step3 not run" xml:space="preserve">
+    <value>Step3 未実行</value>
+  </data>
+  <data name="Changed since the conversion" xml:space="preserve">
+    <value>変更あり</value>
+  </data>
+  <data name="Running elsewhere" xml:space="preserve">
+    <value>ほかで実行中</value>
+  </data>
   <data name="Done (some pages failed)" xml:space="preserve">
     <value>完了(一部失敗)</value>
   </data>
@@ -630,6 +699,9 @@
   </data>
   <data name="The chunks for RAG could not be written: {0}" xml:space="preserve">
     <value>RAG 用の小分け（_chunks.jsonl）を書けませんでした: {0}</value>
+  </data>
+  <data name="The record of the conversion (conversion.json) could not be written: {0}" xml:space="preserve">
+    <value>変換の記録（conversion.json）を書けませんでした: {0}</value>
   </data>
   <data name="Folder: contents only" xml:space="preserve">
     <value>フォルダは中身だけ</value>

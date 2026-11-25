@@ -27,7 +27,8 @@ public class CliParityTests
 {
     private static Dictionary<string, string> Tree(string root) =>
         Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
-            .Where(f => !f.Contains(".markporto", StringComparison.Ordinal) && !f.EndsWith(".log", StringComparison.Ordinal)) // the log has the times of the run
+            .Where(f => !f.Contains(".markporto", StringComparison.Ordinal) && !f.EndsWith(".log", StringComparison.Ordinal) // the log has the times of the run
+                && !f.EndsWith("conversion.json", StringComparison.Ordinal)) // so has the record of the conversion, and its job (FR-155)
             .ToDictionary(
                 f => Path.GetRelativePath(root, f).Replace('\\', '/'),
                 f => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(f))));

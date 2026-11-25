@@ -191,7 +191,7 @@ Documents and results are listed newest first. **Open** puts the selected files 
 
 Several documents can be selected (Ctrl+click, Shift+click): the newest result of each is used. **Preview** is for one document only.
 
-Opening an output only reads it. The output folder can be moved or copied to another place and still opens, as long as `.markporto` goes with it.
+Opening an output only reads it. The output folder can be moved or copied to another place and still opens, as long as `.markporto` goes with it. Without `.markporto` (only the folders of the documents were copied, for example), the `conversion.json` of each document folder is read: the documents can be previewed and opened (as a new conversion), not resumed.
 
 ### Resuming an interrupted conversion
 
@@ -201,24 +201,54 @@ Opening an output only reads it. The output folder can be moved or copied to ano
 
 A result with failures, and an interrupted one that was given up when a later conversion was started, can be chosen too. When several documents are opened, the run can be resumed if a document that did not finish is in it.
 
+### Going back to the earlier state
+
+When the files and folders to convert are chosen, the screen goes back to their earlier state.
+
+- **File list**: each file of the inputs is shown with the state of its last conversion in the output folder, also when the set of inputs differs from last time (folders A and B then, only A now).
+- **Output folder**: the output folder of each input is remembered. When the output folder set now has no record, it is switched to the one the first input was converted into (the status says so). An output folder you choose yourself is kept until the inputs change.
+- **Conditions**: those of the newest conversion of the first input are put back; the preset shows **Earlier conditions**. Choosing inputs does not save them: they are saved when you change a condition or start a conversion. Emptying the inputs brings the saved conditions back.
+
+"The first" is the first input, from the top of the list, that has a record. Adding files or folders whose earlier output folder or conditions differ from the first asks first; when added, the output folder and the conditions stay those of the first, and the files without a record in its output folder are converted anew.
+
+**Settings > Clear the history of output folders** forgets the remembered output folders.
+
 ### Converting again
 
-The list shows the previous conversion, in the output folder, of the same inputs as those on the screen. When the inputs change, the conversion of the new inputs is looked for, and the list is empty when there is none (a conversion of other inputs can be opened from **Open a past output**).
-
-| The list | Buttons |
+| State in the list | Meaning |
 |---|---|
-| Empty (no earlier conversion in the output folder) | **Start** |
-| A file is not done, or failed | **Resume**, **Redo all** |
-| Every file is done | **Redo all**, **Reconvert updated files** |
+| Not converted | No record in this output folder yet |
+| Done, Done (some pages failed), Failed | The result of the last conversion |
+| Not finished | Interrupted, or it ended halfway |
+| Step2 not run, Step3 not run | The last conversion had that step off; it is on now |
+| Changed since the conversion | The file changed after its last conversion |
+| Running elsewhere | Another window or the command line converts it (no action takes it) |
 
-- **Start**: converts every file of the inputs.
-- **Resume**: goes on with the previous conversion: the files that did not finish or, when only failures are left, the files that failed and the pages the VLM could not read.
+- **Start**: when every file is "Not converted"; converts every file of the inputs.
+- **Resume**: goes on file by file: a file not finished goes on, failed files and pages are tried again, a step that is on now but was not then is run alone, and files not converted are converted with the conditions on the screen. Several earlier conversions go on in turn in one **Resume**.
 - **Redo all**: converts every file of the inputs again with the conditions on the screen.
-- **Reconvert updated files**: converts only the files that changed since their last conversion, and the new ones, into the folders of their earlier conversion.
+- **Reconvert updated files**: converts the changed files and the new ones, into the folders of their earlier conversion.
+
+#### Adding Step3 to files converted up to Step2
+
+1. Choose the inputs of then (the list and the conditions go back to their earlier state).
+2. Switch Step3 on and choose the VLM connection. The list shows **Step3 not run**.
+3. Press **Resume**. Step1 and Step2 are not done again: only Step3 runs, in the earlier folders, and the Markdown is written again.
+
+A step switched off now that was on then leaves its results. A file that changed is converted again from Step1 instead.
 
 Where **Start** and **Redo all** write a file that was converted before is chosen beside the buttons, under **If the folder exists** (**Make a new one** or **Overwrite**).
 
 To convert some files again, select them in the file list and press **Convert again from Step 1**, or choose **Convert the selected files again from Step 1** from the right-click menu. **The Markdown and the page images in the earlier folder are replaced**, so the paths stay the same.
+
+### Work sets
+
+The inputs, the output folder and the conditions can be saved under a name and opened later: **File > Save work set…**, **Open work set** and **Manage work sets…**.
+
+- Opening one first resets the inputs, the output folder and the conditions, then puts in those of the work set; the conditions are saved.
+- The list shows the earlier state of its files; the status says where its conditions differ from the earlier conversion.
+- Only the name of the VLM connection is kept: when there is no connection of that name any more, choose one again.
+- Inputs that are gone are left out.
 
 ### VLM connections and prompts
 
@@ -419,6 +449,7 @@ out/report/
 ├── report_vlm.md      # only with --vlm-separate on: the results of Step3 (with "Add to the text", also the text and what was read in the figures)
 ├── report_chunks.jsonl # only with the chunks for RAG: the chunks for search, one on each line
 ├── report.log         # what was made of each page (size, image, deleted or blank page), the warnings and the failures
+├── conversion.json    # the record of the conversion: the source, the conditions, the state, the files written (below)
 ├── images/            # the page images (Step2)
 │   ├── page-001.png
 │   └── page-002.png
@@ -427,6 +458,28 @@ out/report/
 ```
 
 Merged table cells are written in the notePM style (`<` joins the cell on the left, `^` the cell above). Text with a strikethrough is written as `~~text~~`. A `<!-- page: N -->` line starts each page.
+
+### The record of the conversion (`conversion.json`)
+
+Each document folder tells how its document was converted: the folder alone says what was converted, with which conditions, and how far it got.
+
+- What it holds: the source file (its full path, its path from the folder that was added, its size and time), the output folder, the conditions (engine, DPI, Step1 to Step3, preset ...), the state (Step1 to Step3 and the whole: running, completed, failed, interrupted), the number of pages, and the files written (with a workbook written per sheet, each sheet and its pages).
+- When it is written: when the conversion of the document starts, when each step ends, when it ends or is interrupted; again on a resume or a new conversion.
+- No API key, no path of an external command, no text of a prompt (the model of the connection and the names of the prompts only).
+- What a resume uses is the state in `.markporto` of the output folder; `conversion.json` is a copy of it.
+- **Giving the output to someone gives them the path of the source files (the names of your folders) too**, as the first line of `report.log` does.
+
+```json
+{
+  "schemaVersion": 1,
+  "source": { "path": "D:\\Designs\\v1.2\\design.docx", "relativePath": "v1.2/design.docx", "kind": "docx" },
+  "status": "completed",
+  "steps": { "step1": "done", "step2": "done", "step3": "notApplicable" },
+  "conditions": { "preset": "rag", "engine": "office", "dpi": 150, "step3": false }
+}
+```
+
+(An excerpt.)
 
 ### Chunks for RAG (`_chunks.jsonl`)
 

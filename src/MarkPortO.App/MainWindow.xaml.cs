@@ -40,6 +40,7 @@ public partial class MainWindow : Window
             PickFolder = PickFolder,
             PickFiles = PickFiles,
             Confirm = text => MessageBox.Show(this, text, UiText.Get("Confirm_Title"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes,
+            ConfirmAdd = text => MessageBox.Show(this, text, UiText.Get("Confirm_AddTitle"), MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel) == MessageBoxResult.OK,
             ShowStopped = text => MessageBox.Show(this, text, UiText.Get("Stopped_Title"), MessageBoxButton.OK, MessageBoxImage.Warning),
             ShowConnectionSettings = ShowConnectionSettings,
             ShowExtractorSettings = ShowExtractorSettings,
@@ -233,7 +234,23 @@ public partial class MainWindow : Window
         var root = PastOutputs.FindRoot(dialog.FolderName);
         if (root is null)
         {
-            MessageBox.Show(this, UiText.Get("Past_NotOutput"), UiText.Get("Past_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+            // No .markporto (the folders were copied, or their state removed): the conversion.json of each document folder (FR-155).
+            // They can be previewed and opened as a new conversion; not resumed.
+            var chosen = dialog.FolderName;
+            var records = PastOutputs.LoadRecords(chosen);
+            if (records.Count == 0)
+            {
+                MessageBox.Show(this, UiText.Get("Past_NotOutput"), UiText.Get("Past_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            new PastOutputsWindow(
+                chosen,
+                records,
+                OpenPastPreview,
+                [],
+                (documents, _) => _viewModel.OpenPastAsync(chosen, [.. documents.Select(d => d.Document)], null))
+            { Owner = this }.Show();
             return;
         }
 
@@ -290,6 +307,148 @@ public partial class MainWindow : Window
     }
 
     private void OnThemeClick(object sender, RoutedEventArgs e) => _viewModel.SetTheme((string)((System.Windows.Controls.MenuItem)sender).Tag);
+
+    // ---- work sets (FR-159) and the history of output folders (FR-156) ----
+
+    private void OnSaveWorkSetClick(object sender, RoutedEventArgs e)
+    {
+        var name = AskName(UiText.Get("WorkSet_SaveTitle"), string.Empty, null, _viewModel.WorkSetExists);
+        if (name is null)
+        {
+            return;
+        }
+
+        if (_viewModel.WorkSetExists(name)
+            && MessageBox.Show(this, UiText.Get("WorkSet_Overwrite", name), UiText.Get("WorkSet_SaveTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _viewModel.SaveWorkSet(name);
+    }
+
+    /// <summary>The submenu lists the work sets, those opened lately first.</summary>
+    private void OnWorkSetsMenuOpened(object sender, RoutedEventArgs e)
+    {
+        WorkSetsMenu.Items.Clear();
+        var names = _viewModel.WorkSetNames;
+        if (names.Count == 0)
+        {
+            WorkSetsMenu.Items.Add(new System.Windows.Controls.MenuItem { Header = UiText.Get("Menu_WorkSetNone"), IsEnabled = false });
+            return;
+        }
+
+        foreach (var name in names)
+        {
+            var item = new System.Windows.Controls.MenuItem { Header = name.Replace("_", "__", StringComparison.Ordinal) };
+            item.Click += (_, _) => _viewModel.OpenWorkSet(name);
+            WorkSetsMenu.Items.Add(item);
+        }
+    }
+
+    private void OnManageWorkSetsClick(object sender, RoutedEventArgs e)
+    {
+        var list = new System.Windows.Controls.ListBox { MinHeight = 160, MinWidth = 320, Margin = new Thickness(0, 0, 0, 8) };
+        var rename = new System.Windows.Controls.Button { Content = UiText.Get("Preset_Rename"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
+        var delete = new System.Windows.Controls.Button { Content = UiText.Get("Preset_Delete"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
+        var close = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Close"), Padding = new Thickness(16, 3, 16, 3), IsCancel = true, IsDefault = true };
+        var empty = new System.Windows.Controls.TextBlock { Text = UiText.Get("Menu_WorkSetNone"), Margin = new Thickness(0, 0, 0, 8), TextWrapping = TextWrapping.Wrap };
+        var buttons = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { rename, delete, close } };
+        var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(12), Children = { empty, list, buttons } };
+        var dialog = new Window
+        {
+            Title = UiText.Get("WorkSet_ManageTitle"),
+            Owner = this,
+            Content = panel,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false,
+        };
+
+        void Reload()
+        {
+            list.ItemsSource = _viewModel.WorkSetNames;
+            empty.Visibility = _viewModel.WorkSetNames.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            rename.IsEnabled = delete.IsEnabled = list.SelectedItem is not null;
+        }
+
+        list.SelectionChanged += (_, _) => rename.IsEnabled = delete.IsEnabled = list.SelectedItem is not null;
+        rename.Click += (_, _) =>
+        {
+            if (list.SelectedItem is not string old || AskName(UiText.Get("Preset_Rename"), old, old, _viewModel.WorkSetExists) is not { } name || name == old)
+            {
+                return;
+            }
+
+            _viewModel.RenameWorkSet(old, name);
+            Reload();
+        };
+        delete.Click += (_, _) =>
+        {
+            if (list.SelectedItem is not string name
+                || MessageBox.Show(dialog, UiText.Get("WorkSet_DeleteConfirm", name), UiText.Get("Preset_Delete"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            _viewModel.DeleteWorkSet(name);
+            Reload();
+        };
+        Reload();
+        dialog.ShowDialog();
+    }
+
+    private void OnClearHistoryClick(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show(this, UiText.Get("History_ClearConfirm"), UiText.Get("Menu_ClearHistory"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes)
+        {
+            _viewModel.ClearHistory();
+        }
+    }
+
+    /// <summary>A name asked in a small window (a work set); null when cancelled. <paramref name="current"/>: the name being renamed.</summary>
+    private string? AskName(string title, string initial, string? current, Func<string, bool> exists)
+    {
+        var box = new System.Windows.Controls.TextBox { Text = initial, MinWidth = 320, Margin = new Thickness(0, 0, 0, 6) };
+        var error = new System.Windows.Controls.TextBlock { Foreground = System.Windows.Media.Brushes.Firebrick, TextWrapping = TextWrapping.Wrap, MinHeight = 18, Margin = new Thickness(0, 0, 0, 6) };
+        var ok = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Ok"), IsDefault = true, Width = 80, Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Cancel"), IsCancel = true, Width = 80 };
+        var buttons = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { ok, cancel } };
+        var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(12), Children = { new System.Windows.Controls.TextBlock { Text = UiText.Get("Preset_NameLabel"), Margin = new Thickness(0, 0, 0, 4) }, box, error, buttons } };
+        var dialog = new Window
+        {
+            Title = title,
+            Owner = this,
+            Content = panel,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false,
+        };
+        string? result = null;
+        ok.Click += (_, _) =>
+        {
+            var name = box.Text.Trim();
+            if (name.Length == 0 || name.Contains('\n', StringComparison.Ordinal))
+            {
+                error.Text = UiText.Get("WorkSet_NameInvalid");
+            }
+            else if (current is not null && !string.Equals(name, current, StringComparison.OrdinalIgnoreCase) && exists(name))
+            {
+                error.Text = UiText.Get("Prompts_NameDuplicate");
+            }
+            else
+            {
+                result = name;
+                dialog.DialogResult = true;
+            }
+        };
+        box.SelectAll();
+        dialog.Loaded += (_, _) => box.Focus();
+        dialog.ShowDialog();
+        return result;
+    }
 
     // ---- presets of the conversion (FR-151) ----
 

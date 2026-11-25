@@ -97,6 +97,22 @@ public class SettingsPersistenceTests
                 FillWithNonDefaults(extractor, ref counter);
                 property.SetValue(target, new List<ExtractorProfile> { extractor });
             }
+            else if (type == typeof(List<OutputMemory>))
+            {
+                var memory = new OutputMemory();
+                FillWithNonDefaults(memory, ref counter);
+                property.SetValue(target, new List<OutputMemory> { memory });
+            }
+            else if (type == typeof(List<WorkSet>))
+            {
+                var set = new WorkSet();
+                FillWithNonDefaults(set, ref counter); // its conditions too
+                property.SetValue(target, new List<WorkSet> { set });
+            }
+            else if (type == typeof(DateTimeOffset?))
+            {
+                property.SetValue(target, new DateTimeOffset(2026, 11, 25, 1, 2, 3, TimeSpan.Zero));
+            }
             else if (type == typeof(int?))
             {
                 property.SetValue(target, counter);
@@ -151,6 +167,8 @@ public class SettingsPersistenceTests
                 s.Extractors = changed.Extractors;
                 s.Presets = changed.Presets;
                 s.PresetSelected = changed.PresetSelected;
+                s.History = changed.History;
+                s.WorkSets = changed.WorkSets;
             });
         } // disposing saves
 

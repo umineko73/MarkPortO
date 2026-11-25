@@ -14,6 +14,7 @@
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
 using System.IO;
+using MarkPortO.Core.Jobs;
 using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Markdown;
 using MarkPortO.Core.Pipeline;
@@ -34,6 +35,20 @@ public sealed class FileItemViewModel : ObservableObject
         _outputRoot = outputRoot ?? (() => string.Empty);
     }
 
+    /// <summary>A row of a file of the inputs and its last record (FR-157), until a run reports on the file.</summary>
+    public FileItemViewModel(FileEntry entry, Func<string>? outputRoot = null)
+        : this(RowOf(entry), outputRoot)
+    {
+        Entry = entry;
+    }
+
+    /// <summary>The file of the inputs and its last record, while the row shows it (a run replaces it with its own state).</summary>
+    public FileEntry? Entry { get; private set; }
+
+    private static FileRow RowOf(FileEntry entry) => entry.Document is { } document
+        ? FileStatusProjector.Project(document) with { FileName = entry.DisplayName, FullPath = entry.Path }
+        : new FileRow(string.Empty, entry.DisplayName, entry.Kind, FileDisplayState.Waiting, [StepStatus.Pending, StepStatus.Pending, StepStatus.Pending], 0, 0, string.Empty, string.Empty, [], entry.Path);
+
     public string DocId => _row.DocId;
 
     public string FileName => _row.FileName;
@@ -42,7 +57,7 @@ public sealed class FileItemViewModel : ObservableObject
 
     public string KindText => _row.Kind.ToString().ToLowerInvariant();
 
-    public string StateText => FileStatusProjector.Text(_row.State);
+    public string StateText => Entry is { } entry ? FileStates.Text(entry) : FileStatusProjector.Text(_row.State);
 
     /// <summary>The conversion of the file finished without a failure (FR-129: "changed files only" needs every file like this).</summary>
     public bool IsDone => _row.State == FileDisplayState.Done;
@@ -123,7 +138,7 @@ public sealed class FileItemViewModel : ObservableObject
     public IReadOnlyList<PageRow> Pages => _row.Pages;
 
     /// <summary>The colour of the mark before the state: <c>done</c>, <c>partly</c> (some pages failed), <c>failed</c>, <c>running</c> or <c>idle</c>.</summary>
-    public string StateKind => _row.State switch
+    public string StateKind => Entry is { State: not (FileState.Done or FileState.DonePartlyFailed or FileState.Failed) } ? "idle" : _row.State switch
     {
         FileDisplayState.Done => "done",
         FileDisplayState.DoneWithPageFailures => "partly",
@@ -163,7 +178,11 @@ public sealed class FileItemViewModel : ObservableObject
     /// <summary>Makes the texts of the row again from its document, after the language was changed.</summary>
     public void Reproject()
     {
-        if (_row.Source is { } document)
+        if (Entry is not null)
+        {
+            Raise(string.Empty); // the texts come from the entry and the language
+        }
+        else if (_row.Source is { } document)
         {
             Update(FileStatusProjector.Project(document));
         }
@@ -172,6 +191,7 @@ public sealed class FileItemViewModel : ObservableObject
     public void Update(FileRow row)
     {
         _row = row;
+        Entry = null; // a run reports on the file now
         Raise(string.Empty); // every property may have changed
     }
 }

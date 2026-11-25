@@ -101,8 +101,10 @@ public sealed class ConvertService
         var store = new StateStore(request.OutputFolder);
         var retry = request.Mode == ResumeMode.RetryFailed;
         var reread = request.Mode == ResumeMode.Reread;
+        // FR-157: the chosen documents of a job, whatever its state (a finished job too: a step is added, failed pages are read again).
+        var files = request.Mode == ResumeMode.Files;
         JobState job;
-        if (reread && request.JobId is null)
+        if ((reread || files) && request.JobId is null)
         {
             throw new JobNotFoundException(Loc.T("There is no job to read again in {0}.", request.OutputFolder));
         }
@@ -110,7 +112,7 @@ public sealed class ConvertService
         if (request.JobId is { } id)
         {
             job = store.LoadJob(id) ?? throw new JobNotFoundException(Loc.T("The job {0} was not found in {1}.", id, request.OutputFolder));
-            if (!reread && !store.IsResumable(job, includeFinishedWithErrors: retry, includeAbandoned: true))
+            if (!reread && !files && !store.IsResumable(job, includeFinishedWithErrors: retry, includeAbandoned: true))
             {
                 throw new JobNotFoundException(
                     retry
@@ -129,6 +131,7 @@ public sealed class ConvertService
         // Another process may have finished after the initial search. Read the state again under the lock.
         job = store.LoadJob(job.JobId) ?? throw new JobNotFoundException(Loc.T("The job {0} was not found in {1}.", job.JobId, request.OutputFolder));
         if (!reread
+            && !files
             && job.Status is not (JobStatus.Interrupted or JobStatus.Running)
             && !(retry && job.Status == JobStatus.CompletedWithErrors)
             && !(request.JobId is not null && job.Status == JobStatus.Abandoned))
@@ -143,11 +146,23 @@ public sealed class ConvertService
                 ?? throw new ConvertStartException(Loc.T("The saved state of {0} is missing; the job cannot be resumed.", docId)));
         }
 
+        // The output folder may have been moved with its ".markporto": the documents are written where they are now.
+        job.OutputRoot = Jobs.PastOutputs.OutputRootInRoot(store.OutRoot, job, documents);
+        foreach (var document in documents)
+        {
+            document.OutputFolder = Jobs.PastOutputs.WriteFolderInRoot(store.OutRoot, document);
+        }
+
         CheckExtractors(job.Options.Extractors);
         var availability = reread || documents.All(d => d.Kind == DocumentKind.Pdf) ? EngineAvailability.Available : _engine.CheckAvailability();
         if (!availability.IsAvailable)
         {
             throw new ConvertStartException(availability.Reason ?? Loc.T("The conversion engine is not available.")) { Item = ConvertStartException.EngineItem };
+        }
+
+        if (files)
+        {
+            return await ResumeFilesAsync(request, store, job, documents, cancellationToken).ConfigureAwait(false);
         }
 
         // The step selection may differ from the earlier run; the other options stay as they were.
@@ -217,10 +232,93 @@ public sealed class ConvertService
             foreach (var document in documents.Where(d => d.Step1 == StepStatus.Done && !toRun.Contains(d)))
             {
                 Markdown.MarkdownRenderer.Write(document);
+                Markdown.ConversionRecord.Write(job, document); // its conditions changed (FR-155)
             }
         }
 
         return await ExecuteAsync(job, documents, toRun, store, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// <see cref="ResumeMode.Files"/> (FR-157): only the chosen documents go on, each with its own conditions; the options of the job
+    /// stay as they were, so that its other documents are not changed. The conditions of writing (sheets, VLM file, tables, chunks, the
+    /// note) are those of the request (the screen) for the chosen documents, as their Markdown is written again. A step is added when it
+    /// is on in the request; for the run, the job has the steps that its chosen documents need, and its own selection again afterwards.
+    /// </summary>
+    private async Task<ConvertResult> ResumeFilesAsync(
+        ResumeRequest request,
+        StateStore store,
+        JobState job,
+        IReadOnlyList<DocumentRecord> documents,
+        CancellationToken cancellationToken)
+    {
+        var chosen = request.DocumentIds ?? [];
+        foreach (var document in documents.Where(d => chosen.Contains(d.DocId)))
+        {
+            document.VlmSeparate = request.VlmSeparate ?? document.VlmSeparate;
+            document.Step1Tables = request.Step1Tables ?? document.Step1Tables;
+            document.PageImage = request.PageImage ?? document.PageImage;
+            document.DropRepeatedTables = request.DropRepeatedTables ?? document.DropRepeatedTables;
+            document.StructureNote = request.StructureNote ?? document.StructureNote;
+            document.Chunks = request.Chunks ?? document.Chunks;
+            document.ExcelPerSheet = request.ExcelPerSheet ?? document.ExcelPerSheet;
+            if (request.Step3 == true && document.Step3 == StepStatus.NotApplicable)
+            {
+                document.Step3Mode = request.Step3Mode ?? document.Step3Mode; // the step added takes the way of the screen
+            }
+        }
+
+        // Step3 is added to a chosen document that was converted without it (before the planner turns it on).
+        var adds3 = request.Step3 == true && documents.Any(d => chosen.Contains(d.DocId) && d.Step3 == StepStatus.NotApplicable);
+
+        // Whether Step3 reads a page, known before the plan: the plan discards the output of a changed file, which must stay when the
+        // VLM cannot be used (the check of the connection comes first). A resume that reads nothing with the VLM does not need it.
+        var reads3 = documents.Where(d => chosen.Contains(d.DocId)).Any(d =>
+            (request.Step3 == true || d.Step3 != StepStatus.NotApplicable)
+            && File.Exists(d.SourcePath)
+            && (StateStore.HasChanged(d.Fingerprint, d.SourcePath)
+                || d.Step3 != StepStatus.Done
+                || d.Pages.Any(p => p.Step3 == PageStep3Status.Failed)));
+        await PreflightAsync(reads3, cancellationToken).ConfigureAwait(false);
+
+        var decisions = ResumePlanner.Plan(documents, ResumeMode.Files, request.Step2 ?? false, request.Step3 ?? false, chosen);
+        var toRun = decisions.Where(d => d.Action is ResumeAction.Run or ResumeAction.Restart).Select(d => d.Document).ToList();
+        var step2Before = job.Options.Step2;
+        var step3Before = job.Options.Step3;
+        var connectionBefore = job.Options.Connection;
+        var promptsBefore = job.Options.PromptNames;
+        job.Options.Step2 = step2Before || toRun.Any(d => d.Step2 != StepStatus.NotApplicable);
+        job.Options.Step3 = reads3; // the steps of this run: what its documents need
+        if (adds3)
+        {
+            // A step that is added reads with the connection and the prompts of the screen (FR-157); going on uses those recorded (FR-139).
+            job.Options.Connection = request.Connection ?? job.Options.Connection;
+            job.Options.PromptNames = request.PromptNames ?? job.Options.PromptNames;
+        }
+
+        Planned?.Invoke([.. toRun]);
+        foreach (var decision in decisions.Where(d => chosen.Contains(d.Document.DocId)))
+        {
+            store.SaveDocument(job.JobId, decision.Document);
+            if (decision.Action is not (ResumeAction.Run or ResumeAction.Restart))
+            {
+                DocumentSkipped?.Invoke(decision.Document);
+            }
+        }
+
+        try
+        {
+            return await ExecuteAsync(job, documents, toRun, store, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // The job keeps its own selection: the steps added belong to the chosen documents (their records), not to the others.
+            job.Options.Step2 = step2Before;
+            job.Options.Step3 = step3Before;
+            job.Options.Connection = connectionBefore;
+            job.Options.PromptNames = promptsBefore;
+            store.SaveJob(job, touch: false);
+        }
     }
 
     /// <summary>Runs the steps for planned documents (the common part of a new run and of a resumed run).</summary>

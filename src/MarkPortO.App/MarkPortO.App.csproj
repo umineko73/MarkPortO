@@ -24,4 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\MarkPortO.Core\MarkPortO.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MarkPortO.App.Tests" />
+  </ItemGroup>
 </Project>
