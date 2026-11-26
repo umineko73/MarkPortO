@@ -198,10 +198,11 @@ public static class FileStatusProjector
     {
         // Pages that are marked to be read again (FR-138): the file waits for it, or is reading them now.
         // A file none of whose marked pages was read before (Step3 did not run on them yet) is not run "again".
-        if (row.Source is { } source && Jobs.RereadMarks.Count(source).Marked is > 0 and var marked)
+        // Without the number of the marked pages (the preview shows which they are).
+        if (row.Source is { } source && Jobs.RereadMarks.Count(source).Marked > 0)
         {
             var again = Jobs.RereadMarks.Markable(source).Any(p => p.RereadMark && WasReadBefore(p));
-            return row.StepStates[2] != StepStatus.Running ? (again ? Loc.T("Waiting to run again ({0})", marked) : Loc.T("Waiting to run ({0})", marked))
+            return row.StepStates[2] != StepStatus.Running ? (again ? Loc.T("Waiting to run again") : Loc.T("Waiting to run"))
                 : source.RereadTotal > 0 ? (again ? Loc.T("Running again {0}/{1}", row.Step3Read, row.Step3Total) : Loc.T("Running {0}/{1}", row.Step3Read, row.Step3Total)) // without it (an older state), the count would be of every page
                 : again ? Loc.T("Running again") : Loc.T("Running");
         }

@@ -412,9 +412,6 @@
   <data name="Running again" xml:space="preserve">
     <value>再実行中</value>
   </data>
-  <data name="Waiting to run again ({0})" xml:space="preserve">
-    <value>再実行待ち ({0})</value>
-  </data>
   <data name="Waiting to run again" xml:space="preserve">
     <value>再実行待ち</value>
   </data>
@@ -636,9 +633,6 @@
   </data>
   <data name="Running again {0}/{1}" xml:space="preserve">
     <value>再実行中 {0}/{1}</value>
-  </data>
-  <data name="Waiting to run ({0})" xml:space="preserve">
-    <value>実行待ち ({0})</value>
   </data>
   <data name="Waiting to run" xml:space="preserve">
     <value>実行待ち</value>

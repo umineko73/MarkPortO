@@ -117,7 +117,7 @@ public class FileStatusProjectorTests : JapaneseUiTests
         ];
 
         var row = FileStatusProjector.Project(document);
-        Assert.Equal("実行待ち (2)", FileStatusProjector.Step3Text(row));
+        Assert.Equal("実行待ち", FileStatusProjector.Step3Text(row)); // the number of the pages is not in it
         Assert.Equal(["実行待ち", "実行待ち"], row.Pages.Select(p => p.VlmState));
 
         document.Step3 = StepStatus.Running;
@@ -142,7 +142,7 @@ public class FileStatusProjectorTests : JapaneseUiTests
 
         var row = FileStatusProjector.Project(document);
 
-        Assert.Equal("再実行待ち (2)", FileStatusProjector.Step3Text(row));
+        Assert.Equal("再実行待ち", FileStatusProjector.Step3Text(row));
         Assert.Equal(["完了", "再実行待ち", "失敗（再実行待ち）", "対象外"], row.Pages.Select(p => p.VlmState));
 
         // While the pages are read again.
