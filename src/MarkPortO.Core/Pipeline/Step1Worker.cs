@@ -248,30 +248,13 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var effective = DocxPageAssigner.EffectivePages([.. blocks.Select(b => b.Block)], pageTexts.Count);
 
         // The drawings that are cut out are put on their pages before the tables are cut (a drawing found is no longer read from the page image).
-        var shapePages = PlaceDocxCrops(document, layout, content, effective, pdf, pageTexts.Count);
+        PlaceDocxCrops(document, layout, content, effective, pdf, pageTexts.Count);
+        MarkDocxCrosses(document, layout, content, effective, pdf, pageTexts.Count);
 
         // A table that runs over several pages is cut at the page breaks: each page has the rows that are on it.
         var placed = DocxPageAssigner.ExpandTables(blocks);
         layout.DocxBlocks = placed;
         layout.Blocks.AddRange(placed.Select(b => b.Block));
-
-        var shapesByPage = new Dictionary<int, List<ShapeBox>>();
-        for (var s = 0; s < content.Shapes.Count; s++)
-        {
-            var shapes = content.Shapes[s];
-            var page = shapePages[s];
-            if (!shapesByPage.TryGetValue(page, out var list))
-            {
-                shapesByPage[page] = list = [];
-            }
-
-            list.AddRange(shapes.Boxes);
-        }
-
-        foreach (var (page, boxes) in shapesByPage)
-        {
-            MarkDeleted(layout, page, CrossShapeDetector.Evaluate(boxes), PageLabel.Page(page));
-        }
 
         for (var i = 0; i < pageTexts.Count; i++)
         {
@@ -537,20 +520,18 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     }
 
     /// <summary>
-    /// Puts the drawings of a docx that are cut out (FR-136) on their pages, and returns the page of the drawn shapes of each paragraph (for the "×"
-    /// check, FR-012): the page where its drawings were found, or else the page of its block. A drawing is on the page of the paragraph it is anchored in
-    /// (of the row, in a table); a paragraph without text may be the first one of the next page, so that page is tried too. A drawing that the document
-    /// places on the page is on the first of those pages that has something drawn there, other than the drawings found before. One that follows its
-    /// paragraph is looked for in the PDF near the paragraph (<see cref="PdfShapeSnap.FindDown"/>, <see cref="PdfTextPlace"/>). A drawing that is not
-    /// found is not cut out: the pictures that are in it are written in its place (<see cref="CollectedPicture.Fallback"/>). When all the drawings of a
-    /// paragraph are found, Step3 does not read them again from the page image (FR-150).
+    /// Puts the drawings of a docx that are cut out (FR-136) on their pages. A drawing is on one of the pages of its paragraph (<see cref="ShapePages"/>):
+    /// the first page of them where it is found. A drawing that the document places on the page is found where drawn things fill its place, other than
+    /// the drawings found before (<see cref="PdfShapeSnap.Fills"/>). One that follows its paragraph is looked for in the PDF near the text of the
+    /// paragraph (<see cref="PdfShapeSnap.FindDown"/>, <see cref="PdfTextPlace"/>). A drawing that is not found for sure is not cut out: the pictures that
+    /// are in it are written in its place (<see cref="CollectedPicture.Fallback"/>). When all the drawings of a paragraph are found, Step3 does not read
+    /// them again from the page image (FR-150).
     /// </summary>
-    private static int[] PlaceDocxCrops(DocumentRecord document, Layout layout, DocxContent content, IReadOnlyList<int> effective, string pdfPath, int pageCount)
+    private static void PlaceDocxCrops(DocumentRecord document, Layout layout, DocxContent content, IReadOnlyList<int> effective, string pdfPath, int pageCount)
     {
-        var shapePages = content.Shapes.Select(s => HostPage(s)).ToArray();
         if (layout.Pictures is not { CutShapes: true } pictures || !content.Shapes.Any(s => s.Crops is { Count: > 0 }))
         {
-            return shapePages;
+            return;
         }
 
         UglyToad.PdfPig.PdfDocument? pdf = null;
@@ -598,8 +579,8 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             for (var s = 0; s < content.Shapes.Count; s++)
             {
                 var shapes = content.Shapes[s];
-                var host = shapePages[s];
-                int[] candidates = shapes.HostHasText || host >= pageCount ? [host] : [host, host + 1];
+                var (host, last) = ShapePages(content, effective, pageCount, shapes);
+                var candidates = Enumerable.Range(host, last - host + 1).ToArray();
                 var found = 0;
                 foreach (var crop in shapes.Crops ?? [])
                 {
@@ -613,7 +594,6 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
 
                     found++;
                     Taken(area.Page!.Value).Add(area);
-                    shapePages[s] = area.Page.Value;
                     if (crop.Block is not null)
                     {
                         crop.Block.PageIndex = area.Page; // the picture is in the Markdown of the page it is on
@@ -639,7 +619,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
 
                     foreach (var number in candidates)
                     {
-                        if (PageOf(number) is { } page && Safe(() => PdfShapeSnap.HasDrawing(page.Drawn, page.Width, page.Height, placed, Taken(number))))
+                        if (PageOf(number) is { } page && Safe(() => PdfShapeSnap.Fills(page.Drawn, page.Width, page.Height, placed, ShapeAreas.SheetRoomPoints, Taken(number))))
                         {
                             return placed with { Page = number };
                         }
@@ -660,9 +640,10 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                         continue;
                     }
 
-                    // How far down the drawing is meant to be: from the top of its paragraph (or the end of the block before it), or on the page.
+                    // How far down the drawing is meant to be: from the top of its paragraph (or the end of the block before it), or on the page. On a
+                    // page after that of the paragraph, it is not known (where the paragraph went on to): it is found only where it is alone.
                     double? expected = crop.FollowsParagraph
-                        ? (number == host ? AnchorTop(shapes, page.Text) : 0) is { } anchor ? anchor + crop.Top : null
+                        ? (number == host ? AnchorTop(shapes, page.Text) : null) is { } anchor ? anchor + crop.Top : null
                         : crop.Top;
                     var area = SafeArea(() => PdfShapeSnap.FindDown(page.Drawn, page.Width, page.Height, crop.Left, crop.Width, crop.Height, crop.BandLeft, crop.BandRight, expected, ShapeAreas.SheetRoomPoints, Taken(number)));
                     if (area is not null)
@@ -682,20 +663,6 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         finally
         {
             pdf?.Dispose();
-        }
-
-        return shapePages;
-
-        // The page of the paragraph of the shapes: of its block, or of its row in a table.
-        int HostPage(DocxShapes shapes)
-        {
-            if (shapes.HostBlockIndex < 0)
-            {
-                return 1;
-            }
-
-            var block = content.Blocks[shapes.HostBlockIndex];
-            return shapes.Row is { } row && block.RowPages is { } rows && row < rows.Count ? rows[row] : effective[shapes.HostBlockIndex];
         }
 
         static bool Safe(Func<bool> check)
@@ -719,6 +686,141 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
             {
                 return null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The pages that the shapes of a paragraph can be on (1-based, first and last): in a table, the page of their row; in a paragraph with text, the
+    /// pages of the paragraph; in a paragraph without text, from the last page of the block before it to the first page of the next block with text
+    /// (empty paragraphs, which have no block, can fill pages in between).
+    /// </summary>
+    private static (int First, int Last) ShapePages(DocxContent content, IReadOnlyList<int> effective, int pageCount, DocxShapes shapes)
+    {
+        var count = Math.Max(1, pageCount);
+        int Clamp(int page) => Math.Clamp(page, 1, count);
+        var index = shapes.HostBlockIndex;
+        if (index < 0 || index >= content.Blocks.Count)
+        {
+            return (1, Clamp(content.Blocks.Count > 0 && index < 0 ? effective[0] : count));
+        }
+
+        var block = content.Blocks[index];
+        if (shapes.Row is { } row)
+        {
+            var page = Clamp(block.RowPages is { } rows && row < rows.Count ? rows[row] : effective[index]);
+            return (page, page);
+        }
+
+        var start = Clamp(effective[index]);
+        var end = Clamp(new[] { start }
+            .Concat(block.RowPages ?? [])
+            .Concat(block.Segments?.Select(p => p.Page) ?? [])
+            .Concat(block.CodeLinePages ?? [])
+            .Max());
+        if (shapes.HostHasText)
+        {
+            return (start, Math.Max(start, end));
+        }
+
+        // The next block that has text, found in the PDF: a cut-out picture after the paragraph has no page of its own yet.
+        var after = Enumerable.Range(index + 1, Math.Max(0, content.Blocks.Count - index - 1)).FirstOrDefault(i => content.Blocks[i].SearchText.Length > 0, -1);
+        var next = after >= 0 && after < effective.Count ? Clamp(effective[after]) : count;
+        return (end, Math.Max(end, next));
+    }
+
+    /// <summary>
+    /// The deleted pages of a docx (FR-012). Each "×" of the document is the shapes of one paragraph that make one (<see cref="CrossShapeDetector"/>),
+    /// or the shapes of paragraphs that can be on the same page (<see cref="ShapePages"/>) and make one together (two lines in two paragraphs): it can
+    /// be on the pages the paragraphs share. It deletes the first of those pages where the PDF draws a "×" (<see cref="PdfShapeSnap.HasCross"/>) that
+    /// is not deleted by another one. When the PDF does not show where it is, no page is taken as deleted: a page is not lost because the place of a
+    /// drawing was not found.
+    /// </summary>
+    private static void MarkDocxCrosses(DocumentRecord document, Layout layout, DocxContent content, IReadOnlyList<int> effective, string pdfPath, int pageCount)
+    {
+        var crosses = new List<(int First, int Last, CrossVerdict Verdict)>();
+        var rest = new List<(int First, int Last, IReadOnlyList<ShapeBox> Boxes)>();
+        foreach (var shapes in content.Shapes.Where(s => s.Boxes.Count > 0))
+        {
+            var (first, last) = ShapePages(content, effective, pageCount, shapes);
+            var verdict = CrossShapeDetector.Evaluate(shapes.Boxes);
+            if (verdict.IsCross)
+            {
+                crosses.Add((first, last, verdict));
+            }
+            else
+            {
+                rest.Add((first, last, shapes.Boxes));
+            }
+        }
+
+        // The shapes of paragraphs whose pages overlap are taken together, on the pages they share.
+        foreach (var group in Overlapping(rest))
+        {
+            var first = group.Max(g => g.First);
+            var last = group.Min(g => g.Last);
+            var verdict = CrossShapeDetector.Evaluate(group.SelectMany(g => g.Boxes));
+            if (verdict.IsCross && first <= last)
+            {
+                crosses.Add((first, last, verdict));
+            }
+            else if (!verdict.IsCross)
+            {
+                var page = group.Min(g => g.First);
+                MarkDeleted(layout, page, verdict, PageLabel.Page(page));
+            }
+        }
+
+        crosses.Sort((a, b) => a.First != b.First ? a.First.CompareTo(b.First) : a.Last.CompareTo(b.Last));
+
+        if (crosses.Count == 0)
+        {
+            return;
+        }
+
+        using var pdf = OpenForFit(pdfPath);
+        foreach (var (first, last, verdict) in crosses)
+        {
+            var page = Enumerable.Range(first, last - first + 1).FirstOrDefault(p => !layout.DeletedPages.Contains(p) && HasCross(p));
+            if (page > 0)
+            {
+                MarkDeleted(layout, page, verdict, PageLabel.Page(page));
+            }
+            else
+            {
+                DocumentLog.Write(document, $"pages {first} to {last}: shapes make a \"×\", but no \"×\" is found on those pages in the PDF; no page is taken as deleted");
+            }
+        }
+
+        // The groups of the shapes whose pages overlap (one after another, by their first pages).
+        static List<List<(int First, int Last, IReadOnlyList<ShapeBox> Boxes)>> Overlapping(List<(int First, int Last, IReadOnlyList<ShapeBox> Boxes)> all)
+        {
+            var groups = new List<List<(int First, int Last, IReadOnlyList<ShapeBox> Boxes)>>();
+            var reach = int.MinValue;
+            foreach (var item in all.OrderBy(a => a.First).ThenBy(a => a.Last))
+            {
+                if (groups.Count == 0 || item.First > reach)
+                {
+                    groups.Add([]);
+                    reach = item.Last;
+                }
+
+                groups[^1].Add(item);
+                reach = Math.Max(reach, item.Last);
+            }
+
+            return groups;
+        }
+
+        bool HasCross(int number)
+        {
+            try
+            {
+                return pdf is not null && number >= 1 && number <= pdf.NumberOfPages && PdfShapeSnap.HasCross(pdf.GetPage(number));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+            {
+                return false;
             }
         }
     }

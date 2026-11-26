@@ -172,13 +172,13 @@ public class DocxShapeReviewTests
     }
 
     [Fact]
-    public void HasDrawing_DoesNotCountADrawingFoundBefore()
+    public void Fills_DoesNotCountADrawingFoundBefore()
     {
         DrawnBox[] drawn = [new(100, 100, 200, 200)];
         var area = new ShapeArea(90 / PageWidthPoints, 90 / PageHeightPoints, 120 / PageWidthPoints, 120 / PageHeightPoints);
 
-        Assert.True(PdfShapeSnap.HasDrawing(drawn, PageWidthPoints, PageHeightPoints, area));
-        Assert.False(PdfShapeSnap.HasDrawing(drawn, PageWidthPoints, PageHeightPoints, area, [area]));
+        Assert.True(PdfShapeSnap.Fills(drawn, PageWidthPoints, PageHeightPoints, area, 6));
+        Assert.False(PdfShapeSnap.Fills(drawn, PageWidthPoints, PageHeightPoints, area, 6, [area]));
     }
 
     [Fact]

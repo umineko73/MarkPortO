@@ -54,20 +54,39 @@ public sealed class PdfTextPlace
         _text = text.ToString();
     }
 
-    /// <summary>How far down the page (a part of its height) the start of <paramref name="text"/> is: the top of its first letter; null when it is not found.</summary>
-    public double? TopOf(string text)
+    /// <summary>
+    /// How far down the page (a part of its height) the start of <paramref name="text"/> is: the top of its first letter. Its first letters are looked for,
+    /// and when they are on the page more than once, all of it; null when it is not found once.
+    /// </summary>
+    public double? TopOf(string text) => Find(text, fromEnd: false) is { } at && _height > 0 ? _places[at.Start].Top / _height : null;
+
+    /// <summary>How far down the page (a part of its height) the end of <paramref name="text"/> is: the bottom of its last letter; found as <see cref="TopOf"/> is.</summary>
+    public double? BottomOfEnd(string text) => Find(text, fromEnd: true) is { } at && _height > 0 ? _places[at.End].Bottom / _height : null;
+
+    // The first and the last letter of the one place of the text on the page: by its first (or last) letters, or by all of it when those are there more
+    // than once (two paragraphs that begin alike); null when it is not there, or not once.
+    private (int Start, int End)? Find(string text, bool fromEnd)
     {
-        var key = Key(text, fromEnd: false);
-        var at = key.Length == 0 ? -1 : _text.IndexOf(key, StringComparison.Ordinal);
-        return at < 0 || _height <= 0 ? null : _places[at].Top / _height;
+        var key = Key(text, fromEnd);
+        if (key.Length == 0 || Once(key) is not { } at)
+        {
+            var all = new string([.. text.Where(c => !char.IsWhiteSpace(c))]);
+            if (all.Length <= key.Length || Once(all) is not { } whole)
+            {
+                return null;
+            }
+
+            return (whole, whole + all.Length - 1);
+        }
+
+        return (at, at + key.Length - 1);
     }
 
-    /// <summary>How far down the page (a part of its height) the end of <paramref name="text"/> is: the bottom of its last letter; null when it is not found.</summary>
-    public double? BottomOfEnd(string text)
+    // The place of a text that is on the page once; null when it is not, or more than once.
+    private int? Once(string key)
     {
-        var key = Key(text, fromEnd: true);
-        var at = key.Length == 0 ? -1 : _text.LastIndexOf(key, StringComparison.Ordinal);
-        return at < 0 || _height <= 0 ? null : _places[at + key.Length - 1].Bottom / _height;
+        var at = _text.IndexOf(key, StringComparison.Ordinal);
+        return at < 0 || _text.IndexOf(key, at + 1, StringComparison.Ordinal) >= 0 ? null : at;
     }
 
     // The first (or the last) letters of a text, without spaces.

@@ -98,8 +98,10 @@ internal static class ShapeExtractor
             {
                 var horizontal = placement.Elements().FirstOrDefault(e => e.Name.LocalName == "positionH");
                 var vertical = placement.Elements().FirstOrDefault(e => e.Name.LocalName == "positionV");
-                x = Horizontal(horizontal, width, page);
-                (y, follows) = Vertical(vertical, height, page);
+                // In a table cell, Word places a drawing from the cell (layoutInCell), except from the page: where the cell is, only the PDF shows.
+                var inCell = drawing.Ancestors<DocumentFormat.OpenXml.Wordprocessing.TableCell>().Any();
+                x = inCell && horizontal?.Attribute("relativeFrom")?.Value != "page" ? null : Horizontal(horizontal, width, page);
+                (y, follows) = inCell && vertical?.Attribute("relativeFrom")?.Value != "page" ? (Offset(vertical) ?? 0, true) : Vertical(vertical, height, page);
             }
 
             drawings.Add(new WordDrawing(drawing, x - effectLeft, y - effectTop, width, height, follows, boxes, hasPicture, Anchored: true, page));

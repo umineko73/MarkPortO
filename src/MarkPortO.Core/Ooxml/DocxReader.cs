@@ -754,7 +754,7 @@ public static partial class DocxReader
             }
 
             // Each group of drawings that is cut out is one picture, in a line of its own after the paragraph (FR-136).
-            var cut = EndCrops(crops, context, "\n\n", markdown =>
+            var cut = EndCrops(crops, context, inCell: false, markdown =>
             {
                 var block = New(BlockKind.Paragraph, markdown, string.Empty) with { Floating = true };
                 blocks.Add(block);
@@ -818,16 +818,25 @@ public static partial class DocxReader
 
     /// <summary>
     /// After the text of a paragraph is read: a mark for each group of <see cref="BeginCrops"/>, put by <paramref name="put"/> (which gives the block of its
-    /// own that it is in, if any), with the pictures of the group, joined by <paramref name="separator"/>, to be written in its place when it is not cut out.
+    /// own that it is in, if any), with the pictures of the group, to be written in its place when it is not cut out. In a table cell (<paramref name="inCell"/>)
+    /// they are in the line of the cell, with the text of the text boxes of the group (also of the tables in them; a cell does not write it otherwise),
+    /// escaped as a cell is.
     /// </summary>
-    private static List<DocxCrop> EndCrops(IReadOnlyList<IReadOnlyList<WordDrawing>> crops, Context context, string separator, Func<string, Block?> put)
+    private static List<DocxCrop> EndCrops(IReadOnlyList<IReadOnlyList<WordDrawing>> crops, Context context, bool inCell, Func<string, Block?> put)
     {
         var cut = new List<DocxCrop>();
         foreach (var group in crops)
         {
             var place = CropPlace(group);
             var mark = context.Pictures!.AddShape(place.Area);
-            context.Pictures.SetFallback(mark, string.Join(separator, group.SelectMany(d => context.CropFallback.GetValueOrDefault(d.Element) ?? [])));
+            var pictures = group.SelectMany(d => context.CropFallback.GetValueOrDefault(d.Element) ?? []);
+            var fallback = inCell
+                ? string.Join(" ", pictures.Select(p => p.Replace("|", "\\|", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal))
+                    .Concat(group.SelectMany(d => d.Element.Descendants<TextBoxContent>()).SelectMany(b => b.Descendants<Paragraph>().Where(p => p.Ancestors<TextBoxContent>().First() == b))
+                        .Select(p => MarkdownText.EscapeCell(ParagraphText(p).Trim()))
+                        .Where(t => t.Length > 0)))
+                : string.Join("\n\n", pictures);
+            context.Pictures.SetFallback(mark, fallback);
             var block = put(PictureCollector.Markdown(null, mark));
             var page = group[0].Page;
             cut.Add(new DocxCrop(mark, block, place.Area, place.Left, place.Width, place.Height, place.Top, group[0].FollowsParagraph, page.Left / page.Width, 1 - page.Right / page.Width));
@@ -950,7 +959,7 @@ public static partial class DocxReader
                     if (cellCrops.Count > 0)
                     {
                         var marks = new List<string>();
-                        var cut = EndCrops(cellCrops, context, " ", markdown =>
+                        var cut = EndCrops(cellCrops, context, inCell: true, markdown =>
                         {
                             marks.Add(markdown);
                             return null;
