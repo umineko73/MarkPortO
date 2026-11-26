@@ -13,6 +13,8 @@
 
 While a conversion runs, the conditions cannot be changed. The values are saved to `%APPDATA%\MarkPortO\settings.json` and restored at the next start.
 
+While the list of files is read, **Working** is shown at the bottom right. When the screen takes longer than 0.3 seconds before it can be used again (a large folder was added, the output folder was changed, and so on), a message such as **Reading the files…** is shown in the middle of the window, and the window cannot be used until it ends. It is not shown while a conversion runs (so that it can be interrupted).
+
 #### Presets
 
 **Preset**, at the top of the **Conditions**, puts the recommended settings of Step1 to Step3 for a purpose. They can still be changed afterwards; the name then shows "(changed)".
@@ -91,7 +93,7 @@ With **Add to the text**, each page is read in one of these ways:
 | The page | How it is read | "VLM" column of the page list |
 |---|---|---|
 | It has figures that Step1 saved (pictures, cut-out shapes) | Each figure is sent on its own, with the text before and after it. | Done (figures) |
-| It has drawn shapes of Word (boxes, circles, arrows) | Word shapes are not saved as pictures, so the page image is sent once and the VLM is asked to read the shapes only. The text of the page is sent with it, so that the VLM does not write it again. | Done (figures) |
+| It has drawn shapes of Word (boxes, circles, arrows) that are not cut out | They are not saved as pictures, so the page image is sent once and the VLM is asked to read the shapes only. The text of the page is sent with it, so that the VLM does not write it again. | Done (figures) |
 | The text of Step1 is enough (no figure) | Not sent. | Not sent (the text is enough) |
 | It has only the rest of the page before (the end of a table row or of a paragraph pushed over the page break) | Not sent. Step1 writes that part with the page before. | Not sent (the text is enough) |
 | Step1 has almost no text of it (fewer than 20 characters: the text is in an image or a shape, and so on) | The whole page is written out. | Done |
@@ -127,7 +129,8 @@ With **Write the results to a separate file**, `name_vlm.md` has the text of Ste
 
 - **Turn on "Save the pictures of the document" in Step1.** When it is off, the pictures of the document are not saved as files, so they cannot be read as figures. A picture with an alternative text leaves only `![alternative text]`, and its page is written out whole; a picture without one leaves nothing, and is not read.
 - The shapes of PowerPoint and Excel (groups, and shapes of half an inch or more) are cut out of the page image as pictures with **Cut out the shapes** in Step1, and are then read as figures.
-- The shapes of Word (shapes, groups, an inline drawing canvas, and shapes in table cells) are cut out too with **Cut out the shapes**. With **Group nearby shapes** on, the shapes and pictures placed in one paragraph are one picture; off, each shape is cut out alone. For a shape placed from its paragraph or line, how far down the page it is is found in the drawing of the PDF; when it is not found, it is not cut out, and its pictures are written as they are. With the setting off, the shapes of Word are still read from the page image. Shapes of the old kind (VML) are not read.
+- The shapes of Word (shapes, groups, an inline drawing canvas, and shapes in table cells) are cut out too with **Cut out the shapes**. A shape placed from its paragraph or line is looked for in the drawing of the PDF, near the text of its paragraph in the PDF. When it is not found for sure (nothing is drawn near the paragraph, drawings side by side cannot be told apart, and so on), it is not cut out, and the pictures in it (in a table cell, also the text of its text boxes) are written as they are. With the setting off, the shapes of Word are still read from the page image. Shapes of the old kind (VML) are not read.
+- With **Group nearby shapes** on, the shapes and pictures within 24 points of one another up and down (`input.shapeGroupGapPoints` in `settings.json`), and those on the same row however far apart across, are cut out as one picture: in PowerPoint on a slide, in Word on a page (the shapes of one paragraph always; a shape drawn alone is anchored in a paragraph of its own, so a diagram in several paragraphs is joined too), in Excel on a sheet (the shapes, with the small lines and arrows between them). Off, each shape is cut out alone, and the pictures stay as they are.
 - The instruction for the figures is in the **Figures** tab of the prompt settings (one for every kind of file). `{pagetext}` in it is replaced by the text before and after the figure. The prompt of each kind of file is used when a page is written out whole.
 
 #### Tables and repeated tables
@@ -456,6 +459,8 @@ out/report/
 └── pictures/          # the pictures of the document and the cut-out shapes (with "Save the pictures" or "Cut out the shapes")
     └── page-001-1.png
 ```
+
+A page that a "×" drawn with shapes covers nearly whole (70% or more each way) is a deleted page: its text and image references are not written, only a quote that starts with `> **[Deleted page]**`. The "×" is one multiply shape, or two diagonal lines that cross. In Word, of the pages where the paragraph of the shapes can be, the page where the PDF draws a "×" is the deleted page; when none does, no page is deleted (so that no page is lost). A "×" of text, a small one, or one drawn freehand is not taken (a freehand drawing over the page is warned about, and the page is converted as usual).
 
 Merged table cells are written in the notePM style (`<` joins the cell on the left, `^` the cell above). Text with a strikethrough is written as `~~text~~`. A `<!-- page: N -->` line starts each page.
 

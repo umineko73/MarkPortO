@@ -18,6 +18,8 @@ MarkPortO is a **Windows app that converts Word, Excel, PowerPoint and PDF files
 - Choose a preset for the purpose: **For reading** (people read the Markdown) or **For RAG** (a language model reads it).
 - Chunks for RAG (`_chunks.jsonl`): the document in chunks for search, each with its headings, pages and page images; tables and code are not cut in the middle. A small MCP server in `tools\markporto-rag\` lets tools such as Claude Code search them ([tools/markporto-rag/README.md](tools/markporto-rag/README.md)).
 - Write an Excel book as one Markdown for each sheet; put the output of a folder with or without a folder of its name.
+- Cut the diagrams drawn with shapes in Word, PowerPoint and Excel out of the page image as pictures; shapes near one another, or on the same row, are one picture.
+- Leave out the text of a page crossed out with a "×" drawn with shapes (a deleted page).
 - Optionally let an image-capable model (VLM) add what the figures, charts and shapes show, or read whole pages (scans).
 - Convert folders of documents and resume interrupted runs.
 - Use an external command (MarkItDown, Docling and so on) to write the Markdown of a kind of file; recommended for PDF files.

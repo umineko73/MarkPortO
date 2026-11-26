@@ -18,6 +18,8 @@ Word・Excel・PowerPoint・PDFを、**Markdown・ページ画像（PNG）・RAG
 - 目的に合わせたプリセット：**閲覧用**（人が読む）と **RAG用**（言語モデルが読む）
 - RAG用の小分け（`_chunks.jsonl`）：見出し・ページ・ページ画像つきの検索用の塊。表とコードは途中で切らない。`tools\markporto-rag\` の小さな MCP サーバーで、Claude Code などから検索できる（[tools/markporto-rag/README.ja.md](tools/markporto-rag/README.ja.md)）
 - Excel をシートごとに別の Markdown に、フォルダの出力はフォルダごと／中身だけを選べる
+- Word・PowerPoint・Excel の図形で描いた図を、ページ画像から画像として切り出す。近くの図形や同じ行の図形は1枚にまとめる
+- 図形の×印で消したページは、削除ページとして本文を書かない
 - 画像を読めるモデル（VLM）で、図・グラフ・図形の中身を書き足す。スキャンなどはページ全体を読み取る（任意）
 - フォルダごとの一括変換と、中断した処理の再開
 - 種類ごとに外部コマンド（MarkItDown・Doclingなど）でMarkdownを作成。PDFにはこちらをおすすめします
