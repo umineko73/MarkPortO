@@ -233,7 +233,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     private static async Task<Layout> LayoutDocxAsync(DocumentWork work, string workDirectory, CancellationToken cancellationToken)
     {
         var document = work.Document;
-        var layout = new Layout { Pictures = NewPictureCollector(work, shapes: false) };
+        var layout = new Layout { Pictures = NewPictureCollector(work) };
         // Word has the numbers of figures and tables counted again when it prints, so the text is read from a copy in which Word did it.
         var content = DocxReader.ReadContent(await UpdatedFieldsCopyAsync(work, workDirectory, cancellationToken).ConfigureAwait(false) ?? document.SourcePath, work.Context.Options.Emphasis, layout.Pictures);
         var blocks = content.Blocks;
@@ -256,6 +256,11 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         foreach (var shapes in content.Shapes)
         {
             var page = shapes.HostBlockIndex >= 0 ? effective[shapes.HostBlockIndex] : 1;
+            if (shapes.PictureMark is { } mark && layout.Pictures is { } pictures)
+            {
+                pictures.SetArea(mark, shapes.Area is { } area ? area with { Page = page } : null);
+            }
+
             if (!shapesByPage.TryGetValue(page, out var list))
             {
                 shapesByPage[page] = list = [];

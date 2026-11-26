@@ -120,7 +120,8 @@ public static class FileStates
                     continue; // a newer job has it
                 }
 
-                if (PastOutputs.ResolveFolderInRoot(store.OutRoot, document) is not { } folder)
+                var canResumeWithoutOutput = !document.IsDone() && job.Status != JobStatus.Completed;
+                if (PastOutputs.ResolveFolderInRoot(store.OutRoot, document, canResumeWithoutOutput) is not { } folder)
                 {
                     continue; // its folder is gone: an older record may still have one
                 }

@@ -352,7 +352,7 @@ public sealed class InputSettings
     /// <summary>Save the pictures of a docx, pptx or xlsx in <c>pictures/</c> and refer to them from the Markdown (FR-133). Off: a picture is written by its alternative text only.</summary>
     public bool ExtractPictures { get; set; }
 
-    /// <summary>Cut the drawn shapes (groups, and shapes of half an inch or more) of a pptx or xlsx out of the page image into <c>pictures/</c> (FR-136).</summary>
+    /// <summary>Cut diagrams from Word, PowerPoint, and Excel page images into <c>pictures/</c> (FR-136).</summary>
     public bool ExtractShapes { get; set; }
 
     /// <summary>Cut the shapes and pictures of a pptx that are near one another, or on the same row, out as one picture; off, each shape is cut out alone.</summary>

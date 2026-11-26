@@ -298,8 +298,8 @@ public static class PastOutputs
     /// in the output folder (<c>OutputFolderRel</c>) has only that one: another folder of the same name is never taken for it. An older
     /// record without it is found as <see cref="ResolveFolder"/> does.
     /// </summary>
-    public static string? ResolveFolderInRoot(string outputRoot, DocumentRecord document) =>
-        FolderInRoot(outputRoot, document) is { } folder ? Directory.Exists(folder) ? folder : null : ResolveFolder(outputRoot, document);
+    public static string? ResolveFolderInRoot(string outputRoot, DocumentRecord document, bool allowMissing = false) =>
+        FolderInRoot(outputRoot, document) is { } folder ? allowMissing || Directory.Exists(folder) ? folder : null : ResolveFolder(outputRoot, document);
 
     /// <summary>
     /// Where a resume writes the document (FR-157): its folder in the output folder it is in now, also when that folder is not there any more

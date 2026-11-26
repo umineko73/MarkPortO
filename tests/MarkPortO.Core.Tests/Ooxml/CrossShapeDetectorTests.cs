@@ -242,4 +242,21 @@ public class CrossShapeDetectorTests
 
         Assert.Empty(DocxReader.ReadContent(path).Shapes);
     }
+
+    [Fact]
+    public void Docx_DiagramShapes_AreEmittedAsOnePageCropMark()
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("diagram.docx");
+        DocxFactory.CreateWithShapes(path, [new DocPage(["diagram"], DocShape.CrossLines())]);
+        var pictures = new PictureCollector(cutShapes: true);
+
+        var content = DocxReader.ReadContent(path, pictures: pictures);
+
+        var group = Assert.Single(content.Shapes);
+        Assert.NotNull(group.PictureMark);
+        Assert.NotNull(group.Area);
+        Assert.Single(pictures.Pictures);
+        Assert.Contains(group.PictureMark!, string.Join("\n", content.Blocks.Select(block => block.Block.Markdown)));
+    }
 }

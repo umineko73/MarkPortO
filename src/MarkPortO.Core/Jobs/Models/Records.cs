@@ -326,10 +326,10 @@ public sealed class OptionsSnapshot
     /// <summary>Save the pictures of a docx, pptx or xlsx in <c>pictures/</c> (FR-133 to FR-135). A job from before this setting did not.</summary>
     public bool ExtractPictures { get; set; }
 
-    /// <summary>Cut the drawn shapes of a pptx or xlsx out of the page image (FR-136). A job from before this setting did not.</summary>
+    /// <summary>Cut diagrams from Word, PowerPoint, and Excel page images (FR-136). A job from before this setting did not.</summary>
     public bool ExtractShapes { get; set; }
 
-    /// <summary>Cut shapes and pictures that are near one another, or on the same row, out as one picture (pptx). A job from before this setting did.</summary>
+    /// <summary>Cut nearby shapes and pictures together (Word and PowerPoint). A job from before this setting did.</summary>
     public bool GroupNearShapes { get; set; } = true;
 
     public EngineKind Engine { get; set; }

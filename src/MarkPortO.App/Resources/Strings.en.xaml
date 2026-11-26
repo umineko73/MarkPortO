@@ -94,7 +94,7 @@
   <sys:String x:Key="Main_Cond_PicturesTip">The pictures pasted in a Word, PowerPoint or Excel file are saved in pictures/ (pictures/page-003-1.png: the first picture on page 3), and the Markdown refers to them where they are. PNG, JPEG and GIF are saved as they are; EMF, WMF, BMP and TIFF are turned into PNG. In Excel, a picture comes after the table or the text above the cell that it is fixed to.</sys:String>
   <sys:String x:Key="Main_Cond_Shapes">Cut out the shapes</sys:String>
   <sys:String x:Key="Main_Cond_GroupShapes">Group nearby shapes</sys:String>
-  <sys:String x:Key="Main_Cond_GroupShapesTip">On: in a PowerPoint file, shapes and pictures that are near one another (a quarter of an inch), and those on the same row however far apart they are across, are cut out as one picture, so that a row of them is not split. Off: each shape is cut out alone, and pictures stay as they are. Used when the shapes are cut out.</sys:String>
+  <sys:String x:Key="Main_Cond_GroupShapesTip">On: in Word, shapes and pictures anchored in the same paragraph are cut out as one picture. In PowerPoint, nearby shapes and pictures within 24 points vertically, and those on the same row, are cut out together. Off: each shape is cut out alone, and pictures stay as they are. Used when shapes are cut out.</sys:String>
   <sys:String x:Key="Main_Cond_ShapesTip">The drawn shapes of a PowerPoint or Excel file (a group as one picture, and a shape of half an inch or more on each side) are cut out of the page image and saved in pictures/, like the pictures. A text box and a small arrow or line are not. Word is not supported. In Excel the place is worked out from the widths of the columns and the heights of the rows, so it can be a little off.</sys:String>
   <sys:String x:Key="Main_Cond_EmphasisTip">Bold text in a line is written between ** and italic text between * (Word, PowerPoint, Excel). A paragraph (a cell) that is all in bold (italic), a heading and the title of a slide are not marked. When the Markdown goes to other tools, such as one that builds a knowledge graph, the ** and * marks can be noise. When another tool reads the Markdown, it can be noise.</sys:String>
   <sys:String x:Key="Main_Cond_OffSlide">Include text outside the slide</sys:String>
@@ -196,6 +196,7 @@
   <sys:String x:Key="Main_Col_Position">Position</sys:String>
   <sys:String x:Key="Main_Col_VlmState">VLM reading</sys:String>
   <sys:String x:Key="Status_Ready">Add files or a folder, choose the output folder, and press Start.</sys:String>
+  <sys:String x:Key="Status_Processing">Working</sys:String>
   <sys:String x:Key="Status_NoEngine">No conversion engine (Microsoft Office or LibreOffice) was found. Install one of them.</sys:String>
   <sys:String x:Key="Status_EngineChanged">{0} was not found, so the engine was changed to {1}.</sys:String>
   <sys:String x:Key="Status_DpiSet">The image DPI is now {0}.</sys:String>

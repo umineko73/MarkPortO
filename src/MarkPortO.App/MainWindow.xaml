@@ -701,6 +701,10 @@
 
       <!-- Status, with the progress of a run: the files finished of the files of the list -->
       <DockPanel Grid.Row="5" Margin="0,8,0,0">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Visibility="{Binding BusyVisibility}" Margin="12,0,0,0">
+          <ProgressBar Width="70" Height="4" MinHeight="4" VerticalAlignment="Center" IsIndeterminate="True" />
+          <TextBlock Text="{DynamicResource Status_Processing}" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource SubtleTextBrush}" />
+        </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Visibility="{Binding ProgressVisibility}" Margin="12,0,0,0">
           <ProgressBar Width="200" Height="4" MinHeight="4" VerticalAlignment="Center" Maximum="{Binding Files.Count, Mode=OneWay}" Value="{Binding FinishedCount, Mode=OneWay}" />
           <TextBlock Text="{Binding ProgressText}" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource SubtleTextBrush}" />

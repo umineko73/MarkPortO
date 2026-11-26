@@ -436,7 +436,7 @@ public static class PptxReader
     }
 
     /// <summary>Drawn shapes and pictures whose heights are this near one another, in points, are cut out as one picture (a quarter of an inch), however far apart they are across.</summary>
-    private const double ClusterGapPoints = 18;
+    private const double ClusterGapPoints = 24;
 
     /// <summary>A shape that covers this share of the slide is a background: it does not join the shapes on it.</summary>
     private const double BackdropShare = 0.4;

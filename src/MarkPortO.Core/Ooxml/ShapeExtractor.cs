@@ -26,6 +26,69 @@ namespace MarkPortO.Core.Ooxml;
 /// </summary>
 internal static class ShapeExtractor
 {
+    public static ShapeArea? PageArea(Paragraph paragraph, double pageWidth, double pageHeight)
+    {
+        var bounds = new List<(double Left, double Top, double Right, double Bottom)>();
+        foreach (var drawing in paragraph.Descendants<Drawing>())
+        {
+            if (drawing.Ancestors<TextBoxContent>().Any() || drawing.ChildElements.Any(HiddenObjects.IsHidden))
+            {
+                continue;
+            }
+
+            XElement root;
+            try
+            {
+                root = XElement.Parse(drawing.OuterXml);
+            }
+            catch (System.Xml.XmlException)
+            {
+                continue;
+            }
+
+            var anchor = root.Descendants().FirstOrDefault(e => e.Name.LocalName == "anchor");
+            if (anchor is null)
+            {
+                continue;
+            }
+
+            var horizontal = anchor.Elements().FirstOrDefault(e => e.Name.LocalName == "positionH");
+            var vertical = anchor.Elements().FirstOrDefault(e => e.Name.LocalName == "positionV");
+            var horizontalFrom = horizontal?.Attribute("relativeFrom")?.Value;
+            var verticalFrom = vertical?.Attribute("relativeFrom")?.Value;
+            if (horizontalFrom is not ("page" or "margin") || verticalFrom is not ("page" or "margin")
+                || horizontal?.Elements().FirstOrDefault(e => e.Name.LocalName == "posOffset") is null
+                || vertical?.Elements().FirstOrDefault(e => e.Name.LocalName == "posOffset") is null)
+            {
+                continue;
+            }
+
+            var section = paragraph.ParagraphProperties?.SectionProperties
+                ?? paragraph.Ancestors<Body>().FirstOrDefault()?.Elements<SectionProperties>().LastOrDefault();
+            var margins = section?.GetFirstChild<PageMargin>();
+            var x = Offset(horizontal) + (horizontalFrom == "margin" ? (margins?.Left?.Value ?? 0) * 635.0 : 0);
+            var y = Offset(vertical) + (verticalFrom == "margin" ? (margins?.Top?.Value ?? 0) * 635.0 : 0);
+            var extent = anchor.Elements().FirstOrDefault(e => e.Name.LocalName == "extent");
+            var width = Number(extent, "cx");
+            var height = Number(extent, "cy");
+            if (width > 0 && height > 0)
+            {
+                bounds.Add((x, y, x + width, y + height));
+            }
+        }
+
+        if (bounds.Count == 0)
+        {
+            return null;
+        }
+
+        var left = bounds.Min(box => box.Left);
+        var top = bounds.Min(box => box.Top);
+        var right = bounds.Max(box => box.Right);
+        var bottom = bounds.Max(box => box.Bottom);
+        return ShapeAreas.Of(left, top, right - left, bottom - top, 0, 6 * 635, pageWidth, pageHeight);
+    }
+
     public static IReadOnlyList<ShapeBox> Extract(Paragraph paragraph, double pageWidth, double pageHeight)
     {
         var boxes = new List<ShapeBox>();
@@ -98,6 +161,9 @@ internal static class ShapeExtractor
 
     private static double Number(XElement? element, string attribute) =>
         double.TryParse(element?.Attribute(attribute)?.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0;
+
+    private static double Offset(XElement? element) =>
+        double.TryParse(element?.Elements().FirstOrDefault(e => e.Name.LocalName == "posOffset")?.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0;
 
     private static bool Flag(XElement? element, string attribute) =>
         element?.Attribute(attribute)?.Value is "1" or "true";

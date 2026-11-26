@@ -19,13 +19,33 @@ using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Ooxml;
 using MarkPortO.Core.Pipeline;
 using MarkPortO.Core.Tests.Fixtures;
+using static MarkPortO.Core.Tests.Convert.ConvertTestHelper;
 using P = DocumentFormat.OpenXml.Presentation;
 
 namespace MarkPortO.Core.Tests.Ooxml;
 
-/// <summary>The drawn shapes of a pptx or xlsx are cut out of the page image (FR-136).</summary>
+/// <summary>The drawn shapes of a Word, PowerPoint, or Excel file are cut out of the page image (FR-136).</summary>
 public class ShapeCutTests
 {
+    [LibreOfficeFact]
+    public async Task Docx_DiagramShapes_AreCutOutTogetherAsOnePicture()
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "diagram.docx");
+        DocxFactory.CreateWithShapes(source, [new DocPage(["diagram text"], [new DocShape("rect", 0.2, 0.2), new DocShape("roundRect", 0.2, 0.2)])]);
+        var options = Options();
+        options.ExtractShapes = true;
+        options.GroupNearShapes = true;
+
+        var result = await RunAsync(dir, Request(dir.Combine("out"), options, source));
+        var output = Assert.Single(result.Documents).OutputFolder;
+        var pictures = Directory.GetFiles(Path.Combine(output, PictureFiles.Folder), "*.png");
+        var markdown = File.ReadAllText(Path.Combine(output, "diagram.md"));
+
+        Assert.Single(pictures);
+        Assert.Contains("pictures/", markdown, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void SheetShape_EndBeyondUsedCells_KeepsItsFullSize()
     {

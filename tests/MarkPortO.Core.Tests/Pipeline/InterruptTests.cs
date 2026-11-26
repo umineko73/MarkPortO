@@ -147,6 +147,57 @@ public class InterruptTests
     }
 
     [LibreOfficeFact]
+    public async Task ResumingAnInputFolderRepeatedly_KeepsOneOutputRoot()
+    {
+        using var dir = new TempDir();
+        var inputFolder = dir.Combine("in");
+        MakeDocuments(dir);
+        var outFolder = dir.Combine("out");
+        var found = InputEnumerator.Enumerate([inputFolder], [DocumentKind.Docx], recurse: false);
+        var request = new ConvertRequest
+        {
+            Inputs = found.Inputs,
+            GivenInputs = [inputFolder],
+            InputFolder = found.InputFolder,
+            OutputFolder = outFolder,
+            Options = Options(),
+        };
+
+        var interrupted = await InterruptedRunAsync(dir, request);
+        var outputRoot = interrupted.Job.OutputRoot;
+        Assert.Equal(Path.Combine(outFolder, "in"), outputRoot);
+        var listed = FileStates.Find(outFolder, [inputFolder], [DocumentKind.Docx], recurse: false, FolderLayout.Folder, step2: true, step3: false);
+        Assert.DoesNotContain(listed, entry => entry.State == FileState.NotConverted);
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            using var cancellation = new CancellationTokenSource();
+            using var engine = Engine(dir);
+            var service = new ConvertService(engine);
+            service.DocumentChanged += document =>
+            {
+                if (document.IsDone())
+                {
+                    cancellation.Cancel();
+                }
+            };
+
+            var unfinished = interrupted.Documents.Where(document => !document.IsDone()).Select(document => document.DocId).ToArray();
+            interrupted = await service.ResumeAsync(new ResumeRequest
+            {
+                OutputFolder = outFolder,
+                JobId = interrupted.Job.JobId,
+                Mode = ResumeMode.Files,
+                DocumentIds = unfinished,
+            }, cancellation.Token);
+            Assert.Equal(JobStatus.Interrupted, interrupted.Job.Status);
+            Assert.Equal(outputRoot, interrupted.Job.OutputRoot);
+        }
+
+        Assert.DoesNotContain(Directory.GetDirectories(outFolder), path => Path.GetFileName(path) == "in (2)");
+    }
+
+    [LibreOfficeFact]
     public async Task ACrashedRun_LeftRunning_IsResumedAndItsStaleTempFilesAreRemoved()
     {
         using var dir = new TempDir();

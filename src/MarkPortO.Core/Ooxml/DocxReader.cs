@@ -74,7 +74,7 @@ public sealed record DocxTable(IReadOnlyList<IReadOnlyList<string>> Rows, IReadO
 /// Index (in <see cref="DocxContent.Blocks"/>) of the block of the paragraph the shapes are anchored in. A paragraph
 /// without text has no block of its own: it counts as part of the block before it (-1 before the first block).
 /// </param>
-public sealed record DocxShapes(int HostBlockIndex, IReadOnlyList<ShapeBox> Boxes);
+public sealed record DocxShapes(int HostBlockIndex, IReadOnlyList<ShapeBox> Boxes, ShapeArea? Area = null, string? PictureMark = null);
 
 /// <summary>What is read from the body of a .docx file.</summary>
 public sealed record DocxContent(IReadOnlyList<DocxBlock> Blocks, IReadOnlyList<DocxShapes> Shapes);
@@ -284,6 +284,8 @@ public static partial class DocxReader
         /// <summary>Collects the pictures (FR-133); null when only their alternative text is written.</summary>
         public PictureCollector? Pictures { get; init; }
 
+        public bool CropParagraphDrawing { get; set; }
+
         /// <summary>How deep the text being read is in table cells: a floating picture of a cell stays in the cell.</summary>
         public int CellDepth { get; set; }
 
@@ -297,6 +299,11 @@ public static partial class DocxReader
             if (drawing.ChildElements.Any(HiddenObjects.IsHidden))
             {
                 yield break;
+            }
+
+            if (CropParagraphDrawing && drawing.ChildElements.Any(e => e.LocalName == "anchor"))
+            {
+                yield break; // The page crop contains these pictures together with the overlapping Word shapes.
             }
 
             var properties = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties>().FirstOrDefault();
@@ -619,6 +626,15 @@ public static partial class DocxReader
     {
         // The number of a list is counted for every paragraph, also for one without text (FR-077).
         var number = context.Numbering.Label(paragraph);
+        var boxes = ShapeExtractor.Extract(paragraph, pageWidth, pageHeight);
+        var cropArea = ShapeExtractor.PageArea(paragraph, pageWidth, pageHeight);
+        var hasAnchoredPicture = paragraph.Descendants<Drawing>().Any(drawing =>
+            drawing.ChildElements.Any(e => e.LocalName == "anchor")
+            && drawing.Descendants<OpenXmlElement>().Any(e => e.LocalName == "pic"));
+        var cropDrawing = context.Pictures is { CutShapes: true }
+            && (IsDrawing(boxes) || hasAnchoredPicture && boxes.Any(box => box.HasText))
+            && cropArea is not null;
+        context.CropParagraphDrawing = cropDrawing;
 
         // The plain text finds the page of the block; the Markdown text also has links, note marks and the alternative text of pictures.
         var text = ParagraphText(paragraph).Trim();
@@ -673,10 +689,16 @@ public static partial class DocxReader
         }
 
         // Shapes (for the "×" check) belong to the block of this paragraph, or to the one before it if it has no text.
-        var boxes = ShapeExtractor.Extract(paragraph, pageWidth, pageHeight);
         if (boxes.Count > 0)
         {
-            shapes.Add(new DocxShapes(blocks.Count - 1, boxes));
+            string? mark = null;
+            var area = cropDrawing ? cropArea : null;
+            if (cropDrawing)
+            {
+                mark = context.Pictures!.AddShape(area);
+            }
+
+            shapes.Add(new DocxShapes(blocks.Count - 1, boxes, area, mark));
 
             // What the shapes draw is not in the text: Step3 can read it from the page image (FR-150).
             if (blocks.Count > 0 && IsDrawing(boxes))
@@ -684,6 +706,13 @@ public static partial class DocxReader
                 blocks[^1].Block.HasDrawing = true;
             }
         }
+
+        if (cropDrawing && context.Pictures is not null)
+        {
+            blocks.Add(New(BlockKind.Paragraph, PictureCollector.Markdown(null, shapes[^1].PictureMark), string.Empty) with { Floating = true });
+        }
+
+        context.CropParagraphDrawing = false;
 
         // Text boxes anchored in this paragraph follow it as paragraphs of their own.
         foreach (var box in InReadingOrder(TextBoxes(paragraph)))

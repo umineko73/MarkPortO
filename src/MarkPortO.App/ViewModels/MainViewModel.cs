@@ -49,6 +49,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _status = string.Empty;
     private Func<string> _statusSource = () => string.Empty; // makes the text again when the language changes
     private bool _running;
+    private bool _refreshingFiles;
     private string _dpiText;
     private string _pageRangeText = string.Empty;
     private FileItemViewModel? _selected;
@@ -728,6 +729,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 RaiseEditState();
                 RaiseProgress();
+                Raise(nameof(BusyVisibility));
                 Raise(nameof(CanReread));
                 Raise(nameof(CanMarkSelectedForReread));
                 foreach (var command in new[] { StartCommand, StartChangedCommand, RedoAllCommand, InterruptCommand, ResumeCommand, RereadCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
@@ -737,6 +739,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             }
         }
     }
+
+    public bool IsRefreshingFiles
+    {
+        get => _refreshingFiles;
+        private set
+        {
+            if (Set(ref _refreshingFiles, value))
+            {
+                Raise(nameof(BusyVisibility));
+            }
+        }
+    }
+
+    public System.Windows.Visibility BusyVisibility => IsRunning || IsRefreshingFiles
+        ? System.Windows.Visibility.Visible
+        : System.Windows.Visibility.Collapsed;
 
     // ---- settings the user can change (each is saved as soon as it changes) ----
 
@@ -2296,6 +2314,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private async Task RefreshPreviousAsync(bool showFiles, bool appendToStatus = false, Guid? jobId = null, bool inputsChanged = false)
     {
         var version = ++_scanVersion;
+        IsRefreshingFiles = true;
+        try
+        {
+            await RefreshPreviousCoreAsync(version, showFiles, appendToStatus, jobId, inputsChanged);
+        }
+        finally
+        {
+            if (version == _scanVersion)
+            {
+                IsRefreshingFiles = false;
+            }
+        }
+    }
+
+    private async Task RefreshPreviousCoreAsync(int version, bool showFiles, bool appendToStatus, Guid? jobId, bool inputsChanged)
+    {
         var folder = _store.Current.Output.Folder;
         IReadOnlyList<string> inputs = [.. InputPaths];
         var notes = new List<string>();
