@@ -197,6 +197,8 @@
   <sys:String x:Key="Main_Col_VlmState">VLM読み取り</sys:String>
   <sys:String x:Key="Status_Ready">変換するファイルまたはフォルダを追加して、出力先を選び、「開始」を押してください。</sys:String>
   <sys:String x:Key="Status_Processing">処理中</sys:String>
+  <sys:String x:Key="Busy_ReadingFiles">ファイルを読み込んでいます…</sys:String>
+  <sys:String x:Key="Busy_CheckingInputs">入力を確かめています…</sys:String>
   <sys:String x:Key="Status_NoEngine">変換エンジン(Microsoft Office または LibreOffice)が見つかりません。どちらかをインストールしてください。</sys:String>
   <sys:String x:Key="Status_EngineChanged">{0} が見つからないため、変換エンジンを {1} にしました。</sys:String>
   <sys:String x:Key="Status_DpiSet">画像のDPIを {0} にしました。</sys:String>

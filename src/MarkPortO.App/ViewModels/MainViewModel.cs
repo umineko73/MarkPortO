@@ -51,6 +51,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool _running;
     private bool _refreshingFiles;
     private int _refreshes; // the refreshes of the list that are running (on the UI thread)
+    private int _waits; // the waits until the screen can be used again that are running (on the UI thread)
+    private int _waitTurn; // counts the times the screen began to wait, so that a delay of an earlier wait does not show the message of a later one
+    private bool _showsWait;
+    private Func<string> _waitText = () => string.Empty; // makes the text again when the language changes
+    private bool _adding;
     private string _dpiText;
     private string _pageRangeText = string.Empty;
     private FileItemViewModel? _selected;
@@ -731,6 +736,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 RaiseEditState();
                 RaiseProgress();
                 Raise(nameof(BusyVisibility));
+                Raise(nameof(WaitVisibility));
                 Raise(nameof(CanReread));
                 Raise(nameof(CanMarkSelectedForReread));
                 foreach (var command in new[] { StartCommand, StartChangedCommand, RedoAllCommand, InterruptCommand, ResumeCommand, RereadCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
@@ -756,6 +762,70 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public System.Windows.Visibility BusyVisibility => IsRunning || IsRefreshingFiles
         ? System.Windows.Visibility.Visible
         : System.Windows.Visibility.Collapsed;
+
+    /// <summary>How long the screen waits (reading the files, checking the inputs) before it says so in the middle of the window: a short wait is not shown.</summary>
+    public static readonly TimeSpan WaitShownAfter = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>
+    /// The screen is waiting for something before it can be used again, for longer than <see cref="WaitShownAfter"/>: a message in the middle of
+    /// the window says what, and the window takes no clicks until it ends. Not while a conversion runs (it can be interrupted, and has its progress).
+    /// </summary>
+    public bool ShowsWait
+    {
+        get => _showsWait;
+        private set
+        {
+            if (Set(ref _showsWait, value))
+            {
+                Raise(nameof(WaitVisibility));
+            }
+        }
+    }
+
+    public System.Windows.Visibility WaitVisibility => ShowsWait && !IsRunning
+        ? System.Windows.Visibility.Visible
+        : System.Windows.Visibility.Collapsed;
+
+    /// <summary>What the screen is waiting for (<see cref="ShowsWait"/>).</summary>
+    public string WaitMessage => _waitText();
+
+    /// <summary>
+    /// Runs <paramref name="work"/>, the screen waiting for it: after <see cref="WaitShownAfter"/>, <paramref name="message"/> is in the middle of
+    /// the window until every wait has ended.
+    /// </summary>
+    internal async Task WhileWaitingAsync(Func<string> message, Func<Task> work)
+    {
+        _waitText = message;
+        Raise(nameof(WaitMessage));
+        if (_waits++ == 0)
+        {
+            _ = ShowWaitLaterAsync(++_waitTurn);
+        }
+
+        try
+        {
+            await work();
+        }
+        finally
+        {
+            if (--_waits == 0)
+            {
+                ShowsWait = false;
+            }
+        }
+    }
+
+    private async Task ShowWaitLaterAsync(int turn)
+    {
+        await Task.Delay(WaitShownAfter).ConfigureAwait(false);
+        await _dispatcher.InvokeAsync(() =>
+        {
+            if (_waits > 0 && turn == _waitTurn)
+            {
+                ShowsWait = true;
+            }
+        });
+    }
 
     // ---- settings the user can change (each is saved as soon as it changes) ----
 
@@ -1035,6 +1105,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SyncPresetItems(); // the names of "Custom" and of the built-in presets
         RaiseConnection();
         Raise(nameof(ConditionSummaryText));
+        Raise(nameof(WaitMessage));
         Status = _statusSource();
         if (!IsRunning)
         {
@@ -1452,35 +1523,44 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     // ---- input and output ----
 
-    private Task AddFilesAsync()
-    {
-        AddInputs([.. PickFiles?.Invoke() ?? []]);
-        return Task.CompletedTask;
-    }
+    private Task AddFilesAsync() => AddInputsAsync([.. PickFiles?.Invoke() ?? []]);
 
-    private Task AddFolderAsync()
-    {
-        if (PickFolder?.Invoke(FolderPurpose.Input) is { } folder)
-        {
-            AddInputs([folder]);
-        }
-
-        return Task.CompletedTask;
-    }
+    private Task AddFolderAsync() =>
+        PickFolder?.Invoke(FolderPurpose.Input) is { } folder ? AddInputsAsync([folder]) : Task.CompletedTask;
 
     /// <summary>
     /// Adds inputs in their order. When the earlier output folder or conditions of one of them differ from those of the first (FR-160), one
     /// question asks first: "Add" adds them (the output folder and the conditions stay those of the first), "Cancel" changes nothing.
+    /// The records are read away from the screen, which waits for them (<see cref="ShowsWait"/>); inputs added while it waits are not taken.
     /// </summary>
-    private void AddInputs(IReadOnlyList<string> paths)
+    private async Task AddInputsAsync(IReadOnlyList<string> paths)
     {
         var adding = paths.Where(p => !InputPaths.Contains(p, StringComparer.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        if (adding.Count == 0)
+        if (adding.Count == 0 || _adding)
         {
             return;
         }
 
-        var differences = AddDifferences(adding);
+        _adding = true;
+        try
+        {
+            List<string> differences = [];
+            IReadOnlyList<string> before = [.. InputPaths];
+            await WhileWaitingAsync(() => UiText.Get("Busy_CheckingInputs"), async () => differences = await Task.Run(() => AddDifferences(adding, before)));
+            if (!IsRunning)
+            {
+                AddChecked(adding, differences);
+            }
+        }
+        finally
+        {
+            _adding = false;
+        }
+    }
+
+    // Adds the inputs whose differences (AddDifferences) were found, asking first when there are any.
+    private void AddChecked(List<string> adding, List<string> differences)
+    {
         if (differences.Count > 0)
         {
             if (ConfirmAdd is { } confirm && !confirm(UiText.Get("Confirm_AddDifferent", string.Join(Environment.NewLine, differences))))
@@ -1503,11 +1583,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// The added inputs whose earlier output folder or conditions differ from those of the first (FR-160), one line each. The first is that of
     /// the list, or else the one of the added inputs that would be the first. The conditions of the first are those of its record.
     /// </summary>
-    internal List<string> AddDifferences(IReadOnlyList<string> adding)
+    internal List<string> AddDifferences(IReadOnlyList<string> adding, IReadOnlyList<string>? inputs = null)
     {
         var history = _store.Current.History;
         var output = _store.Current.Output.Folder;
-        IReadOnlyList<string> before = [.. InputPaths];
+        var before = inputs ?? [.. InputPaths];
         var first = PreviousState.FindFirst(output, before, history, out _) ?? PreviousState.FindFirst(output, [.. before, .. adding], history, out _);
         var lines = new List<string>();
         if (first is null)
@@ -1697,7 +1777,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        AddInputs([.. paths.Where(path => System.IO.Directory.Exists(path) || (System.IO.File.Exists(path) && IsSupportedFile(path)))]);
+        _ = AddInputsAsync([.. paths.Where(path => System.IO.Directory.Exists(path) || (System.IO.File.Exists(path) && IsSupportedFile(path)))]);
     }
 
     /// <summary>Sets the output folder to the folder that was dropped (for a file, the folder it is in). Ignored while a conversion runs.</summary>
@@ -2031,7 +2111,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         IReadOnlyList<string> inputs = [.. current.Input.Paths];
         IReadOnlyList<DocumentKind> types = [.. current.Input.Types];
         var (folder, recurse, layout, step2, step3) = (current.Output.Folder, current.Input.Recurse, current.Output.FolderLayout, current.Steps.Step2, current.Steps.Step3);
-        var planned = FileStates.ToResume(await Task.Run(() => FileStates.Find(folder, inputs, types, recurse, layout, step2, step3)));
+        IReadOnlyList<FileEntry> found = [];
+        await WhileWaitingAsync(() => UiText.Get("Busy_ReadingFiles"), async () => found = await Task.Run(() => FileStates.Find(folder, inputs, types, recurse, layout, step2, step3)));
+        var planned = FileStates.ToResume(found);
         if (IsRunning)
         {
             return;
@@ -2321,7 +2403,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         IsRefreshingFiles = true;
         try
         {
-            await RefreshPreviousCoreAsync(version, showFiles, appendToStatus, jobId, inputsChanged);
+            await WhileWaitingAsync(() => UiText.Get("Busy_ReadingFiles"), () => RefreshPreviousCoreAsync(version, showFiles, appendToStatus, jobId, inputsChanged));
         }
         finally
         {
@@ -2577,11 +2659,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         // The run that "resume" acts on: the chosen one, or else the one the output folder has (as when the folder is chosen).
-        var run = await Task.Run(() =>
+        PreviousRun? run = null;
+        await WhileWaitingAsync(() => UiText.Get("Busy_ReadingFiles"), async () => run = await Task.Run(() =>
         {
             var store = new StateStore(outputRoot);
             return resumeJobId is { } id && store.LoadJob(id) is { } job ? PreviousRunFinder.ForJob(store, job) : PreviousRunFinder.Find(outputRoot);
-        });
+        }));
         if (version != _scanVersion || IsRunning)
         {
             return true;

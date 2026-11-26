@@ -102,7 +102,7 @@ public partial class UiStringsTests
         }
 
         // Colours that the theme service sets, and those of the Fluent theme, are resources too, but not texts: they are not in the dictionaries.
-        used.ExceptWith(["FailedBrush", "PartlyFailedBrush", "SubtleTextBrush", "SucceededBrush", "CardStrokeColorDefaultBrush", "CardBackgroundFillColorDefaultBrush", "AccentFillColorDefaultBrush", "TextOnAccentFillColorPrimaryBrush", "AccentControlElevationBorderBrush"]);
+        used.ExceptWith(["FailedBrush", "PartlyFailedBrush", "SubtleTextBrush", "SucceededBrush", "WaitShadeBrush", "WaitCardBrush", "CardStrokeColorDefaultBrush", "CardBackgroundFillColorDefaultBrush", "AccentFillColorDefaultBrush", "TextOnAccentFillColorPrimaryBrush", "AccentControlElevationBorderBrush"]);
         var missing = used.Except(keys).ToList();
         var unused = keys.Except(used).ToList();
         Assert.Empty(missing);

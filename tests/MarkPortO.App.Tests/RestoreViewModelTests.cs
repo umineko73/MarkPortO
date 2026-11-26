@@ -126,8 +126,9 @@ public sealed class RestoreViewModelTests
 
         var asked = 0;
         screen.Model.ConfirmAdd = _ => { asked++; return false; };
-        screen.Model.DropInputs([Folder(screen, "in", "B")]);
-        Assert.Equal(1, asked);
+        screen.Model.DropInputs([Folder(screen, "in", "B")]); // the records are read away from the screen
+        WaitFor(screen, () => asked == 1, "it was not asked");
+        Thread.Sleep(100);
         Assert.Single(screen.Model.InputPaths);
 
         screen.Model.ConfirmAdd = _ => true;

@@ -19,6 +19,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Icon="Assets/MarkPortO.ico" Title="MarkPortO" Height="1000" Width="1360" MinHeight="640" MinWidth="780">
+  <Grid>
   <DockPanel>
     <!-- Menu bar (FR-032) -->
     <Menu DockPanel.Dock="Top">
@@ -713,4 +714,16 @@
       </DockPanel>
     </Grid>
   </DockPanel>
+
+  <!-- While the screen waits before it can be used again (reading the files, checking the inputs): a message in the middle, and no clicks -->
+  <Grid Visibility="{Binding WaitVisibility}" Background="{DynamicResource WaitShadeBrush}">
+    <Border HorizontalAlignment="Center" VerticalAlignment="Center" Padding="32,20" CornerRadius="8" MinWidth="280"
+            Background="{DynamicResource WaitCardBrush}" BorderBrush="{DynamicResource SubtleTextBrush}" BorderThickness="1">
+      <StackPanel>
+        <TextBlock Text="{Binding WaitMessage}" FontSize="15" HorizontalAlignment="Center" TextWrapping="Wrap" />
+        <ProgressBar IsIndeterminate="True" Height="4" MinHeight="4" Margin="0,14,0,0" />
+      </StackPanel>
+    </Border>
+  </Grid>
+  </Grid>
 </Window>

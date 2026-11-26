@@ -72,6 +72,8 @@ public static class ThemeService
         resources["PartlyFailedBrush"] = Frozen(IsDark ? Color.FromRgb(0xFF, 0xB3, 0x47) : Colors.DarkOrange);
         resources["SubtleTextBrush"] = Frozen(IsDark ? Color.FromRgb(0xA0, 0xA0, 0xA0) : Colors.Gray);
         resources["SucceededBrush"] = Frozen(IsDark ? Color.FromRgb(0x6C, 0xCB, 0x5F) : Color.FromRgb(0x0F, 0x7B, 0x0F));
+        resources["WaitShadeBrush"] = Frozen(IsDark ? Color.FromArgb(0x66, 0, 0, 0) : Color.FromArgb(0x40, 0, 0, 0)); // over the window while it waits
+        resources["WaitCardBrush"] = Frozen(IsDark ? Color.FromRgb(0x2B, 0x2B, 0x2B) : Color.FromRgb(0xFB, 0xFB, 0xFB));
 
         if (!_watching)
         {
