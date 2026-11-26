@@ -574,6 +574,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             }
 
             var taken = new Dictionary<int, List<ShapeArea>>(); // the places of the drawings found on a page: another drawing is not looked for there
+            var cutOut = new List<(DocxCrop Crop, ShapeArea Area)>(); // the drawings of paragraphs (not of cells) that were found, in the order of the document
             List<ShapeArea> Taken(int number) => taken.TryGetValue(number, out var list) ? list : taken[number] = [];
 
             for (var s = 0; s < content.Shapes.Count; s++)
@@ -596,6 +597,11 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                     Taken(area.Page!.Value).Add(area);
                     if (crop.Block is not null)
                     {
+                        cutOut.Add((crop, area));
+                    }
+
+                    if (crop.Block is not null)
+                    {
                         crop.Block.PageIndex = area.Page; // the picture is in the Markdown of the page it is on
                     }
 
@@ -606,6 +612,11 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                 {
                     content.Blocks[shapes.HostBlockIndex].Block.HasDrawing = false; // the drawing is a picture of its own now
                 }
+            }
+
+            if (pictures.GroupShapes)
+            {
+                JoinNear(document, pictures, cutOut, number => PageOf(number) is { } read ? (read.Width, read.Height) : (210 / 25.4 * 72, 297 / 25.4 * 72));
             }
 
             ShapeArea? Place(DocxShapes shapes, DocxCrop crop, int host, int[] candidates)
@@ -686,6 +697,40 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
             {
                 return null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// "Group nearby shapes" (FR-136): the drawings found on a page that are together by <see cref="ShapeGrouping"/> (as on a slide and a sheet) are
+    /// one picture. A diagram is often drawn with shapes anchored in several paragraphs, each found
+    /// apart. The first of them in the document is the picture of all, with the place around them all; the others write nothing (their pictures are
+    /// written in the place of the first if it cannot be cut out).
+    /// </summary>
+    private static void JoinNear(DocumentRecord document, PictureCollector pictures, List<(DocxCrop Crop, ShapeArea Area)> cutOut, Func<int, (double Width, double Height)> sizeOf)
+    {
+        foreach (var page in cutOut.GroupBy(c => c.Area.Page))
+        {
+            var items = page.ToList();
+            var height = sizeOf(page.Key ?? 1).Height;
+            var groups = ShapeGrouping.Groups([.. items.Select(i => (i.Area.Top * height, (i.Area.Top + i.Area.Height) * height))], pictures.GroupGapPoints)
+                .Select(g => g.Select(i => items[i]).ToList());
+            foreach (var group in groups.Where(g => g.Count > 1))
+            {
+                var ordered = group.OrderBy(g => cutOut.IndexOf(g)).ToList();
+                var left = ordered.Min(g => g.Area.Left);
+                var top = ordered.Min(g => g.Area.Top);
+                var all = new ShapeArea(left, top, ordered.Max(g => g.Area.Left + g.Area.Width) - left, ordered.Max(g => g.Area.Top + g.Area.Height) - top, page.Key);
+                var first = ordered[0].Crop.Mark;
+                pictures.SetArea(first, all);
+                pictures.SetFallback(first, string.Join("\n\n", ordered.Select(g => pictures.Pictures[PictureCollector.NumberOf(g.Crop.Mark)].Fallback).OfType<string>()));
+                foreach (var (crop, _) in ordered.Skip(1))
+                {
+                    pictures.SetArea(crop.Mark, null);
+                    pictures.SetFallback(crop.Mark, null);
+                }
+
+                DocumentLog.Write(document, $"page {page.Key}: {ordered.Count} drawings near each other are one picture at {Describe(all)}");
             }
         }
     }

@@ -392,6 +392,65 @@ public class DocxShapeRound2Tests
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(fallback, "Same text"));
     }
 
+    // ---- a diagram drawn in several paragraphs ----
+
+    [LibreOfficeFact]
+    public async Task ADiagramWhoseShapesAreInSeveralEmptyParagraphs_IsOnePicture()
+    {
+        // As Word does when shapes are drawn one by one: each is anchored in the empty paragraph where it was drawn, and they overlap.
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "diagram.docx");
+        DocxFactory.CreateWithShapes(source, [new DocPage(["the text before the diagram", "", "", "", "the text after"])]);
+        using (var document = WordprocessingDocument.Open(source, isEditable: true))
+        {
+            var main = document.MainDocumentPart!;
+            var paragraphs = main.Document!.Body!.Elements<Paragraph>().ToList();
+            paragraphs[1].AppendChild(DocxFactory.ShapeRunFor(DocShape.InParagraph("ellipse", 0.2, 0.1, 250, 19), main));
+            paragraphs[2].AppendChild(DocxFactory.ShapeRunFor(DocShape.InParagraph("rect", 0.2, 0.07, 52, 6), main));
+            paragraphs[3].AppendChild(DocxFactory.ShapeRunFor(DocShape.InParagraph("leftArrow", 0.2, 0.08, 346, 15), main));
+            paragraphs[3].AppendChild(DocxFactory.ShapeRunFor(DocShape.InParagraph("rect", 0.2, 0.07, 131, 19), main));
+            main.Document.Save();
+        }
+
+        var options = Options();
+        options.ExtractShapes = true;
+        options.ExtractPictures = true;
+
+        var result = await RunAsync(dir, Request(dir.Combine("out"), options, source));
+        var output = Assert.Single(result.Documents).OutputFolder;
+        var markdown = File.ReadAllText(Path.Combine(output, "diagram.md"));
+
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(markdown, @"pictures/page-001-\d+\.png"));
+    }
+
+    [LibreOfficeFact]
+    public async Task DrawingsOfTwoParagraphsOnTheSameRow_FarApartAcross_AreOnePicture()
+    {
+        // As on a slide: shapes in a row are one picture however far apart they are across.
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "row.docx");
+        DocxFactory.CreateWithShapes(source, [new DocPage(["the text before the row", "", "", "the text after"])]);
+        using (var document = WordprocessingDocument.Open(source, isEditable: true))
+        {
+            var main = document.MainDocumentPart!;
+            var paragraphs = main.Document!.Body!.Elements<Paragraph>().ToList();
+            paragraphs[1].AppendChild(DocxFactory.ShapeRunFor(DocShape.InParagraph("rect", 0.15, 0.06, 0, 10), main));
+            paragraphs[2].AppendChild(DocxFactory.ShapeRunFor(DocShape.InParagraph("ellipse", 0.15, 0.06, 380, -5), main));
+            main.Document.Save();
+        }
+
+        var options = Options();
+        options.ExtractShapes = true;
+        options.ExtractPictures = true;
+
+        var result = await RunAsync(dir, Request(dir.Combine("out"), options, source));
+        var output = Assert.Single(result.Documents).OutputFolder;
+        var markdown = File.ReadAllText(Path.Combine(output, "row.md"));
+
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(markdown, @"pictures/page-001-\d+\.png"));
+        Assert.Contains("2 drawings near each other are one picture", File.ReadAllText(Path.Combine(output, "row.log")), StringComparison.Ordinal); // both were found
+    }
+
     // Moves the first paragraph of the body into the cell of a table of one row.
     private static void IntoCell(string path)
     {
