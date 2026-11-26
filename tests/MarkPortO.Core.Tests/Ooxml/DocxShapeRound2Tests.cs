@@ -316,6 +316,82 @@ public class DocxShapeRound2Tests
         Assert.Contains("nested table text", fallback, StringComparison.Ordinal);
     }
 
+    // ---- the fourth review ----
+
+    [LibreOfficeFact]
+    public async Task APlusOverThePage_IsNotAnX() // R4-01
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "plus.docx");
+        DocxFactory.CreateWithShapes(source,
+            [new DocPage(["Keep this text"], [new DocShape("mathPlus", 0.8, 0.8)]), new DocPage([""], DocShape.CrossShape(0.8)), new DocPage(["the third page"])]);
+
+        var result = await RunAsync(dir, Request(dir.Combine("out"), Options(), source));
+
+        Assert.Equal([2], Assert.Single(result.Documents).Pages.Where(p => p.IsDeleted).Select(p => p.Index));
+    }
+
+    [LibreOfficeFact]
+    public async Task ASmallShapeOnTheNextPage_DoesNotTakeThePageOfAnXOfTwoLinesAway() // R4-02
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "lines.docx");
+        DocxFactory.CreateWithShapes(source,
+            [new DocPage(["the lines", "", ""]), new DocPage(["the second page"], [new DocShape("rect", 0.1, 0.05, XPoints: 100, YPoints: 300)])]);
+        using (var document = WordprocessingDocument.Open(source, isEditable: true))
+        {
+            var main = document.MainDocumentPart!;
+            var paragraphs = main.Document!.Body!.Elements<Paragraph>().ToList();
+            var lines = DocShape.CrossLines(0.95);
+            paragraphs[1].AppendChild(DocxFactory.ShapeRunFor(lines[0], main));
+            paragraphs[2].AppendChild(DocxFactory.ShapeRunFor(lines[1], main));
+            main.Document.Save();
+        }
+
+        var result = await RunAsync(dir, Request(dir.Combine("out"), Options(), source));
+
+        Assert.Equal([1], Assert.Single(result.Documents).Pages.Where(p => p.IsDeleted).Select(p => p.Index));
+    }
+
+    [Fact]
+    public void FindDown_FindsAThinDrawing_WhoseWidthHasTheRoomInIt() // R4-03
+    {
+        DrawnBox[] drawn = [new(100, 200, 101, 300)];
+
+        Assert.NotNull(PdfShapeSnap.FindDown(drawn, 600, 800, 94 / 600.0, 13 / 600.0, 100 / 800.0, 0, 1, 200 / 800.0, 6));
+    }
+
+    [Fact]
+    public void Fills_AThinDrawingNearTheEdge_WhoseRoomWasPartlyCutOff() // R4-04
+    {
+        var area = ShapeAreas.Of(4, 100, 1, 100, 0, 6, 600, 800)!;
+
+        Assert.True(PdfShapeSnap.Fills([new DrawnBox(4, 100, 5, 200)], 600, 800, area, 6));
+    }
+
+    [Fact]
+    public void ATextBoxInACell_WithACopyForOldReaders_KeepsItsTextOnce() // R4-05
+    {
+        using var dir = new TempDir();
+        var path = dir.Combine("copy.docx");
+        DocxFactory.CreateWithShapes(path, [new DocPage(["in the cell", "after"], [DocShape.InParagraph("picture", 0.1, 0.05, 0, 10)])]);
+        using (var document = WordprocessingDocument.Open(path, isEditable: true))
+        {
+            var paragraph = document.MainDocumentPart!.Document!.Body!.Elements<Paragraph>().First();
+            paragraph.AppendChild(TextBoxRun("Same text", 0, copy: true));
+            paragraph.AppendChild(TextBoxRun("other", 200));
+            document.MainDocumentPart.Document.Save();
+        }
+
+        IntoCell(path);
+        var pictures = new PictureCollector(savePictures: false, cutShapes: true);
+
+        var content = DocxReader.ReadContent(path, pictures: pictures);
+
+        var fallback = pictures.Pictures[PictureCollector.NumberOf(Assert.Single(Assert.Single(content.Shapes).Crops!).Mark)].Fallback!;
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(fallback, "Same text"));
+    }
+
     // Moves the first paragraph of the body into the cell of a table of one row.
     private static void IntoCell(string path)
     {
@@ -330,7 +406,7 @@ public class DocxShapeRound2Tests
     }
 
     // A text box without line or fill, with one paragraph of text (or a table of one cell), placed from the column and the paragraph.
-    private static Run TextBoxRun(string text, double xPoints, bool inTable = false) => new($"""
+    private static Run TextBoxRun(string text, double xPoints, bool inTable = false, bool copy = false) => new($"""
         <w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
              xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
              xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -355,7 +431,9 @@ public class DocxShapeRound2Tests
                       <a:noFill/>
                       <a:ln><a:noFill/></a:ln>
                     </wps:spPr>
-                    <wps:txbx><w:txbxContent>{(inTable ? $"<w:tbl><w:tr><w:tc><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p/>" : $"<w:p><w:r><w:t>{text}</w:t></w:r></w:p>")}</w:txbxContent></wps:txbx>
+                    <wps:txbx><w:txbxContent>{(inTable ? $"<w:tbl><w:tr><w:tc><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p/>"
+                        : copy ? $"<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice Requires=\"wps\"><w:p><w:r><w:t>{text}</w:t></w:r></w:p></mc:Choice><mc:Fallback><w:p><w:r><w:t>{text}</w:t></w:r></w:p></mc:Fallback></mc:AlternateContent>"
+                        : $"<w:p><w:r><w:t>{text}</w:t></w:r></w:p>")}</w:txbxContent></wps:txbx>
                     <wps:bodyPr/>
                   </wps:wsp>
                 </a:graphicData>

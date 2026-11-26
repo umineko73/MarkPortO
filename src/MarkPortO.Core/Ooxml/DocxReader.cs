@@ -832,7 +832,8 @@ public static partial class DocxReader
             var pictures = group.SelectMany(d => context.CropFallback.GetValueOrDefault(d.Element) ?? []);
             var fallback = inCell
                 ? string.Join(" ", pictures.Select(p => p.Replace("|", "\\|", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal))
-                    .Concat(group.SelectMany(d => d.Element.Descendants<TextBoxContent>()).SelectMany(b => b.Descendants<Paragraph>().Where(p => p.Ancestors<TextBoxContent>().First() == b))
+                    .Concat(group.SelectMany(d => d.Element.Descendants<TextBoxContent>()).SelectMany(b => b.Descendants<Paragraph>().Where(p => p.Ancestors<TextBoxContent>().First() == b
+                            && !p.Ancestors<AlternateContentFallback>().Any(f => f.Ancestors<TextBoxContent>().FirstOrDefault() == b))) // the copy for old readers is left out
                         .Select(p => MarkdownText.EscapeCell(ParagraphText(p).Trim()))
                         .Where(t => t.Length > 0)))
                 : string.Join("\n\n", pictures);

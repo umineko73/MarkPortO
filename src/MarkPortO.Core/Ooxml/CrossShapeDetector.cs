@@ -65,6 +65,9 @@ public static class CrossShapeDetector
         return new CrossVerdict(isCross, freehand && !isCross);
     }
 
+    /// <summary>A line over the whole page: half of a "×" of two lines, which may be drawn in another paragraph.</summary>
+    public static bool IsLargeLine(ShapeBox shape) => IsLarge(shape) && LineGeometries.Contains(shape.Geometry);
+
     private static bool IsLarge(ShapeBox shape) =>
         shape.WidthFraction >= CoverageThreshold && shape.HeightFraction >= CoverageThreshold;
 }

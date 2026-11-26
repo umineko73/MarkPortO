@@ -731,8 +731,8 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
 
     /// <summary>
     /// The deleted pages of a docx (FR-012). Each "×" of the document is the shapes of one paragraph that make one (<see cref="CrossShapeDetector"/>),
-    /// or the shapes of paragraphs that can be on the same page (<see cref="ShapePages"/>) and make one together (two lines in two paragraphs): it can
-    /// be on the pages the paragraphs share. It deletes the first of those pages where the PDF draws a "×" (<see cref="PdfShapeSnap.HasCross"/>) that
+    /// or the lines over the page of paragraphs that can be on the same page (<see cref="ShapePages"/>) and make one together (two lines in two
+    /// paragraphs): it can be on the pages the paragraphs share. It deletes the first of those pages where the PDF draws a "×" (<see cref="PdfShapeSnap.HasCross"/>) that
     /// is not deleted by another one. When the PDF does not show where it is, no page is taken as deleted: a page is not lost because the place of a
     /// drawing was not found.
     /// </summary>
@@ -750,11 +750,16 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             }
             else
             {
-                rest.Add((first, last, shapes.Boxes));
+                MarkDeleted(layout, first, verdict, PageLabel.Page(first)); // a freehand drawing over the page is warned about
+                if (shapes.Boxes.Where(CrossShapeDetector.IsLargeLine).ToList() is { Count: > 0 } lines)
+                {
+                    rest.Add((first, last, lines));
+                }
             }
         }
 
-        // The shapes of paragraphs whose pages overlap are taken together, on the pages they share.
+        // The lines over the page of paragraphs whose pages overlap are taken together, on the pages they share (other shapes do not make those
+        // pages fewer).
         foreach (var group in Overlapping(rest))
         {
             var first = group.Max(g => g.First);
@@ -763,11 +768,6 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             if (verdict.IsCross && first <= last)
             {
                 crosses.Add((first, last, verdict));
-            }
-            else if (!verdict.IsCross)
-            {
-                var page = group.Min(g => g.First);
-                MarkDeleted(layout, page, verdict, PageLabel.Page(page));
             }
         }
 

@@ -218,6 +218,9 @@ public static class DocxFactory
         body.Ancestors<Document>().First().Save();
     }
 
+    /// <summary>The run of an anchored drawing, to be put in a paragraph that a test chooses.</summary>
+    public static Run ShapeRunFor(DocShape shape, OpenXmlPart owner) => ShapeRun(shape, owner);
+
     /// <summary>An anchored drawing (a "wps" shape, or a picture) of the given size and place.</summary>
     private static Run ShapeRun(DocShape shape, OpenXmlPart owner)
     {

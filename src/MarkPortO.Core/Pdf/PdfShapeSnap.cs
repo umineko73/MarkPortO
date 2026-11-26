@@ -211,9 +211,18 @@ public static class PdfShapeSnap
             return false;
         }
 
+        // Each corner from the middle, as a part of the half of the box across and down.
         var middle = box.Centroid;
-        var reach = corners.Select(p => Math.Sqrt(Math.Pow((p.X - middle.X) / (box.Width / 2), 2) + Math.Pow((p.Y - middle.Y) / (box.Height / 2), 2))).ToList();
-        return reach.Count(r => r < 0.7) == 4 && reach.Count(r => r > 0.9) == 8;
+        var parts = corners.Select(p => (X: Math.Abs(p.X - middle.X) / (box.Width / 2), Y: Math.Abs(p.Y - middle.Y) / (box.Height / 2))).ToList();
+        static double Reach((double X, double Y) p) => Math.Sqrt(p.X * p.X + p.Y * p.Y);
+
+        // The arms of a "×" go to the corners of its box, and they meet on the lines across and down through the middle. The arms of a "+" go to
+        // the middles of the sides, and meet on the diagonals.
+        var inner = parts.Where(p => Reach(p) < 0.7).ToList();
+        var outer = parts.Where(p => Reach(p) > 0.9).ToList();
+        return inner.Count == 4 && outer.Count == 8
+            && inner.All(p => Math.Min(p.X, p.Y) < 0.15)
+            && outer.All(p => Math.Min(p.X, p.Y) > 0.35);
     }
 
     // A box lies wholly in one of the areas (parts of a page of pageWidth by pageHeight points): it is a drawing found before. A drawing that only
@@ -280,9 +289,10 @@ public static class PdfShapeSnap
             return false;
         }
 
-        // A side of a place that is a line (no size) is filled by anything on it.
+        // A side of a place that is no more than its room (a line, or a thin drawing whose room the edge of the page cut on one side) is filled by
+        // anything on it.
         bool Over(double from, double to, double placeFrom, double placeTo) =>
-            placeTo - placeFrom < 1 || Math.Min(to, placeTo) - Math.Max(from, placeFrom) >= MinFill * (placeTo - placeFrom);
+            placeTo - placeFrom <= 2 * roomPoints + 1 || Math.Min(to, placeTo) - Math.Max(from, placeFrom) >= MinFill * (placeTo - placeFrom);
         return Over(foundLeft.Value, foundRight.Value, left, right) && Over(foundTop.Value, foundBottom.Value, top, bottom);
     }
 
@@ -356,7 +366,7 @@ public static class PdfShapeSnap
         }
 
         // A window of the drawing has about its size: at least half of it each way (a side of no size, a line, is any size).
-        var w = width * pageWidth;
+        var w = width * pageWidth - (left is null ? 0 : 2 * roomPoints); // a width with a place across has the room in it (DocxReader.CropPlace)
         bool OfTheSize(int i) => (h < 1 || down[i] >= h / 2) && (w < 1 || across[i] >= w / 2);
 
         var start = -1;
