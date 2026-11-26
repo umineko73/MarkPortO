@@ -339,36 +339,12 @@ public static class PptxReader
 
         bool Backdrop(int i) => (boxes[i].Right - boxes[i].Left) * (boxes[i].Bottom - boxes[i].Top) >= BackdropShare * context.Width * context.Height;
 
-        // Shapes that are near one another (the gap between their boxes is small) are one cluster.
-        var cluster = Enumerable.Range(0, boxes.Count).ToArray();
-        int Root(int i)
-        {
-            while (cluster[i] != i)
-            {
-                i = cluster[i] = cluster[cluster[i]];
-            }
-
-            return i;
-        }
-
-        for (var i = 0; i < boxes.Count; i++)
-        {
-            for (var j = i + 1; j < boxes.Count; j++)
-            {
-                // On the same row (their heights meet, within the gap) they are together however far apart they are across: shapes in a row
-                // that were cut out in a column would change the look of the page. Above and below one another, only when they are near.
-                if (pictures.GroupShapes && !Backdrop(i) && !Backdrop(j)
-                    && boxes[i].Top - gap <= boxes[j].Bottom && boxes[j].Top - gap <= boxes[i].Bottom)
-                {
-                    cluster[Root(j)] = Root(i);
-                }
-            }
-        }
+        // Shapes that are near one another are one cluster (ShapeGrouping: on the same row however far apart across); a background stays alone.
+        var clusters = ShapeGrouping.Groups([.. boxes.Select(b => (b.Top, b.Bottom))], gap, i => !pictures.GroupShapes || Backdrop(i));
 
         var consumed = new HashSet<int>(); // the pictures that are in the picture of a cluster
-        foreach (var members in Enumerable.Range(0, boxes.Count).GroupBy(Root))
+        foreach (var list in clusters)
         {
-            var list = members.ToList();
             if (list.Count == 1 && list[0] >= cutCount)
             {
                 continue; // a picture alone is kept as it is

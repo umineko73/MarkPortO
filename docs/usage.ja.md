@@ -335,7 +335,7 @@ markporto-cli check-connection --settings settings.json
 | `--pdf-text on\|off` | PDFの文字情報をページの本文に使う（VLMにも補助として渡す。既定はon）。 |
 | `--pictures on\|off` | Word・PowerPoint・Excel の画像を `pictures/` に保存する（既定は設定ファイルのまま、初期値はoff）。Step3の「補足」で図を読むには on にします。 |
 | `--shapes on\|off` | Word・PowerPoint・Excel の図形をページ画像から切り出して `pictures/` に保存する（既定はoff）。 |
-| `--group-shapes on\|off` | `--shapes on` のとき、PowerPoint で近くの図形・画像と、同じ行の図形・画像を、Word で1つの段落の図形・画像を、1枚にまとめて切り出す（既定はon）。 |
+| `--group-shapes on\|off` | `--shapes on` のとき、近くの図形・画像と、同じ行の図形・画像を1枚にまとめて切り出す。PowerPoint はスライド、Word はページ（1つの段落の図形・画像はいつも1枚）、Excel はシートの図形（既定はon）。 |
 | `--extractor-docx\|xlsx\|pptx\|pdf <名前>` | その種類のファイルのMarkdownを書く抽出方法（`builtin` は内蔵）。 |
 
 **Step2・Step3（VLM）**
@@ -393,7 +393,7 @@ markporto-cli check-connection --settings settings.json
 ```
 
 場所は、環境変数 `MARKPORTO_SETTINGS` で変えられます。
-`input.shapeGroupGapPoints` は、「近くの図形をまとめる」で PowerPoint の図形・画像を1枚にする縦の間隔（ポイント、既定24、0〜720）です。画面にはありません。
+`input.shapeGroupGapPoints` は、「近くの図形をまとめる」で PowerPoint のスライド、Word のページ（いくつかの段落に分けて描かれた図）、Excel のシートの図形・画像を1枚にする縦の間隔（ポイント、既定24、0〜720）です。同じ行にあるものは離れていても1枚にします。画面にはありません。
 アクセスキーは、値ではなく環境変数の*名前*（`apiKeyEnv`）を書きます。
 画面で入力したキーは、現在のWindowsユーザーだけが読める形（DPAPI）で保存し、ログや出力には出ません。
 

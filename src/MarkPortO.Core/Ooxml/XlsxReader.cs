@@ -1274,6 +1274,7 @@ public static partial class XlsxReader
         static double Along(double[] sizes, int index, long offset) =>
             sizes.Take(Math.Clamp(index, 0, sizes.Length)).Sum() + offset / EmuPerPoint;
 
+        var found = new List<(int Row, int Column, double X, double Y, double Width, double Height, double Degrees, string? Description)>();
         foreach (var anchor in drawing.ChildElements)
         {
             var (from, to, extent) = anchor switch
@@ -1330,13 +1331,33 @@ public static partial class XlsxReader
                 height = (extent?.Cy?.Value ?? 0) / EmuPerPoint;
             }
 
+            found.Add((row, column, x, y, width, height, (rotation ?? 0) / 60000.0, description));
+        }
+
+        // "Group nearby shapes": the shapes that are together (ShapeGrouping, as on a slide) are one picture, with a small arrow or line between them.
+        // Alone, a shape is cut out when it is half an inch or more on each side.
+        var groups = pictures.GroupShapes
+            ? ShapeGrouping.Groups([.. found.Select(f => (f.Y, f.Y + f.Height))], pictures.GroupGapPoints)
+            : [.. Enumerable.Range(0, found.Count).Select(i => new List<int> { i })];
+        foreach (var group in groups)
+        {
+            var members = group.Select(i => found[i]).ToList();
+            var left = members.Min(m => m.X);
+            var top = members.Min(m => m.Y);
+            var width = members.Max(m => m.X + m.Width) - left;
+            var height = members.Max(m => m.Y + m.Height) - top;
             if (width < PictureCollector.MinShapeSidePoints || height < PictureCollector.MinShapeSidePoints)
             {
                 continue; // a small arrow or line
             }
 
+            // Its cell is that of the top one (the page it is printed on), of the left one across.
+            var row = members.Min(m => m.Row);
+            var column = members.Min(m => m.Column);
+            var degrees = members.Count == 1 ? members[0].Degrees : 0;
+            var description = members.Select(m => m.Description).FirstOrDefault(d => !string.IsNullOrWhiteSpace(d));
             var mark = pictures.AddShape(null);
-            shapes.Add(new SheetShape(PictureCollector.NumberOf(mark), row, column, x, y, width, height, (rotation ?? 0) / 60000.0));
+            shapes.Add(new SheetShape(PictureCollector.NumberOf(mark), row, column, left, top, width, height, degrees));
             marks.Add(new SheetPicture(row, column, PictureCollector.Markdown(description, mark)));
         }
 

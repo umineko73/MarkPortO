@@ -59,6 +59,34 @@ public class ShapeCutTests
         Assert.Single(sheet.Rows); // the drawing dimensions do not extend the text's used range
     }
 
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void SheetShapesOnTheSameRow_AreCutOutTogetherHoweverFarApartAcross_WithTheLineBetweenThem(bool group, int count)
+    {
+        // Two boxes in a row, far apart across, with a line from one to the other (too small to be cut out alone), and a box far below.
+        using var dir = new TempDir();
+        var path = dir.Combine("row.xlsx");
+        string[][] cells = [.. Enumerable.Range(0, 46).Select(r => r == 45 ? Enumerable.Repeat("x", 11).ToArray() : ["a"])]; // the used range holds the shapes
+        XlsxFactory.Create(path, new SheetSpec("Data", cells, Shapes:
+        [
+            new CellShapeSpec("rect", 0, 10, 2, 13),
+            new CellShapeSpec("line", 2, 11, 8, 11),
+            new CellShapeSpec("rect", 8, 10, 10, 13),
+            new CellShapeSpec("rect", 0, 40, 2, 43),
+        ]));
+
+        var sheet = Assert.Single(XlsxReader.Read(path, false, pictures: new PictureCollector(cutShapes: true, groupShapes: group)));
+
+        var inRow = sheet.Shapes.Where(s => s.Row < 30).ToList();
+        Assert.Equal(count, inRow.Count);
+        Assert.Single(sheet.Shapes, s => s.Row >= 30); // the box far below is alone
+        if (group)
+        {
+            Assert.Equal(sheet.ShapeColumnWidthsPoints.Take(10).Sum(), inRow[0].Width, 6); // from the left box to the right one
+        }
+    }
+
     [Fact]
     public void SheetPicturesAndShapes_AreInsertedInCellOrder()
     {

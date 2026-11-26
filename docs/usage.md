@@ -305,7 +305,7 @@ markporto-cli check-connection --settings settings.json
 | `--pdf-text on\|off` | Use the text layer of a PDF as the text of its pages (it also helps the VLM; the default is on). |
 | `--pictures on\|off` | Save the pictures of a Word, PowerPoint or Excel file in `pictures/` (the default is the settings file; off at first). Turn it on for Step3 to read figures with **Add to the text**. |
 | `--shapes on\|off` | Cut the drawn shapes of a Word, PowerPoint or Excel file out of the page image into `pictures/` (the default is the settings file; off at first). |
-| `--group-shapes on\|off` | With `--shapes on`: cut the shapes and pictures of a PowerPoint file that are near one another, or on the same row, and those of one paragraph of a Word file, out as one picture (the default is on). |
+| `--group-shapes on\|off` | With `--shapes on`: cut the shapes and pictures of a PowerPoint file that are near one another, or on the same row, and those of a Word page and the shapes of an Excel sheet in the same way (in Word those of one paragraph always), out as one picture (the default is on). |
 | `--extractor-docx\|xlsx\|pptx\|pdf <name>` | The extractor that writes the Markdown of that kind of file (`builtin` is the built-in one). |
 
 **Step2 and Step3 (VLM)**
@@ -361,7 +361,7 @@ Exit codes: `0` success, `1` some files failed, `2` invalid arguments or setting
 }
 ```
 
-The location can be changed with the environment variable `MARKPORTO_SETTINGS`. `input.shapeGroupGapPoints` is how near (up and down, in points) the shapes and pictures of a slide are to be cut out as one picture with **Group nearby shapes** (the default is 24, from 0 to 720); it is not on the screen. Write the *name* of an environment variable (`apiKeyEnv`) rather than a key. A key typed in the app is stored so that only the current Windows user can decrypt it (DPAPI), and never appears in logs or output.
+The location can be changed with the environment variable `MARKPORTO_SETTINGS`. `input.shapeGroupGapPoints` is how near (in points) the shapes and pictures of a slide (up and down), of a Word page (a diagram drawn in several paragraphs) or of an Excel sheet, are to be cut out as one picture with **Group nearby shapes**; those on the same row are one picture however far apart (the default is 24, from 0 to 720); it is not on the screen. Write the *name* of an environment variable (`apiKeyEnv`) rather than a key. A key typed in the app is stored so that only the current Windows user can decrypt it (DPAPI), and never appears in logs or output.
 
 ### An external command writes the Markdown
 

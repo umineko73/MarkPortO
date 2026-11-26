@@ -94,7 +94,7 @@
   <sys:String x:Key="Main_Cond_PicturesTip">Word・PowerPoint・Excel に貼られた画像を pictures/ に保存し(pictures/page-003-1.png は3ページ目の1つ目の画像)、Markdown の画像の位置から参照します。PNG・JPEG・GIF はそのまま、EMF・WMF・BMP・TIFF は PNG にして保存します。Excel では、画像を固定したセルより上の表や文の後ろに置きます。</sys:String>
   <sys:String x:Key="Main_Cond_Shapes">図形を画像にする</sys:String>
   <sys:String x:Key="Main_Cond_GroupShapes">近くの図形をまとめる</sys:String>
-  <sys:String x:Key="Main_Cond_GroupShapesTip">オン: Word では同じ段落に配置された図形と画像を1枚に切り出します。PowerPoint では縦の間隔が24ポイント以内（settings.json の shapeGroupGapPoints で変更できます）の図形と画像、および同じ行の図形と画像を1枚に切り出します。オフ: 図形を1つずつ切り出し、画像はそのまま保存します。図形を画像にするときに使われます。</sys:String>
+  <sys:String x:Key="Main_Cond_GroupShapesTip">オン: 縦の間隔が24ポイント以内（settings.json の shapeGroupGapPoints で変更できます）の図形と画像、および離れていても同じ行にある図形と画像を1枚に切り出します。PowerPoint はスライドごと、Word はページごと（別々の段落の図形もまとめ、同じ段落の図形はいつも1枚）、Excel はシートごと（図形と、その間の線）です。オフ: 図形を1つずつ切り出し、画像はそのまま保存します。図形を画像にするときに使われます。</sys:String>
   <sys:String x:Key="Main_Cond_ShapesTip">Word・PowerPoint・Excel の図形(グループは全体で1枚、縦横とも0.5インチ以上の図形)を、ページ画像から切り出して pictures/ に保存します。名前は画像と同じ形です。テキストボックスや、小さな矢印・線は対象外です。Word で段落を基準に配置された図形は、PDF の描画から位置を探し、見つからないときは切り出しません。Excel では、列の幅と行の高さから位置を計算するので、少しずれることがあります。</sys:String>
   <sys:String x:Key="Main_Cond_EmphasisTip">文中の太字を ** で、斜体を * で囲んで書きます(Word・PowerPoint・Excel)。段落(セル)の全体が太字(斜体)のもの、見出し、スライドのタイトルには付けません。知識グラフを作るツールなど、他のツールに Markdown を渡すときは、** や * がノイズになることがあります。 他のツールで読むとき、ノイズになる場合があります。</sys:String>
   <sys:String x:Key="Main_Cond_OffSlide">スライド外の文字を含める</sys:String>
