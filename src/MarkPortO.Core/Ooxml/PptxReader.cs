@@ -303,7 +303,7 @@ public static class PptxReader
     }
 
     /// <summary>
-    /// Writes the marks of the drawn shapes of a slide. Shapes that are within <see cref="ClusterGapPoints"/> of one another (a loose group: boxes and the arrows
+    /// Writes the marks of the drawn shapes of a slide. Shapes that are within <see cref="PictureCollector.GroupGapPoints"/> of one another (a loose group: boxes and the arrows
     /// between them) are cut out as one picture, in the place of the first of them. A shape that is alone is cut out when it is half an inch or more on each side;
     /// a shape that covers most of the slide (a background) is always alone.
     /// </summary>
@@ -318,7 +318,7 @@ public static class PptxReader
         var placed = new List<(double Left, double Top, double Right, double Bottom)>();
 
         var minimum = PictureCollector.MinShapeSidePoints * EmuPerPoint;
-        var gap = ClusterGapPoints * EmuPerPoint;
+        var gap = pictures.GroupGapPoints * EmuPerPoint;
         var boxes = cuts.Select(c =>
         {
             // The box that holds the turned shape.
@@ -434,9 +434,6 @@ public static class PptxReader
 
         body.RemoveAll(b => b == MergedCut);
     }
-
-    /// <summary>Drawn shapes and pictures whose heights are this near one another, in points, are cut out as one picture (a quarter of an inch), however far apart they are across.</summary>
-    private const double ClusterGapPoints = 24;
 
     /// <summary>A shape that covers this share of the slide is a background: it does not join the shapes on it.</summary>
     private const double BackdropShare = 0.4;

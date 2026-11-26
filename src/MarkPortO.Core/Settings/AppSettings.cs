@@ -355,8 +355,24 @@ public sealed class InputSettings
     /// <summary>Cut diagrams from Word, PowerPoint, and Excel page images into <c>pictures/</c> (FR-136).</summary>
     public bool ExtractShapes { get; set; }
 
-    /// <summary>Cut the shapes and pictures of a pptx that are near one another, or on the same row, out as one picture; off, each shape is cut out alone.</summary>
+    /// <summary>
+    /// Cut the shapes and pictures that belong together out as one picture: in a pptx those near one another (<see cref="ShapeGroupGapPoints"/>) or on
+    /// the same row, in a docx those of one paragraph. Off: each shape is cut out alone, and the pictures stay pictures.
+    /// </summary>
     public bool GroupNearShapes { get; set; } = true;
+
+    /// <summary>
+    /// How near (in points, up and down) the shapes and pictures of a slide are to be cut out as one picture with <see cref="GroupNearShapes"/>. Only in
+    /// settings.json; 0 to 720, another value (one that is not a number, too large to be one, or out of the range) is the default (24), so that it
+    /// can always be saved again and used.
+    /// </summary>
+    public double ShapeGroupGapPoints
+    {
+        get => _shapeGroupGapPoints;
+        set => _shapeGroupGapPoints = value is >= 0 and <= 720 ? value : 24;
+    }
+
+    private double _shapeGroupGapPoints = 24;
 }
 
 public sealed class OutputSettings

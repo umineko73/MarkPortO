@@ -127,7 +127,7 @@ With **Write the results to a separate file**, `name_vlm.md` has the text of Ste
 
 - **Turn on "Save the pictures of the document" in Step1.** When it is off, the pictures of the document are not saved as files, so they cannot be read as figures. A picture with an alternative text leaves only `![alternative text]`, and its page is written out whole; a picture without one leaves nothing, and is not read.
 - The shapes of PowerPoint and Excel (groups, and shapes of half an inch or more) are cut out of the page image as pictures with **Cut out the shapes** in Step1, and are then read as figures.
-- The shapes of Word are read from the page image, whatever these settings. Shapes of the old kind (VML) are not read.
+- The shapes of Word (shapes, groups, an inline drawing canvas, and shapes in table cells) are cut out too with **Cut out the shapes**. With **Group nearby shapes** on, the shapes and pictures placed in one paragraph are one picture; off, each shape is cut out alone. For a shape placed from its paragraph or line, how far down the page it is is found in the drawing of the PDF; when it is not found, it is not cut out, and its pictures are written as they are. With the setting off, the shapes of Word are still read from the page image. Shapes of the old kind (VML) are not read.
 - The instruction for the figures is in the **Figures** tab of the prompt settings (one for every kind of file). `{pagetext}` in it is replaced by the text before and after the figure. The prompt of each kind of file is used when a page is written out whole.
 
 #### Tables and repeated tables
@@ -304,8 +304,8 @@ markporto-cli check-connection --settings settings.json
 | `--emphasis` / `--no-emphasis` | Write bold text between `**` and italic text between `*` (the default), or not. |
 | `--pdf-text on\|off` | Use the text layer of a PDF as the text of its pages (it also helps the VLM; the default is on). |
 | `--pictures on\|off` | Save the pictures of a Word, PowerPoint or Excel file in `pictures/` (the default is the settings file; off at first). Turn it on for Step3 to read figures with **Add to the text**. |
-| `--shapes on\|off` | Cut the drawn shapes of a PowerPoint or Excel file out of the page image into `pictures/` (the default is the settings file; off at first). |
-| `--group-shapes on\|off` | With `--shapes on`: cut the shapes and pictures of a PowerPoint file that are near one another, or on the same row, out as one picture (the default is on). |
+| `--shapes on\|off` | Cut the drawn shapes of a Word, PowerPoint or Excel file out of the page image into `pictures/` (the default is the settings file; off at first). |
+| `--group-shapes on\|off` | With `--shapes on`: cut the shapes and pictures of a PowerPoint file that are near one another, or on the same row, and those of one paragraph of a Word file, out as one picture (the default is on). |
 | `--extractor-docx\|xlsx\|pptx\|pdf <name>` | The extractor that writes the Markdown of that kind of file (`builtin` is the built-in one). |
 
 **Step2 and Step3 (VLM)**
@@ -361,7 +361,7 @@ Exit codes: `0` success, `1` some files failed, `2` invalid arguments or setting
 }
 ```
 
-The location can be changed with the environment variable `MARKPORTO_SETTINGS`. Write the *name* of an environment variable (`apiKeyEnv`) rather than a key. A key typed in the app is stored so that only the current Windows user can decrypt it (DPAPI), and never appears in logs or output.
+The location can be changed with the environment variable `MARKPORTO_SETTINGS`. `input.shapeGroupGapPoints` is how near (up and down, in points) the shapes and pictures of a slide are to be cut out as one picture with **Group nearby shapes** (the default is 24, from 0 to 720); it is not on the screen. Write the *name* of an environment variable (`apiKeyEnv`) rather than a key. A key typed in the app is stored so that only the current Windows user can decrypt it (DPAPI), and never appears in logs or output.
 
 ### An external command writes the Markdown
 

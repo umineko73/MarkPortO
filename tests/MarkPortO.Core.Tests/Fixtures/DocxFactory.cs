@@ -22,9 +22,26 @@ namespace MarkPortO.Core.Tests.Fixtures;
 /// <summary>A page of a test document: its paragraphs, and shapes anchored in the first paragraph.</summary>
 public sealed record DocPage(string[] Paragraphs, DocShape[]? Shapes = null);
 
-/// <summary>A drawn shape. Its size is a fraction of the page (the position does not matter for the tests).</summary>
-public sealed record DocShape(string Geometry, double WidthFraction, double HeightFraction, bool FlipH = false, bool FlipV = false)
+/// <summary>
+/// A drawn shape. Its size is a fraction of the page; it is placed at <paramref name="XPoints"/>, <paramref name="YPoints"/> from what
+/// <paramref name="HorizontalFrom"/> and <paramref name="VerticalFrom"/> name (Word places a new shape from the column and the paragraph).
+/// <paramref name="Geometry"/> "picture" is a picture (a small PNG) instead of a shape.
+/// </summary>
+public sealed record DocShape(
+    string Geometry,
+    double WidthFraction,
+    double HeightFraction,
+    bool FlipH = false,
+    bool FlipV = false,
+    string HorizontalFrom = "page",
+    string VerticalFrom = "page",
+    double XPoints = 0,
+    double YPoints = 0)
 {
+    /// <summary>A shape as Word places it when it is drawn: from the column across and from the paragraph down.</summary>
+    public static DocShape InParagraph(string geometry, double widthFraction, double heightFraction, double xPoints, double yPoints) =>
+        new(geometry, widthFraction, heightFraction, HorizontalFrom: "column", VerticalFrom: "paragraph", XPoints: xPoints, YPoints: yPoints);
+
     /// <summary>A "x" made of one multiply shape over (nearly) the whole page.</summary>
     public static DocShape[] CrossShape(double size = 0.9) => [new("mathMultiply", size, size)];
 
@@ -165,7 +182,7 @@ public static class DocxFactory
                 {
                     foreach (var shape in shapes)
                     {
-                        paragraph.AppendChild(ShapeRun(shape));
+                        paragraph.AppendChild(ShapeRun(shape, document.MainDocumentPart!));
                     }
                 }
 
@@ -180,7 +197,7 @@ public static class DocxFactory
             var header = new Header(new Paragraph());
             foreach (var shape in headerShapes)
             {
-                header.GetFirstChild<Paragraph>()!.AppendChild(ShapeRun(shape));
+                header.GetFirstChild<Paragraph>()!.AppendChild(ShapeRun(shape, headerPart));
             }
 
             headerPart.Header = header;
@@ -201,17 +218,43 @@ public static class DocxFactory
         body.Ancestors<Document>().First().Save();
     }
 
-    /// <summary>An anchored drawing (a "wps" shape) of the given size, relative to the A4 page.</summary>
-    private static Run ShapeRun(DocShape shape)
+    /// <summary>An anchored drawing (a "wps" shape, or a picture) of the given size and place.</summary>
+    private static Run ShapeRun(DocShape shape, OpenXmlPart owner)
     {
         const double pageWidthEmu = PageWidthTwips * 635.0;
         const double pageHeightEmu = PageHeightTwips * 635.0;
         var cx = (long)(shape.WidthFraction * pageWidthEmu);
         var cy = (long)(shape.HeightFraction * pageHeightEmu);
+        var x = (long)(shape.XPoints * 12700);
+        var y = (long)(shape.YPoints * 12700);
+        var id = Interlocked.Increment(ref _shapeId);
         var flips = (shape.FlipH ? " flipH=\"1\"" : string.Empty) + (shape.FlipV ? " flipV=\"1\"" : string.Empty);
         var geometry = shape.Geometry == "custGeom"
             ? "<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l=\"0\" t=\"0\" r=\"r\" b=\"b\"/><a:pathLst><a:path w=\"100\" h=\"100\"><a:moveTo><a:pt x=\"0\" y=\"0\"/></a:moveTo><a:lnTo><a:pt x=\"100\" y=\"100\"/></a:lnTo></a:path></a:pathLst></a:custGeom>"
             : $"<a:prstGeom prst=\"{shape.Geometry}\"><a:avLst/></a:prstGeom>";
+        var graphicData = shape.Geometry == "picture"
+            ? $"""
+              <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                  <pic:nvPicPr><pic:cNvPr id="{id}" name="Picture {id}"/><pic:cNvPicPr/></pic:nvPicPr>
+                  <pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="{AddPng(owner)}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+                  <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+                </pic:pic>
+              </a:graphicData>
+              """
+            : $"""
+              <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+                <wps:wsp>
+                  <wps:cNvSpPr/>
+                  <wps:spPr>
+                    <a:xfrm{flips}><a:off x="0" y="0"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm>
+                    {geometry}
+                    <a:ln w="38100"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln>
+                  </wps:spPr>
+                  <wps:bodyPr/>
+                </wps:wsp>
+              </a:graphicData>
+              """;
 
         return new Run($"""
             <w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -221,25 +264,15 @@ public static class DocxFactory
               <w:drawing>
                 <wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
                   <wp:simplePos x="0" y="0"/>
-                  <wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH>
-                  <wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV>
+                  <wp:positionH relativeFrom="{shape.HorizontalFrom}"><wp:posOffset>{x}</wp:posOffset></wp:positionH>
+                  <wp:positionV relativeFrom="{shape.VerticalFrom}"><wp:posOffset>{y}</wp:posOffset></wp:positionV>
                   <wp:extent cx="{cx}" cy="{cy}"/>
                   <wp:effectExtent l="0" t="0" r="0" b="0"/>
                   <wp:wrapNone/>
-                  <wp:docPr id="{Interlocked.Increment(ref _shapeId)}" name="Shape"/>
+                  <wp:docPr id="{id}" name="Shape"/>
                   <wp:cNvGraphicFramePr/>
                   <a:graphic>
-                    <a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
-                      <wps:wsp>
-                        <wps:cNvSpPr/>
-                        <wps:spPr>
-                          <a:xfrm{flips}><a:off x="0" y="0"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm>
-                          {geometry}
-                          <a:ln w="38100"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln>
-                        </wps:spPr>
-                        <wps:bodyPr/>
-                      </wps:wsp>
-                    </a:graphicData>
+                    {graphicData}
                   </a:graphic>
                 </wp:anchor>
               </w:drawing>
@@ -248,6 +281,28 @@ public static class DocxFactory
     }
 
     private static int _shapeId;
+
+    // A small blue PNG in the part (the document or a header), and the id of its relationship.
+    private static string AddPng(OpenXmlPart owner)
+    {
+        using var bitmap = new System.Drawing.Bitmap(40, 30);
+        using (var graphics = System.Drawing.Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(System.Drawing.Color.RoyalBlue);
+        }
+
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+        stream.Position = 0;
+        var image = owner switch
+        {
+            MainDocumentPart main => main.AddImagePart(ImagePartType.Png),
+            HeaderPart header => header.AddImagePart(ImagePartType.Png),
+            _ => throw new ArgumentException("a picture can be in the document or in a header", nameof(owner)),
+        };
+        image.FeedData(stream);
+        return owner.GetIdOfPart(image);
+    }
 
     /// <summary>A file that has the .docx extension but is not a document.</summary>
     public static void CreateCorrupt(string path)

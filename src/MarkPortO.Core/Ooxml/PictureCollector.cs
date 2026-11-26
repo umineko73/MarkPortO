@@ -32,6 +32,12 @@ public sealed record CollectedPicture(byte[] Data, string Extension, string Hash
 
     /// <summary>The picture is a drawn shape, cut out of the image of its page (FR-136).</summary>
     public bool IsShape { get; init; }
+
+    /// <summary>
+    /// For a drawn shape: the Markdown written in the place of its mark when it is not cut out (its place is not known, the page has no image): the
+    /// pictures that are in it, with their own marks. Null: nothing is written.
+    /// </summary>
+    public string? Fallback { get; set; }
 }
 
 /// <summary>Where a drawn shape is on the image of a page, in fractions of the page (0 to 1, from the top left) (FR-136).</summary>
@@ -47,8 +53,21 @@ public sealed record ShapeArea(double Left, double Top, double Width, double Hei
 /// <param name="savePictures">The pictures are saved (FR-133).</param>
 /// <param name="cutShapes">The drawn shapes are cut out of the page images (FR-136).</param>
 /// <param name="groupShapes">Shapes and pictures that belong together are cut out as one picture; off, each shape is cut out alone.</param>
-public sealed class PictureCollector(int dpi = 150, bool savePictures = true, bool cutShapes = false, bool groupShapes = true)
+/// <param name="groupGapPoints">How near shapes and pictures of a slide are, in points, to be cut out together (<see cref="GroupGapPoints"/>).</param>
+public sealed class PictureCollector(int dpi = 150, bool savePictures = true, bool cutShapes = false, bool groupShapes = true, double groupGapPoints = PictureCollector.DefaultGroupGapPoints)
 {
+    /// <summary>The default of <see cref="GroupGapPoints"/>: a third of an inch.</summary>
+    public const double DefaultGroupGapPoints = 24;
+
+    /// <summary>The largest <see cref="GroupGapPoints"/> that is taken; a larger value (or one that is not a number, or below 0) is the default.</summary>
+    public const double MaxGroupGapPoints = 720;
+
+    /// <summary>
+    /// Drawn shapes and pictures of a slide whose heights are this near one another, in points, are cut out as one picture, however far apart they are across
+    /// (pptx, with <see cref="GroupShapes"/>).
+    /// </summary>
+    public double GroupGapPoints { get; } = groupGapPoints is >= 0 and <= MaxGroupGapPoints ? groupGapPoints : DefaultGroupGapPoints;
+
     /// <summary>The smallest width and height of a drawn shape that is cut out, in points (half an inch): a small arrow or line is not (FR-136).</summary>
     public const double MinShapeSidePoints = 36;
 
@@ -68,7 +87,11 @@ public sealed class PictureCollector(int dpi = 150, bool savePictures = true, bo
         return Mark(_pictures.Count - 1);
     }
 
+    /// <summary>Sets the place of a drawn shape (<see cref="AddShape"/>) once its page is known; null: it is not cut out.</summary>
     public void SetArea(string mark, ShapeArea? area) => _pictures[NumberOf(mark)].Area = area;
+
+    /// <summary>What is written in the place of a drawn shape (<see cref="AddShape"/>) when it is not cut out (<see cref="CollectedPicture.Fallback"/>).</summary>
+    public void SetFallback(string mark, string? fallback) => _pictures[NumberOf(mark)].Fallback = string.IsNullOrEmpty(fallback) ? null : fallback;
 
     /// <summary>The number in a mark (<see cref="AddShape"/>), to set the place of the shape later.</summary>
     public static int NumberOf(string mark) => int.Parse(mark.AsSpan(1, mark.Length - 2), CultureInfo.InvariantCulture);

@@ -47,7 +47,7 @@ public static partial class PictureFiles
     /// <summary>
     /// Puts the names of the files in place of the marks of the pictures in <paramref name="blocks"/>, and saves the files. A picture whose block
     /// is not kept (a deleted page) is not saved. A drawn shape (FR-136) is cut out of the image of its page, found by <paramref name="pageImage"/>;
-    /// one that cannot be is written by its text only. Returns the lines for the log of the document.
+    /// in the place of one that cannot be, the pictures that are in it are written (<see cref="CollectedPicture.Fallback"/>), or else its text only. Returns the lines for the log of the document.
     /// </summary>
     public static IReadOnlyList<string> Write(string outputFolder, IReadOnlyList<Block> blocks, int pageCount, PictureCollector collector, Func<int, string?>? pageImage = null)
     {
@@ -69,13 +69,21 @@ public static partial class PictureFiles
                 }
 
                 var page = effective[i];
-                block.Markdown = MarkedReference.Replace(block.Markdown, match =>
+                block.Markdown = MarkedReference.Replace(block.Markdown, Replace);
+
+                string Replace(Match match)
                 {
                     var text = match.Groups[1].Value;
                     var number = int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
                     var name = NameOf(number, page);
                     if (name is null)
                     {
+                        // A drawn shape that is not cut out: the pictures that are in it are written as they are (their marks have no fallback of their own).
+                        if (number < collector.Pictures.Count && collector.Pictures[number] is { IsShape: true, Fallback: { } fallback })
+                        {
+                            return MarkedReference.Replace(fallback, Replace);
+                        }
+
                         return text.Length == 0 ? string.Empty : "![" + text + "]";
                     }
 
@@ -84,7 +92,7 @@ public static partial class PictureFiles
                     return width is > 0
                         ? "<img src=\"" + name + "\" alt=\"" + WebUtility.HtmlEncode(text.Replace("\\]", "]", StringComparison.Ordinal)) + "\" width=\"" + width.Value.ToString(CultureInfo.InvariantCulture) + "\">"
                         : "![" + text + "](" + name + ")";
-                });
+                }
             }
         }
         finally

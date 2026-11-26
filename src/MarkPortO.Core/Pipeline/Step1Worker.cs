@@ -247,20 +247,19 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         // A shape belongs to the page of the paragraph it is anchored in (its index is a place in the blocks as they were read).
         var effective = DocxPageAssigner.EffectivePages([.. blocks.Select(b => b.Block)], pageTexts.Count);
 
+        // The drawings that are cut out are put on their pages before the tables are cut (a drawing found is no longer read from the page image).
+        var shapePages = PlaceDocxCrops(document, layout, content, effective, pdf, pageTexts.Count);
+
         // A table that runs over several pages is cut at the page breaks: each page has the rows that are on it.
         var placed = DocxPageAssigner.ExpandTables(blocks);
         layout.DocxBlocks = placed;
         layout.Blocks.AddRange(placed.Select(b => b.Block));
 
         var shapesByPage = new Dictionary<int, List<ShapeBox>>();
-        foreach (var shapes in content.Shapes)
+        for (var s = 0; s < content.Shapes.Count; s++)
         {
-            var page = shapes.HostBlockIndex >= 0 ? effective[shapes.HostBlockIndex] : 1;
-            if (shapes.PictureMark is { } mark && layout.Pictures is { } pictures)
-            {
-                pictures.SetArea(mark, shapes.Area is { } area ? area with { Page = page } : null);
-            }
-
+            var shapes = content.Shapes[s];
+            var page = shapePages[s];
             if (!shapesByPage.TryGetValue(page, out var list))
             {
                 shapesByPage[page] = list = [];
@@ -477,7 +476,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var options = work.Context.Options;
         var cutShapes = shapes && options.ExtractShapes;
         return (options.ExtractPictures || cutShapes) && work.Context.ExtractorFor(work.Document.Kind) is null
-            ? new PictureCollector(options.Dpi, options.ExtractPictures, cutShapes, options.GroupNearShapes)
+            ? new PictureCollector(options.Dpi, options.ExtractPictures, cutShapes, options.GroupNearShapes, options.ShapeGroupGapPoints)
             : null;
     }
 
@@ -533,6 +532,193 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             foreach (var pdf in opened.Values)
             {
                 pdf?.Dispose();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Puts the drawings of a docx that are cut out (FR-136) on their pages, and returns the page of the drawn shapes of each paragraph (for the "×"
+    /// check, FR-012): the page where its drawings were found, or else the page of its block. A drawing is on the page of the paragraph it is anchored in
+    /// (of the row, in a table); a paragraph without text may be the first one of the next page, so that page is tried too. A drawing that the document
+    /// places on the page is on the first of those pages that has something drawn there, other than the drawings found before. One that follows its
+    /// paragraph is looked for in the PDF near the paragraph (<see cref="PdfShapeSnap.FindDown"/>, <see cref="PdfTextPlace"/>). A drawing that is not
+    /// found is not cut out: the pictures that are in it are written in its place (<see cref="CollectedPicture.Fallback"/>). When all the drawings of a
+    /// paragraph are found, Step3 does not read them again from the page image (FR-150).
+    /// </summary>
+    private static int[] PlaceDocxCrops(DocumentRecord document, Layout layout, DocxContent content, IReadOnlyList<int> effective, string pdfPath, int pageCount)
+    {
+        var shapePages = content.Shapes.Select(s => HostPage(s)).ToArray();
+        if (layout.Pictures is not { CutShapes: true } pictures || !content.Shapes.Any(s => s.Crops is { Count: > 0 }))
+        {
+            return shapePages;
+        }
+
+        UglyToad.PdfPig.PdfDocument? pdf = null;
+        try
+        {
+            pdf = UglyToad.PdfPig.PdfDocument.Open(pdfPath);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+        {
+            DocumentLog.Write(document, $"the drawings could not be read from the PDF ({ex.GetType().Name}); the drawings placed on the page are cut out where the document places them, the others are not");
+        }
+
+        try
+        {
+            var pages = new Dictionary<int, (double Width, double Height, IReadOnlyList<DrawnBox> Drawn, PdfTextPlace Text)?>();
+            (double Width, double Height, IReadOnlyList<DrawnBox> Drawn, PdfTextPlace Text)? PageOf(int number)
+            {
+                if (pdf is null || number < 1 || number > pageCount)
+                {
+                    return null;
+                }
+
+                if (!pages.TryGetValue(number, out var read))
+                {
+                    try
+                    {
+                        var page = pdf.GetPage(number);
+                        read = (page.Width, page.Height, PdfShapeSnap.Drawn(page), new PdfTextPlace(page));
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+                    {
+                        read = null;
+                        DocumentLog.Write(document, $"page {number}: the drawings could not be read from the PDF ({ex.GetType().Name})");
+                    }
+
+                    pages[number] = read;
+                }
+
+                return read;
+            }
+
+            var taken = new Dictionary<int, List<ShapeArea>>(); // the places of the drawings found on a page: another drawing is not looked for there
+            List<ShapeArea> Taken(int number) => taken.TryGetValue(number, out var list) ? list : taken[number] = [];
+
+            for (var s = 0; s < content.Shapes.Count; s++)
+            {
+                var shapes = content.Shapes[s];
+                var host = shapePages[s];
+                int[] candidates = shapes.HostHasText || host >= pageCount ? [host] : [host, host + 1];
+                var found = 0;
+                foreach (var crop in shapes.Crops ?? [])
+                {
+                    var area = Place(shapes, crop, host, candidates);
+                    pictures.SetArea(crop.Mark, area);
+                    if (area is null)
+                    {
+                        DocumentLog.Write(document, $"page {host}: a drawing is not found on its page in the PDF; it is not cut out, and the pictures in it are written as they are");
+                        continue;
+                    }
+
+                    found++;
+                    Taken(area.Page!.Value).Add(area);
+                    shapePages[s] = area.Page.Value;
+                    if (crop.Block is not null)
+                    {
+                        crop.Block.PageIndex = area.Page; // the picture is in the Markdown of the page it is on
+                    }
+
+                    DocumentLog.Write(document, $"page {area.Page}: a drawing is cut out at {Describe(area)}");
+                }
+
+                if (shapes.CropsCoverAll && found > 0 && found == shapes.Crops!.Count && shapes.HostBlockIndex >= 0 && shapes.Row is null)
+                {
+                    content.Blocks[shapes.HostBlockIndex].Block.HasDrawing = false; // the drawing is a picture of its own now
+                }
+            }
+
+            ShapeArea? Place(DocxShapes shapes, DocxCrop crop, int host, int[] candidates)
+            {
+                if (crop.Area is { } placed)
+                {
+                    if (pdf is null)
+                    {
+                        return placed with { Page = host }; // the PDF cannot be read: where the document places it
+                    }
+
+                    foreach (var number in candidates)
+                    {
+                        if (PageOf(number) is { } page && Safe(() => PdfShapeSnap.HasDrawing(page.Drawn, page.Width, page.Height, placed, Taken(number))))
+                        {
+                            return placed with { Page = number };
+                        }
+                    }
+
+                    return null; // nothing is drawn there: a white picture would be of no use
+                }
+
+                if (crop.Width <= 0)
+                {
+                    return null; // not on the page at all
+                }
+
+                foreach (var number in candidates)
+                {
+                    if (PageOf(number) is not { } page)
+                    {
+                        continue;
+                    }
+
+                    // How far down the drawing is meant to be: from the top of its paragraph (or the end of the block before it), or on the page.
+                    double? expected = crop.FollowsParagraph
+                        ? (number == host ? AnchorTop(shapes, page.Text) : 0) is { } anchor ? anchor + crop.Top : null
+                        : crop.Top;
+                    var area = SafeArea(() => PdfShapeSnap.FindDown(page.Drawn, page.Width, page.Height, crop.Left, crop.Width, crop.Height, crop.BandLeft, crop.BandRight, expected, ShapeAreas.SheetRoomPoints, Taken(number)));
+                    if (area is not null)
+                    {
+                        return area with { Page = number };
+                    }
+                }
+
+                return null;
+            }
+
+            double? AnchorTop(DocxShapes shapes, PdfTextPlace text) =>
+                shapes.AnchorText is { } own ? text.TopOf(own)
+                : shapes.HostBlockIndex >= 0 && content.Blocks[shapes.HostBlockIndex].SearchText is { Length: > 0 } before ? text.BottomOfEnd(before)
+                : null;
+        }
+        finally
+        {
+            pdf?.Dispose();
+        }
+
+        return shapePages;
+
+        // The page of the paragraph of the shapes: of its block, or of its row in a table.
+        int HostPage(DocxShapes shapes)
+        {
+            if (shapes.HostBlockIndex < 0)
+            {
+                return 1;
+            }
+
+            var block = content.Blocks[shapes.HostBlockIndex];
+            return shapes.Row is { } row && block.RowPages is { } rows && row < rows.Count ? rows[row] : effective[shapes.HostBlockIndex];
+        }
+
+        static bool Safe(Func<bool> check)
+        {
+            try
+            {
+                return check();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+            {
+                return false;
+            }
+        }
+
+        static ShapeArea? SafeArea(Func<ShapeArea?> find)
+        {
+            try
+            {
+                return find();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+            {
+                return null;
             }
         }
     }

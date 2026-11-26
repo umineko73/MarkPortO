@@ -83,6 +83,7 @@ public sealed class ConvertRequest
         ExtractPictures = settings.Input.ExtractPictures,
         ExtractShapes = settings.Input.ExtractShapes,
         GroupNearShapes = settings.Input.GroupNearShapes,
+        ShapeGroupGapPoints = settings.Input.ShapeGroupGapPoints,
         Engine = settings.Engine.Kind,
         Step2 = settings.Steps.Step2,
         Step3 = settings.Steps.Step3,

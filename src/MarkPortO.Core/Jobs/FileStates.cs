@@ -120,10 +120,11 @@ public static class FileStates
                     continue; // a newer job has it
                 }
 
-                var canResumeWithoutOutput = !document.IsDone() && job.Status != JobStatus.Completed;
+                // A document whose Step1 did not end yet has no output to lose: a resume converts it into its folder. One with Step1 done needs its folder.
+                var canResumeWithoutOutput = document.Step1 != StepStatus.Done && !document.IsDone() && job.Status != JobStatus.Completed;
                 if (PastOutputs.ResolveFolderInRoot(store.OutRoot, document, canResumeWithoutOutput) is not { } folder)
                 {
-                    continue; // its folder is gone: an older record may still have one
+                    continue; // its folder is gone (a document not finished keeps its record: a resume writes it again): an older record may still have one
                 }
 
                 document.OutputFolder = folder;

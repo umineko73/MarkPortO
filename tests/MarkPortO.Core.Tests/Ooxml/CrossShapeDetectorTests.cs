@@ -254,9 +254,9 @@ public class CrossShapeDetectorTests
         var content = DocxReader.ReadContent(path, pictures: pictures);
 
         var group = Assert.Single(content.Shapes);
-        Assert.NotNull(group.PictureMark);
-        Assert.NotNull(group.Area);
+        var crop = Assert.Single(group.Crops!);
+        Assert.NotNull(crop.Area);
         Assert.Single(pictures.Pictures);
-        Assert.Contains(group.PictureMark!, string.Join("\n", content.Blocks.Select(block => block.Block.Markdown)));
+        Assert.Contains(crop.Mark, string.Join("\n", content.Blocks.Select(block => block.Block.Markdown)));
     }
 }

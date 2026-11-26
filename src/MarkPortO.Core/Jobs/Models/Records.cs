@@ -332,6 +332,15 @@ public sealed class OptionsSnapshot
     /// <summary>Cut nearby shapes and pictures together (Word and PowerPoint). A job from before this setting did.</summary>
     public bool GroupNearShapes { get; set; } = true;
 
+    /// <summary>How near the shapes of a slide are, in points, to be cut out together (<see cref="Settings.InputSettings.ShapeGroupGapPoints"/>).</summary>
+    public double ShapeGroupGapPoints
+    {
+        get => _shapeGroupGapPoints;
+        set => _shapeGroupGapPoints = value is >= 0 and <= 720 ? value : 24; // a job record is always saved (a value out of the range is the default)
+    }
+
+    private double _shapeGroupGapPoints = 24;
+
     public EngineKind Engine { get; set; }
 
     public bool Step2 { get; set; }

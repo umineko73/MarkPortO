@@ -50,6 +50,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private Func<string> _statusSource = () => string.Empty; // makes the text again when the language changes
     private bool _running;
     private bool _refreshingFiles;
+    private int _refreshes; // the refreshes of the list that are running (on the UI thread)
     private string _dpiText;
     private string _pageRangeText = string.Empty;
     private FileItemViewModel? _selected;
@@ -2314,6 +2315,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private async Task RefreshPreviousAsync(bool showFiles, bool appendToStatus = false, Guid? jobId = null, bool inputsChanged = false)
     {
         var version = ++_scanVersion;
+
+        // Each refresh counts itself while it runs: a newer search (also of OpenPastAsync) makes this one out of date, but it still ends.
+        _refreshes++;
         IsRefreshingFiles = true;
         try
         {
@@ -2321,10 +2325,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
         finally
         {
-            if (version == _scanVersion)
-            {
-                IsRefreshingFiles = false;
-            }
+            _refreshes--;
+            IsRefreshingFiles = _refreshes > 0;
         }
     }
 

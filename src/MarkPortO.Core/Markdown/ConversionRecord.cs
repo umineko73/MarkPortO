@@ -246,9 +246,10 @@ public static class ConversionRecord
         w.WriteBoolean("includeHiddenSheets", o.IncludeHiddenSheets);
         w.WriteBoolean("includeHiddenSlides", o.IncludeHiddenSlides);
         w.WriteBoolean("includeOffSlideText", o.IncludeOffSlideText);
-        w.WriteBoolean("extractPictures", document.ExtractPictures);
+        w.WriteBoolean("extractPictures", o.ExtractPictures && document.ExtractPictures); // the condition, not the folder of cut-out shapes
         w.WriteBoolean("extractShapes", o.ExtractShapes);
         w.WriteBoolean("groupNearShapes", o.GroupNearShapes);
+        w.WriteNumber("shapeGroupGapPoints", o.ShapeGroupGapPoints);
         w.WriteBoolean("emphasis", o.Emphasis);
         w.WriteBoolean("usePdfText", o.UsePdfText);
         WriteNameOrNull(w, "extractor", document.Extractor); // the name only, not its command

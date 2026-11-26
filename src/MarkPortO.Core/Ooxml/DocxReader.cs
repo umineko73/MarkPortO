@@ -74,7 +74,42 @@ public sealed record DocxTable(IReadOnlyList<IReadOnlyList<string>> Rows, IReadO
 /// Index (in <see cref="DocxContent.Blocks"/>) of the block of the paragraph the shapes are anchored in. A paragraph
 /// without text has no block of its own: it counts as part of the block before it (-1 before the first block).
 /// </param>
-public sealed record DocxShapes(int HostBlockIndex, IReadOnlyList<ShapeBox> Boxes, ShapeArea? Area = null, string? PictureMark = null);
+/// <param name="Boxes">The drawn shapes, for the "×" check (FR-012); none for a paragraph in a table cell.</param>
+/// <param name="Crops">The drawings of the paragraph that are cut out of the page image (FR-136), each as one picture.</param>
+/// <param name="HostHasText">The paragraph has text, so <paramref name="HostBlockIndex"/> is its own block; without text, the drawings may be on the next page.</param>
+/// <param name="AnchorText">The plain text of the paragraph, to find how far down the page it is; null without text (then the end of the block before it is used).</param>
+/// <param name="Row">For a paragraph in a table cell: the row of the table (the block <paramref name="HostBlockIndex"/>) whose page the drawings are on.</param>
+/// <param name="CropsCoverAll">Every drawing of <paramref name="Boxes"/> is in <paramref name="Crops"/>: when they are all found, Step3 need not read the drawing from the page image.</param>
+public sealed record DocxShapes(
+    int HostBlockIndex,
+    IReadOnlyList<ShapeBox> Boxes,
+    IReadOnlyList<DocxCrop>? Crops = null,
+    bool HostHasText = true,
+    string? AnchorText = null,
+    int? Row = null,
+    bool CropsCoverAll = false);
+
+/// <summary>
+/// Drawings of a paragraph that are cut out of the page image as one picture (FR-136). Their place is worked out when the pages are known: <see cref="Area"/>
+/// when the document places them on the page; otherwise only their size is known (<see cref="Width"/> and <see cref="Height"/>, parts of the page, and
+/// <see cref="Left"/> when the place across is known), and the PDF of the page shows how far down they are.
+/// </summary>
+/// <param name="Mark">The mark of the cut-out picture (<see cref="PictureCollector.AddShape"/>). When it is not cut out, the pictures of the drawings are written in its place (<see cref="PictureCollector.SetFallback"/>).</param>
+/// <param name="Block">The block of its own that has the mark (it is put on the page where the drawings are found); null in a table cell, whose row has the mark.</param>
+/// <param name="Top">How far down the drawings are, as a part of the page: from the top of the paragraph when <paramref name="FollowsParagraph"/>, else from the top of the page.</param>
+/// <param name="BandLeft">The left margin of the page, as a part of the page: a drawing whose place across is not known is between the margins.</param>
+/// <param name="BandRight">The right margin of the page, as a part of the page from its left edge.</param>
+public sealed record DocxCrop(
+    string Mark,
+    Block? Block,
+    ShapeArea? Area,
+    double? Left,
+    double Width,
+    double Height,
+    double Top = 0,
+    bool FollowsParagraph = true,
+    double BandLeft = 0,
+    double BandRight = 1);
 
 /// <summary>What is read from the body of a .docx file.</summary>
 public sealed record DocxContent(IReadOnlyList<DocxBlock> Blocks, IReadOnlyList<DocxShapes> Shapes);
@@ -100,10 +135,10 @@ public static partial class DocxReader
             var main = document.MainDocumentPart ?? throw new InvalidDocumentException(Loc.T("The document has no main part."));
             var body = main.Document?.Body ?? throw new InvalidDocumentException(Loc.T("The document has no body."));
 
-            var context = new Context(main, emphasis) { Pictures = pictures };
+            var (pageWidth, pageHeight) = PageSizeEmu(body);
+            var context = new Context(main, emphasis) { Pictures = pictures, PageWidth = pageWidth, PageHeight = pageHeight };
             var blocks = new List<DocxBlock>();
             var shapes = new List<DocxShapes>();
-            var (pageWidth, pageHeight) = PageSizeEmu(body);
             var code = new List<string>();
             foreach (var element in Flatten(body.ChildElements))
             {
@@ -123,7 +158,7 @@ public static partial class DocxReader
                         break;
                     case Table table:
                         FlushCode(code, blocks);
-                        AddTable(table, context, blocks);
+                        AddTable(table, context, blocks, shapes);
                         AddNotes(context, blocks);
                         break;
                 }
@@ -284,7 +319,23 @@ public static partial class DocxReader
         /// <summary>Collects the pictures (FR-133); null when only their alternative text is written.</summary>
         public PictureCollector? Pictures { get; init; }
 
-        public bool CropParagraphDrawing { get; set; }
+        /// <summary>
+        /// The drawings of the paragraph being read that are cut out of the page image (FR-136): their pictures are not written in the text, but kept
+        /// in <see cref="CropFallback"/>, to be written if the drawings are not found on the page.
+        /// </summary>
+        public HashSet<Drawing> CroppedDrawings { get; } = [];
+
+        public Dictionary<Drawing, List<string>> CropFallback { get; } = [];
+
+        /// <summary>The size of the page (of the last section), in EMU: the drawn shapes are measured in parts of it.</summary>
+        public double PageWidth { get; init; } = 11906 * EmuPerTwip;
+
+        public double PageHeight { get; init; } = 16838 * EmuPerTwip;
+
+        /// <summary>The row of the table being read (from 0), and the drawings cut out of its cells, which go with the table once it is a block.</summary>
+        public int TableRow { get; set; }
+
+        public List<DocxShapes> PendingCellCrops { get; } = [];
 
         /// <summary>How deep the text being read is in table cells: a floating picture of a cell stays in the cell.</summary>
         public int CellDepth { get; set; }
@@ -301,11 +352,21 @@ public static partial class DocxReader
                 yield break;
             }
 
-            if (CropParagraphDrawing && drawing.ChildElements.Any(e => e.LocalName == "anchor"))
+            if (CroppedDrawings.Contains(drawing))
             {
-                yield break; // The page crop contains these pictures together with the overlapping Word shapes.
+                // The picture cut out of the page has these pictures: they are written only if it cannot be cut out.
+                CropFallback[drawing] = [.. MarkdownOf(drawing)];
+                yield break;
             }
 
+            foreach (var markdown in MarkdownOf(drawing))
+            {
+                yield return markdown;
+            }
+        }
+
+        private IEnumerable<string> MarkdownOf(Drawing drawing)
+        {
             var properties = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.DocProperties>().FirstOrDefault();
             var description = properties?.Description?.Value?.Trim();
             var pictures = Pictures is null
@@ -627,14 +688,7 @@ public static partial class DocxReader
         // The number of a list is counted for every paragraph, also for one without text (FR-077).
         var number = context.Numbering.Label(paragraph);
         var boxes = ShapeExtractor.Extract(paragraph, pageWidth, pageHeight);
-        var cropArea = ShapeExtractor.PageArea(paragraph, pageWidth, pageHeight);
-        var hasAnchoredPicture = paragraph.Descendants<Drawing>().Any(drawing =>
-            drawing.ChildElements.Any(e => e.LocalName == "anchor")
-            && drawing.Descendants<OpenXmlElement>().Any(e => e.LocalName == "pic"));
-        var cropDrawing = context.Pictures is { CutShapes: true }
-            && (IsDrawing(boxes) || hasAnchoredPicture && boxes.Any(box => box.HasText))
-            && cropArea is not null;
-        context.CropParagraphDrawing = cropDrawing;
+        var crops = BeginCrops(paragraph, context, boxes);
 
         // The plain text finds the page of the block; the Markdown text also has links, note marks and the alternative text of pictures.
         var text = ParagraphText(paragraph).Trim();
@@ -691,28 +745,26 @@ public static partial class DocxReader
         // Shapes (for the "×" check) belong to the block of this paragraph, or to the one before it if it has no text.
         if (boxes.Count > 0)
         {
-            string? mark = null;
-            var area = cropDrawing ? cropArea : null;
-            if (cropDrawing)
-            {
-                mark = context.Pictures!.AddShape(area);
-            }
-
-            shapes.Add(new DocxShapes(blocks.Count - 1, boxes, area, mark));
+            var host = blocks.Count - 1;
 
             // What the shapes draw is not in the text: Step3 can read it from the page image (FR-150).
             if (blocks.Count > 0 && IsDrawing(boxes))
             {
                 blocks[^1].Block.HasDrawing = true;
             }
+
+            // Each group of drawings that is cut out is one picture, in a line of its own after the paragraph (FR-136).
+            var cut = EndCrops(crops, context, "\n\n", markdown =>
+            {
+                var block = New(BlockKind.Paragraph, markdown, string.Empty) with { Floating = true };
+                blocks.Add(block);
+                return block.Block;
+            });
+            shapes.Add(new DocxShapes(host, boxes, cut, text.Length > 0, text.Length > 0 ? text : null, CropsCoverAll: CoversAll(crops, boxes)));
         }
 
-        if (cropDrawing && context.Pictures is not null)
-        {
-            blocks.Add(New(BlockKind.Paragraph, PictureCollector.Markdown(null, shapes[^1].PictureMark), string.Empty) with { Floating = true });
-        }
-
-        context.CropParagraphDrawing = false;
+        context.CroppedDrawings.Clear();
+        context.CropFallback.Clear();
 
         // Text boxes anchored in this paragraph follow it as paragraphs of their own.
         foreach (var box in InReadingOrder(TextBoxes(paragraph)))
@@ -738,6 +790,108 @@ public static partial class DocxReader
     internal static bool IsDrawing(IReadOnlyList<ShapeBox> boxes) =>
         boxes.Any(b => !b.HasText && Math.Max(b.WidthFraction, b.HeightFraction) >= MinDrawingFraction)
         || boxes.Count(b => Math.Max(b.WidthFraction, b.HeightFraction) >= MinDrawingFraction) >= 2;
+
+    /// <summary>The room around a drawing that is cut out of the page image, in EMU (6 points): a thick line or a shadow is not cut off.</summary>
+    private const double CropRoomEmu = 6 * 12700;
+
+    /// <summary>
+    /// Before the text of a paragraph is read: the groups of its drawings that are cut out of the page image (FR-136). Their pictures are kept out of
+    /// the text (<see cref="Context.CroppedDrawings"/>), to be written in the place of the cut-out picture if it cannot be made.
+    /// </summary>
+    private static IReadOnlyList<IReadOnlyList<WordDrawing>> BeginCrops(Paragraph paragraph, Context context, IReadOnlyList<ShapeBox> boxes)
+    {
+        context.CroppedDrawings.Clear();
+        context.CropFallback.Clear();
+        if (context.Pictures is not { CutShapes: true } collector || boxes.Count == 0)
+        {
+            return [];
+        }
+
+        var crops = CropGroups(ShapeExtractor.Drawings(paragraph), collector.GroupShapes);
+        foreach (var drawing in crops.SelectMany(group => group))
+        {
+            context.CroppedDrawings.Add(drawing.Element);
+        }
+
+        return crops;
+    }
+
+    /// <summary>
+    /// After the text of a paragraph is read: a mark for each group of <see cref="BeginCrops"/>, put by <paramref name="put"/> (which gives the block of its
+    /// own that it is in, if any), with the pictures of the group, joined by <paramref name="separator"/>, to be written in its place when it is not cut out.
+    /// </summary>
+    private static List<DocxCrop> EndCrops(IReadOnlyList<IReadOnlyList<WordDrawing>> crops, Context context, string separator, Func<string, Block?> put)
+    {
+        var cut = new List<DocxCrop>();
+        foreach (var group in crops)
+        {
+            var place = CropPlace(group);
+            var mark = context.Pictures!.AddShape(place.Area);
+            context.Pictures.SetFallback(mark, string.Join(separator, group.SelectMany(d => context.CropFallback.GetValueOrDefault(d.Element) ?? [])));
+            var block = put(PictureCollector.Markdown(null, mark));
+            var page = group[0].Page;
+            cut.Add(new DocxCrop(mark, block, place.Area, place.Left, place.Width, place.Height, place.Top, group[0].FollowsParagraph, page.Left / page.Width, 1 - page.Right / page.Width));
+        }
+
+        context.CroppedDrawings.Clear();
+        context.CropFallback.Clear();
+        return cut;
+    }
+
+    // Every drawn shape of the paragraph is in a group that is cut out.
+    private static bool CoversAll(IReadOnlyList<IReadOnlyList<WordDrawing>> crops, IReadOnlyList<ShapeBox> boxes) =>
+        crops.Count > 0 && crops.Sum(group => group.Sum(d => d.Boxes.Count)) >= boxes.Count;
+
+    /// <summary>
+    /// The drawings of a paragraph that are cut out of the page image, each list as one picture (FR-136). Grouped: the drawings and the anchored
+    /// pictures of the paragraph together, when they draw something (<see cref="IsDrawing"/>, or pictures with boxes of words on them); those placed
+    /// on the page and those that follow the paragraph are two pictures, as their places are found apart. Not grouped: each drawing that draws something
+    /// alone, and the pictures stay pictures. A list of pictures only is not cut out: the pictures are saved as they are.
+    /// </summary>
+    internal static IReadOnlyList<IReadOnlyList<WordDrawing>> CropGroups(IReadOnlyList<WordDrawing> drawings, bool group)
+    {
+        if (!group)
+        {
+            return [.. drawings.Where(d => IsDrawing(d.Boxes)).Select(d => (IReadOnlyList<WordDrawing>)[d])];
+        }
+
+        var all = drawings.SelectMany(d => d.Boxes).ToList();
+        var anchoredPicture = drawings.Any(d => d.Anchored && d.HasPicture);
+        if (!IsDrawing(all) && !(anchoredPicture && all.Any(box => box.HasText)))
+        {
+            return [];
+        }
+
+        var members = drawings.Where(d => d.Boxes.Count > 0 || d.Anchored && d.HasPicture).ToList();
+        return [.. new[] { members.Where(d => !d.FollowsParagraph).ToList(), members.Where(d => d.FollowsParagraph).ToList() }
+            .Where(list => list.Any(d => d.Boxes.Count > 0))
+            .Select(list => (IReadOnlyList<WordDrawing>)list)];
+    }
+
+    /// <summary>
+    /// Where a group of drawings (<see cref="CropGroups"/>) is on its page, in parts of the page: its area when the document places it on the page,
+    /// else its size, how far down it is (<c>Top</c>: from the top of the paragraph when it follows the paragraph), and its place across when that is known.
+    /// An area that is not on the page at all is null with no size: it is not cut out.
+    /// </summary>
+    internal static (ShapeArea? Area, double? Left, double Width, double Height, double Top) CropPlace(IReadOnlyList<WordDrawing> group)
+    {
+        var page = group[0].Page;
+        var top = group.Min(d => d.Top);
+        var bottom = group.Max(d => d.Top + d.Height);
+        if (group.All(d => d.Left is not null))
+        {
+            var left = group.Min(d => d.Left!.Value);
+            var right = group.Max(d => d.Left!.Value + d.Width);
+            if (!group[0].FollowsParagraph)
+            {
+                return (ShapeAreas.Of(left, top, right - left, bottom - top, 0, CropRoomEmu, page.Width, page.Height), null, 0, 0, 0);
+            }
+
+            return (null, (left - CropRoomEmu) / page.Width, (right - left + 2 * CropRoomEmu) / page.Width, (bottom - top) / page.Height, top / page.Height);
+        }
+
+        return (null, null, group.Max(d => d.Width) / page.Width, (bottom - top) / page.Height, top / page.Height);
+    }
 
     // The notes that the last paragraph or table referred to, as blocks of their own: [^1]: text. Their page is the page before them.
     private static void AddNotes(Context context, List<DocxBlock> blocks)
@@ -788,7 +942,26 @@ public static partial class DocxReader
                 case Paragraph paragraph:
                     // A cell numbered by Word (1. 2. 3.) has its number only in the list, not in its text; the count goes on through the cells.
                     var number = context.Numbering.Label(paragraph);
+
+                    // A drawing in a cell that is cut out of the page image is a picture in the line of the cell (FR-136), on the page of the row.
+                    var cellBoxes = context.Pictures is { CutShapes: true } ? ShapeExtractor.Extract(paragraph, context.PageWidth, context.PageHeight) : [];
+                    var cellCrops = BeginCrops(paragraph, context, cellBoxes);
                     var cellText = ParagraphText(paragraph, context).Trim();
+                    if (cellCrops.Count > 0)
+                    {
+                        var marks = new List<string>();
+                        var cut = EndCrops(cellCrops, context, " ", markdown =>
+                        {
+                            marks.Add(markdown);
+                            return null;
+                        });
+                        cellText = string.Join(" ", new[] { cellText }.Concat(marks).Where(t => t.Length > 0));
+                        var anchor = ParagraphText(paragraph).Trim();
+                        context.PendingCellCrops.Add(new DocxShapes(-1, [], cut, anchor.Length > 0, anchor.Length > 0 ? anchor : null, context.TableRow));
+                    }
+
+                    context.CroppedDrawings.Clear();
+                    context.CropFallback.Clear();
 
                     // An item of a bullet list in a cell begins with a bullet, so it is seen as an item in the line of the cell (FR-144).
                     var bulleted = number is null && cellText.Length > 0 && context.NumberingOf(paragraph.ParagraphProperties) is { } listed && context.IsBullet(listed);
@@ -806,13 +979,15 @@ public static partial class DocxReader
         return string.Join('\n', parts.Where(t => t.Length > 0));
     }
 
-    private static void AddTable(Table table, Context context, List<DocxBlock> blocks)
+    private static void AddTable(Table table, Context context, List<DocxBlock> blocks, List<DocxShapes>? shapes = null)
     {
         var rows = new List<IReadOnlyList<string>>();
         var plainRows = new List<IReadOnlyList<string>>();
         string? firstCell = null;
+        context.PendingCellCrops.Clear();
         foreach (var row in table.Elements<TableRow>())
         {
+            context.TableRow = rows.Count;
             var cells = new List<string>();
             var plainCells = new List<string>();
             foreach (var cell in row.Elements<TableCell>())
@@ -859,7 +1034,12 @@ public static partial class DocxReader
             {
                 Floating = table.GetFirstChild<TableProperties>()?.TablePositionProperties is not null,
             });
+
+            // The drawings cut out of its cells are on the pages of their rows.
+            shapes?.AddRange(context.PendingCellCrops.Select(cell => cell with { HostBlockIndex = blocks.Count - 1 }));
         }
+
+        context.PendingCellCrops.Clear();
     }
 
     // FR-060: the first row is a header when the table says so (a repeated header row, or the "header row" of its style).

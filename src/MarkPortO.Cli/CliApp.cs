@@ -92,8 +92,8 @@ public static class CliApp
         var noEmphasis = new Option<bool>("--no-emphasis") { Description = "Do not mark text in bold or italic." };
         var pdfText = new Option<string?>("--pdf-text") { Description = "on or off: use the text layer of a PDF as the text of its pages (the default is on)." };
         var pictures = new Option<string?>("--pictures") { Description = "on or off: save the pictures of a Word, PowerPoint or Excel file in pictures/ and refer to them from the Markdown (default: the settings file, off)." };
-        var shapes = new Option<string?>("--shapes") { Description = "on or off: cut the drawn shapes of a PowerPoint or Excel file (groups, and shapes of half an inch or more) out of the page image into pictures/ (default: the settings file, off)." };
-        var groupShapes = new Option<string?>("--group-shapes") { Description = "on or off: cut the shapes and pictures of a PowerPoint file that are near one another, or on the same row, out as one picture (default: the settings file, on). Used with --shapes on." };
+        var shapes = new Option<string?>("--shapes") { Description = "on or off: cut the drawn shapes of a Word, PowerPoint or Excel file (groups, and shapes of half an inch or more) out of the page image into pictures/ (default: the settings file, off)." };
+        var groupShapes = new Option<string?>("--group-shapes") { Description = "on or off: cut the shapes and pictures of a PowerPoint file that are near one another, or on the same row, and those placed in one paragraph of a Word file, out as one picture (default: the settings file, on). Used with --shapes on." };
         var engine = new Option<string?>("--engine") { Description = "office or libreoffice." };
         var dpi = new Option<int?>("--dpi") { Description = "Resolution of the page images (72-600)." };
         var excelRange = new Option<string?>("--excel-range") { Description = "How the pages of an Excel sheet are cut: columns (all columns on the width of a page, as far as they stay readable), sheet (the whole sheet on one page) or print-area (follow the print setup of the sheet)." };
