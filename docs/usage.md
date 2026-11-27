@@ -159,7 +159,7 @@ The mark that lets Step3 read the shapes of a Word page is made by Step1. To hav
 
 **Preview** (double-click a file): choose which of the page image, the extracted text and the VLM result to show, side by side or stacked, drawn or as source. **Follow** shows the page read last.
 
-To preview a specific page, select the document in the file list of the main window. In the page list below it, right-click the row you want (for example, page 9) and choose **Preview**. The preview opens on that page. If the document already has a preview window, that window moves to the selected page. Opening a specific page turns **Follow** off, so you can keep reading during a conversion; turn **Follow** on again to track the progress.
+To preview a specific page, select the document in the file list of the main window. In the page list below it, double-click the row you want (for example, page 9), or right-click it and choose **Preview**. The preview opens on that page. If the document already has a preview window, that window moves to the selected page. Opening a specific page turns **Follow** off, so you can keep reading during a conversion; turn **Follow** on again to track the progress.
 
 | Action | What it does |
 |---|---|
@@ -231,7 +231,7 @@ There is one run button. It becomes **Resume**, **Start** or **Convert updated f
 - **Start**: when every file is "Not converted"; converts every file of the inputs.
 - **Resume**: goes on file by file: a file not finished goes on, failed files and pages are tried again, a step that is on now but was not then is run alone, and files not converted are converted with the conditions on the screen. Several earlier conversions go on in turn in one **Resume**.
 - **Redo all** (▼): converts every file of the inputs again with the conditions on the screen.
-- **Reconvert updated files**: converts the changed files and the new ones, into the folders of their earlier conversion.
+- **Reconvert updated files**: converts the changed files, the new ones and those whose last conversion did not finish, into the folders of their earlier conversion.
 
 #### Adding Step3 to files converted up to Step2
 

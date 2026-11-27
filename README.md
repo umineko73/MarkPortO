@@ -79,9 +79,9 @@ You do not have to convert everything again to fix part of a result.
 
 - **Read some pages again with the VLM (from the preview)**: check the pages in the preview's page list, or press **Mark pages that could not be read**. Then choose **Run Step 3 again** from the ▼ menu of the run button. Only the marked pages are read again, with the connection and prompt chosen on the screen. After you change the connection or a prompt, **Run Step 3 again** also reads the pages that were read with the earlier settings.
 - **Convert some files again**: select them in the list and choose **Convert the selected files again from Step 1** from the right-click menu (or the ▼ menu of the run button). Their Markdown and page images in the earlier folder are replaced.
-- **Convert the files that changed**: **Reconvert updated files** converts only the changed and new files.
+- **Convert the files that changed**: **Reconvert updated files** converts only the changed and new files, and those whose last conversion did not finish.
 - **Resume**: goes on file by file: an interrupted file goes on, failed files and pages run again, and a step that was off is added (Step3 to files converted up to Step2, for example).
-- **Back to the earlier state**: choosing the files and folders to convert puts back their output folder, the file list and the conditions of last time. The inputs, the output folder and the conditions can be saved under a name as a **work set**. Each document folder keeps a record of its source, conditions and state (`conversion.json`).
+- **Back to the earlier state**: choosing the files and folders to convert puts back their output folder, the file list and the conditions of last time. **File > Past history...** lists the output folder of each input: go back to it, or open the results of its conversions. The inputs, the output folder and the conditions can be saved under a name as a **work set**. Each document folder keeps a record of its source, conditions and state (`conversion.json`).
 
 ## Command line
 
