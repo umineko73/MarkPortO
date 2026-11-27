@@ -56,7 +56,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool _showsWait;
     private Func<string> _waitText = () => string.Empty; // makes the text again when the language changes
     private Task _addTurn = Task.CompletedTask; // the inputs added before, checked one after another (AddInputsAsync)
-    private int _inputsReplaced; // counts the times the list of inputs was put in whole (OpenFromHistory): an add checked before is not taken
+    private int _inputsReplaced; // counts the times the list of inputs was put in whole (OpenFromHistory): an add asked for before is not taken
+    private bool _readFirstAgain; // going back to an input of the history: the conditions of the first are read again, though its key is the same
     private string _dpiText;
     private string _pageRangeText = string.Empty;
     private FileItemViewModel? _selected;
@@ -1540,9 +1541,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// The records are read away from the screen, which waits for them (<see cref="ShowsWait"/>); inputs added while it waits are added after
     /// those, in turn (a drop is not lost).
     /// </summary>
-    private Task AddInputsAsync(IReadOnlyList<string> paths) => _addTurn = AddInTurnAsync(_addTurn, paths);
+    private Task AddInputsAsync(IReadOnlyList<string> paths) => _addTurn = AddInTurnAsync(_addTurn, paths, _inputsReplaced);
 
-    private async Task AddInTurnAsync(Task before, IReadOnlyList<string> paths)
+    // replaced: the count of _inputsReplaced when the add was asked for; the list put in whole since then does not take it.
+    private async Task AddInTurnAsync(Task before, IReadOnlyList<string> paths, int replaced)
     {
         try
         {
@@ -1554,14 +1556,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         var adding = paths.Where(p => !InputPaths.Contains(p, StringComparer.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        if (adding.Count == 0)
+        if (adding.Count == 0 || replaced != _inputsReplaced)
         {
             return;
         }
 
         List<string> differences = [];
         IReadOnlyList<string> already = [.. InputPaths];
-        var replaced = _inputsReplaced;
         await WhileWaitingAsync(() => UiText.Get("Busy_CheckingInputs"), async () => differences = await Task.Run(() => AddDifferences(adding, already)));
         if (!IsRunning && replaced == _inputsReplaced) // the list it was checked against was not put in whole meanwhile
         {
@@ -2062,7 +2063,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SaveInputs();
         _restoreSuspended = false;
         _workSetName = null;
-        _firstKey = null; // the conditions are read from the records again, though the input and the folder are those of the screen
+        _readFirstAgain = true; // the conditions are read from the records again (or put back when it has none), though its key is the same
         if (!string.Equals(output, _store.Current.Output.Folder, StringComparison.Ordinal))
         {
             _store.Update(s => s.Output.Folder = output);
@@ -2564,7 +2565,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
             // FR-158: the conditions follow the first; they come back when no file of the list has a record.
             var key = first is null ? null : HistorySettings.Normalize(first.Input) + "|" + HistorySettings.Normalize(folder);
-            if (!string.Equals(key, _firstKey, StringComparison.OrdinalIgnoreCase))
+            if (_readFirstAgain || !string.Equals(key, _firstKey, StringComparison.OrdinalIgnoreCase))
             {
                 if (first is not null)
                 {
@@ -2577,6 +2578,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                     }
 
                     _firstKey = key;
+                    _readFirstAgain = false;
 
                     if (recorded is not null)
                     {
@@ -2596,6 +2598,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 else
                 {
                     _firstKey = key;
+                    _readFirstAgain = false;
                     if (_store.RevertConditions())
                     {
                         RaiseAllConditions();

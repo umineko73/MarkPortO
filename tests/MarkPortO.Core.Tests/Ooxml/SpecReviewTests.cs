@@ -5,6 +5,7 @@
 
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using MarkPortO.Core.Jobs.Models;
 using MarkPortO.Core.Ooxml;
 using MarkPortO.Core.Pdf;
 using MarkPortO.Core.Tests.Fixtures;
@@ -220,6 +221,10 @@ public class SpecReviewTests
         Assert.Empty(Lines("""<v:line from="10pt,10pt" to="500pt,700pt"><v:stroke on="false"/></v:line>"""));
         Assert.Empty(Lines("""<v:line from="10pt,10pt" to="500pt,700pt" style="visibility:hidden"/>"""));
         Assert.Empty(Lines("""<v:line from="10pt" to="500pt,700pt"/>""")); // an end that cannot be read
+        Assert.Empty(Lines("""<v:line from="0,0" to="700bogus,950bogus"/>""")); // a unit that is not one (history review R2-05)
+        Assert.Empty(Lines("""<v:line from="0,0" to="1e309pt,1e309pt"/>""")); // not a finite number
+        Assert.Empty(Lines("""<v:shape path="m,l21600,21600e" style="position:absolute;width:700bogus;height:950bogus"/>""")); // a straight shape too
+        Assert.Empty(Lines("""<v:shape path="m,l21600,21600e" style="position:absolute;width:1e309pt;height:1e309pt"/>"""));
         Assert.Equal(490 / 612.0, Assert.Single(Lines("""<v:line from="10pt 10pt" to="500pt 700pt"/>""")).WidthFraction, 3);
 
         // A group of 450 x 520 pt, its coordinates "21600 21600": a line over all of it is 450 pt wide, not 21600 / 1000 of it.
@@ -268,6 +273,40 @@ public class SpecReviewTests
         var result = await RunAsync(dir, Request(dir.Combine("out"), Options(), source));
 
         Assert.Equal([2], Assert.Single(result.Documents).Pages.Where(p => p.IsDeleted).Select(p => p.Index));
+    }
+
+    [Fact]
+    public void TheXOfACell_IsLookedForOnEveryPageOfItsRow() // history review R2-03
+    {
+        // A table whose first row begins on page 1 and whose second begins on page 3; a "×" anchored in the cells of each row.
+        // (LibreOffice does not draw a shape anchored in a row that is split across pages, so this is checked without it.)
+        var table = new DocxBlock(new Block { Kind = BlockKind.Table, Markdown = "| a |" }, "a") { RowPages = [1, 3] };
+        var content = new DocxContent([table], []);
+        var first = new DocxShapes(0, [], Row: 0);
+        var last = new DocxShapes(0, [], Row: 1);
+
+        Assert.Equal((1, 3), MarkPortO.Core.Pipeline.Step1Worker.ShapePages(content, [1], 5, first, wholeRow: true));
+        Assert.Equal((3, 4), MarkPortO.Core.Pipeline.Step1Worker.ShapePages(content, [1], 5, last, wholeRow: true)); // the last row may go on to the next page
+        Assert.Equal((1, 1), MarkPortO.Core.Pipeline.Step1Worker.ShapePages(content, [1], 5, first)); // a cut-out keeps the page where the row begins
+        Assert.Equal((3, 3), MarkPortO.Core.Pipeline.Step1Worker.ShapePages(content, [1], 3, last, wholeRow: true)); // not past the last page
+    }
+
+    [Fact]
+    public void ARecordWithoutItsListOfDocuments_IsNotAPreviousRun() // history review R2-02
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "a.docx");
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        File.WriteAllBytes(source, [1, 2, 3]);
+        var output = dir.Combine("out");
+        var job = FakeRecords.Write(output, [source]);
+        var jobFile = Directory.GetFiles(Path.Combine(output, ".markporto", "jobs"), "job.json", SearchOption.AllDirectories).Single();
+        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(jobFile))!.AsObject();
+        json["documents"] = null;
+        File.WriteAllText(jobFile, json.ToJsonString());
+
+        var store = new MarkPortO.Core.Jobs.StateStore(output);
+        Assert.Null(MarkPortO.Core.Jobs.PreviousRunFinder.ForJob(store, Assert.Single(store.ListJobs())));
     }
 
     [Fact]

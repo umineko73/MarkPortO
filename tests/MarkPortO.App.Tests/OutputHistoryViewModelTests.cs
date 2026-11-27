@@ -101,6 +101,45 @@ public sealed class OutputHistoryViewModelTests
     });
 
     [Fact]
+    public void GoingBackToAnInputWithoutARecord_PutsBackTheSavedConditions() => Sta.Run(screen => // history review R2-01
+    {
+        var root = System.IO.Path.GetDirectoryName(screen.Store.FilePath)!;
+        var a = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(root, "in", "A")).FullName;
+        System.IO.File.WriteAllBytes(System.IO.Path.Combine(a, "a.docx"), [1, 2, 3]);
+        var b = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(root, "in", "B")).FullName;
+        var output = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(root, "out", "1")).FullName;
+        FakeRecords.Write(output, [System.IO.Path.Combine(a, "a.docx")], o => o.Dpi = 222);
+        var saved = screen.Settings.Images.Dpi;
+
+        Assert.True(screen.Model.OpenFromHistory(a, output));
+        WaitFor(screen, () => screen.Settings.Images.Dpi == 222, "the conditions of A were not put back");
+
+        Assert.True(screen.Model.OpenFromHistory(b, output)); // B has no record there
+        WaitFor(screen, () => screen.Settings.Images.Dpi == saved, "the conditions of A stayed");
+    });
+
+    [Fact]
+    public void InputsWaitingToBeAdded_AreNotAddedToTheListPutIn() => Sta.Run(screen => // history review R2-04
+    {
+        var root = System.IO.Path.GetDirectoryName(screen.Store.FilePath)!;
+        string Folder(params string[] parts) => System.IO.Directory.CreateDirectory(System.IO.Path.Combine([root, .. parts])).FullName;
+        var (a, b, c, output) = (Folder("in", "A"), Folder("in", "B"), Folder("in", "C"), Folder("out", "1"));
+
+        screen.Model.DropInputs([a]);
+        screen.Model.DropInputs([b]); // waits for A
+        Assert.True(screen.Model.OpenFromHistory(c, output));
+
+        var until = DateTime.UtcNow.AddSeconds(2);
+        while (DateTime.UtcNow < until)
+        {
+            screen.Pump();
+            Thread.Sleep(20);
+        }
+
+        Assert.Equal([c], screen.Model.InputPaths);
+    });
+
+    [Fact]
     public void AnInputAddedJustBeforeGoingBack_IsNotAddedToTheListPutIn() => Sta.Run(screen => // history review R1-03
     {
         var root = System.IO.Path.GetDirectoryName(screen.Store.FilePath)!;

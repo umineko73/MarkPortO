@@ -740,7 +740,9 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     /// pages of the paragraph; in a paragraph without text, from the last page of the block before it to the first page of the next block with text
     /// (empty paragraphs, which have no block, can fill pages in between).
     /// </summary>
-    private static (int First, int Last) ShapePages(DocxContent content, IReadOnlyList<int> effective, int pageCount, DocxShapes shapes)
+    /// <param name="wholeRow">In a table, every page the row can be on (from its page to that of the next row), not only the page where it begins: a
+    /// "×" anchored in a later paragraph of a cell is drawn where that paragraph is (the "×" check; a cut-out keeps the page of the row).</param>
+    internal static (int First, int Last) ShapePages(DocxContent content, IReadOnlyList<int> effective, int pageCount, DocxShapes shapes, bool wholeRow = false)
     {
         var count = Math.Max(1, pageCount);
         int Clamp(int page) => Math.Clamp(page, 1, count);
@@ -754,7 +756,16 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         if (shapes.Row is { } row)
         {
             var page = Clamp(block.RowPages is { } rows && row < rows.Count ? rows[row] : effective[index]);
-            return (page, page);
+            if (!wholeRow)
+            {
+                return (page, page);
+            }
+
+            // To the page of the next row, or to the last page of the table (or the page after it, where the last row may end).
+            var rowEnd = block.RowPages is { } all && row + 1 < all.Count
+                ? all[row + 1]
+                : new[] { page }.Concat(block.RowPages ?? []).Concat(block.Segments?.Select(p => p.Page) ?? []).Max() + 1;
+            return (page, Math.Max(page, Clamp(rowEnd)));
         }
 
         var start = Clamp(effective[index]);
@@ -788,7 +799,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var rest = new List<(int First, int Last, IReadOnlyList<ShapeBox> Boxes)>();
         foreach (var shapes in content.Shapes.Where(s => s.Boxes.Count > 0))
         {
-            var (first, last) = ShapePages(content, effective, pageCount, shapes);
+            var (first, last) = ShapePages(content, effective, pageCount, shapes, wholeRow: true);
             var verdict = CrossShapeDetector.Evaluate(shapes.Boxes, CrossShapeDetector.WordCoverageThreshold);
             if (verdict.IsCross)
             {

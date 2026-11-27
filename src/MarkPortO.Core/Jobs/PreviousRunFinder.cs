@@ -119,6 +119,11 @@ public static class PreviousRunFinder
     public static PreviousRun? ForJob(StateStore store, JobState job)
     {
         var documents = new List<DocumentRecord>();
+        if (job.Documents is null)
+        {
+            return null; // a broken record: it cannot be resumed nor shown
+        }
+
         foreach (var docId in job.Documents)
         {
             // A job whose state is partly missing cannot be resumed, so it is not offered.

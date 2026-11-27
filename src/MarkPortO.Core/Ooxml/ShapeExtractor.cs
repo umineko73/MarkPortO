@@ -387,6 +387,11 @@ internal static class ShapeExtractor
 
                     case "shape" when IsVmlLine(element) && IsStroked(element):
                     {
+                        if (!IsVmlLength(style.GetValueOrDefault("width") ?? string.Empty) || !IsVmlLength(style.GetValueOrDefault("height") ?? string.Empty))
+                        {
+                            break; // its size cannot be read: not taken
+                        }
+
                         var width = VmlLength(style.GetValueOrDefault("width"), scaleX);
                         var height = VmlLength(style.GetValueOrDefault("height"), scaleY);
                         boxes.Add(new ShapeBox("line", width * EmuPerPoint / pageWidth, height * EmuPerPoint / pageHeight, turned));
@@ -433,9 +438,10 @@ internal static class ShapeExtractor
     {
         var text = (value ?? string.Empty).Trim().ToLowerInvariant();
         var unit = new string([.. text.Reverse().TakeWhile(char.IsLetter).Reverse()]);
-        if (!double.TryParse(text[..(text.Length - unit.Length)], NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+        if (!double.TryParse(text[..(text.Length - unit.Length)], NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+            || !double.IsFinite(number) || !VmlUnits.Contains(unit))
         {
-            return 0;
+            return 0; // not a length (a line of no size is not taken)
         }
 
         return unit switch
@@ -468,11 +474,15 @@ internal static class ShapeExtractor
         return (VmlLength(pair.X, scaleX), VmlLength(pair.Y, scaleY));
     }
 
+    private static readonly HashSet<string> VmlUnits = new(StringComparer.Ordinal) { string.Empty, "pt", "in", "cm", "mm", "pc", "px", "emu" };
+
     private static bool IsVmlLength(string value)
     {
-        var text = value.Trim();
-        var number = text.TrimEnd("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray());
-        return double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+        var text = value.Trim().ToLowerInvariant();
+        var unit = new string([.. text.Reverse().TakeWhile(char.IsLetter).Reverse()]);
+        return VmlUnits.Contains(unit)
+            && double.TryParse(text[..(text.Length - unit.Length)], NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+            && double.IsFinite(number) && Math.Abs(number) < 1e9;
     }
 
     private static double Number(XElement? element, string attribute) =>
