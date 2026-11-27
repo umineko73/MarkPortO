@@ -39,14 +39,14 @@ MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索す
 | `embedding.apiKeyEnv` | `""` | 鍵が要る API のとき、**鍵を入れた環境変数の名前**（鍵そのものは JSON に書かない） |
 | `embedding.queryPrefix` / `passagePrefix` | `"query: "` / `"passage: "` | 質問と塊の文字の頭に付ける文字。e5 系のモデルの決まり。**ほかのモデルは、そのモデルの説明書のとおりにする**（いらないものは `""`。Nomic のように別の文字を使うものもある） |
 | `embedding.queryParams` / `passageParams` | `{}` / `{}` | 要求に足す項目（質問のとき / 塊のとき）。Voyage AI は `{"input_type": "query"}` / `{"input_type": "document"}` |
-| `embedding.passageChars` / `passageOverlap` | `400` / `50` | これより長い塊は、この文字数ずつに分けて埋め込む（分けた部分のどれかが質問に近ければ、その塊が見つかる）/ 分けた部分の重なり。e5-small は512トークンまでしか読まないので 400。クラウドのモデルは長く読めるので 2000 などにできる |
+| `embedding.passageChars` / `passageOverlap` | `400` / `50` | これより長い塊は、この文字数ずつに分けて埋め込む（分けた部分のどれかが質問に近ければ、その塊が見つかる）/ 分けた部分の重なり（書かないときは 50。`passageChars` が 200 より短いときはその4分の1）。e5-small は512トークンまでしか読まないので 400。クラウドのモデルは長く読めるので 2000 などにできる |
 | `embedding.timeoutSeconds` / `retrySeconds` | `120` / `30` | API を待つ秒数 / API につながらなかったとき、次の検索で試し直すまでの秒数（その間はキーワードだけ） |
 | `embedding.batchSize` | `64` | 埋め込みの API に1回で送る塊の数（小さい文書はまとめて送る）。LM Studio は1回ごとの手間が大きく、16 より 64 のほうが3倍ほど速かった。CPU だけの PC で時間切れになるなら下げる |
 | `embedding.waitSeconds` | `10` | 埋め込みを作っている途中の検索が、終わるのを待つ秒数（過ぎたらキーワードだけで答える） |
 | `cacheDir` | `%LOCALAPPDATA%\markporto-rag\cache` | 埋め込みを残す場所（jsonl が変わったときだけ計算し直す） |
 | `textChars` / `maxResults` | `1500` / `20` | 検索の結果に入れる本文の長さ / 返す件数の上限 |
 | `meaningCandidates` | `50` | 意味の検索で、質問に近い順に何件までを候補にするか（遠いものは結果にしない） |
-| `readChars` | `20000` | `read_chunk` で、前後の塊の本文を合わせて何文字まで返すか |
+| `readChars` | `20000` | `read_chunk` で、前後の塊の本文を合わせて何文字まで返すか（読む塊そのものは、いつも全部） |
 | `recheckSeconds` | `300` | この秒数ごとに、ファイルの中身でも変わったかを確かめる（大きさと時刻を保ったままの上書き・同期でも読み直す）。`0` で確かめない |
 | `rerank.enabled` ほか | `false` | 並べ直しのモデル（下の「クラウドの API」） |
 
@@ -65,7 +65,7 @@ MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索す
 
 OpenAI の埋め込みなら `"url": "https://api.openai.com/v1"`、`"model": "text-embedding-3-small"`、接頭辞と `...Params` はなし。URL とモデルの名前は、それぞれの説明書で確かめてください。モデルを変えると、埋め込みはすべて作り直します（クラウドでは料金がかかります）。
 
-並べ直しのモデル（Voyage AI・Cohere・Jina の `/rerank`）を使うと、検索の上位（`candidates` 件）を、質問との関係でもう一度並べます。上位の順番の間違いが気になるときに試してください。これも、質問と候補の塊の文字を送ります。使えないときは、検索の順のまま答えます。
+並べ直しのモデル（Voyage AI・Cohere・Jina の `/rerank`）を使うと、検索の上位（`candidates` 件）を、質問との関係でもう一度並べます（結果の `score` は検索の点のまま、並べ直しの点は `rerankScore`）。上位の順番の間違いが気になるときに試してください。これも、質問と候補の塊の文字を送ります。使えないときは、検索の順のまま答えます。
 
 ```json
 "rerank": { "enabled": true, "url": "https://api.voyageai.com/v1", "model": "<並べ直しのモデルの名前>", "apiKeyEnv": "VOYAGE_API_KEY", "candidates": 30 }

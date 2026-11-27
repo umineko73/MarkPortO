@@ -26,3 +26,6 @@ Thumbs.db
 
 # Temporary project files of the WPF build (made next to the project while it builds)
 *_wpftmp.csproj
+
+# Python
+__pycache__/

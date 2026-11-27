@@ -64,7 +64,7 @@ DEFAULTS = {
         "queryParams": {},  # more of the request, for a question: {"input_type": "query"} for Voyage AI
         "passageParams": {},  # ... for the text of a chunk: {"input_type": "document"}
         "passageChars": 400,  # a chunk longer than this is embedded in parts of it (e5-small reads 512 tokens; a cloud model reads more)
-        "passageOverlap": 50,  # the characters of the end of a part that the next one begins with
+        # "passageOverlap": the characters of the end of a part that the next one begins with; not written: 50, less for a short passageChars
         "timeoutSeconds": 120,
         "retrySeconds": 30,
         "batchSize": 64,
@@ -420,33 +420,31 @@ def check_rerank_config() -> str | None:
     return None
 
 
+def passage_overlap() -> int:
+    """embedding.passageOverlap, or when it is not written 50 (a quarter of a shorter passageChars)."""
+    return EMB["passageOverlap"] if "passageOverlap" in EMB else min(50, EMB["passageChars"] // 4)
+
+
 def pieces_of(text: str, size: int, overlap: int) -> list[str]:
-    """The parts of a text that are embedded, each of size characters at most: by lines, a long line at the end of a sentence (else where
-    it reaches the size); each part after the first begins with the last overlap characters of the one before, so that what is said
-    across the cut is in one of them. A text of size characters or fewer is one part."""
+    """The parts of a text that are embedded, each of size characters at most. A part ends at the end of a line or a sentence in its second
+    half (else where it reaches the size); the next part begins overlap characters before that end, so that what is said across the cut
+    is whole in one of them. A text of size characters or fewer is one part."""
     if len(text) <= size:
         return [text]
-    units: list[str] = []
-    for line in text.split("\n"):
-        while len(line) > size:
-            cut = max(line.rfind(mark, 0, size) for mark in "。．！？.!?")
-            cut = cut + 1 if cut >= size // 2 else size
-            units.append(line[:cut])
-            line = line[cut:]
-        units.append(line)
+    overlap = max(0, min(overlap, size - 1))
     parts: list[str] = []
-    current = ""
-    for unit in units:
-        joined = unit if not current else current + "\n" + unit
-        if len(joined) <= size:
-            current = joined
-            continue
-        if current:
-            parts.append(current)
-        tail = current[-overlap:] if overlap and current else ""
-        current = tail + "\n" + unit if tail and len(tail) + 1 + len(unit) <= size else unit
-    if current:
-        parts.append(current)
+    start = 0
+    while start < len(text):
+        end = min(start + size, len(text))
+        if end < len(text):
+            window = text[start:end]
+            cut = max([window.rfind("\n")] + [window.rfind(mark) for mark in "。．！？.!?"])
+            if cut + 1 > max(overlap, size // 2):
+                end = start + cut + 1
+        parts.append(text[start:end])
+        if end >= len(text):
+            break
+        start = max(end - overlap, start + 1)
     return [p for p in parts if p.strip()] or [text[:size]]
 
 
@@ -463,7 +461,7 @@ def check_embedding_config() -> str | None:
     if not isinstance(chars, int) or isinstance(chars, bool) or chars < 1:
         return "embedding.passageChars must be a whole number of 1 or more"
     overlap = EMB.get("passageOverlap")
-    if not isinstance(overlap, int) or isinstance(overlap, bool) or not (0 <= overlap < chars):
+    if "passageOverlap" in EMB and (not isinstance(overlap, int) or isinstance(overlap, bool) or not (0 <= overlap < chars)):
         return "embedding.passageOverlap must be a whole number from 0 to less than passageChars"
     for key in ("queryParams", "passageParams"):
         if not isinstance(EMB.get(key), dict):
@@ -483,8 +481,8 @@ class Entry:
         self.chunks = chunks
         self.warnings = warnings
         if EMB.get("enabled", True):
-            signature = json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], EMB["passageChars"], EMB["passageOverlap"],
-                                    EMB["passageParams"], "parts 1"], sort_keys=True).encode()
+            signature = json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], EMB["passageChars"], passage_overlap(),
+                                    EMB["passageParams"], "parts 2"], sort_keys=True).encode()
             self.digest = hashlib.sha1(read_digest.encode() + signature).hexdigest()  # of the bytes the chunks came from, not of the file now
         else:  # keywords only: the embedding part of the configuration is not looked at
             self.digest = ""
@@ -507,7 +505,7 @@ class Entry:
         self.owner: list[int] = []
         if EMB.get("enabled", True):
             for j, c in enumerate(chunks):
-                for part in pieces_of(c["text"], EMB["passageChars"], EMB["passageOverlap"]):
+                for part in pieces_of(c["text"], EMB["passageChars"], passage_overlap()):
                     self.parts.append(EMB["passagePrefix"] + " > ".join(c["headings"]) + "\n" + part)
                     self.owner.append(j)
         self.count = len(self.parts)  # the vectors of the file
@@ -1211,13 +1209,13 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
         none = "No chunk has the words of the question. Try other words; if it is still not found, it is not in the documents."
         return {"mode": mode, "results": [], "note": f"{note} {none}" if note else none}
     fused = sorted(((sum(1 / (60 + rk[i]) for rk in ranks if i in rk), i) for i in found), reverse=True)
-    reranked = False
+    reranked: dict[int, float] = {}  # the score the rerank API gave each chunk it put in order
     if RERANK.get("enabled", False) and len(fused) > 1:
         head = fused[:whole_setting_of(RERANK, "candidates", 30, 2, 200)]
         try:
             given = rerank(query, [" > ".join(INDEX.chunks[i]["headings"]) + "\n" + INDEX.chunks[i]["text"] for _, i in head])
-            fused = sorted(((s, i) for s, (_, i) in zip(given, head)), key=lambda x: -x[0]) + fused[len(head):]
-            reranked = True
+            reranked = {i: s for s, (_, i) in zip(given, head)}
+            fused = sorted(head, key=lambda x: -reranked[x[1]]) + fused[len(head):]
         except Exception as ex:  # the order of the search is kept
             note = ((note + " ") if note else "") + "The rerank API could not be used; the results are in the order of the search."
             log(f"markporto-rag: rerank failed ({ex})")
@@ -1230,11 +1228,13 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
     for s, i in fused:
         v = view(INDEX.chunks[i], s)
         v["matchedBy"] = matched(i)
+        if i in reranked:
+            v["rerankScore"] = round(reranked[i], 4)
         results.append(v)
     result = {"mode": mode, "results": results}
     if reranked:
         result["reranked"] = True
-    if mode == "hybrid" and not any("keywords" in r["matchedBy"] for r in results):
+    if mode == "hybrid" and not ranks[0]:  # R1-05: no chunk searched has a word of the question (not only those shown)
         note = ((note + " ") if note else "") + ("No chunk has the words of the question: these were found by meaning only, and may not "
                                                  "answer it. Say so if they do not; do not answer from them as if they did.")
     notes = [n for n in (partial, note) if n]
@@ -1265,7 +1265,7 @@ def read_chunk(key: str, neighbors: int = 1) -> dict:
             out.append(cur)
         return out
 
-    left = whole_setting("readChars", 20000, 1000, 1000000) - len(c["text"])
+    left = whole_setting("readChars", 20000, 1000, 1000000)  # for the chunks around it (the chunk itself is whole)
     sides = ((walk("prev"), []), (walk("next"), []))
     for near in range(steps):  # one before and one after, nearest first, while there is room
         for side, out in sides:
@@ -1273,7 +1273,7 @@ def read_chunk(key: str, neighbors: int = 1) -> dict:
                 continue
             v = view(side[near], full=True)
             if len(v["text"]) > left:
-                v["text"] = v["text"][:left] + "…"
+                v["text"] = v["text"][:left - 1] + "…"
                 v["truncated"] = True
             left -= len(v["text"])
             out.append(v)

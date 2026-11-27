@@ -431,7 +431,7 @@ async def only_a_longer_version(call):
           [x["path"] for x in res.get("results", [])] == ["v1.20/設計書.docx"] and "v1.20/設計書.docx" in (res.get("note") or ""), res)
 
 
-UNIT = '\nimport importlib.util, json, os, sys, threading\nfrom pathlib import Path\nspec = importlib.util.spec_from_file_location("server", sys.argv[1])\nserver = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(server)\nout = {}\ncache = server.CACHE\ncache.mkdir(parents=True, exist_ok=True)\n# R1-04: two writers of one file at once: what is left is whole, and no temporary file stays\nwritten, errors = {1: 0, 100: 0}, []\ndef writer(n):\n    try:\n        for _ in range(30):\n            server.write_cache("doc", "d", "m", server.as_rows([[1.0, 0.0]] * n))\n            written[n] += 1\n    except Exception as ex:\n        errors.append(repr(ex))\nthreads = [threading.Thread(target=writer, args=(n,)) for n in (1, 100)]\n[t.start() for t in threads]\n[t.join() for t in threads]\nout["concurrent"] = [server.read_cache("doc", "d", n) is not None for n in (1, 100)]\nout["written"] = [written[1], written[100]]\nout["errors"] = errors\nout["tmp_left"] = [f.name for f in cache.glob("*.tmp")]\n# R1-05: a broken binary file next to a good JSON of 0.4.3: the JSON is used\nserver.cache_file("old", ".bin").write_bytes(server.CACHE_MAGIC + b"no line end")\nserver.cache_file("old", ".json").write_text(json.dumps({"digest": "d2", "model": "m", "vectors": [[3, 4]]}), encoding="utf-8")\ngot = server.read_cache("old", "d2", 1)\nout["broken_bin_json_used"] = got is not None and [round(float(x), 3) for x in got[0][0]] == [0.6, 0.8]\n# ... and when the binary form cannot be written, the JSON\'s vectors are used all the same, and the JSON stays\nserver.cache_file("old2", ".json").write_text(json.dumps({"digest": "d3", "model": "m", "vectors": [[3, 4]]}), encoding="utf-8")\ndef fail(*a, **k):\n    raise OSError("disk full")\nserver.write_cache = fail\ngot = server.read_cache("old2", "d3", 1)\nout["unwritable_json_used"] = got is not None and server.cache_file("old2", ".json").exists()\nimport time as _t\nold_tmp, new_tmp, others = cache / "markporto-rag.a.old.tmp", cache / "markporto-rag.b.new.tmp", cache / "accounting-recovery.tmp"\nfor f in (old_tmp, new_tmp, others):\n    f.write_bytes(b"x")\nfor f in (old_tmp, others):\n    os.utime(f, (_t.time() - 7200, _t.time() - 7200))\nserver.remove_old_temporary_files()\nout["tmp_cleanup"] = [old_tmp.exists(), new_tmp.exists(), others.exists()]\nimport struct\ndef rows_ok(values):\n    return server.rows_from_bytes(struct.pack("<%df" % len(values), *values), 1, len(values)) is not None\nout["tiny_rows"] = [rows_ok([0.6, 0.8]), rows_ok([0.0, 0.0]), rows_ok([-1e-8, 0.0])]\nprint(json.dumps(out))\n'
+UNIT = '\nimport importlib.util, json, os, sys, threading\nfrom pathlib import Path\nspec = importlib.util.spec_from_file_location("server", sys.argv[1])\nserver = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(server)\nout = {}\ncache = server.CACHE\ncache.mkdir(parents=True, exist_ok=True)\n# R1-04: two writers of one file at once: what is left is whole, and no temporary file stays\nwritten, errors = {1: 0, 100: 0}, []\ndef writer(n):\n    try:\n        for _ in range(30):\n            server.write_cache("doc", "d", "m", server.as_rows([[1.0, 0.0]] * n))\n            written[n] += 1\n    except Exception as ex:\n        errors.append(repr(ex))\nthreads = [threading.Thread(target=writer, args=(n,)) for n in (1, 100)]\n[t.start() for t in threads]\n[t.join() for t in threads]\nout["concurrent"] = [server.read_cache("doc", "d", n) is not None for n in (1, 100)]\nout["written"] = [written[1], written[100]]\nout["errors"] = errors\nout["tmp_left"] = [f.name for f in cache.glob("*.tmp")]\n# R1-05: a broken binary file next to a good JSON of 0.4.3: the JSON is used\nserver.cache_file("old", ".bin").write_bytes(server.CACHE_MAGIC + b"no line end")\nserver.cache_file("old", ".json").write_text(json.dumps({"digest": "d2", "model": "m", "vectors": [[3, 4]]}), encoding="utf-8")\ngot = server.read_cache("old", "d2", 1)\nout["broken_bin_json_used"] = got is not None and [round(float(x), 3) for x in got[0][0]] == [0.6, 0.8]\n# ... and when the binary form cannot be written, the JSON\'s vectors are used all the same, and the JSON stays\nserver.cache_file("old2", ".json").write_text(json.dumps({"digest": "d3", "model": "m", "vectors": [[3, 4]]}), encoding="utf-8")\ndef fail(*a, **k):\n    raise OSError("disk full")\nserver.write_cache = fail\ngot = server.read_cache("old2", "d3", 1)\nout["unwritable_json_used"] = got is not None and server.cache_file("old2", ".json").exists()\nimport time as _t\nold_tmp, new_tmp, others = cache / "markporto-rag.a.old.tmp", cache / "markporto-rag.b.new.tmp", cache / "accounting-recovery.tmp"\nfor f in (old_tmp, new_tmp, others):\n    f.write_bytes(b"x")\nfor f in (old_tmp, others):\n    os.utime(f, (_t.time() - 7200, _t.time() - 7200))\nserver.remove_old_temporary_files()\nout["tmp_cleanup"] = [old_tmp.exists(), new_tmp.exists(), others.exists()]\nimport struct\ndef rows_ok(values):\n    return server.rows_from_bytes(struct.pack("<%df" % len(values), *values), 1, len(values)) is not None\nout["tiny_rows"] = [rows_ok([0.6, 0.8]), rows_ok([0.0, 0.0]), rows_ok([-1e-8, 0.0])]\n# R2 R1-03: the parts of a long text overlap; a word across a cut is whole in one of them\nparts = server.pieces_of("a" * 397 + "ABCDEF" + "b" * 410, 400, 50)\nout["pieces"] = [max(len(p) for p in parts) <= 400, any("ABCDEF" in p for p in parts), all(parts[k][-50:] == parts[k + 1][:50] for k in range(len(parts) - 1))]\nprint(json.dumps(out))\n'
 
 
 def unit_checks():
@@ -456,6 +456,8 @@ def unit_checks():
     check("temporary files of kept vectors: an old one goes, a new one (another server writing) stays, another app's stays",
           out["tmp_cleanup"] == [False, True, True], out["tmp_cleanup"])
     check("kept rows: length 1 and all 0 are taken, a tiny broken one is not", out["tiny_rows"] == [True, True, False], out["tiny_rows"])
+    check("the parts of a long text: none over the size, a word across a cut whole in one, each begins with the end of the one before",
+          out.get("pieces") == [True, True, True], out.get("pieces"))
 
 
 async def main():
@@ -841,7 +843,7 @@ async def main():
     # MP-16, MP-17: what read_chunk and list_documents give, and the references of a chunk out of its folder
     many = BASE / "read-sizes"
     for n in range(5):
-        write(many / f"版{n}", [chunk("c0001", "長い" * 3000, next_="c0002"), chunk("c0002", "続き" * 8000, prev="c0001", next_="c0003"),
+        write(many / f"版{n}", [chunk("c0001", "長い" * 3000, next_="c0002"), chunk("c0002", "続き" * 12000, prev="c0001", next_="c0003"),
                                chunk("c0003", "最後", prev="c0002")])
     write(many / "外", [chunk("c0001", "外を指す ふくろう", markdown="../秘密.md", pageImages=["images/page-001.png", "../../x.png", "C:/x.png"])])
 
@@ -849,8 +851,11 @@ async def main():
         out = await call("read_chunk", {"key": "版0/設計書_chunks.jsonl#c0001", "neighbors": 3})
         after = out.get("after", [])
         check("read_chunk: the chunk itself is whole", len(out.get("chunk", {}).get("text", "")) == 6000, len(out.get("chunk", {}).get("text", "")))
-        check("... the chunks around it are cut at readChars in all, and say so", len(after) == 1 and after[0].get("truncated") is True
-              and len(after[0]["text"]) == 20000 - 6000 + 1, [(len(a["text"]), a.get("truncated")) for a in after])
+        check("... the chunks around it are cut at readChars in all (with the \"…\"), and say so", len(after) == 1 and after[0].get("truncated") is True
+              and len(after[0]["text"]) == 20000 and after[0]["text"].endswith("…"), [(len(a["text"]), a.get("truncated")) for a in after])
+        out = await call("read_chunk", {"key": "版0/設計書_chunks.jsonl#c0002", "neighbors": 1})
+        check("... a long chunk itself does not leave the chunks around it out (R2 R1-06)",
+              [len(x["text"]) for x in out.get("before", []) + out.get("after", [])] == [6000, 2], [len(x["text"]) for x in out.get("before", []) + out.get("after", [])])
         docs = await call("list_documents", {"limit": 2})
         check("list_documents: a part of them, with the total and the next offset", len(docs.get("documents", [])) == 2
               and docs.get("total") == 6 and docs.get("next") == 2, {k: docs.get(k) for k in ("total", "next")})
@@ -1337,9 +1342,36 @@ async def main():
 
     await run("far-is-not-found", {"roots": [str(far_root)], "embedding": dict(emb), "meaningCandidates": 2}, far_is_not_found)
 
+    # R2 R1-05: a chunk with the words of the question that is not among the results shown: no note that none has them
+    words_root = BASE / "words-not-shown"
+    write(words_root / "設計書", [chunk("c0001", "abc の話"), chunk("c0002", "ほかの話")])
+
+    async def words_not_shown(call):
+        api.alias = lambda t: "same" if t in ("xyz abc", "設計書\nほかの話") else t
+        await call("search_docs", {"query": "初回"})
+        await asyncio.sleep(1.0)
+        res = await call("search_docs", {"query": "xyz abc", "k": 1})
+        api.alias = None
+        check("a chunk with a word of the question, not shown (k=1): no note that none has them", "meaning only" not in (res.get("note") or "")
+              and res.get("mode") == "hybrid", res)
+
+    await run("words-not-shown", {"roots": [str(words_root)], "embedding": dict(emb), "meaningCandidates": 1}, words_not_shown)
+
     # A cloud API: what the question and the documents are sent with (Voyage AI: input_type)
     cloud_root = BASE / "cloud"
     write(cloud_root / "設計書", [chunk("c0001", "タイムアウト 雲")])
+
+    async def short_parts(call):
+        docs = await call("list_documents", {})
+        check("passageChars 40 without passageOverlap (as before): no error (R2 R1-04)", "error" not in docs and docs.get("total") == 1, docs.get("error"))
+
+    await run("short-parts", {"roots": [str(cloud_root)], "embedding": dict(emb, passageChars=40)}, short_parts)
+
+    async def overlap_null(call):
+        docs = await call("list_documents", {})
+        check("passageOverlap written as null: an error that names it (R2-03)", "passageOverlap" in (docs.get("error") or ""), docs.get("error"))
+
+    await run("overlap-null", {"roots": [str(cloud_root)], "embedding": dict(emb, passageOverlap=None)}, overlap_null)
 
     async def cloud_params(call):
         api.bodies.clear()
@@ -1364,6 +1396,9 @@ async def main():
             res = await call("search_docs", {"query": "タイムアウト"})
             check(f"a rerank API ({key}) puts its best first", res.get("reranked") is True
                   and [r["key"][-5:] for r in res.get("results", [])] == ["c0002", "c0001"], res)
+            scores = [r.get("score") for r in res.get("results", [])]
+            check(f"... the score stays that of the search, the rerank score is apart (R2 R1-07)", scores[0] < scores[1]
+                  and all("rerankScore" in r for r in res.get("results", [])), res.get("results"))
         api.rerank_best = None
         res = await call("search_docs", {"query": "タイムアウト"})
         check("... when it cannot be used, the order of the search stays, and the note says so", not res.get("reranked")
