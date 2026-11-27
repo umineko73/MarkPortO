@@ -687,8 +687,10 @@ public static partial class DocxReader
     {
         // The number of a list is counted for every paragraph, also for one without text (FR-077).
         var number = context.Numbering.Label(paragraph);
-        var boxes = ShapeExtractor.Extract(paragraph, pageWidth, pageHeight);
-        var crops = BeginCrops(paragraph, context, boxes);
+        var drawn = ShapeExtractor.Extract(paragraph, pageWidth, pageHeight);
+        var crops = BeginCrops(paragraph, context, drawn);
+        // The straight lines of old VML drawings count for the "×" check only (FR-012); they are not cut out.
+        IReadOnlyList<ShapeBox> boxes = [.. drawn, .. ShapeExtractor.ExtractVmlLines(paragraph, pageWidth, pageHeight)];
 
         // The plain text finds the page of the block; the Markdown text also has links, note marks and the alternative text of pictures.
         var text = ParagraphText(paragraph).Trim();
@@ -760,7 +762,7 @@ public static partial class DocxReader
                 blocks.Add(block);
                 return block.Block;
             });
-            shapes.Add(new DocxShapes(host, boxes, cut, text.Length > 0, text.Length > 0 ? text : null, CropsCoverAll: CoversAll(crops, boxes)));
+            shapes.Add(new DocxShapes(host, boxes, cut, text.Length > 0, text.Length > 0 ? text : null, CropsCoverAll: drawn.Count == boxes.Count && CoversAll(crops, drawn)));
         }
 
         context.CroppedDrawings.Clear();

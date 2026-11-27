@@ -789,7 +789,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         foreach (var shapes in content.Shapes.Where(s => s.Boxes.Count > 0))
         {
             var (first, last) = ShapePages(content, effective, pageCount, shapes);
-            var verdict = CrossShapeDetector.Evaluate(shapes.Boxes);
+            var verdict = CrossShapeDetector.Evaluate(shapes.Boxes, CrossShapeDetector.WordCoverageThreshold);
             if (verdict.IsCross)
             {
                 crosses.Add((first, last, verdict, null));
@@ -797,7 +797,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             else
             {
                 MarkDeleted(layout, first, verdict, PageLabel.Page(first)); // a freehand drawing over the page is warned about
-                if (shapes.Boxes.Where(CrossShapeDetector.IsLargeLine).ToList() is { Count: > 0 } lines)
+                if (shapes.Boxes.Where(b => CrossShapeDetector.IsLargeLine(b, CrossShapeDetector.WordCoverageThreshold)).ToList() is { Count: > 0 } lines)
                 {
                     rest.Add((first, last, lines));
                 }
@@ -808,7 +808,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         // line each way that can both be on its page (LineCrossPages).
         foreach (var group in Overlapping(rest))
         {
-            var verdict = CrossShapeDetector.Evaluate(group.SelectMany(g => g.Boxes));
+            var verdict = CrossShapeDetector.Evaluate(group.SelectMany(g => g.Boxes), CrossShapeDetector.WordCoverageThreshold);
             if (verdict.IsCross)
             {
                 crosses.Add((group.Min(g => g.First), group.Max(g => g.Last), verdict, [.. group.SelectMany(g => g.Boxes.Select(b => (g.First, g.Last, b.AntiDiagonal)))]));

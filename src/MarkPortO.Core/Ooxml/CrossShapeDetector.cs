@@ -47,14 +47,21 @@ public static class CrossShapeDetector
     /// <summary>A shape covers "the whole page" when it is at least this fraction of the page in both directions.</summary>
     public const double CoverageThreshold = 0.70;
 
+    /// <summary>
+    /// The same for a Word document (2026-11-27, the user's decision): a page is deleted only where the PDF also draws the "×"
+    /// (<see cref="Pdf.PdfShapeSnap.HasCross"/>, lines over <see cref="Pdf.PdfShapeSnap.CrossLineCover"/> of the page), so a "×" a little
+    /// smaller than the page (3/5 of it each way) is taken too.
+    /// </summary>
+    public const double WordCoverageThreshold = 0.60;
+
     private static readonly HashSet<string> LineGeometries = new(StringComparer.OrdinalIgnoreCase)
     {
         "line", "straightConnector1",
     };
 
-    public static CrossVerdict Evaluate(IEnumerable<ShapeBox> shapesOfOnePage)
+    public static CrossVerdict Evaluate(IEnumerable<ShapeBox> shapesOfOnePage, double threshold = CoverageThreshold)
     {
-        var large = shapesOfOnePage.Where(IsLarge).ToList();
+        var large = shapesOfOnePage.Where(s => IsLarge(s, threshold)).ToList();
 
         var multiply = large.Any(s => string.Equals(s.Geometry, "mathMultiply", StringComparison.OrdinalIgnoreCase));
         var lines = large.Where(s => LineGeometries.Contains(s.Geometry)).ToList();
@@ -66,8 +73,8 @@ public static class CrossShapeDetector
     }
 
     /// <summary>A line over the whole page: half of a "×" of two lines, which may be drawn in another paragraph.</summary>
-    public static bool IsLargeLine(ShapeBox shape) => IsLarge(shape) && LineGeometries.Contains(shape.Geometry);
+    public static bool IsLargeLine(ShapeBox shape, double threshold = CoverageThreshold) => IsLarge(shape, threshold) && LineGeometries.Contains(shape.Geometry);
 
-    private static bool IsLarge(ShapeBox shape) =>
-        shape.WidthFraction >= CoverageThreshold && shape.HeightFraction >= CoverageThreshold;
+    private static bool IsLarge(ShapeBox shape, double threshold) =>
+        shape.WidthFraction >= threshold && shape.HeightFraction >= threshold;
 }

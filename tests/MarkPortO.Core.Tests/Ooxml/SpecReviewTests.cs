@@ -138,6 +138,65 @@ public class SpecReviewTests
         Assert.Contains("Inspection diagram", File.ReadAllText(Path.Combine(document.OutputFolder, "split.md")), StringComparison.Ordinal);
     }
 
+    // ---- a "×" of old VML shapes (a document in compatibility mode), a little smaller than the page (2026-11-27) ----
+
+    // The "×" of a design document saved by Word 16 in the compatibility mode of Word 2007: a group of two straight connectors, 390.75 x 553.5 pt.
+    private const string VmlCross = """
+        <w:pict xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><v:group id="_x0000_s2052" style="position:absolute;left:0;text-align:left;margin-left:9.45pt;margin-top:6.5pt;width:390.75pt;height:553.5pt;z-index:251660288" coordorigin="1890,2115" coordsize="7815,11070"><v:shapetype id="_x0000_t32" coordsize="21600,21600" o:spt="32" o:oned="t" path="m,l21600,21600e" filled="f"><v:path arrowok="t" fillok="f" o:connecttype="none"/><o:lock v:ext="edit" shapetype="t"/></v:shapetype><v:shape id="_x0000_s2050" type="#_x0000_t32" style="position:absolute;left:1890;top:2310;width:7575;height:10875;flip:x" o:connectortype="straight" strokecolor="#e00" strokeweight="2.25pt"/><v:shape id="_x0000_s2051" type="#_x0000_t32" style="position:absolute;left:2130;top:2115;width:7575;height:10875" o:connectortype="straight" strokecolor="#e00" strokeweight="2.25pt"/></v:group></w:pict>
+        """;
+
+    [Fact]
+    public void TheLinesOfAnOldVmlDrawing_AreReadForTheXCheck()
+    {
+        var paragraph = new Paragraph(new Run(new Picture(VmlCross.Trim())));
+        const double letterWidth = 612 * 12700.0, letterHeight = 792 * 12700.0;
+
+        var boxes = ShapeExtractor.ExtractVmlLines(paragraph, letterWidth, letterHeight);
+
+        Assert.Equal(2, boxes.Count);
+        Assert.All(boxes, b => Assert.Equal("line", b.Geometry));
+        Assert.All(boxes, b => Assert.Equal(7575 / 7815.0 * 390.75 / 612, b.WidthFraction, 3));
+        Assert.All(boxes, b => Assert.Equal(10875 / 11070.0 * 553.5 / 792, b.HeightFraction, 3));
+        Assert.Equal([true, false], boxes.Select(b => b.AntiDiagonal));
+        // 62% x 69% of the page: a "×" of a Word document (3/5 of the page), not of the rule for the other kinds (7/10).
+        Assert.True(CrossShapeDetector.Evaluate(boxes, CrossShapeDetector.WordCoverageThreshold).IsCross);
+        Assert.False(CrossShapeDetector.Evaluate(boxes).IsCross);
+    }
+
+    [Fact]
+    public void AVmlCopyForOldReaders_IsNotCountedAgain_NorAShapeThatIsNotALine()
+    {
+        var fallback = new Paragraph(new Run(new DocumentFormat.OpenXml.AlternateContent(
+            new DocumentFormat.OpenXml.AlternateContentFallback(new Picture(VmlCross.Trim())))));
+        Assert.Empty(ShapeExtractor.ExtractVmlLines(fallback, 612 * 12700.0, 792 * 12700.0));
+
+        var oval = new Paragraph(new Run(new Picture("""<w:pict xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml"><v:oval style="position:absolute;width:500pt;height:700pt"/><v:rect style="position:absolute;width:500pt;height:700pt"/></w:pict>""")));
+        Assert.Empty(ShapeExtractor.ExtractVmlLines(oval, 612 * 12700.0, 792 * 12700.0));
+
+        var line = new Paragraph(new Run(new Picture("""<w:pict xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml"><v:line from="10pt,700pt" to="500pt,20pt"/></w:pict>""")));
+        var box = Assert.Single(ShapeExtractor.ExtractVmlLines(line, 612 * 12700.0, 792 * 12700.0));
+        Assert.True(box.AntiDiagonal); // up to the right
+        Assert.Equal(490 / 612.0, box.WidthFraction, 3);
+    }
+
+    [LibreOfficeFact]
+    public async Task AnXOfOldVmlShapes_DeletesItsPage()
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "vml.docx");
+        DocxFactory.CreateWithShapes(source, [new DocPage(["the first page stays"]), new DocPage(["the second page, crossed out", ""]), new DocPage(["the third page"])]);
+        using (var document = WordprocessingDocument.Open(source, isEditable: true))
+        {
+            var main = document.MainDocumentPart!;
+            main.Document!.Body!.Elements<Paragraph>().ElementAt(2).AppendChild(new Run(new Picture(VmlCross.Trim())));
+            main.Document.Save();
+        }
+
+        var result = await RunAsync(dir, Request(dir.Combine("out"), Options(), source));
+
+        Assert.Equal([2], Assert.Single(result.Documents).Pages.Where(p => p.IsDeleted).Select(p => p.Index));
+    }
+
     [Fact]
     public void TheLinesOfAnX_DeleteOnlyAPageThatBothCanBeOn() // R2 R1-01
     {

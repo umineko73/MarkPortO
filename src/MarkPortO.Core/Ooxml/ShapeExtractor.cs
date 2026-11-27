@@ -22,7 +22,7 @@ namespace MarkPortO.Core.Ooxml;
 
 /// <summary>
 /// Reads the drawn shapes (the <c>wps</c> shapes of a Word drawing) of a paragraph. The XML is read by name, so no
-/// Office 2010 type library is needed. Pictures, charts, and the old VML shapes are not looked at.
+/// Office 2010 type library is needed. Pictures and charts are not looked at; of the old VML shapes, only the straight lines, for the "×" check (ExtractVmlLines).
 /// </summary>
 internal static class ShapeExtractor
 {
@@ -293,6 +293,151 @@ internal static class ShapeExtractor
         var verticalFlip = Flag(transform, "flipV");
         var hasText = shape.Elements().Any(e => e.Name.LocalName == "txbx");
         return new ShapeBox(geometry, widthFraction, heightFraction, horizontalFlip ^ verticalFlip, hasText);
+    }
+
+    /// <summary>
+    /// The straight lines of the old VML drawings of a paragraph (<c>w:pict</c>: <c>v:line</c>, and <c>v:shape</c> of a straight line or
+    /// connector, also in <c>v:group</c>), as parts of the page, only for the "×" check (FR-012): Word keeps the shapes drawn in a document in
+    /// compatibility mode (Word 2007) in this form only. They are not cut out. A copy of a newer drawing for old readers
+    /// (<c>mc:Fallback</c>) is not counted again; nor a drawing in a text box, or one deleted with tracked changes.
+    /// </summary>
+    public static IReadOnlyList<ShapeBox> ExtractVmlLines(Paragraph paragraph, double pageWidth, double pageHeight)
+    {
+        var boxes = new List<ShapeBox>();
+        if (pageWidth <= 0 || pageHeight <= 0)
+        {
+            return boxes;
+        }
+
+        foreach (var pict in paragraph.Descendants().Where(e => e.LocalName == "pict"))
+        {
+            if (pict.Ancestors().Any(a => a.LocalName is "Fallback" or "del" or "txbxContent" or "moveFrom"))
+            {
+                continue;
+            }
+
+            XElement root;
+            try
+            {
+                root = XElement.Parse(pict.OuterXml);
+            }
+            catch (System.Xml.XmlException)
+            {
+                continue;
+            }
+
+            // The shape types of straight lines and connectors (o:spt 20 and 32), by id, as this drawing defines them; Word also uses their usual ids.
+            var lineTypes = new HashSet<string>(StringComparer.Ordinal) { "_x0000_t20", "_x0000_t32" };
+            foreach (var type in root.Descendants().Where(e => e.Name.LocalName == "shapetype"))
+            {
+                if (type.Attributes().FirstOrDefault(a => a.Name.LocalName == "spt")?.Value is "20" or "32" && type.Attribute("id")?.Value is { } id)
+                {
+                    lineTypes.Add(id);
+                }
+            }
+
+            foreach (var element in root.Elements())
+            {
+                Walk(element, VmlPixel, VmlPixel, flipped: false);
+            }
+
+            // scaleX / scaleY: points for a value without a unit (a pixel at the top, a unit of coordsize in a group).
+            void Walk(XElement element, double scaleX, double scaleY, bool flipped)
+            {
+                var style = VmlStyle(element.Attribute("style")?.Value);
+                var flip = style.GetValueOrDefault("flip", string.Empty);
+                var turned = flipped ^ (flip.Contains('x', StringComparison.Ordinal) ^ flip.Contains('y', StringComparison.Ordinal));
+                switch (element.Name.LocalName)
+                {
+                    case "group":
+                    {
+                        var width = VmlLength(style.GetValueOrDefault("width"), scaleX);
+                        var height = VmlLength(style.GetValueOrDefault("height"), scaleY);
+                        var size = (element.Attribute("coordsize")?.Value ?? "1000,1000").Split(',');
+                        var cw = size.Length > 0 && double.TryParse(size[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var a) && a > 0 ? a : 1000;
+                        var ch = size.Length > 1 && double.TryParse(size[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var b) && b > 0 ? b : 1000;
+                        foreach (var child in element.Elements())
+                        {
+                            Walk(child, width / cw, height / ch, turned);
+                        }
+
+                        break;
+                    }
+
+                    case "line":
+                    {
+                        var (x1, y1) = VmlPoint(element.Attribute("from")?.Value, scaleX, scaleY);
+                        var (x2, y2) = VmlPoint(element.Attribute("to")?.Value, scaleX, scaleY);
+                        var anti = ((x2 - x1) * (y2 - y1) < 0) ^ flipped;
+                        boxes.Add(new ShapeBox("line", Math.Abs(x2 - x1) * EmuPerPoint / pageWidth, Math.Abs(y2 - y1) * EmuPerPoint / pageHeight, anti));
+                        break;
+                    }
+
+                    case "shape" when IsVmlLine(element):
+                    {
+                        var width = VmlLength(style.GetValueOrDefault("width"), scaleX);
+                        var height = VmlLength(style.GetValueOrDefault("height"), scaleY);
+                        boxes.Add(new ShapeBox("line", width * EmuPerPoint / pageWidth, height * EmuPerPoint / pageHeight, turned));
+                        break;
+                    }
+                }
+            }
+
+            bool IsVmlLine(XElement shape) =>
+                (shape.Attribute("type")?.Value is { } type && lineTypes.Contains(type.TrimStart('#')))
+                || shape.Attributes().Any(a => a.Name.LocalName == "connectortype" && a.Value == "straight")
+                || shape.Attribute("path")?.Value.Replace(" ", string.Empty, StringComparison.Ordinal) is "m,l21600,21600e" or "m0,0l21600,21600e";
+        }
+
+        return boxes;
+    }
+
+    private const double EmuPerPoint = 12700;
+
+    private const double VmlPixel = 0.75; // a length of VML without a unit is in pixels (96 to the inch)
+
+    private static Dictionary<string, string> VmlStyle(string? style)
+    {
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var part in (style ?? string.Empty).Split(';'))
+        {
+            var colon = part.IndexOf(':', StringComparison.Ordinal);
+            if (colon > 0)
+            {
+                values[part[..colon].Trim()] = part[(colon + 1)..].Trim();
+            }
+        }
+
+        return values;
+    }
+
+    // A VML length in points: with its unit, or without one in the units of scale (points each).
+    private static double VmlLength(string? value, double scale)
+    {
+        var text = (value ?? string.Empty).Trim().ToLowerInvariant();
+        var unit = new string([.. text.Reverse().TakeWhile(char.IsLetter).Reverse()]);
+        if (!double.TryParse(text[..(text.Length - unit.Length)], NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+        {
+            return 0;
+        }
+
+        return unit switch
+        {
+            "pt" => number,
+            "in" => number * 72,
+            "cm" => number * 72 / 2.54,
+            "mm" => number * 72 / 25.4,
+            "pc" => number * 12,
+            "px" => number * VmlPixel,
+            "emu" => number / EmuPerPoint,
+            _ => number * scale,
+        };
+    }
+
+    private static (double X, double Y) VmlPoint(string? value, double scaleX, double scaleY)
+    {
+        var parts = (value ?? "0,0").Split(',');
+        return (VmlLength(parts.ElementAtOrDefault(0), scaleX), VmlLength(parts.ElementAtOrDefault(1), scaleY));
     }
 
     private static double Number(XElement? element, string attribute) =>
