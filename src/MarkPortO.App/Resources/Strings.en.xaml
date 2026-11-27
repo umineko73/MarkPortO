@@ -178,7 +178,7 @@
   <sys:String x:Key="Main_ExistingSame">Overwrite</sys:String>
   <sys:String xml:space="preserve" x:Key="Main_ExistingTip">Where Start and Redo all write a file that was converted before.&#10;Make a new one: a new folder such as "name (2)" (the earlier folder stays).&#10;Overwrite: the folder of the earlier conversion (its Markdown and page images are replaced).&#10;Reconvert updated files, Resume and Convert again always write into the earlier folder.</sys:String>
   <sys:String x:Key="Status_Previous_Done">Showing the previous conversion of the output folder: {0} done. Convert with Reconvert updated files or Redo all.</sys:String>
-  <sys:String x:Key="Status_Previous_Other">The output folder has a conversion of other inputs that did not finish or has failures. To continue it, use File - Open a past output...</sys:String>
+  <sys:String x:Key="Status_Previous_Other">The output folder has a conversion of other inputs that did not finish or has failures. To continue it, use View output... in File - Past history... (when the history does not have it, Find a folder... and choose this output folder).</sys:String>
   <sys:String x:Key="Main_StartTip">Converts every file of the inputs. It can be pressed when the list of files is empty (the output folder has no earlier conversion).</sys:String>
   <sys:String x:Key="Main_ChangedOnly">Reconvert updated files</sys:String>
   <sys:String x:Key="Main_ChangedOnlyTip">Converts only the files that changed since their last conversion in the output folder, were never converted, or whose last conversion did not finish. They are written to the folders of their earlier conversion. A change of the conditions alone does not convert a file again. It can be pressed when a file of the list is "Changed".</sys:String>
@@ -219,7 +219,7 @@
   <sys:String x:Key="Menu_WorkSetNone">(no work sets)</sys:String>
   <sys:String x:Key="Menu_OutputHistory">Past history…</sys:String>
   <sys:String x:Key="History_Title">Past history</sys:String>
-  <sys:String x:Key="History_About">The output folder each input was last converted into. Choose a row and press Go back to this to return to that input and folder.</sys:String>
+  <sys:String x:Key="History_About">The output folder each input was last converted into. Go back to this returns to that input and folder; View output... opens the results of the conversions.</sys:String>
   <sys:String x:Key="History_Empty">No output folder is remembered.</sys:String>
   <sys:String x:Key="History_ColumnInput">Input</sys:String>
   <sys:String x:Key="History_ColumnOutput">Output folder</sys:String>
@@ -230,6 +230,11 @@
   <sys:String x:Key="History_InputGone">The input is gone</sys:String>
   <sys:String x:Key="History_NoRecord">No record</sys:String>
   <sys:String x:Key="History_Open">Go back to this</sys:String>
+  <sys:String x:Key="Past_Unreadable">The records of the output folder could not be read: {0}&#10;&#10;{1}</sys:String>
+  <sys:String x:Key="History_View">View output...</sys:String>
+  <sys:String x:Key="History_ViewTip">Lists the results of the conversions in the output folder of the row. A result can be previewed, or opened in the main window to resume it.</sys:String>
+  <sys:String x:Key="History_Find">Find a folder...</sys:String>
+  <sys:String x:Key="History_FindTip">Choose an output folder that the history does not have (moved or copied, for example), or the folder of one document, and open the results of its conversions.</sys:String>
   <sys:String x:Key="History_OpenGone">It cannot be gone back to: this folder or file is not there: {0}</sys:String>
   <sys:String x:Key="History_Forget">Forget the ones chosen</sys:String>
   <sys:String x:Key="History_ForgetAll">Forget all…</sys:String>
@@ -372,7 +377,6 @@
   <sys:String xml:space="preserve" x:Key="Confirm_StartExternalText">&#10;A prompt contains {pagetext}, so the text taken from the document is sent as well.</sys:String>
   <sys:String xml:space="preserve" x:Key="Confirm_StartExternalLimits">&#10;Limits: pages {0}, cost {1}.</sys:String>
   <sys:String x:Key="Menu_File">_File</sys:String>
-  <sys:String x:Key="Menu_OpenPast">Open a past output...</sys:String>
   <sys:String x:Key="Past_Title">Past output</sys:String>
   <sys:String x:Key="Past_Folder">Output folder</sys:String>
   <sys:String x:Key="Past_Name">File</sys:String>

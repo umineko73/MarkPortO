@@ -24,8 +24,7 @@
     <!-- Menu bar (FR-032) -->
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="{DynamicResource Menu_File}">
-        <MenuItem Header="{DynamicResource Menu_OpenPast}" Click="OnOpenPastClick"><MenuItem.Icon><TextBlock Text="&#xE838;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
-        <MenuItem Header="{DynamicResource Menu_OutputHistory}" Click="OnOutputHistoryClick" IsEnabled="{Binding CanEdit}"><MenuItem.Icon><TextBlock Text="&#xE81C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
+        <MenuItem Header="{DynamicResource Menu_OutputHistory}" Click="OnOutputHistoryClick"><MenuItem.Icon><TextBlock Text="&#xE81C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
         <Separator />
         <MenuItem Header="{DynamicResource Menu_WorkSetSave}" Click="OnSaveWorkSetClick"><MenuItem.Icon><TextBlock Text="&#xE74E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
         <MenuItem x:Name="WorkSetsMenu" Header="{DynamicResource Menu_WorkSetOpen}" SubmenuOpened="OnWorkSetsMenuOpened" IsEnabled="{Binding CanEdit}"><MenuItem.Icon><TextBlock Text="&#xE8E5;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon>
@@ -662,6 +661,7 @@
             <DataGrid.RowStyle>
               <Style TargetType="DataGridRow">
                 <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnPageRightClick" />
+                <EventSetter Event="MouseDoubleClick" Handler="OnPageDoubleClick" />
               </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>

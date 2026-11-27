@@ -185,10 +185,9 @@ The list of files shows the folder of each document in the output (the **Output*
 
 ### Opening a past output
 
-1. Choose **File > Open a past output...**.
-2. Choose the output folder, or the folder of one document.
-3. Choose a document in the list. A file converted more than once has its results (newest first) in the box below.
-4. Press **Preview**, **Open in Explorer** or **Open**.
+1. Open **File > Past history...**, choose a row and press **View output...**. For an output folder that the history does not have (moved or copied, for example), press **Find a folder...** and choose the output folder, or the folder of one document.
+2. Choose a document in the list. A file converted more than once has its results (newest first) in the box below.
+3. Press **Preview**, **Open in Explorer** or **Open**.
 
 Documents and results are listed newest first. **Open** puts the selected files in the inputs and the file list of the main window and makes this the output folder; it does not start a conversion.
 
@@ -198,7 +197,7 @@ Opening an output only reads it. The output folder can be moved or copied to ano
 
 ### Resuming an interrupted conversion
 
-1. In **Open a past output**, choose the result to resume.
+1. With **View output...** (or **Find a folder...**) of **Past history...**, choose the result to resume.
 2. Press **Open**.
 3. Press **Resume** in the main window.
 
@@ -214,7 +213,7 @@ When the files and folders to convert are chosen, the screen goes back to their 
 
 "The first" is the first input, from the top of the list, that has a record. Adding files or folders whose earlier output folder or conditions differ from the first asks first; when added, the output folder and the conditions stay those of the first, and the files without a record in its output folder are converted anew.
 
-**File > Past history** lists the remembered output folders (the input, the output folder, when, and how the files are now: the input is gone, the output folder is gone, or the folder has no record of the input); the ones chosen, or all of them, can be forgotten. **Go back to this** (or a double click on a row) puts the screen back to that input and its output folder (the conditions come back from its records). The results of the conversions stay.
+**File > Past history** lists the remembered output folders (the input, the output folder, when, and how the files are now: the input is gone, the output folder is gone, or the folder has no record of the input); the ones chosen, or all of them, can be forgotten. **Go back to this** (or a double click on a row) puts the screen back to that input and its output folder (the conditions come back from its records). **View output...** opens the results of the conversions in that folder (see "Opening a past output"). The results of the conversions stay.
 
 ### Converting again
 

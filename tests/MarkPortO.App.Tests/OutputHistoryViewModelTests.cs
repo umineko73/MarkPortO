@@ -69,6 +69,25 @@ public sealed class OutputHistoryViewModelTests
             states);
     });
 
+    [Fact]
+    public void ABrokenRecordInAnOutputFolder_DoesNotKeepThePastHistoryFromOpening() => Sta.Run(screen => // past window review MP-01
+    {
+        var root = System.IO.Path.GetDirectoryName(screen.Store.FilePath)!;
+        var input = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(root, "in", "A")).FullName;
+        var file = System.IO.Path.Combine(input, "a.docx");
+        System.IO.File.WriteAllBytes(file, [1, 2, 3]);
+        var output = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(root, "out", "broken")).FullName;
+        FakeRecords.Write(output, [file]);
+        foreach (var job in System.IO.Directory.GetFiles(output, "job.json", System.IO.SearchOption.AllDirectories))
+        {
+            System.IO.File.WriteAllText(job, "{");
+        }
+
+        screen.Store.Update(s => s.History.Remember(input, output, DateTimeOffset.Now));
+
+        Assert.Equal([MainViewModel.HistoryState.NoRecord], screen.Model.OutputHistoryStates().Select(h => h.State));
+    });
+
     private static void WaitFor(Screen screen, Func<bool> condition, string what)
     {
         var until = DateTime.UtcNow.AddSeconds(10);

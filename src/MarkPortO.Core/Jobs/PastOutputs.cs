@@ -115,6 +115,20 @@ public static class PastOutputs
     /// </summary>
     public static IReadOnlyList<PastDocument> LoadRecords(string folder)
     {
+        // A folder below the one chosen that has its own state is another output: its documents are not of this one.
+        static bool InAnotherOutput(string file, string root)
+        {
+            for (var current = Path.GetDirectoryName(file); current is not null && current.Length > root.Length; current = Path.GetDirectoryName(current))
+            {
+                if (Directory.Exists(Path.Combine(current, StateStore.StateFolderName)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         var result = new List<PastDocument>();
         string root;
         List<string> files;
@@ -122,7 +136,8 @@ public static class PastOutputs
         {
             root = Path.GetFullPath(folder);
             files = [.. Directory.EnumerateFiles(root, Markdown.ConversionRecord.FileName, SearchOption.AllDirectories)
-                .Where(f => !f.Split(Path.DirectorySeparatorChar).Contains(StateStore.StateFolderName, StringComparer.OrdinalIgnoreCase))];
+                .Where(f => !f.Split(Path.DirectorySeparatorChar).Contains(StateStore.StateFolderName, StringComparer.OrdinalIgnoreCase)
+                    && !InAnotherOutput(f, root))];
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {

@@ -146,7 +146,6 @@ public partial class MainWindow : Window
     // The folder and the Markdown files of the chosen document: the shell opens them (the folder in Explorer, a file in the program set for .md).
     private void OnOpenFolderClick(object sender, RoutedEventArgs e) => OpenWithShell(_viewModel.Selected is { HasOutputFolder: true } item ? item.OutputFolderPath : null);
 
-    // FR-127: the files chosen in the list are converted again, into the folders of their earlier conversion.
     /// <summary>The "▼" next to the main button: the other ways to convert, under the button.</summary>
     private void OnMoreRunClick(object sender, RoutedEventArgs e)
     {
@@ -162,6 +161,7 @@ public partial class MainWindow : Window
     private void OnFileSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) =>
         _viewModel.SetSelectedFiles([.. FileGrid.SelectedItems.OfType<FileItemViewModel>()]);
 
+    // FR-127: the files chosen in the list are converted again, into the folders of their earlier conversion.
     private async void OnReconvertClick(object sender, RoutedEventArgs e) =>
         await _viewModel.ReconvertAsync([.. FileGrid.SelectedItems.OfType<FileItemViewModel>()]);
 
@@ -192,6 +192,16 @@ public partial class MainWindow : Window
         {
             PageGrid.SelectedItem = row.Item;
             row.Focus();
+        }
+    }
+
+    /// <summary>A double click on a page: the preview opens at that page, as "Preview" of its menu.</summary>
+    private void OnPageDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is System.Windows.Controls.DataGridRow { Item: PageRow page })
+        {
+            e.Handled = true;
+            OpenPreview(page.Index);
         }
     }
 
@@ -248,20 +258,47 @@ public partial class MainWindow : Window
     }
 
     // FR-119: the preview of an output of an earlier run, found from its folder. The windows are not tied to the conversion.
-    private void OnOpenPastClick(object sender, RoutedEventArgs e)
+    // "Find a folder…" of the past history: an output folder that the history does not have (moved, or copied).
+    private void FindPastFolder()
     {
         var dialog = new OpenFolderDialog { Title = UiText.Get("Dialog_SelectFolder"), ClientGuid = PastFolderDialogId };
-        if (dialog.ShowDialog(this) != true)
+        if (dialog.ShowDialog(this) == true)
         {
-            return;
+            OpenPastFolder(dialog.FolderName);
+        }
+    }
+
+    /// <summary>The results of the conversions in an output folder (or the folder of one document), to preview, open or resume.</summary>
+    /// <param name="exactly">
+    /// The folder is an output folder of the history: its own records, never those of a folder above it (when its .markporto is gone, the
+    /// conversion.json files in it). A folder chosen by hand can be one inside an output, so the output is looked for upwards.
+    /// </param>
+    private void OpenPastFolder(string folder, bool exactly = false)
+    {
+        try
+        {
+            OpenPastFolderCore(folder, exactly);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            // A record of the output that cannot be read (a broken job.json, for example): said, not a crash.
+            MessageBox.Show(this, UiText.Get("Past_Unreadable", folder, ex.Message), UiText.Get("Past_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OpenPastFolderCore(string folder, bool exactly)
+    {
+        var root = PastOutputs.FindRoot(folder);
+        if (exactly && root is not null && !string.Equals(System.IO.Path.GetFullPath(root).TrimEnd('\\', '/'), System.IO.Path.GetFullPath(folder).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+        {
+            root = null;
         }
 
-        var root = PastOutputs.FindRoot(dialog.FolderName);
         if (root is null)
         {
             // No .markporto (the folders were copied, or their state removed): the conversion.json of each document folder (FR-155).
             // They can be previewed and opened as a new conversion; not resumed.
-            var chosen = dialog.FolderName;
+            var chosen = folder;
             var records = PastOutputs.LoadRecords(chosen);
             if (records.Count == 0)
             {
@@ -465,11 +502,22 @@ public partial class MainWindow : Window
 
         var about = new System.Windows.Controls.TextBlock { Text = UiText.Get("History_About"), TextWrapping = TextWrapping.Wrap, Width = 860, Margin = new Thickness(0, 0, 0, 8) };
         var empty = new System.Windows.Controls.TextBlock { Text = UiText.Get("History_Empty"), Margin = new Thickness(0, 0, 0, 8) };
-        var open = new System.Windows.Controls.Button { Content = UiText.Get("History_Open"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 18, 0) };
+        var open = new System.Windows.Controls.Button { Content = UiText.Get("History_Open"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
+        var view = new System.Windows.Controls.Button
+        {
+            Content = UiText.Get("History_View"),
+            ToolTip = UiText.Get("History_ViewTip"),
+            Padding = new Thickness(10, 3, 10, 3),
+            Margin = new Thickness(0, 0, 18, 0),
+        };
+        System.Windows.Controls.ToolTipService.SetShowOnDisabled(view, true);
+        var find = new System.Windows.Controls.Button { Content = UiText.Get("History_Find"), ToolTip = UiText.Get("History_FindTip"), Padding = new Thickness(10, 3, 10, 3) };
         var forget = new System.Windows.Controls.Button { Content = UiText.Get("History_Forget"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
         var clear = new System.Windows.Controls.Button { Content = UiText.Get("History_ForgetAll"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
         var close = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Close"), Padding = new Thickness(16, 3, 16, 3), IsCancel = true, IsDefault = true };
-        var buttons = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { open, forget, clear, close } };
+        var right = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { open, view, forget, clear, close } };
+        System.Windows.Controls.DockPanel.SetDock(find, System.Windows.Controls.Dock.Left);
+        var buttons = new System.Windows.Controls.DockPanel { LastChildFill = true, Children = { find, right } };
         var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(12), Children = { about, empty, grid, buttons } };
         var dialog = new Window
         {
@@ -502,9 +550,13 @@ public partial class MainWindow : Window
             clear.IsEnabled = rows.Count > 0;
             forget.IsEnabled = grid.SelectedItems.Count > 0;
             open.IsEnabled = CanOpenSelected();
+            view.IsEnabled = CanViewSelected();
         }
 
-        bool CanOpenSelected() => grid.SelectedItems.Count == 1 && grid.SelectedItem is OutputHistoryRow { CanOpen: true };
+        // Going back changes the screen: not while a conversion runs. The results can be looked at any time.
+        bool CanOpenSelected() => _viewModel.CanEdit && grid.SelectedItems.Count == 1 && grid.SelectedItem is OutputHistoryRow { CanOpen: true };
+
+        bool CanViewSelected() => grid.SelectedItems.Count == 1 && grid.SelectedItem is OutputHistoryRow row && System.IO.Directory.Exists(row.Output);
 
         // The screen goes back to the input chosen and its output folder; the list closes.
         void Open()
@@ -528,7 +580,31 @@ public partial class MainWindow : Window
         {
             forget.IsEnabled = grid.SelectedItems.Count > 0;
             open.IsEnabled = CanOpenSelected();
+            view.IsEnabled = CanViewSelected();
         };
+        view.Click += (_, _) =>
+        {
+            if (CanViewSelected() && grid.SelectedItem is OutputHistoryRow row)
+            {
+                dialog.Close();
+                OpenPastFolder(row.Output, exactly: true);
+            }
+        };
+        find.Click += (_, _) =>
+        {
+            dialog.Close();
+            FindPastFolder();
+        };
+        void OnModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(MainViewModel.CanEdit))
+            {
+                open.IsEnabled = CanOpenSelected();
+            }
+        }
+
+        _viewModel.PropertyChanged += OnModelChanged;
+        dialog.Closed += (_, _) => _viewModel.PropertyChanged -= OnModelChanged;
         grid.MouseDoubleClick += (_, e) =>
         {
             if (e.OriginalSource is DependencyObject source && System.Windows.Controls.ItemsControl.ContainerFromElement(grid, source) is System.Windows.Controls.DataGridRow)

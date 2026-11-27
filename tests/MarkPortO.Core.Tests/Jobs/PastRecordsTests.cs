@@ -75,6 +75,23 @@ public class PastRecordsTests
         Assert.True(File.Exists(Path.Combine(copy, only.Document.Pages[0].ImageFile)));
     }
 
+    [LibreOfficeFact]
+    public async Task AnotherOutputInsideTheFolder_IsNotReadAsPartOfIt() // past window review MP-06
+    {
+        using var dir = new TempDir();
+        var docx = dir.Combine("in", "報告書.docx");
+        DocxFactory.CreatePaged(docx, ["One"]);
+        var result = await RunAsync(dir, Request(dir.Combine("out"), Options(), docx));
+        var selected = dir.Combine("selected");
+        CopyFolder(result.Documents[0].OutputFolder, Path.Combine(selected, "報告書"));
+        var another = Path.Combine(selected, "another-output");
+        Directory.CreateDirectory(Path.Combine(another, StateStore.StateFolderName, "jobs"));
+        CopyFolder(result.Documents[0].OutputFolder, Path.Combine(another, "報告書"));
+
+        var only = Assert.Single(PastOutputs.LoadRecords(selected));
+        Assert.Equal(Path.Combine(selected, "報告書"), only.Document.OutputFolder);
+    }
+
     [Fact]
     public void ABrokenRecord_OrOneOfANewerForm_IsLeftOut_AndTheStateFolderIsNotRead()
     {

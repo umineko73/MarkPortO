@@ -178,7 +178,7 @@
   <sys:String x:Key="Main_ExistingSame">上書きする</sys:String>
   <sys:String xml:space="preserve" x:Key="Main_ExistingTip">「開始」「すべてやり直し」で、前に変換したファイルをどこに書くかを選びます。&#10;別名で新しく作る: 「名前 (2)」のような新しいフォルダに書きます（前回のフォルダは残ります）。&#10;上書きする: 前回と同じフォルダに書きます（Markdown とページ画像は置き換わります）。&#10;「更新ファイルの再変換」「再開」「再変換」は、いつも前回と同じフォルダに書きます。</sys:String>
   <sys:String x:Key="Status_Previous_Done">出力先の前回の変換を表示しています: 完了 {0} 件。「更新ファイルの再変換」か「すべてやり直し」で変換できます。</sys:String>
-  <sys:String x:Key="Status_Previous_Other">出力先に、別の入力の変換（未完了または失敗あり）が残っています。続きは「ファイル」→「過去の出力を開く…」から再開できます。</sys:String>
+  <sys:String x:Key="Status_Previous_Other">出力先に、別の入力の変換（未完了または失敗あり）が残っています。続きは「ファイル」→「過去の履歴…」の「出力を見る…」（履歴にないときは「フォルダから探す…」でこの出力先を選ぶ）から再開できます。</sys:String>
   <sys:String x:Key="Main_StartTip">入力のファイルをすべて変換します。ファイルの一覧が空のときに押せます（出力先に前回の変換がないとき）。</sys:String>
   <sys:String x:Key="Main_ChangedOnly">更新ファイルの再変換</sys:String>
   <sys:String x:Key="Main_ChangedOnlyTip">出力先での前回の変換から変わったファイル、まだ変換していないファイル、前回の変換が終わっていないファイルだけを変換します。出力は前回と同じフォルダに書きます。条件を変えただけでは、変換し直しません。ファイルの一覧に「変更あり」のファイルがあるときに押せます。</sys:String>
@@ -219,7 +219,7 @@
   <sys:String x:Key="Menu_WorkSetNone">（作業セットはありません）</sys:String>
   <sys:String x:Key="Menu_OutputHistory">過去の履歴…</sys:String>
   <sys:String x:Key="History_Title">過去の履歴</sys:String>
-  <sys:String x:Key="History_About">入力ごとに、最後に変換した出力先です。行を選んで「この状態に戻す」を押すと、その入力と出力先に戻せます。</sys:String>
+  <sys:String x:Key="History_About">入力ごとに、最後に変換した出力先です。「この状態に戻す」でその入力と出力先に戻り、「出力を見る…」で変換の結果を開きます。</sys:String>
   <sys:String x:Key="History_Empty">覚えている出力先はありません。</sys:String>
   <sys:String x:Key="History_ColumnInput">入力</sys:String>
   <sys:String x:Key="History_ColumnOutput">出力先</sys:String>
@@ -230,6 +230,11 @@
   <sys:String x:Key="History_InputGone">入力がありません</sys:String>
   <sys:String x:Key="History_NoRecord">記録がありません</sys:String>
   <sys:String x:Key="History_Open">この状態に戻す</sys:String>
+  <sys:String x:Key="Past_Unreadable">出力先の記録を読めませんでした: {0}&#10;&#10;{1}</sys:String>
+  <sys:String x:Key="History_View">出力を見る…</sys:String>
+  <sys:String x:Key="History_ViewTip">選んだ行の出力先にある変換の結果を一覧にします。結果を選んで、プレビューしたり、メイン画面に読み込んで再開したりできます。</sys:String>
+  <sys:String x:Key="History_Find">フォルダから探す…</sys:String>
+  <sys:String x:Key="History_FindTip">履歴にない出力フォルダ（移したもの、コピーしたものなど）や、文書1つのフォルダを選んで、その変換の結果を開きます。</sys:String>
   <sys:String x:Key="History_OpenGone">戻せません。次のフォルダまたはファイルがありません: {0}</sys:String>
   <sys:String x:Key="History_Forget">選んだものを消す</sys:String>
   <sys:String x:Key="History_ForgetAll">すべて消す…</sys:String>
@@ -372,7 +377,6 @@
   <sys:String xml:space="preserve" x:Key="Confirm_StartExternalText">&#10;指示に {pagetext} があるため、文書から取り出したページのテキストも送られます。</sys:String>
   <sys:String xml:space="preserve" x:Key="Confirm_StartExternalLimits">&#10;上限: ページ数 {0}、費用 {1}。</sys:String>
   <sys:String x:Key="Menu_File">ファイル(_F)</sys:String>
-  <sys:String x:Key="Menu_OpenPast">過去の出力を開く…</sys:String>
   <sys:String x:Key="Past_Title">過去の出力</sys:String>
   <sys:String x:Key="Past_Folder">出力先</sys:String>
   <sys:String x:Key="Past_Name">ファイル</sys:String>

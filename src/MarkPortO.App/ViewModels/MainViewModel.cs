@@ -2272,8 +2272,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 {
                     last = FileStates.LastRecords(memory.Output);
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
                 {
+                    // A record that cannot be read: the row says the folder has no record of the input, and the list still opens.
                     last = new Dictionary<string, (JobState Job, DocumentRecord Document)>();
                 }
 
