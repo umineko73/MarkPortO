@@ -56,6 +56,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool _showsWait;
     private Func<string> _waitText = () => string.Empty; // makes the text again when the language changes
     private Task _addTurn = Task.CompletedTask; // the inputs added before, checked one after another (AddInputsAsync)
+    private int _inputsReplaced; // counts the times the list of inputs was put in whole (OpenFromHistory): an add checked before is not taken
     private string _dpiText;
     private string _pageRangeText = string.Empty;
     private FileItemViewModel? _selected;
@@ -1560,8 +1561,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         List<string> differences = [];
         IReadOnlyList<string> already = [.. InputPaths];
+        var replaced = _inputsReplaced;
         await WhileWaitingAsync(() => UiText.Get("Busy_CheckingInputs"), async () => differences = await Task.Run(() => AddDifferences(adding, already)));
-        if (!IsRunning)
+        if (!IsRunning && replaced == _inputsReplaced) // the list it was checked against was not put in whole meanwhile
         {
             AddChecked(adding, differences);
         }
@@ -2045,6 +2047,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return false;
         }
 
+        _inputsReplaced++;
         _keepList = true;
         try
         {
@@ -2059,6 +2062,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SaveInputs();
         _restoreSuspended = false;
         _workSetName = null;
+        _firstKey = null; // the conditions are read from the records again, though the input and the folder are those of the screen
         if (!string.Equals(output, _store.Current.Output.Folder, StringComparison.Ordinal))
         {
             _store.Update(s => s.Output.Folder = output);
@@ -2562,7 +2566,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var key = first is null ? null : HistorySettings.Normalize(first.Input) + "|" + HistorySettings.Normalize(folder);
             if (!string.Equals(key, _firstKey, StringComparison.OrdinalIgnoreCase))
             {
-                _firstKey = key;
                 if (first is not null)
                 {
                     var input = first.Input;
@@ -2570,9 +2573,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                     var recorded = await Task.Run(() => PreviousState.ConditionsOf(output, input));
                     if (version != _scanVersion || IsRunning)
                     {
-                        _firstKey = null;
-                        return;
+                        return; // a newer refresh reads them (the key is set only by the one that puts them back)
                     }
+
+                    _firstKey = key;
 
                     if (recorded is not null)
                     {
@@ -2589,9 +2593,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                         RaiseAllConditions();
                     }
                 }
-                else if (_store.RevertConditions())
+                else
                 {
-                    RaiseAllConditions();
+                    _firstKey = key;
+                    if (_store.RevertConditions())
+                    {
+                        RaiseAllConditions();
+                    }
                 }
             }
         }

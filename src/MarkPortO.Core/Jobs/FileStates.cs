@@ -86,10 +86,15 @@ public static class FileStates
         }
 
         var store = new StateStore(outputFolder);
-        foreach (var job in store.ListJobs().OrderByDescending(j => j.CreatedAt)) // the newest conversion first
+        foreach (var job in store.ListJobs().Where(j => j is not null).OrderByDescending(j => j.CreatedAt)) // the newest conversion first
         {
-            foreach (var docId in job.Documents)
+            foreach (var docId in job.Documents ?? []) // a broken record (no list of documents) has none
             {
+                if (string.IsNullOrEmpty(docId))
+                {
+                    continue;
+                }
+
                 DocumentRecord? document;
                 try
                 {

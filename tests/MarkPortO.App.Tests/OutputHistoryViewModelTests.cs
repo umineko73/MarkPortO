@@ -69,6 +69,57 @@ public sealed class OutputHistoryViewModelTests
             states);
     });
 
+    private static void WaitFor(Screen screen, Func<bool> condition, string what)
+    {
+        var until = DateTime.UtcNow.AddSeconds(10);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < until, what);
+            screen.Pump();
+            Thread.Sleep(20);
+        }
+
+        screen.Pump();
+    }
+
+    [Fact]
+    public void GoingBackAgain_PutsBackTheConditionsOfTheRecord_ThoughTheyWereChanged() => Sta.Run(screen => // history review R1-05
+    {
+        var root = System.IO.Path.GetDirectoryName(screen.Store.FilePath)!;
+        var folder = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(root, "in", "A")).FullName;
+        System.IO.File.WriteAllBytes(System.IO.Path.Combine(folder, "a.docx"), [1, 2, 3]);
+        var output = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(root, "out", "1")).FullName;
+        FakeRecords.Write(output, [System.IO.Path.Combine(folder, "a.docx")], o => o.Dpi = 222);
+
+        Assert.True(screen.Model.OpenFromHistory(folder, output));
+        WaitFor(screen, () => screen.Settings.Images.Dpi == 222, "the conditions were not put back");
+        screen.Model.DpiText = "300";
+        WaitFor(screen, () => screen.Settings.Images.Dpi == 300, "the DPI was not changed");
+
+        Assert.True(screen.Model.OpenFromHistory(folder, output));
+        WaitFor(screen, () => screen.Settings.Images.Dpi == 222, "going back again did not put the conditions back");
+    });
+
+    [Fact]
+    public void AnInputAddedJustBeforeGoingBack_IsNotAddedToTheListPutIn() => Sta.Run(screen => // history review R1-03
+    {
+        var root = System.IO.Path.GetDirectoryName(screen.Store.FilePath)!;
+        string Folder(params string[] parts) => System.IO.Directory.CreateDirectory(System.IO.Path.Combine([root, .. parts])).FullName;
+        var (a, b, output) = (Folder("in", "A"), Folder("in", "B"), Folder("out", "1"));
+
+        screen.Model.DropInputs([a]); // checked away from the screen
+        Assert.True(screen.Model.OpenFromHistory(b, output)); // before the check of A ends
+
+        var until = DateTime.UtcNow.AddSeconds(2);
+        while (DateTime.UtcNow < until)
+        {
+            screen.Pump();
+            Thread.Sleep(20);
+        }
+
+        Assert.Equal([b], screen.Model.InputPaths);
+    });
+
     [Fact]
     public void GoingBackToAnInputOfTheHistory_PutsItAloneInTheList_WithItsOutputFolder() => Sta.Run(screen =>
     {

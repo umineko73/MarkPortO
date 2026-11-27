@@ -421,20 +421,18 @@ public partial class MainWindow : Window
             Width = 860,
             Margin = new Thickness(0, 0, 0, 8),
         };
-        foreach (var (header, path, width) in new[]
+        foreach (var (header, path, width, tip) in new[]
         {
-            ("History_ColumnInput", nameof(OutputHistoryRow.Input), 300.0),
-            ("History_ColumnOutput", nameof(OutputHistoryRow.Output), 280.0),
-            ("History_ColumnAt", nameof(OutputHistoryRow.At), 130.0),
-            ("History_ColumnState", nameof(OutputHistoryRow.State), 130.0),
+            (UiText.Get("History_ColumnInput"), nameof(OutputHistoryRow.Input), 300.0, (string?)null),
+            (UiText.Get("History_ColumnOutput"), nameof(OutputHistoryRow.Output), 280.0, null),
+            (UiText.Get("History_ColumnAt"), nameof(OutputHistoryRow.At), 130.0, null),
+            (UiText.Get("History_ColumnState"), nameof(OutputHistoryRow.State), 130.0, UiText.Get("History_ColumnStateTip")),
         })
         {
             grid.Columns.Add(new System.Windows.Controls.DataGridTextColumn
             {
                 // The meaning of the states is in the tip of the header of their column (the line above the list is short).
-                Header = header == "History_ColumnState"
-                    ? new System.Windows.Controls.TextBlock { Text = UiText.Get(header), ToolTip = UiText.Get("History_ColumnStateTip") }
-                    : UiText.Get(header),
+                Header = tip is null ? header : new System.Windows.Controls.TextBlock { Text = header, ToolTip = tip },
                 Binding = new System.Windows.Data.Binding(path),
                 Width = new System.Windows.Controls.DataGridLength(width),
             });
