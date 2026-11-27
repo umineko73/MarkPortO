@@ -33,6 +33,20 @@ public class ConditionSetTests : JapaneseUiTests
     }
 
     [Fact]
+    public void TheGapOfTheShapesCutOutTogether_IsOneOfTheConditions() // MP-06
+    {
+        var from = AppSettings.CreateDefault();
+        from.Input.ShapeGroupGapPoints = 81;
+        var to = AppSettings.CreateDefault();
+
+        ConditionSet.From(from).ApplyTo(to);
+
+        Assert.Equal(81, to.Input.ShapeGroupGapPoints);
+        Assert.False(ConditionSet.From(from).SameAs(ConditionSet.From(AppSettings.CreateDefault())));
+        Assert.Equal(24, new ConditionSet().ShapeGroupGapPoints); // a working set saved before the gap was one of them
+    }
+
+    [Fact]
     public void TheConditions_GoIntoOtherSettings_AndLeaveTheInputsTheOutputAndTheConnectionsAlone()
     {
         var from = AppSettings.CreateDefault();

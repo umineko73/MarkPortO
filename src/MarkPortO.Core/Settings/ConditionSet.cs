@@ -56,6 +56,15 @@ public sealed class ConditionSet
 
     public bool GroupNearShapes { get; set; } = true;
 
+    /// <summary><see cref="InputSettings.ShapeGroupGapPoints"/> (a set saved before it was one of the conditions has the default).</summary>
+    public double ShapeGroupGapPoints
+    {
+        get => _shapeGroupGapPoints;
+        set => _shapeGroupGapPoints = value is >= 0 and <= 720 ? value : 24;
+    }
+
+    private double _shapeGroupGapPoints = 24;
+
     public bool Step2 { get; set; } = true;
 
     public PageImageStyle PageImage { get; set; }
@@ -103,6 +112,7 @@ public sealed class ConditionSet
         ExtractPictures = settings.Input.ExtractPictures,
         ExtractShapes = settings.Input.ExtractShapes,
         GroupNearShapes = settings.Input.GroupNearShapes,
+        ShapeGroupGapPoints = settings.Input.ShapeGroupGapPoints,
         Step2 = settings.Steps.Step2,
         PageImage = settings.Steps.PageImage,
         Step3 = settings.Steps.Step3,
@@ -148,6 +158,7 @@ public sealed class ConditionSet
             ExtractPictures = o.ExtractPictures,
             ExtractShapes = o.ExtractShapes,
             GroupNearShapes = o.GroupNearShapes,
+            ShapeGroupGapPoints = o.ShapeGroupGapPoints,
             Step2 = document.Step2 != StepStatus.NotApplicable,
             PageImage = document.PageImage,
             Step3 = document.Step3 != StepStatus.NotApplicable,
@@ -191,6 +202,7 @@ public sealed class ConditionSet
         settings.Input.ExtractPictures = ExtractPictures;
         settings.Input.ExtractShapes = ExtractShapes;
         settings.Input.GroupNearShapes = GroupNearShapes;
+        settings.Input.ShapeGroupGapPoints = ShapeGroupGapPoints;
         settings.Steps.Step2 = Step2;
         settings.Steps.PageImage = PageImage;
         settings.Steps.Step3 = Step3;
@@ -255,7 +267,7 @@ public sealed class ConditionSet
         Add(
             IncludeHiddenSheets != other.IncludeHiddenSheets || IncludeHiddenSlides != other.IncludeHiddenSlides || IncludeOffSlideText != other.IncludeOffSlideText
             || Emphasis != other.Emphasis || UsePdfText != other.UsePdfText || ExtractPictures != other.ExtractPictures || ExtractShapes != other.ExtractShapes
-            || GroupNearShapes != other.GroupNearShapes,
+            || GroupNearShapes != other.GroupNearShapes || ShapeGroupGapPoints != other.ShapeGroupGapPoints,
             Loc.T("Options of Step1"));
         Add(Step2 != other.Step2, "Step2 " + OnOff(Step2));
         Add(Step2 && other.Step2 && PageImage != other.PageImage, Loc.T("Page image {0}", PageImage));
