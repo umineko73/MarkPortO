@@ -9,13 +9,26 @@
     "apiKeyEnv": "",
     "queryPrefix": "query: ",
     "passagePrefix": "passage: ",
-    "passageChars": 1500,
+    "queryParams": {},
+    "passageParams": {},
+    "passageChars": 400,
+    "passageOverlap": 50,
     "timeoutSeconds": 120,
     "retrySeconds": 30,
     "batchSize": 64,
     "waitSeconds": 10
   },
+  "rerank": {
+    "enabled": false,
+    "url": "",
+    "model": "",
+    "apiKeyEnv": "",
+    "candidates": 30
+  },
   "cacheDir": "",
   "textChars": 1500,
-  "maxResults": 20
+  "readChars": 20000,
+  "maxResults": 20,
+  "meaningCandidates": 50,
+  "recheckSeconds": 300
 }

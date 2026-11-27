@@ -117,11 +117,31 @@ class Embeddings:
         self.seen: list[str] = []  # the first text of each request
         self.fail = None  # texts whose request is refused (503), the API being up
         self.alias = None  # the text whose vector a text gets (the same vector for several chunks)
+        self.bodies: list[dict] = []  # the requests (their JSON), the newest last
+        self.rerank_best = None  # the rerank endpoint: the word whose documents it puts first (None: it is not there, 404)
+        self.rerank_key = "data"  # "data" (Voyage AI) or "results" (Cohere, Jina)
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
+            def answer(self, value: dict):
+                data = json.dumps(value).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                outer.bodies.append(body)
+                if self.path.endswith("/rerank"):
+                    if outer.rerank_best is None:
+                        self.send_response(404)
+                        self.end_headers()
+                        return
+                    scores = [1.0 if outer.rerank_best in d else 0.1 / (i + 1) for i, d in enumerate(body["documents"])]
+                    self.answer({outer.rerank_key: [{"index": i, "relevance_score": s} for i, s in reversed(list(enumerate(scores)))]})
+                    return
                 outer.inputs += len(body["input"])
                 outer.requests += 1
                 outer.seen.append(body["input"][0])
@@ -818,6 +838,49 @@ async def main():
 
     await run("tie-across-files", {"roots": [str(cases)], "embedding": off}, tie_across_files)
 
+    # MP-16, MP-17: what read_chunk and list_documents give, and the references of a chunk out of its folder
+    many = BASE / "read-sizes"
+    for n in range(5):
+        write(many / f"版{n}", [chunk("c0001", "長い" * 3000, next_="c0002"), chunk("c0002", "続き" * 8000, prev="c0001", next_="c0003"),
+                               chunk("c0003", "最後", prev="c0002")])
+    write(many / "外", [chunk("c0001", "外を指す ふくろう", markdown="../秘密.md", pageImages=["images/page-001.png", "../../x.png", "C:/x.png"])])
+
+    async def sizes_and_references(call):
+        out = await call("read_chunk", {"key": "版0/設計書_chunks.jsonl#c0001", "neighbors": 3})
+        after = out.get("after", [])
+        check("read_chunk: the chunk itself is whole", len(out.get("chunk", {}).get("text", "")) == 6000, len(out.get("chunk", {}).get("text", "")))
+        check("... the chunks around it are cut at readChars in all, and say so", len(after) == 1 and after[0].get("truncated") is True
+              and len(after[0]["text"]) == 20000 - 6000 + 1, [(len(a["text"]), a.get("truncated")) for a in after])
+        docs = await call("list_documents", {"limit": 2})
+        check("list_documents: a part of them, with the total and the next offset", len(docs.get("documents", [])) == 2
+              and docs.get("total") == 6 and docs.get("next") == 2, {k: docs.get(k) for k in ("total", "next")})
+        docs = await call("list_documents", {"path": "版3"})
+        check("... and only those whose path has it", [d["path"] for d in docs.get("documents", [])] == ["版3/設計書_chunks.jsonl"], docs.get("documents"))
+        res = await call("search_docs", {"query": "ふくろう"})
+        r = (res.get("results") or [{}])[0]
+        check("a Markdown out of the folder of the document is not given as a source", r.get("markdown") is None, r.get("markdown"))
+        check("... nor page images out of it (the one in it stays)", r.get("pageImages") == [str(many / "外" / "images" / "page-001.png")], r.get("pageImages"))
+        docs = await call("list_documents", {})
+        check("... and a warning says so", any("out of the folder" in w for w in docs.get("warnings", [])), docs.get("warnings"))
+
+    await run("sizes-and-references", {"roots": [str(many)], "embedding": off}, sizes_and_references)
+
+    # MP-14: a file written over keeping its size, its time and its id is read again at the next recheck
+    kept_stamp = BASE / "kept-stamp"
+    write(kept_stamp / "設計書", [chunk("c0001", "apple")])
+
+    async def recheck(call):
+        await call("read_chunk", {"key": "設計書/設計書_chunks.jsonl#c0001"})
+        f = kept_stamp / "設計書" / "設計書_chunks.jsonl"
+        st = f.stat()
+        f.write_bytes(f.read_bytes().replace(b"apple", b"peach"))  # in place: the same file, the same size
+        os.utime(f, ns=(st.st_atime_ns, st.st_mtime_ns))
+        await asyncio.sleep(1.2)
+        out = await call("read_chunk", {"key": "設計書/設計書_chunks.jsonl#c0001"})
+        check("a file written over in place with its size and time kept: read again at the recheck", out.get("chunk", {}).get("text") == "peach", out)
+
+    await run("recheck", {"roots": [str(kept_stamp)], "embedding": off, "recheckSeconds": 1}, recheck)
+
     # R2-06, R2-07: the progress of a large file
     four = BASE / "four"
     write(four / "四つ", [chunk(f"c{i:04d}", f"四つ目の塊 {i}") for i in range(1, 5)])
@@ -828,7 +891,7 @@ async def main():
         res = await call("search_docs", {"query": "四つ目"})
         api.hook = None
         hold_four.set()
-        check("a search that waited: its note counts the batches done (2 of 4)", "(2 of 4 chunks)" in (res.get("note") or ""), res.get("note"))
+        check("a search that waited: its note counts the batches done (2 of 4)", "(2 of 4 parts of chunks)" in (res.get("note") or ""), res.get("note"))
 
     await run("progress-in-the-note", {"roots": [str(four)], "embedding": dict(emb, batchSize=2, waitSeconds=0.8)}, progress_in_the_note)
 
@@ -1241,6 +1304,78 @@ async def main():
     kept = [read_kept(f)["vectors"] for f in kept_files(race_cache)]
     check("a file changed while being embedded: its vectors are of the new text", any(same(k, vectors_of(["ココナツ coconut", "ココナツの続き"])) for k in kept), "")
     check("... and none of the old text is kept", not any(same(k, vectors_of(["バナナ banana", "バナナの続き"])) for k in kept), "")
+    # MP-12: the end of a long chunk is found by meaning (it is embedded in parts)
+    long_root = BASE / "long-chunk"
+    filler = "あいうえおかきくけこ" * 160  # 1,600 characters with no word of the question
+    decoys = [chunk(f"c{i:04d}", f"かきくけこ ほかの話 {i}") for i in range(1, 31)]  # one of them could be nearer by chance than a chunk not embedded at its end
+    write(long_root / "設計書", decoys + [chunk("c0031", filler + "\n末尾の条件")])
+
+    async def end_of_a_long_chunk(call):
+        api.alias = lambda t: "the end" if ("末尾の条件" in t or t == "例外の扱い") else t
+        await call("search_docs", {"query": "初回"})
+        await asyncio.sleep(1.0)
+        res = await call("search_docs", {"query": "例外の扱い"})
+        api.alias = None
+        first = (res.get("results") or [{}])[0]
+        check("the end of a long chunk is found by meaning", res.get("mode") == "hybrid" and first.get("key", "").endswith("#c0031"), res)
+        check("... and the result says it is by meaning only", first.get("matchedBy") == ["meaning"], first.get("matchedBy"))
+        check("... and the note says no chunk has the words of the question", "found by meaning only" in (res.get("note") or ""), res.get("note"))
+
+    await run("end-of-a-long-chunk", {"roots": [str(long_root)], "embedding": dict(emb)}, end_of_a_long_chunk)
+
+    # MP-13: far by meaning, without a word of the question: not a result
+    far_root = BASE / "far"
+    write(far_root / "設計書", [chunk(f"c{i:04d}", f"ほかの話 {i}") for i in range(1, 6)])
+
+    async def far_is_not_found(call):
+        await call("search_docs", {"query": "初回"})
+        await asyncio.sleep(1.0)
+        res = await call("search_docs", {"query": "量子", "k": 5})
+        check("only the nearest by meaning are taken (meaningCandidates)", res.get("mode") == "hybrid" and len(res.get("results", [])) == 2, res)
+        res = await call("search_docs", {"query": "ほかの話", "k": 5})
+        check("... a chunk with the words is matched by both", all("keywords" in r["matchedBy"] for r in res.get("results", [])), res)
+
+    await run("far-is-not-found", {"roots": [str(far_root)], "embedding": dict(emb), "meaningCandidates": 2}, far_is_not_found)
+
+    # A cloud API: what the question and the documents are sent with (Voyage AI: input_type)
+    cloud_root = BASE / "cloud"
+    write(cloud_root / "設計書", [chunk("c0001", "タイムアウト 雲")])
+
+    async def cloud_params(call):
+        api.bodies.clear()
+        await call("search_docs", {"query": "初回"})
+        await asyncio.sleep(1.0)
+        await call("search_docs", {"query": "タイムアウト"})
+        kinds = [(b.get("input_type"), b.get("input", [""])[0]) for b in api.bodies if "input" in b]
+        check("the documents are sent with passageParams", ("document", "設計書\nタイムアウト 雲") in kinds, kinds)
+        check("... and a question with queryParams", ("query", "タイムアウト") in kinds, kinds)
+        check("... which do not take the place of the model or the texts", all(b.get("model") == "test-model" for b in api.bodies if "input" in b), api.bodies[-1:])
+
+    await run("cloud-params", {"roots": [str(cloud_root)], "embedding": dict(emb, queryParams={"input_type": "query", "model": "other"},
+                                                                          passageParams={"input_type": "document", "input": ["x"]})}, cloud_params)
+
+    # A rerank API puts the best results in order again; when it fails, the order of the search stays
+    rr_root = BASE / "rerank"
+    write(rr_root / "設計書", [chunk("c0001", "タイムアウト タイムアウト 一般"), chunk("c0002", "タイムアウト 本命 の説明")])
+
+    async def reranked(call):
+        for key in ("data", "results"):
+            api.rerank_key, api.rerank_best = key, "本命"
+            res = await call("search_docs", {"query": "タイムアウト"})
+            check(f"a rerank API ({key}) puts its best first", res.get("reranked") is True
+                  and [r["key"][-5:] for r in res.get("results", [])] == ["c0002", "c0001"], res)
+        api.rerank_best = None
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("... when it cannot be used, the order of the search stays, and the note says so", not res.get("reranked")
+              and [r["key"][-5:] for r in res.get("results", [])] == ["c0001", "c0002"] and "rerank" in (res.get("note") or ""), res)
+
+    await run("rerank", {"roots": [str(rr_root)], "embedding": off, "rerank": {"enabled": True, "url": api.url, "model": "rr"}}, reranked)
+
+    async def rerank_needs_a_model(call):
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("rerank on without a model: an error that names it", "rerank.model" in (res.get("error") or ""), res)
+
+    await run("rerank-wrong", {"roots": [str(rr_root)], "embedding": off, "rerank": {"enabled": True, "url": api.url}}, rerank_needs_a_model)
     api.http.shutdown()
 
     print(f"\n{count - len(failures)}/{count} passed")

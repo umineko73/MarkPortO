@@ -61,15 +61,29 @@ DEFAULTS = {
         "apiKeyEnv": "",
         "queryPrefix": "query: ",
         "passagePrefix": "passage: ",
-        "passageChars": 1500,
+        "queryParams": {},  # more of the request, for a question: {"input_type": "query"} for Voyage AI
+        "passageParams": {},  # ... for the text of a chunk: {"input_type": "document"}
+        "passageChars": 400,  # a chunk longer than this is embedded in parts of it (e5-small reads 512 tokens; a cloud model reads more)
+        "passageOverlap": 50,  # the characters of the end of a part that the next one begins with
         "timeoutSeconds": 120,
         "retrySeconds": 30,
         "batchSize": 64,
         "waitSeconds": 10,
     },
+    "rerank": {  # a model that puts the best results in order again (a cloud API: Voyage AI, Cohere, Jina ...); off by default
+        "enabled": False,
+        "url": "",
+        "model": "",
+        "apiKeyEnv": "",
+        "candidates": 30,
+        "timeoutSeconds": 30,
+    },
     "cacheDir": "",
     "textChars": 1500,
+    "readChars": 20000,  # read_chunk: the most text of the chunks around the one asked for
     "maxResults": 20,
+    "meaningCandidates": 50,  # the chunks nearest by meaning that a search takes (not every chunk: those far from the question are not results)
+    "recheckSeconds": 300,  # the files are compared by their bytes this often too (a copy that keeps the size and the time); 0: never
 }
 
 
@@ -108,6 +122,8 @@ def load_config() -> dict:
                 config["roots"] = [config["roots"]]
             if not isinstance(config.get("embedding"), dict):
                 raise ValueError("\"embedding\" must be an object { ... }")
+            if not isinstance(config.get("rerank"), dict):
+                raise ValueError("\"rerank\" must be an object { ... }")
             log(f"markporto-rag: configuration {path}")
         except (OSError, ValueError) as ex:
             CONFIG_ERROR = f"The configuration {path} could not be read: {ex}"
@@ -121,6 +137,7 @@ def load_config() -> dict:
 CONFIG = load_config()
 ROOTS = [Path(os.path.expandvars(p)) for p in CONFIG["roots"]]
 EMB = CONFIG["embedding"]
+RERANK = CONFIG["rerank"]
 CACHE = Path(os.path.expandvars(CONFIG["cacheDir"])) if CONFIG["cacheDir"] else Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "markporto-rag" / "cache"
 
 def root_labels(roots: list[Path]) -> list[str]:
@@ -225,14 +242,14 @@ def valid_vectors(vectors, count: int) -> bool:
     return True
 
 
-def embed(texts: list[str]) -> tuple[list[list[float]], str | None]:
-    """The vectors of the texts, and the model that answered (as the API says it)."""
+def embed(texts: list[str], params: dict | None = None) -> tuple[list[list[float]], str | None]:
+    """The vectors of the texts, and the model that answered (as the API says it). params: more of the request (queryParams, passageParams)."""
     headers = {"Content-Type": "application/json"}
     if EMB.get("apiKeyEnv") and os.environ.get(EMB["apiKeyEnv"]):
         headers["Authorization"] = "Bearer " + os.environ[EMB["apiKeyEnv"]]
     req = urllib.request.Request(
         EMB["url"].rstrip("/") + "/embeddings",
-        data=json.dumps({"model": EMB["model"], "input": texts}).encode("utf-8"),
+        data=json.dumps({**(params or {}), "model": EMB["model"], "input": texts}).encode("utf-8"),
         headers=headers)
     with urllib.request.urlopen(req, timeout=EMB["timeoutSeconds"]) as r:
         answer = json.load(r)
@@ -393,6 +410,46 @@ def read_cache(path: str, digest: str, count: int):
     return rows, model
 
 
+def check_rerank_config() -> str | None:
+    """What is wrong with the rerank part of the configuration (checked only when it is on), or None."""
+    if not RERANK.get("enabled", False):
+        return None
+    for key in ("url", "model"):
+        if not isinstance(RERANK.get(key), str) or not RERANK[key].strip():
+            return f"rerank.{key} must be a text that is not empty"
+    return None
+
+
+def pieces_of(text: str, size: int, overlap: int) -> list[str]:
+    """The parts of a text that are embedded, each of size characters at most: by lines, a long line at the end of a sentence (else where
+    it reaches the size); each part after the first begins with the last overlap characters of the one before, so that what is said
+    across the cut is in one of them. A text of size characters or fewer is one part."""
+    if len(text) <= size:
+        return [text]
+    units: list[str] = []
+    for line in text.split("\n"):
+        while len(line) > size:
+            cut = max(line.rfind(mark, 0, size) for mark in "。．！？.!?")
+            cut = cut + 1 if cut >= size // 2 else size
+            units.append(line[:cut])
+            line = line[cut:]
+        units.append(line)
+    parts: list[str] = []
+    current = ""
+    for unit in units:
+        joined = unit if not current else current + "\n" + unit
+        if len(joined) <= size:
+            current = joined
+            continue
+        if current:
+            parts.append(current)
+        tail = current[-overlap:] if overlap and current else ""
+        current = tail + "\n" + unit if tail and len(tail) + 1 + len(unit) <= size else unit
+    if current:
+        parts.append(current)
+    return [p for p in parts if p.strip()] or [text[:size]]
+
+
 def check_embedding_config() -> str | None:
     """What is wrong with the embedding part of the configuration (checked only when the embeddings are on), or None."""
     if not EMB.get("enabled", True):
@@ -405,6 +462,12 @@ def check_embedding_config() -> str | None:
     chars = EMB.get("passageChars")
     if not isinstance(chars, int) or isinstance(chars, bool) or chars < 1:
         return "embedding.passageChars must be a whole number of 1 or more"
+    overlap = EMB.get("passageOverlap")
+    if not isinstance(overlap, int) or isinstance(overlap, bool) or not (0 <= overlap < chars):
+        return "embedding.passageOverlap must be a whole number from 0 to less than passageChars"
+    for key in ("queryParams", "passageParams"):
+        if not isinstance(EMB.get(key), dict):
+            return f"embedding.{key} must be an object {{ ... }}"
     timeout = EMB.get("timeoutSeconds")
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not (0 < timeout < 1e6):
         return "embedding.timeoutSeconds must be a number of seconds above 0"
@@ -420,7 +483,8 @@ class Entry:
         self.chunks = chunks
         self.warnings = warnings
         if EMB.get("enabled", True):
-            signature = json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], EMB["passageChars"]]).encode()
+            signature = json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], EMB["passageChars"], EMB["passageOverlap"],
+                                    EMB["passageParams"], "parts 1"], sort_keys=True).encode()
             self.digest = hashlib.sha1(read_digest.encode() + signature).hexdigest()  # of the bytes the chunks came from, not of the file now
         else:  # keywords only: the embedding part of the configuration is not looked at
             self.digest = ""
@@ -438,9 +502,18 @@ class Entry:
         self.read_hash = ""  # the hash of the bytes it was read from
         self.retry_at = 0.0  # answered by another model: asked for again (this file alone) after this
         self.embed_warning: str | None = None  # why its embeddings could not be made (goes with the file)
+        # The parts of the chunks that are embedded (a long chunk in several, each with its headings): which chunk each is of.
+        self.parts: list[str] = []
+        self.owner: list[int] = []
+        if EMB.get("enabled", True):
+            for j, c in enumerate(chunks):
+                for part in pieces_of(c["text"], EMB["passageChars"], EMB["passageOverlap"]):
+                    self.parts.append(EMB["passagePrefix"] + " > ".join(c["headings"]) + "\n" + part)
+                    self.owner.append(j)
+        self.count = len(self.parts)  # the vectors of the file
 
     def texts(self) -> list[str]:
-        return [EMB["passagePrefix"] + " > ".join(c["headings"]) + "\n" + c["text"][:EMB["passageChars"]] for c in self.chunks]
+        return self.parts
 
 
 class Index:
@@ -473,6 +546,9 @@ class Index:
         self.writing = 0  # kept files being written (waited for at the end)
         self.api_down_until = 0.0  # the API could not be reached: no call to it (documents or questions) before this; files changing keep it
         self.worker: threading.Thread | None = None
+        self.owner = None  # the chunk (in self.chunks) of each row of self.matrix
+        self.parts_total = 0  # the vectors of all the files
+        self.recheck_at = 0.0  # the files are compared by their bytes then (recheckSeconds), though their size and time are the same
 
     def files(self) -> tuple[list[Path], list[str]]:
         found: dict[str, Path] = {}
@@ -495,7 +571,12 @@ class Index:
                 scanned[str(p)] = (st.st_mtime_ns, st.st_size, st.st_dev, st.st_ino)  # a file replaced keeping size and time has another id
             except OSError:  # gone since it was found
                 pass
-        if scanned != self.scanned or self.unread:
+        now = time.monotonic()
+        recheck = recheck_seconds()
+        bytes_too = recheck > 0 and now >= self.recheck_at
+        if bytes_too:
+            self.recheck_at = now + recheck
+        if scanned != self.scanned or self.unread or bytes_too:
             changed = False
             try:
                 for path in [p for p in self.entries if p not in scanned]:
@@ -575,13 +656,31 @@ class Index:
             chunks.append(c)
         if bad:
             warnings.append(f"{path}: {bad} line(s) that are not chunks of MarkPortO were skipped")
+        unsafe = 0
         for c in chunks:
             c["_where"] = where(c).lower()
             c["_source"] = c["source"].lower()
+            # The Markdown and the page images are in the folder of the document: a reference out of it is not given as a source.
+            c["_markdown_ok"] = inside_folder(c["markdown"], plain_name=True)
+            images = [p for p in c.get("pageImages", []) if inside_folder(p)]
+            unsafe += (not c["_markdown_ok"]) + len(c.get("pageImages", [])) - len(images)
+            c["pageImages"] = images
+        if unsafe:
+            warnings.append(f"{path}: {unsafe} reference(s) to a Markdown or a page image out of the folder of the document were left out")
         entry = Entry(str(path), stamp, hashlib.sha1(raw).hexdigest(), chunks, warnings)
         entry.read_hash = hashlib.sha1(raw).hexdigest()
         if chunks and EMB.get("enabled", True):
-            kept = read_cache(entry.path, entry.digest, len(chunks))
+            kept = read_cache(entry.path, entry.digest, entry.count)
+            if kept is None and entry.count == len(chunks) and not EMB["passageParams"]:
+                # Kept before a chunk was embedded in parts (0.4.5 and before: the first passageChars characters of each, 1500 by default):
+                # the same texts when every chunk is one part, as long as it was not cut then.
+                longest = max(len(c["text"]) for c in chunks)
+                for chars in dict.fromkeys([EMB["passageChars"], 1500]):
+                    if longest <= chars:
+                        before = json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], chars]).encode()
+                        kept = read_cache(entry.path, hashlib.sha1(entry.read_hash.encode() + before).hexdigest(), entry.count)
+                        if kept is not None:
+                            break
             if kept is not None:
                 entry.rows, entry.model = kept
         return entry
@@ -642,15 +741,19 @@ class Index:
             self.retry_at = 0.0
         self.mixed = mixed
         pending = [e for e in self.ordered if e.chunks and e.rows is None] if enabled else []
-        self.pending = sum(len(e.chunks) - e.done for e in pending)
+        self.pending = sum(e.count - e.done for e in pending)
+        self.parts_total = sum(e.count for e in self.ordered) if enabled else 0
         self.embedding_ok = enabled and bool(self.chunks) and not pending and not mixed
         self.dimension = next(iter(dims)) if len(dims) == 1 else None
         self.answered = fullest(names) if self.embedding_ok else None
         if not self.embedding_ok:
             self.matrix = None
+            self.owner = None
         elif self.matrix_dirty or self.matrix is None:
             parts = [e.rows for e in self.ordered if e.chunks]
             self.matrix = np.vstack(parts) if np is not None else [r for p in parts for r in p]
+            owner = [e.offset + j for e in self.ordered if e.chunks for j in e.owner]
+            self.owner = np.asarray(owner, dtype=np.int64) if np is not None else owner
             self.matrix_dirty = False
         warnings = (list(self.scan_warnings) + [w for e in self.ordered for w in e.warnings] + list(self.unread.values())
                     + [e.embed_warning for e in pending if e.embed_warning])
@@ -703,6 +806,7 @@ class Index:
         dropped between batches, so the old text of a large file is not sent on."""
         size = batch_size()
         texts = [(e, t) for e in pack for t in e.texts()]
+        params = EMB["passageParams"]
         got: list[list[float]] = []
         models: set[str] = set()
         for start in range(0, len(texts), size):
@@ -711,7 +815,7 @@ class Index:
             batch = [t for _, t in texts[start:start + size]]
             COND.release()
             try:
-                part, by = embed(batch)
+                part, by = embed(batch, params)
             except OtherModel as ex:  # vectors of another model would be kept as if they were of this one
                 COND.acquire()
                 for e in pack:  # these files wait (the API answers: the others and the questions go on)
@@ -735,7 +839,7 @@ class Index:
                 self.count_pending()
                 COND.notify_all()
         # Checked, normalized and made into rows without COND (a large file takes a moment): a search waiting for it answers meanwhile.
-        sizes = [len(e.chunks) for e in pack]
+        sizes = [e.count for e in pack]
         COND.release()
         try:
             whole = not any(not same_model(x, y) for x in models for y in models) and valid_vectors(got, len(texts))
@@ -787,7 +891,7 @@ class Index:
 
     def count_pending(self) -> None:
         enabled = EMB.get("enabled", True)
-        self.pending = sum(len(e.chunks) - e.done for e in self.ordered if e.chunks and e.rows is None) if enabled else 0
+        self.pending = sum(e.count - e.done for e in self.ordered if e.chunks and e.rows is None) if enabled else 0
 
     def next_pack(self) -> list[Entry]:
         """The next files to embed: small files are packed into one request of up to batchSize chunks (the API takes about as long for
@@ -799,10 +903,10 @@ class Index:
         for e in self.ordered:
             if not e.chunks or e.rows is not None or now < e.retry_at:
                 continue
-            if pack and total + len(e.chunks) > size:
+            if pack and total + e.count > size:
                 break
             pack.append(e)
-            total += len(e.chunks)
+            total += e.count
             if total >= size:
                 break
         return pack
@@ -851,6 +955,25 @@ def retry_seconds() -> float:
     return min(max(value, 0.0), 86400.0) if math.isfinite(value) else 30.0  # at most a day
 
 
+def whole_setting(name: str, default: int, low: int, high: int) -> int:
+    """A whole number of the configuration, kept between low and high; the default when it is not one."""
+    value = CONFIG.get(name, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return default
+    return int(min(max(value, low), high))
+
+
+def whole_setting_of(section: dict, name: str, default: int, low: int, high: int) -> int:
+    value = section.get(name, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return default
+    return int(min(max(value, low), high))
+
+
+def recheck_seconds() -> float:
+    return float(whole_setting("recheckSeconds", 300, 0, 86400))
+
+
 def is_str_list(v) -> bool:
     return isinstance(v, list) and all(isinstance(x, str) for x in v)
 
@@ -864,6 +987,16 @@ def usable(c: dict) -> bool:
             and (c.get("pages") is None or (isinstance(c["pages"], list) and all(isinstance(p, int) and not isinstance(p, bool) for p in c["pages"])))
             and is_str_list(c.get("pageImages", []))
             and all(c.get(k) is None or isinstance(c[k], str) for k in optional_str))
+
+
+def inside_folder(reference: str, plain_name: bool = False) -> bool:
+    """A file of the folder of a document, as a chunk names it: a relative path without ".." (a plain name, for the Markdown)."""
+    if not reference or reference.strip() != reference:
+        return False
+    p = reference.replace("\\", "/")
+    if p.startswith("/") or re.match(r"^[A-Za-z]:", p) or any(part in ("", ".", "..") for part in p.split("/")):
+        return False
+    return "/" not in p if plain_name else True
 
 
 def where(c: dict) -> str:
@@ -887,7 +1020,7 @@ def view(c: dict, score: float | None = None, full: bool = False) -> dict:
         "source": c["source"],
         "path": where(c),
         "sourceModified": c.get("sourceModified"),
-        "markdown": str(Path(c["folder"]) / c["markdown"]),
+        "markdown": str(Path(c["folder"]) / c["markdown"]) if c.get("_markdown_ok", True) else None,
         "pages": c.get("pages"),
         "headings": c["headings"],
         "kind": c["kind"],
@@ -903,10 +1036,40 @@ def view(c: dict, score: float | None = None, full: bool = False) -> dict:
     return out
 
 
+def rerank(query: str, texts: list[str]) -> list[float]:
+    """The scores that the rerank API gives the texts for the question (the higher, the better), in the order of the texts. The answers of
+    Voyage AI ("data") and of Cohere and Jina ("results") are read; each has the index of a text and its relevance_score."""
+    headers = {"Content-Type": "application/json"}
+    if RERANK.get("apiKeyEnv") and os.environ.get(RERANK["apiKeyEnv"]):
+        headers["Authorization"] = "Bearer " + os.environ[RERANK["apiKeyEnv"]]
+    req = urllib.request.Request(
+        RERANK["url"].rstrip("/") + "/rerank",
+        data=json.dumps({"model": RERANK["model"], "query": query, "documents": texts}).encode("utf-8"),
+        headers=headers)
+    timeout = RERANK.get("timeoutSeconds", 30)
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not (0 < timeout < 1e6):
+        timeout = 30
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        answer = json.load(r)
+    items = answer.get("data") if isinstance(answer.get("data"), list) else answer.get("results")
+    if not isinstance(items, list):
+        raise ValueError("the rerank API gave no list of results")
+    scores: list[float | None] = [None] * len(texts)
+    for item in items:
+        i = item.get("index") if isinstance(item, dict) else None
+        s = item.get("relevance_score") if isinstance(item, dict) else None
+        if (isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(texts) and scores[i] is None
+                and isinstance(s, (int, float)) and not isinstance(s, bool) and math.isfinite(s)):
+            scores[i] = float(s)
+    if any(s is None for s in scores):
+        raise ValueError("the rerank API did not give a score to every text")
+    return [float(s) for s in scores]
+
+
 def no_roots() -> dict | None:
     if CONFIG_ERROR:
         return {"error": CONFIG_ERROR}
-    if (wrong := check_embedding_config()) is not None:
+    if (wrong := check_embedding_config() or check_rerank_config()) is not None:
         return {"error": f"The configuration is not right: {wrong}."}
     if ROOTS:
         return None
@@ -916,14 +1079,23 @@ def no_roots() -> dict | None:
 # ---- tools ------------------------------------------------------------------
 
 def semantic_ranks(qn: list[float], idx: list[int]) -> dict[int, int]:
-    """The rank of each chunk of idx by the dot product of its normalized vector with the question's (the cosine)."""
+    """The rank of the chunks of idx nearest to the question by meaning (the best cosine of their parts with the question's), the first
+    meaningCandidates of them: a chunk far from the question is not given a place by meaning."""
+    keep = whole_setting("meaningCandidates", 50, 1, 100000)
     if np is not None:
-        scores = np.round((INDEX.matrix @ np.asarray(qn, dtype=np.float32)).astype(np.float64), 6)  # ties alike with and without numpy
+        rows = np.round((INDEX.matrix @ np.asarray(qn, dtype=np.float32)).astype(np.float64), 6)  # ties alike with and without numpy
+        best = np.full(len(INDEX.chunks), -np.inf)
+        np.maximum.at(best, INDEX.owner, rows)
         chosen = np.asarray(idx, dtype=np.int64)
-        order = chosen[np.lexsort((-chosen, -scores[chosen]))]  # by score, then the later chunk first (as without numpy)
+        order = chosen[np.lexsort((-chosen, -best[chosen]))][:keep]  # by score, then the later chunk first (as without numpy)
         return {int(i): r for r, i in enumerate(order)}
     q = array("f", qn)
-    sem = sorted(((round(sum(map(operator.mul, INDEX.matrix[i], q)), 6), i) for i in idx), reverse=True)
+    best: dict[int, float] = {}
+    for row, i in zip(INDEX.matrix, INDEX.owner):
+        s = round(sum(map(operator.mul, row, q)), 6)
+        if s > best.get(i, -math.inf):
+            best[i] = s
+    sem = sorted(((best.get(i, -math.inf), i) for i in idx), reverse=True)[:keep]
     return {i: r for r, (_, i) in enumerate(sem)}
 
 
@@ -996,14 +1168,14 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
     mode = "keyword"
     note = None
     if INDEX.pending and EMB.get("enabled", True):
-        done = len(INDEX.chunks) - INDEX.pending
-        note = (f"The documents are being embedded ({done} of {len(INDEX.chunks)} chunks); keywords only until it is done."
+        done = INDEX.parts_total - INDEX.pending
+        note = (f"The documents are being embedded ({done} of {INDEX.parts_total} parts of chunks); keywords only until it is done."
                 if time.monotonic() >= INDEX.api_down_until else "The embedding API could not be reached a moment ago; keywords only until it is tried again.")
     elif INDEX.embedding_ok and time.monotonic() < INDEX.api_down_until:
         note = "The embedding API could not be reached a moment ago; keywords only until it is tried again."
     elif INDEX.embedding_ok:
         try:
-            vectors, by = embed([EMB["queryPrefix"] + query])
+            vectors, by = embed([EMB["queryPrefix"] + query], EMB["queryParams"])
             qv = vectors[0]
             qn = normalized(qv)
             answered, dimension = INDEX.answered, INDEX.dimension
@@ -1038,8 +1210,33 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
     if not found:
         none = "No chunk has the words of the question. Try other words; if it is still not found, it is not in the documents."
         return {"mode": mode, "results": [], "note": f"{note} {none}" if note else none}
-    fused = sorted(((sum(1 / (60 + rk[i]) for rk in ranks if i in rk), i) for i in found), reverse=True)[:top]
-    result = {"mode": mode, "results": [view(INDEX.chunks[i], s) for s, i in fused]}
+    fused = sorted(((sum(1 / (60 + rk[i]) for rk in ranks if i in rk), i) for i in found), reverse=True)
+    reranked = False
+    if RERANK.get("enabled", False) and len(fused) > 1:
+        head = fused[:whole_setting_of(RERANK, "candidates", 30, 2, 200)]
+        try:
+            given = rerank(query, [" > ".join(INDEX.chunks[i]["headings"]) + "\n" + INDEX.chunks[i]["text"] for _, i in head])
+            fused = sorted(((s, i) for s, (_, i) in zip(given, head)), key=lambda x: -x[0]) + fused[len(head):]
+            reranked = True
+        except Exception as ex:  # the order of the search is kept
+            note = ((note + " ") if note else "") + "The rerank API could not be used; the results are in the order of the search."
+            log(f"markporto-rag: rerank failed ({ex})")
+    fused = fused[:top]
+
+    def matched(i: int) -> list[str]:
+        return (["keywords"] if i in ranks[0] else []) + (["meaning"] if len(ranks) > 1 and i in ranks[1] else [])
+
+    results = []
+    for s, i in fused:
+        v = view(INDEX.chunks[i], s)
+        v["matchedBy"] = matched(i)
+        results.append(v)
+    result = {"mode": mode, "results": results}
+    if reranked:
+        result["reranked"] = True
+    if mode == "hybrid" and not any("keywords" in r["matchedBy"] for r in results):
+        note = ((note + " ") if note else "") + ("No chunk has the words of the question: these were found by meaning only, and may not "
+                                                 "answer it. Say so if they do not; do not answer from them as if they did.")
     notes = [n for n in (partial, note) if n]
     if notes:
         result["note"] = " ".join(notes)
@@ -1049,7 +1246,8 @@ def search_docs(query: str, k: int = 5, source: str | None = None, path: str | N
 @mcp.tool()
 @one_at_a_time
 def read_chunk(key: str, neighbors: int = 1) -> dict:
-    """Read a chunk by the key that search_docs gave (or its prev / next), with up to 3 chunks before and after it. The text is whole."""
+    """Read a chunk by the key that search_docs gave (or its prev / next), with up to 3 chunks before and after it. The text of the chunk
+    is whole; the chunks around it, nearest first, up to readChars of text in all (one cut short says "truncated")."""
     if (error := no_roots()) is not None:
         return error
     INDEX.refresh()
@@ -1057,36 +1255,56 @@ def read_chunk(key: str, neighbors: int = 1) -> dict:
     if c is None:
         return {"error": f"No chunk with the key {key}"}
     steps = max(0, min(neighbors, 3))
-    before, after = [], []
-    cur = c
-    for _ in range(steps):
-        cur = INDEX.by_key.get(f"{cur['base']}#{cur['prev']}") if cur.get("prev") else None
-        if not cur:
-            break
-        before.insert(0, view(cur, full=True))
-    cur = c
-    for _ in range(steps):
-        cur = INDEX.by_key.get(f"{cur['base']}#{cur['next']}") if cur.get("next") else None
-        if not cur:
-            break
-        after.append(view(cur, full=True))
-    return {"chunk": view(c, full=True), "before": before, "after": after}
+
+    def walk(link: str) -> list[dict]:
+        out, cur = [], c
+        for _ in range(steps):
+            cur = INDEX.by_key.get(f"{cur['base']}#{cur[link]}") if cur.get(link) else None
+            if not cur:
+                break
+            out.append(cur)
+        return out
+
+    left = whole_setting("readChars", 20000, 1000, 1000000) - len(c["text"])
+    sides = ((walk("prev"), []), (walk("next"), []))
+    for near in range(steps):  # one before and one after, nearest first, while there is room
+        for side, out in sides:
+            if near >= len(side) or (out and out[-1].get("truncated")) or left <= 0:
+                continue
+            v = view(side[near], full=True)
+            if len(v["text"]) > left:
+                v["text"] = v["text"][:left] + "…"
+                v["truncated"] = True
+            left -= len(v["text"])
+            out.append(v)
+    return {"chunk": view(c, full=True), "before": list(reversed(sides[0][1])), "after": sides[1][1]}
 
 
 @mcp.tool()
 @one_at_a_time
-def list_documents() -> dict:
+def list_documents(path: str | None = None, offset: int = 0, limit: int = 200) -> dict:
     """The documents that are searched (the original file, its path in the folder that was converted, the number of chunks, when the file
     was changed, its Markdown), and the embedding
-    in use: the model of the configuration and the dimension of the vectors kept, which tells which model really made them."""
+    in use: the model of the configuration and the dimension of the vectors kept, which tells which model really made them.
+    "path" lists only the documents whose path contains it; "offset" and "limit" list a part of them ("total" is all, "next" the offset
+    of the next part)."""
     if (error := no_roots()) is not None:
         return error
     INDEX.refresh()
     docs: dict[str, dict] = {}
     for c in INDEX.chunks:
-        d = docs.setdefault(c["file"], {"source": c["source"], "path": where(c), "markdown": str(Path(c["folder"]) / c["markdown"]),
+        d = docs.setdefault(c["file"], {"source": c["source"], "path": where(c),
+                                        "markdown": str(Path(c["folder"]) / c["markdown"]) if c.get("_markdown_ok", True) else None,
                                         "sourceModified": c.get("sourceModified"), "chunks": 0})
         d["chunks"] += 1
+    listed = list(docs.values())
+    if path and path.strip():
+        needle = path.replace("\\", "/").strip().lower()
+        listed = [d for d in listed if needle in d["path"].lower()]
+    total = len(listed)
+    start = max(0, offset if isinstance(offset, int) else 0)
+    size = max(1, min(limit if isinstance(limit, int) else 200, 1000))
+    page = listed[start:start + size]
     embedding = {
         "available": INDEX.embedding_ok and time.monotonic() >= INDEX.api_down_until,  # the search by meaning is used now
         "pendingChunks": INDEX.pending if EMB.get("enabled", True) else 0,  # chunks still being embedded (in the background)
@@ -1094,7 +1312,10 @@ def list_documents() -> dict:
         "url": EMB["url"] if EMB.get("enabled", True) else None,
         "dimension": INDEX.dimension,  # of the kept vectors: it tells which model made them (e5-small 384, e5-base 768 ...)
     }
-    return {"roots": [str(r) for r in ROOTS], "embedding": embedding, "warnings": INDEX.warnings, "documents": list(docs.values())}
+    result = {"roots": [str(r) for r in ROOTS], "embedding": embedding, "warnings": INDEX.warnings, "total": total, "documents": page}
+    if start + size < total:
+        result["next"] = start + size
+    return result
 
 
 def finish_writing(limit: float = 10.0) -> None:

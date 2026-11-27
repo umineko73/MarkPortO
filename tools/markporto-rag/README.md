@@ -14,8 +14,10 @@ A small MCP server that searches the chunks for RAG that MarkPortO writes (`<nam
 | Tool | What it does |
 |---|---|
 | `search_docs(query, k=5, source=None, path=None)` | The k chunks closest to the question; `source` limits it to the original files whose name contains it, `path` to the documents whose path in the converted folder contains it (for example the folder of a version, `"v1.2"`; whole folder names are matched first, so `v1.20` is not mixed in; `"v1.2/"` is that folder only) |
-| `read_chunk(key, neighbors=1)` | A chunk with up to three chunks before and after it |
-| `list_documents()` | The documents that are searched, and the embedding in use (the model of the configuration, the dimension of the vectors); another dimension means another model answered |
+| `read_chunk(key, neighbors=1)` | A chunk with up to three chunks before and after it; those around it, nearest first, up to `readChars` (one cut short has `"truncated": true`) |
+| `list_documents(path=None, offset=0, limit=200)` | The documents that are searched, and the embedding in use (the model of the configuration, the dimension of the vectors); another dimension means another model answered. `path` narrows it; with many, `offset` reads on (`total` is all of them, `next` the next `offset`) |
+
+Each result says what found it (`matchedBy`: `"keywords"`, `"meaning"`). When no chunk has the words of the question and the results were found by meaning only, the `note` says so (they may not answer it).
 
 ## Setting up
 
@@ -35,13 +37,41 @@ The file named by `MARKPORTO_RAG_CONFIG`, else `%APPDATA%\MarkPortO\markporto-ra
 | `embedding.url` | `http://localhost:1234/v1` | The OpenAI compatible embedding API (LM Studio; Ollama is `http://localhost:11434/v1`) |
 | `embedding.model` | `text-embedding-multilingual-e5-small` | The embedding model |
 | `embedding.apiKeyEnv` | `""` | For an API that needs a key: **the name of the environment variable that has the key** (the key is not written in the JSON) |
-| `embedding.queryPrefix` / `passagePrefix` | `"query: "` / `"passage: "` | What e5 models expect; **`""` for other models** |
-| `embedding.passageChars` | `1500` | How much of a chunk is embedded |
+| `embedding.queryPrefix` / `passagePrefix` | `"query: "` / `"passage: "` | What goes before a question and before the text of a chunk. What e5 models expect; **for another model, what its documentation says** (`""` when it needs none; some, such as Nomic, use other words) |
+| `embedding.queryParams` / `passageParams` | `{}` / `{}` | More items of the request (for a question / for a chunk). Voyage AI: `{"input_type": "query"}` / `{"input_type": "document"}` |
+| `embedding.passageChars` / `passageOverlap` | `400` / `50` | A longer chunk is embedded in parts of this many characters (the chunk is found when one of its parts is near the question) / how much the parts overlap. e5-small reads 512 tokens at most, hence 400; a cloud model reads more, so 2000 or so can be used |
 | `embedding.timeoutSeconds` / `retrySeconds` | `120` / `30` | Seconds to wait for the API / when the API could not be reached, seconds before a later search tries it again (keywords only until then) |
 | `embedding.batchSize` | `64` | Chunks sent to the embedding API in one request (small documents are sent together). LM Studio takes long for each request: 64 was about 3 times as fast as 16. Lower it if a computer without a GPU runs out of time |
 | `embedding.waitSeconds` | `10` | Seconds a search waits for the embedding under way to finish (after that it answers by keywords) |
 | `cacheDir` | `%LOCALAPPDATA%\markporto-rag\cache` | Where the embeddings are kept (computed again only when a jsonl changes) |
 | `textChars` / `maxResults` | `1500` / `20` | How much text a search result has / the most results |
+| `meaningCandidates` | `50` | How many of the chunks nearest by meaning a search takes (those far from the question are not results) |
+| `readChars` | `20000` | The most text of the chunks around the one that `read_chunk` reads |
+| `recheckSeconds` | `300` | Every so many seconds the files are compared by what is in them too (read again after a copy or a sync that kept their size and time); `0`: never |
+| `rerank.enabled` and so on | `false` | A model that puts the results in order again (see "A cloud API" below) |
+
+### A cloud API (embeddings, reranking)
+
+A cloud embedding API can be used in place of LM Studio. **The text of the chunks (what the design documents say) is sent out of the computer.** Check that it may be before you use it with the documents of your work. The key is not written in the JSON: put it in an environment variable and write its name in `apiKeyEnv`.
+
+```json
+"embedding": {
+  "url": "https://api.voyageai.com/v1", "model": "voyage-4", "apiKeyEnv": "VOYAGE_API_KEY",
+  "queryPrefix": "", "passagePrefix": "",
+  "queryParams": {"input_type": "query"}, "passageParams": {"input_type": "document"},
+  "passageChars": 2000
+}
+```
+
+For the embeddings of OpenAI: `"url": "https://api.openai.com/v1"`, `"model": "text-embedding-3-small"`, no prefixes and no `...Params`. Check the URL and the name of the model in the documentation of each. With another model, every embedding is made again (which costs money in the cloud).
+
+A rerank model (the `/rerank` of Voyage AI, Cohere or Jina) puts the best results of the search (`candidates` of them) in order again by how they answer the question. Try it when the order of the first results is often wrong. It too sends the question and the text of those chunks. When it cannot be used, the search answers in its own order.
+
+```json
+"rerank": { "enabled": true, "url": "https://api.voyageai.com/v1", "model": "<name of the rerank model>", "apiKeyEnv": "VOYAGE_API_KEY", "candidates": 30 }
+```
+
+Cohere is `"url": "https://api.cohere.com/v2"`, Jina `"url": "https://api.jina.ai/v1"`.
 
 ## Registering
 

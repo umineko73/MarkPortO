@@ -14,8 +14,10 @@ MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索す
 | 道具 | すること |
 |---|---|
 | `search_docs(query, k=5, source=None, path=None)` | 質問に近い塊を k 件。`source` で元のファイル名を、`path` で変換したフォルダからのパス（例: 版のフォルダ `"v1.2"`。フォルダ名が丸ごと合うものを先に探すので、`v1.20` は混ざらない。`"v1.2/"` と書くとそのフォルダだけ）を絞る |
-| `read_chunk(key, neighbors=1)` | 塊を前後の塊（最大3つずつ）と一緒に読む |
-| `list_documents()` | 検索の対象の文書の一覧と、使っている埋め込み（設定のモデル、実際のベクトルの次元）。次元が違えば、別のモデルが答えている |
+| `read_chunk(key, neighbors=1)` | 塊を前後の塊（最大3つずつ）と一緒に読む。前後の塊は近いものから `readChars` まで（途中で切ったものは `"truncated": true`） |
+| `list_documents(path=None, offset=0, limit=200)` | 検索の対象の文書の一覧と、使っている埋め込み（設定のモデル、実際のベクトルの次元）。次元が違えば、別のモデルが答えている。`path` で絞り、多いときは `offset` で続きを読む（`total` が全部の数、`next` が次の `offset`） |
+
+検索の結果には、何で見つかったか（`matchedBy`: `"keywords"`・`"meaning"`）が付きます。質問の言葉を含む塊が1つもなく、意味の検索だけで見つかったときは、`note` にそう書きます（答えにならないかもしれない、というしるし）。
 
 ## 準備
 
@@ -35,13 +37,41 @@ MarkPortO が書く RAG 用の小分け（`<名前>_chunks.jsonl`）を検索す
 | `embedding.url` | `http://localhost:1234/v1` | OpenAI 互換の埋め込みの API（LM Studio。Ollama は `http://localhost:11434/v1`） |
 | `embedding.model` | `text-embedding-multilingual-e5-small` | 埋め込みのモデル |
 | `embedding.apiKeyEnv` | `""` | 鍵が要る API のとき、**鍵を入れた環境変数の名前**（鍵そのものは JSON に書かない） |
-| `embedding.queryPrefix` / `passagePrefix` | `"query: "` / `"passage: "` | e5 系のモデルの決まり。**ほかのモデルでは `""` にする** |
-| `embedding.passageChars` | `1500` | 塊の何文字までを埋め込みにするか |
+| `embedding.queryPrefix` / `passagePrefix` | `"query: "` / `"passage: "` | 質問と塊の文字の頭に付ける文字。e5 系のモデルの決まり。**ほかのモデルは、そのモデルの説明書のとおりにする**（いらないものは `""`。Nomic のように別の文字を使うものもある） |
+| `embedding.queryParams` / `passageParams` | `{}` / `{}` | 要求に足す項目（質問のとき / 塊のとき）。Voyage AI は `{"input_type": "query"}` / `{"input_type": "document"}` |
+| `embedding.passageChars` / `passageOverlap` | `400` / `50` | これより長い塊は、この文字数ずつに分けて埋め込む（分けた部分のどれかが質問に近ければ、その塊が見つかる）/ 分けた部分の重なり。e5-small は512トークンまでしか読まないので 400。クラウドのモデルは長く読めるので 2000 などにできる |
 | `embedding.timeoutSeconds` / `retrySeconds` | `120` / `30` | API を待つ秒数 / API につながらなかったとき、次の検索で試し直すまでの秒数（その間はキーワードだけ） |
 | `embedding.batchSize` | `64` | 埋め込みの API に1回で送る塊の数（小さい文書はまとめて送る）。LM Studio は1回ごとの手間が大きく、16 より 64 のほうが3倍ほど速かった。CPU だけの PC で時間切れになるなら下げる |
 | `embedding.waitSeconds` | `10` | 埋め込みを作っている途中の検索が、終わるのを待つ秒数（過ぎたらキーワードだけで答える） |
 | `cacheDir` | `%LOCALAPPDATA%\markporto-rag\cache` | 埋め込みを残す場所（jsonl が変わったときだけ計算し直す） |
 | `textChars` / `maxResults` | `1500` / `20` | 検索の結果に入れる本文の長さ / 返す件数の上限 |
+| `meaningCandidates` | `50` | 意味の検索で、質問に近い順に何件までを候補にするか（遠いものは結果にしない） |
+| `readChars` | `20000` | `read_chunk` で、前後の塊の本文を合わせて何文字まで返すか |
+| `recheckSeconds` | `300` | この秒数ごとに、ファイルの中身でも変わったかを確かめる（大きさと時刻を保ったままの上書き・同期でも読み直す）。`0` で確かめない |
+| `rerank.enabled` ほか | `false` | 並べ直しのモデル（下の「クラウドの API」） |
+
+### クラウドの API（埋め込み・並べ直し）
+
+手元の LM Studio の代わりに、クラウドの埋め込みの API を使えます。**塊の文字（設計書の中身）が PC の外へ送られます。** 職場の文書で使う前に、送ってよいかを確かめてください。鍵は JSON に書かず、環境変数に入れて `apiKeyEnv` にその名前を書きます。
+
+```json
+"embedding": {
+  "url": "https://api.voyageai.com/v1", "model": "voyage-4", "apiKeyEnv": "VOYAGE_API_KEY",
+  "queryPrefix": "", "passagePrefix": "",
+  "queryParams": {"input_type": "query"}, "passageParams": {"input_type": "document"},
+  "passageChars": 2000
+}
+```
+
+OpenAI の埋め込みなら `"url": "https://api.openai.com/v1"`、`"model": "text-embedding-3-small"`、接頭辞と `...Params` はなし。URL とモデルの名前は、それぞれの説明書で確かめてください。モデルを変えると、埋め込みはすべて作り直します（クラウドでは料金がかかります）。
+
+並べ直しのモデル（Voyage AI・Cohere・Jina の `/rerank`）を使うと、検索の上位（`candidates` 件）を、質問との関係でもう一度並べます。上位の順番の間違いが気になるときに試してください。これも、質問と候補の塊の文字を送ります。使えないときは、検索の順のまま答えます。
+
+```json
+"rerank": { "enabled": true, "url": "https://api.voyageai.com/v1", "model": "<並べ直しのモデルの名前>", "apiKeyEnv": "VOYAGE_API_KEY", "candidates": 30 }
+```
+
+Cohere は `"url": "https://api.cohere.com/v2"`、Jina は `"url": "https://api.jina.ai/v1"` です。
 
 ## 登録
 
