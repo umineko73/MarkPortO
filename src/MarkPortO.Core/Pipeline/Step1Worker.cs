@@ -784,7 +784,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     /// </summary>
     private static void MarkDocxCrosses(DocumentRecord document, Layout layout, DocxContent content, IReadOnlyList<int> effective, string pdfPath, int pageCount)
     {
-        var crosses = new List<(int First, int Last, CrossVerdict Verdict, List<(int First, int Last, bool AntiDiagonal)>? Lines)>();
+        var crosses = new List<(int First, int Last, CrossVerdict Verdict, List<(int First, int Last, bool AntiDiagonal)>? Lines, (bool Lines, bool Multiply) Kinds)>();
         var rest = new List<(int First, int Last, IReadOnlyList<ShapeBox> Boxes)>();
         foreach (var shapes in content.Shapes.Where(s => s.Boxes.Count > 0))
         {
@@ -792,7 +792,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             var verdict = CrossShapeDetector.Evaluate(shapes.Boxes, CrossShapeDetector.WordCoverageThreshold);
             if (verdict.IsCross)
             {
-                crosses.Add((first, last, verdict, null));
+                crosses.Add((first, last, verdict, null, CrossShapeDetector.Kinds(shapes.Boxes, CrossShapeDetector.WordCoverageThreshold)));
             }
             else
             {
@@ -811,7 +811,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             var verdict = CrossShapeDetector.Evaluate(group.SelectMany(g => g.Boxes), CrossShapeDetector.WordCoverageThreshold);
             if (verdict.IsCross)
             {
-                crosses.Add((group.Min(g => g.First), group.Max(g => g.Last), verdict, [.. group.SelectMany(g => g.Boxes.Select(b => (g.First, g.Last, b.AntiDiagonal)))]));
+                crosses.Add((group.Min(g => g.First), group.Max(g => g.Last), verdict, [.. group.SelectMany(g => g.Boxes.Select(b => (g.First, g.Last, b.AntiDiagonal)))], (true, false)));
             }
         }
 
@@ -823,9 +823,9 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         }
 
         using var pdf = OpenForFit(pdfPath);
-        foreach (var (first, last, verdict, lines) in crosses)
+        foreach (var (first, last, verdict, lines, kinds) in crosses)
         {
-            bool Deletable(int p) => !layout.DeletedPages.Contains(p) && HasCross(p);
+            bool Deletable(int p) => !layout.DeletedPages.Contains(p) && HasCross(p, kinds);
             var pages = lines is null ? [.. Enumerable.Range(first, last - first + 1).Where(Deletable).Take(1)] : LineCrossPages(lines, Deletable);
             foreach (var page in pages)
             {
@@ -858,11 +858,11 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             return groups;
         }
 
-        bool HasCross(int number)
+        bool HasCross(int number, (bool Lines, bool Multiply) kinds)
         {
             try
             {
-                return pdf is not null && number >= 1 && number <= pdf.NumberOfPages && PdfShapeSnap.HasCross(pdf.GetPage(number));
+                return pdf is not null && number >= 1 && number <= pdf.NumberOfPages && PdfShapeSnap.HasCross(pdf.GetPage(number), kinds.Lines, kinds.Multiply);
             }
             catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
             {

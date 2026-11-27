@@ -956,8 +956,13 @@ public static partial class DocxReader
                     var number = context.Numbering.Label(paragraph);
 
                     // A drawing in a cell that is cut out of the page image is a picture in the line of the cell (FR-136), on the page of the row.
-                    var cellBoxes = context.Pictures is { CutShapes: true } ? ShapeExtractor.Extract(paragraph, context.PageWidth, context.PageHeight) : [];
+                    var cellDrawn = ShapeExtractor.Extract(paragraph, context.PageWidth, context.PageHeight);
+                    var cellBoxes = context.Pictures is { CutShapes: true } ? cellDrawn : [];
                     var cellCrops = BeginCrops(paragraph, context, cellBoxes);
+
+                    // A "×" over the page anchored in a cell (FR-012): its shapes over 3/5 of the page, new and old (VML), on the page of the row.
+                    List<ShapeBox> crossBoxes = [.. cellDrawn.Concat(ShapeExtractor.ExtractVmlLines(paragraph, context.PageWidth, context.PageHeight))
+                        .Where(b => b.WidthFraction >= CrossShapeDetector.WordCoverageThreshold && b.HeightFraction >= CrossShapeDetector.WordCoverageThreshold)];
                     var cellText = ParagraphText(paragraph, context).Trim();
                     if (cellCrops.Count > 0)
                     {
@@ -969,7 +974,12 @@ public static partial class DocxReader
                         });
                         cellText = string.Join(" ", new[] { cellText }.Concat(marks).Where(t => t.Length > 0));
                         var anchor = ParagraphText(paragraph).Trim();
-                        context.PendingCellCrops.Add(new DocxShapes(-1, [], cut, anchor.Length > 0, anchor.Length > 0 ? anchor : null, context.TableRow));
+                        context.PendingCellCrops.Add(new DocxShapes(-1, crossBoxes, cut, anchor.Length > 0, anchor.Length > 0 ? anchor : null, context.TableRow));
+                    }
+                    else if (crossBoxes.Count > 0)
+                    {
+                        var anchor = ParagraphText(paragraph).Trim();
+                        context.PendingCellCrops.Add(new DocxShapes(-1, crossBoxes, null, anchor.Length > 0, anchor.Length > 0 ? anchor : null, context.TableRow));
                     }
 
                     context.CroppedDrawings.Clear();

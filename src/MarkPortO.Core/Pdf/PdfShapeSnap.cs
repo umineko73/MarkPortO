@@ -149,7 +149,10 @@ public static class PdfShapeSnap
     /// down to the right, one up to the right), each over <see cref="CrossLineCover"/> of the page; or the outline of a multiply shape (12 straight
     /// sides) over <see cref="CrossShapeCover"/> of it. A logo, a frame, a background or a diagram is not one.
     /// </summary>
-    public static bool HasCross(Page page)
+    public static bool HasCross(Page page) => HasCross(page, lines: true, multiply: true);
+
+    /// <summary><see cref="HasCross(Page)"/> of the kinds given: two lines that cross, the outline of a multiply shape.</summary>
+    public static bool HasCross(Page page, bool lines, bool multiply)
     {
         double width = page.Width, height = page.Height;
         if (width <= 0 || height <= 0)
@@ -174,20 +177,20 @@ public static class PdfShapeSnap
                     continue;
                 }
 
-                var lines = commands.OfType<PdfSubpath.Line>().ToList();
-                if (lines.Count == 1 && box.Width >= CrossLineCover * width && box.Height >= CrossLineCover * height)
+                var sides = commands.OfType<PdfSubpath.Line>().ToList();
+                if (sides.Count == 1 && box.Width >= CrossLineCover * width && box.Height >= CrossLineCover * height)
                 {
-                    var (from, to) = (lines[0].From, lines[0].To);
+                    var (from, to) = (sides[0].From, sides[0].To);
                     ((to.X - from.X) * (to.Y - from.Y) < 0 ? downs : ups).Add((from, to));
                 }
-                else if (lines.Count is >= 11 and <= 12 && box.Width >= CrossShapeCover * width && box.Height >= CrossShapeCover * height && IsMultiply(subpath, box))
+                else if (multiply && sides.Count is >= 11 and <= 12 && box.Width >= CrossShapeCover * width && box.Height >= CrossShapeCover * height && IsMultiply(subpath, box))
                 {
                     return true;
                 }
             }
         }
 
-        return downs.Any(d => ups.Any(u => Cross(d, u)));
+        return lines && downs.Any(d => ups.Any(u => Cross(d, u)));
     }
 
     /// <summary>

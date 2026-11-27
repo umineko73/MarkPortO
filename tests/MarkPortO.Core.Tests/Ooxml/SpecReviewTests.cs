@@ -19,6 +19,36 @@ public class SpecReviewTests
     private const double W = 11906 / 20.0;
     private const double H = 16838 / 20.0;
 
+    // A page of one content stream, written by hand (PdfPageBuilder draws no polygon).
+    private static UglyToad.PdfPig.Content.Page PageOfContent(string content)
+    {
+        const string nl = "\n";
+        var objects = new[]
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            FormattableString.Invariant($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {W} {H}] /Contents 4 0 R >>"),
+            $"<< /Length {content.Length} >>{nl}stream{nl}{content}{nl}endstream",
+        };
+        var pdf = new System.Text.StringBuilder("%PDF-1.4" + nl);
+        var offsets = new List<int>();
+        for (var i = 0; i < objects.Length; i++)
+        {
+            offsets.Add(pdf.Length);
+            pdf.Append($"{i + 1} 0 obj{nl}{objects[i]}{nl}endobj{nl}");
+        }
+
+        var xref = pdf.Length;
+        pdf.Append($"xref{nl}0 {objects.Length + 1}{nl}0000000000 65535 f {nl}");
+        foreach (var offset in offsets)
+        {
+            pdf.Append($"{offset:0000000000} 00000 n {nl}");
+        }
+
+        pdf.Append($"trailer{nl}<< /Size {objects.Length + 1} /Root 1 0 R >>{nl}startxref{nl}{xref}{nl}%%EOF{nl}");
+        return UglyToad.PdfPig.PdfDocument.Open(System.Text.Encoding.ASCII.GetBytes(pdf.ToString())).GetPage(1);
+    }
+
     private static UglyToad.PdfPig.Content.Page PageWith(Action<PdfPageBuilder> draw)
     {
         var builder = new PdfDocumentBuilder();
@@ -177,6 +207,88 @@ public class SpecReviewTests
         var box = Assert.Single(ShapeExtractor.ExtractVmlLines(line, 612 * 12700.0, 792 * 12700.0));
         Assert.True(box.AntiDiagonal); // up to the right
         Assert.Equal(490 / 612.0, box.WidthFraction, 3);
+    }
+
+    [Fact]
+    public void AVmlLineThatIsNotDrawn_IsNotRead_AndCoordinatesMayBeSeparatedBySpaces() // history review R1-01, R1-06
+    {
+        const double pw = 612 * 12700.0, ph = 792 * 12700.0;
+        IReadOnlyList<ShapeBox> Lines(string inner) => ShapeExtractor.ExtractVmlLines(new Paragraph(new Run(new Picture(
+            $"""<w:pict xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml">{inner}</w:pict>"""))), pw, ph);
+
+        Assert.Empty(Lines("""<v:line from="10pt,10pt" to="500pt,700pt" stroked="f"/>"""));
+        Assert.Empty(Lines("""<v:line from="10pt,10pt" to="500pt,700pt"><v:stroke on="false"/></v:line>"""));
+        Assert.Empty(Lines("""<v:line from="10pt,10pt" to="500pt,700pt" style="visibility:hidden"/>"""));
+        Assert.Empty(Lines("""<v:line from="10pt" to="500pt,700pt"/>""")); // an end that cannot be read
+        Assert.Equal(490 / 612.0, Assert.Single(Lines("""<v:line from="10pt 10pt" to="500pt 700pt"/>""")).WidthFraction, 3);
+
+        // A group of 450 x 520 pt, its coordinates "21600 21600": a line over all of it is 450 pt wide, not 21600 / 1000 of it.
+        var box = Assert.Single(Lines("""<v:group style="position:absolute;width:450pt;height:520pt" coordsize="21600 21600"><v:line from="0,0" to="21600,21600"/></v:group>"""));
+        Assert.Equal(450 / 612.0, box.WidthFraction, 3);
+        Assert.Equal(520 / 792.0, box.HeightFraction, 3);
+    }
+
+    [Fact]
+    public void HasCross_OfLinesOnly_IsNotTheOutlineOfAnotherDrawing_NorTheOtherWayRound() // history review R1-01
+    {
+        var page = PageWith(p =>
+        {
+            p.DrawLine(new PdfPoint(20, 20), new PdfPoint(W - 20, H - 20), 2);
+            p.DrawLine(new PdfPoint(20, H - 20), new PdfPoint(W - 20, 20), 2);
+        });
+
+        Assert.True(PdfShapeSnap.HasCross(page, lines: true, multiply: false));
+        Assert.False(PdfShapeSnap.HasCross(page, lines: false, multiply: true));
+
+        // The outline of a multiply shape (a "+" of 12 corners turned by 45 degrees), half the page: not the "×" of two lines.
+        double cx = W / 2, cy = H / 2, l = W * 0.4, th = W * 0.05;
+        (double X, double Y)[] plus = [(th, l), (th, th), (l, th), (l, -th), (th, -th), (th, -l), (-th, -l), (-th, -th), (-l, -th), (-l, th), (-th, th), (-th, l)];
+        var corners = plus.Select(c => (X: cx + (c.X - c.Y) / Math.Sqrt(2), Y: cy + (c.X + c.Y) / Math.Sqrt(2))).ToList();
+        var path = string.Join("\n", corners.Select((c, i) => FormattableString.Invariant($"{c.X:0.###} {c.Y:0.###} {(i == 0 ? "m" : "l")}"))) + "\nh S";
+        var outline = PageOfContent(path);
+        Assert.True(PdfShapeSnap.HasCross(outline, lines: false, multiply: true));
+        Assert.False(PdfShapeSnap.HasCross(outline, lines: true, multiply: false));
+    }
+
+    [LibreOfficeFact]
+    public async Task AnXOfOldVmlShapesInATableCell_DeletesItsPage() // history review R1-07
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "cell.docx");
+        DocxFactory.CreateWithShapes(source, [new DocPage(["the first page stays"]), new DocPage(["the second page, crossed out in a cell"]), new DocPage(["the third page"])]);
+        using (var document = WordprocessingDocument.Open(source, isEditable: true))
+        {
+            var body = document.MainDocumentPart!.Document!.Body!;
+            var paragraph = body.Elements<Paragraph>().ElementAt(1);
+            var cellParagraph = new Paragraph(new Run(new Text("in the cell")), new Run(new Picture(VmlCross.Trim())));
+            paragraph.InsertAfterSelf(new Table(new TableRow(new TableCell(cellParagraph))));
+            document.MainDocumentPart.Document.Save();
+        }
+
+        var result = await RunAsync(dir, Request(dir.Combine("out"), Options(), source));
+
+        Assert.Equal([2], Assert.Single(result.Documents).Pages.Where(p => p.IsDeleted).Select(p => p.Index));
+    }
+
+    [Fact]
+    public void ARecordWithoutItsListOfDocuments_IsLeftOut() // history review R1-02
+    {
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "a.docx");
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        File.WriteAllBytes(source, [1, 2, 3]);
+        var output = dir.Combine("out");
+        FakeRecords.Write(output, [source]);
+        var broken = FakeRecords.Write(output, [source], at: DateTime.UtcNow.AddMinutes(1));
+        var jobFile = Directory.GetFiles(Path.Combine(output, ".markporto", "jobs"), "job.json", SearchOption.AllDirectories)
+            .Single(f => f.Contains(broken.JobId.ToString(), StringComparison.OrdinalIgnoreCase) || File.ReadAllText(f).Contains(broken.JobId.ToString(), StringComparison.OrdinalIgnoreCase));
+        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(jobFile))!.AsObject();
+        json["documents"] = null;
+        File.WriteAllText(jobFile, json.ToJsonString());
+
+        var records = MarkPortO.Core.Jobs.FileStates.LastRecords(output);
+
+        Assert.Single(records); // the other record is still found
     }
 
     [LibreOfficeFact]

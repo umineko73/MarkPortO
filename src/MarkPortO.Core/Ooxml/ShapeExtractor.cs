@@ -345,6 +345,11 @@ internal static class ShapeExtractor
             void Walk(XElement element, double scaleX, double scaleY, bool flipped)
             {
                 var style = VmlStyle(element.Attribute("style")?.Value);
+                if (string.Equals(style.GetValueOrDefault("visibility"), "hidden", StringComparison.OrdinalIgnoreCase))
+                {
+                    return; // not shown (nor what is in it)
+                }
+
                 var flip = style.GetValueOrDefault("flip", string.Empty);
                 var turned = flipped ^ (flip.Contains('x', StringComparison.Ordinal) ^ flip.Contains('y', StringComparison.Ordinal));
                 switch (element.Name.LocalName)
@@ -353,9 +358,9 @@ internal static class ShapeExtractor
                     {
                         var width = VmlLength(style.GetValueOrDefault("width"), scaleX);
                         var height = VmlLength(style.GetValueOrDefault("height"), scaleY);
-                        var size = (element.Attribute("coordsize")?.Value ?? "1000,1000").Split(',');
-                        var cw = size.Length > 0 && double.TryParse(size[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var a) && a > 0 ? a : 1000;
-                        var ch = size.Length > 1 && double.TryParse(size[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var b) && b > 0 ? b : 1000;
+                        var size = VmlPair(element.Attribute("coordsize")?.Value ?? "1000,1000");
+                        var cw = size is { } s1 && double.TryParse(s1.X, NumberStyles.Float, CultureInfo.InvariantCulture, out var a) && a > 0 ? a : 1000;
+                        var ch = size is { } s2 && double.TryParse(s2.Y, NumberStyles.Float, CultureInfo.InvariantCulture, out var b) && b > 0 ? b : 1000;
                         foreach (var child in element.Elements())
                         {
                             Walk(child, width / cw, height / ch, turned);
@@ -364,16 +369,23 @@ internal static class ShapeExtractor
                         break;
                     }
 
-                    case "line":
+                    case "line" when IsStroked(element):
                     {
-                        var (x1, y1) = VmlPoint(element.Attribute("from")?.Value, scaleX, scaleY);
-                        var (x2, y2) = VmlPoint(element.Attribute("to")?.Value, scaleX, scaleY);
+                        if (VmlPoint(element.Attribute("from")?.Value, scaleX, scaleY) is not { } start
+                            || VmlPoint(element.Attribute("to")?.Value, scaleX, scaleY) is not { } end)
+                        {
+                            break; // its ends cannot be read: not taken
+                        }
+
+                        var (x1, y1) = start;
+                        var (x2, y2) = end;
+
                         var anti = ((x2 - x1) * (y2 - y1) < 0) ^ flipped;
                         boxes.Add(new ShapeBox("line", Math.Abs(x2 - x1) * EmuPerPoint / pageWidth, Math.Abs(y2 - y1) * EmuPerPoint / pageHeight, anti));
                         break;
                     }
 
-                    case "shape" when IsVmlLine(element):
+                    case "shape" when IsVmlLine(element) && IsStroked(element):
                     {
                         var width = VmlLength(style.GetValueOrDefault("width"), scaleX);
                         var height = VmlLength(style.GetValueOrDefault("height"), scaleY);
@@ -382,6 +394,11 @@ internal static class ShapeExtractor
                     }
                 }
             }
+
+            // A line is drawn unless its stroke is off (stroked="f", or a v:stroke with on="f").
+            static bool IsStroked(XElement shape) =>
+                shape.Attribute("stroked")?.Value.Trim().ToLowerInvariant() is not ("f" or "false" or "0")
+                && !shape.Elements().Any(e => e.Name.LocalName == "stroke" && e.Attribute("on")?.Value.Trim().ToLowerInvariant() is "f" or "false" or "0");
 
             bool IsVmlLine(XElement shape) =>
                 (shape.Attribute("type")?.Value is { } type && lineTypes.Contains(type.TrimStart('#')))
@@ -434,10 +451,28 @@ internal static class ShapeExtractor
         };
     }
 
-    private static (double X, double Y) VmlPoint(string? value, double scaleX, double scaleY)
+    // Two values of VML, separated by a comma or by spaces ("10pt,20pt", "21600 21600"); null when there are not two.
+    private static (string X, string Y)? VmlPair(string? value)
     {
-        var parts = (value ?? "0,0").Split(',');
-        return (VmlLength(parts.ElementAtOrDefault(0), scaleX), VmlLength(parts.ElementAtOrDefault(1), scaleY));
+        var parts = (value ?? string.Empty).Split([',', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length == 2 ? (parts[0], parts[1]) : null;
+    }
+
+    private static (double X, double Y)? VmlPoint(string? value, double scaleX, double scaleY)
+    {
+        if (VmlPair(value) is not { } pair || !IsVmlLength(pair.X) || !IsVmlLength(pair.Y))
+        {
+            return null;
+        }
+
+        return (VmlLength(pair.X, scaleX), VmlLength(pair.Y, scaleY));
+    }
+
+    private static bool IsVmlLength(string value)
+    {
+        var text = value.Trim();
+        var number = text.TrimEnd("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray());
+        return double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
     }
 
     private static double Number(XElement? element, string attribute) =>

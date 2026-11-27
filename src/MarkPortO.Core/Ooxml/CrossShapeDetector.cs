@@ -72,6 +72,18 @@ public static class CrossShapeDetector
         return new CrossVerdict(isCross, freehand && !isCross);
     }
 
+    /// <summary>
+    /// The kinds of "×" the shapes make: two lines that cross (one each way), and a multiply shape. The PDF must show the same kind
+    /// (<see cref="Pdf.PdfShapeSnap.HasCross"/>): lines are not taken for the outline of another drawing, nor the other way round.
+    /// </summary>
+    public static (bool Lines, bool Multiply) Kinds(IEnumerable<ShapeBox> shapes, double threshold = CoverageThreshold)
+    {
+        var large = shapes.Where(s => IsLarge(s, threshold)).ToList();
+        var lines = large.Where(s => LineGeometries.Contains(s.Geometry)).ToList();
+        return (lines.Any(l => !l.AntiDiagonal) && lines.Any(l => l.AntiDiagonal),
+            large.Any(s => string.Equals(s.Geometry, "mathMultiply", StringComparison.OrdinalIgnoreCase)));
+    }
+
     /// <summary>A line over the whole page: half of a "×" of two lines, which may be drawn in another paragraph.</summary>
     public static bool IsLargeLine(ShapeBox shape, double threshold = CoverageThreshold) => IsLarge(shape, threshold) && LineGeometries.Contains(shape.Geometry);
 
