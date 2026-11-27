@@ -86,8 +86,14 @@ public sealed record SheetPicture(int Row, int Column, string Markdown);
 /// <summary>
 /// A drawn shape of the sheet (FR-136), to be cut out of the page image: the number of its mark, the column (0-based in <see cref="SheetContent.Rows"/>,
 /// inside the used range) and the row of its top-left cell, and its box in points from the top left of the used range, turned by <paramref name="Degrees"/>.
+/// Shapes cut out together ("Group nearby shapes") are one, with the boxes of the shapes in it (<paramref name="Parts"/>, after they are turned), so
+/// that it can be cut out page by page when they are printed on more than one page; and the text of the picture (<paramref name="Description"/>).
 /// </summary>
-public sealed record SheetShape(int Mark, int Row, int Column, double X, double Y, double Width, double Height, double Degrees);
+public sealed record SheetShape(int Mark, int Row, int Column, double X, double Y, double Width, double Height, double Degrees,
+    IReadOnlyList<SheetShapePart>? Parts = null, string? Description = null);
+
+/// <summary>One shape of a <see cref="SheetShape"/> of several: the row and column of its top-left cell, and the box that holds it after it is turned.</summary>
+public sealed record SheetShapePart(int Row, int Column, double X, double Y, double Width, double Height);
 
 /// <summary>The contents of one worksheet, limited to its used range.</summary>
 public sealed class SheetContent
@@ -1334,30 +1340,52 @@ public static partial class XlsxReader
             found.Add((row, column, x, y, width, height, (rotation ?? 0) / 60000.0, description));
         }
 
+        // The box that holds a shape after it is turned (as on a slide): shapes are near one another, and are cut out together, by what is drawn.
+        var turned = found.Select(f =>
+        {
+            var radians = f.Degrees * Math.PI / 180;
+            var w = Math.Abs(f.Width * Math.Cos(radians)) + Math.Abs(f.Height * Math.Sin(radians));
+            var h = Math.Abs(f.Width * Math.Sin(radians)) + Math.Abs(f.Height * Math.Cos(radians));
+            return new SheetShapePart(f.Row, f.Column, f.X + (f.Width - w) / 2, f.Y + (f.Height - h) / 2, w, h);
+        }).ToList();
+
         // "Group nearby shapes": the shapes that are together (ShapeGrouping, as on a slide) are one picture, with a small arrow or line between them.
         // Alone, a shape is cut out when it is half an inch or more on each side.
         var groups = pictures.GroupShapes
-            ? ShapeGrouping.Groups([.. found.Select(f => (f.Y, f.Y + f.Height))], pictures.GroupGapPoints)
+            ? ShapeGrouping.Groups([.. turned.Select(t => (t.Y, t.Y + t.Height))], pictures.GroupGapPoints)
             : [.. Enumerable.Range(0, found.Count).Select(i => new List<int> { i })];
         foreach (var group in groups)
         {
-            var members = group.Select(i => found[i]).ToList();
-            var left = members.Min(m => m.X);
-            var top = members.Min(m => m.Y);
-            var width = members.Max(m => m.X + m.Width) - left;
-            var height = members.Max(m => m.Y + m.Height) - top;
+            var description = group.Select(i => found[i].Description).FirstOrDefault(d => !string.IsNullOrWhiteSpace(d));
+            if (group.Count == 1)
+            {
+                var alone = found[group[0]];
+                if (alone.Width < PictureCollector.MinShapeSidePoints || alone.Height < PictureCollector.MinShapeSidePoints)
+                {
+                    continue; // a small arrow or line
+                }
+
+                var one = pictures.AddShape(null);
+                shapes.Add(new SheetShape(PictureCollector.NumberOf(one), alone.Row, alone.Column, alone.X, alone.Y, alone.Width, alone.Height, alone.Degrees, Description: description));
+                marks.Add(new SheetPicture(alone.Row, alone.Column, PictureCollector.Markdown(description, one)));
+                continue;
+            }
+
+            var parts = group.Select(i => turned[i]).ToList();
+            var left = parts.Min(m => m.X);
+            var top = parts.Min(m => m.Y);
+            var width = parts.Max(m => m.X + m.Width) - left;
+            var height = parts.Max(m => m.Y + m.Height) - top;
             if (width < PictureCollector.MinShapeSidePoints || height < PictureCollector.MinShapeSidePoints)
             {
-                continue; // a small arrow or line
+                continue; // small arrows or lines
             }
 
             // Its cell is that of the top one (the page it is printed on), of the left one across.
-            var row = members.Min(m => m.Row);
-            var column = members.Min(m => m.Column);
-            var degrees = members.Count == 1 ? members[0].Degrees : 0;
-            var description = members.Select(m => m.Description).FirstOrDefault(d => !string.IsNullOrWhiteSpace(d));
+            var row = parts.Min(m => m.Row);
+            var column = parts.Min(m => m.Column);
             var mark = pictures.AddShape(null);
-            shapes.Add(new SheetShape(PictureCollector.NumberOf(mark), row, column, left, top, width, height, degrees));
+            shapes.Add(new SheetShape(PictureCollector.NumberOf(mark), row, column, left, top, width, height, 0, parts, description));
             marks.Add(new SheetPicture(row, column, PictureCollector.Markdown(description, mark)));
         }
 

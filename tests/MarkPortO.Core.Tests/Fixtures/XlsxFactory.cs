@@ -57,8 +57,8 @@ public sealed record SheetSpec(
     string[]? FilledRanges = null,
     string[]? BoldRanges = null);
 
-/// <summary>A drawn shape anchored to cells (0-based, as in the file): from the top left of (FromColumn, FromRow) to the top left of (ToColumn, ToRow).</summary>
-public sealed record CellShapeSpec(string Geometry, int FromColumn, int FromRow, int ToColumn, int ToRow, bool FlipH = false, bool FlipV = false);
+/// <summary>A drawn shape anchored to cells (0-based, as in the file): from the top left of (FromColumn, FromRow) to the top left of (ToColumn, ToRow), turned by Degrees (clockwise) around its centre.</summary>
+public sealed record CellShapeSpec(string Geometry, int FromColumn, int FromRow, int ToColumn, int ToRow, bool FlipH = false, bool FlipV = false, int Degrees = 0);
 
 /// <summary>Builds small .xlsx files for tests.</summary>
 public static class XlsxFactory
@@ -196,7 +196,8 @@ public static class XlsxFactory
         for (var i = 0; i < shapes.Length; i++)
         {
             var shape = shapes[i];
-            var flips = (shape.FlipH ? " flipH=\"1\"" : string.Empty) + (shape.FlipV ? " flipV=\"1\"" : string.Empty);
+            var flips = (shape.FlipH ? " flipH=\"1\"" : string.Empty) + (shape.FlipV ? " flipV=\"1\"" : string.Empty)
+                + (shape.Degrees != 0 ? $" rot=\"{shape.Degrees * 60000}\"" : string.Empty);
             var geometry = shape.Geometry == "custGeom"
                 ? "<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l=\"0\" t=\"0\" r=\"r\" b=\"b\"/><a:pathLst><a:path w=\"100\" h=\"100\"><a:moveTo><a:pt x=\"0\" y=\"0\"/></a:moveTo><a:lnTo><a:pt x=\"100\" y=\"100\"/></a:lnTo></a:path></a:pathLst></a:custGeom>"
                 : $"<a:prstGeom prst=\"{shape.Geometry}\"><a:avLst/></a:prstGeom>";

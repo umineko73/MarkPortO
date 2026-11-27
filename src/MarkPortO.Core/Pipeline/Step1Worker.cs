@@ -777,13 +777,14 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     /// <summary>
     /// The deleted pages of a docx (FR-012). Each "×" of the document is the shapes of one paragraph that make one (<see cref="CrossShapeDetector"/>),
     /// or the lines over the page of paragraphs that can be on the same page (<see cref="ShapePages"/>) and make one together (two lines in two
-    /// paragraphs): it can be on the pages the paragraphs share. It deletes the first of those pages where the PDF draws a "×" (<see cref="PdfShapeSnap.HasCross"/>) that
-    /// is not deleted by another one. When the PDF does not show where it is, no page is taken as deleted: a page is not lost because the place of a
+    /// paragraphs): it can be on the pages of those paragraphs. Lines of several "×" (empty paragraphs on several pages) are as many "×" as pairs of
+    /// lines the other way round. Each "×" deletes the first of its pages where the PDF draws a "×" (<see cref="PdfShapeSnap.HasCross"/>) that is
+    /// not deleted by another one. When the PDF does not show where it is, no page is taken as deleted: a page is not lost because the place of a
     /// drawing was not found.
     /// </summary>
     private static void MarkDocxCrosses(DocumentRecord document, Layout layout, DocxContent content, IReadOnlyList<int> effective, string pdfPath, int pageCount)
     {
-        var crosses = new List<(int First, int Last, CrossVerdict Verdict)>();
+        var crosses = new List<(int First, int Last, CrossVerdict Verdict, int Count)>();
         var rest = new List<(int First, int Last, IReadOnlyList<ShapeBox> Boxes)>();
         foreach (var shapes in content.Shapes.Where(s => s.Boxes.Count > 0))
         {
@@ -791,7 +792,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             var verdict = CrossShapeDetector.Evaluate(shapes.Boxes);
             if (verdict.IsCross)
             {
-                crosses.Add((first, last, verdict));
+                crosses.Add((first, last, verdict, 1));
             }
             else
             {
@@ -803,16 +804,16 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             }
         }
 
-        // The lines over the page of paragraphs whose pages overlap are taken together, on the pages they share (other shapes do not make those
-        // pages fewer).
+        // The lines over the page of paragraphs whose pages overlap are taken together, on the pages of any of them (other shapes do not make
+        // those pages fewer): as many "×" as pairs of a line each way (the PDF tells on which of the pages they are).
         foreach (var group in Overlapping(rest))
         {
-            var first = group.Max(g => g.First);
-            var last = group.Min(g => g.Last);
-            var verdict = CrossShapeDetector.Evaluate(group.SelectMany(g => g.Boxes));
-            if (verdict.IsCross && first <= last)
+            var boxes = group.SelectMany(g => g.Boxes).ToList();
+            var verdict = CrossShapeDetector.Evaluate(boxes);
+            var pairs = Math.Min(boxes.Count(b => b.AntiDiagonal), boxes.Count(b => !b.AntiDiagonal));
+            if (verdict.IsCross && pairs > 0)
             {
-                crosses.Add((first, last, verdict));
+                crosses.Add((group.Min(g => g.First), group.Max(g => g.Last), verdict, pairs));
             }
         }
 
@@ -824,14 +825,15 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         }
 
         using var pdf = OpenForFit(pdfPath);
-        foreach (var (first, last, verdict) in crosses)
+        foreach (var (first, last, verdict, count) in crosses)
         {
-            var page = Enumerable.Range(first, last - first + 1).FirstOrDefault(p => !layout.DeletedPages.Contains(p) && HasCross(p));
-            if (page > 0)
+            var pages = Enumerable.Range(first, last - first + 1).Where(p => !layout.DeletedPages.Contains(p) && HasCross(p)).Take(count).ToList();
+            foreach (var page in pages)
             {
                 MarkDeleted(layout, page, verdict, PageLabel.Page(page));
             }
-            else
+
+            if (pages.Count == 0)
             {
                 DocumentLog.Write(document, $"pages {first} to {last}: shapes make a \"×\", but no \"×\" is found on those pages in the PDF; no page is taken as deleted");
             }
@@ -896,7 +898,8 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         var scale = ShapeAreas.SheetScale(partWidth, heights.Sum(), pageWidth, pageHeight, fitHeight: range == ExcelRange.Sheet);
         int PageInPart(int row) => rowPages is null || rowPages.Count == 0 ? 0 : rowPages[Math.Clamp(row, 0, rowPages.Count - 1)];
 
-        var shapes = sheet.Shapes.Where(s => s.Column >= unit.FromColumnIndex && s.Column <= unit.ToColumnIndex).ToList();
+        bool InUnit(int column) => column >= unit.FromColumnIndex && column <= unit.ToColumnIndex;
+        var shapes = sheet.Shapes.Where(s => s.Parts is { Count: > 1 } parts ? parts.Any(p => InUnit(p.Column)) : InUnit(s.Column)).ToList();
         if (shapes.Count == 0)
         {
             return;
@@ -935,24 +938,58 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             return fit;
         }
 
-        foreach (var shape in shapes)
+        ShapeArea? Place(double sheetX, double sheetY, double sheetWidth, double sheetHeight, double degrees, int page, out PdfRowFit? fit)
         {
-            var page = PageInPart(shape.Row);
-            var x = ShapeAreas.SheetMarginPoints + (shape.X - partLeft) * scale;
-            var y = Worked(shape.Y, page);
-            var height = shape.Height * scale;
-            var fit = FitOf(page);
+            var x = ShapeAreas.SheetMarginPoints + (sheetX - partLeft) * scale;
+            var y = Worked(sheetY, page);
+            var height = sheetHeight * scale;
+            fit = FitOf(page);
             if (fit is not null)
             {
                 height *= fit.Scale;
                 y = fit.Map(y);
             }
 
-            var area = pictures.Pictures[shape.Mark].Area = ShapeAreas.Of(x, y, shape.Width * scale, height, shape.Degrees, ShapeAreas.SheetRoomPoints, pageWidth, pageHeight, pageOf(page));
-            DocumentLog.Write(document,
-                FormattableString.Invariant($"sheet '{sheet.Name}': a drawn shape at {shape.X:0.#},{shape.Y:0.#} ({shape.Width:0.#} x {shape.Height:0.#} pt), part {partWidth:0.#} x {heights.Sum():0.#} pt shrunk to {scale:0.##}")
-                + (fit is null ? ", rows not found in the PDF" : FormattableString.Invariant($", rows fitted by {fit.Rows} found in the PDF ({fit.Scale:0.###} x + {fit.Offset:0.#} pt)"))
-                + FormattableString.Invariant($": page {pageOf(page)} at {Describe(area)}"));
+            return ShapeAreas.Of(x, y, sheetWidth * scale, height, degrees, ShapeAreas.SheetRoomPoints, pageWidth, pageHeight, pageOf(page));
+        }
+
+        void Log(double sheetX, double sheetY, double sheetWidth, double sheetHeight, PdfRowFit? fit, int page, ShapeArea? area, string what) => DocumentLog.Write(document,
+            FormattableString.Invariant($"sheet '{sheet.Name}': {what} at {sheetX:0.#},{sheetY:0.#} ({sheetWidth:0.#} x {sheetHeight:0.#} pt), part {partWidth:0.#} x {heights.Sum():0.#} pt shrunk to {scale:0.##}")
+            + (fit is null ? ", rows not found in the PDF" : FormattableString.Invariant($", rows fitted by {fit.Rows} found in the PDF ({fit.Scale:0.###} x + {fit.Offset:0.#} pt)"))
+            + FormattableString.Invariant($": page {pageOf(page)} at {Describe(area)}"));
+
+        foreach (var shape in shapes)
+        {
+            // Shapes cut out together that are printed on more than one page, or in more than one part across: each page of each part is cut out
+            // on its own, in the place of the picture of them all (which is not cut out).
+            if (shape.Parts is { Count: > 1 } parts
+                && (parts.Any(p => !InUnit(p.Column)) || parts.Select(p => PageInPart(p.Row)).Distinct().Count() > 1))
+            {
+                var whole = pictures.Pictures[shape.Mark];
+                whole.Area = null;
+                foreach (var onPage in parts.Where(p => InUnit(p.Column)).GroupBy(p => PageInPart(p.Row)).OrderBy(g => g.Key))
+                {
+                    var left = onPage.Min(p => p.X);
+                    var top = onPage.Min(p => p.Y);
+                    var width = onPage.Max(p => p.X + p.Width) - left;
+                    var height = onPage.Max(p => p.Y + p.Height) - top;
+                    if (width < PictureCollector.MinShapeSidePoints || height < PictureCollector.MinShapeSidePoints)
+                    {
+                        continue; // only a small arrow or line of them is on this page
+                    }
+
+                    var piece = Place(left, top, width, height, 0, onPage.Key, out var pieceFit);
+                    var reference = PictureCollector.Markdown(whole.Fallback is null ? shape.Description : null, pictures.AddShape(piece));
+                    whole.Fallback = whole.Fallback is null ? reference : whole.Fallback + "\n\n" + reference;
+                    Log(left, top, width, height, pieceFit, onPage.Key, piece, $"{onPage.Count()} of {parts.Count} drawn shapes cut out together (printed on more than one page)");
+                }
+
+                continue;
+            }
+
+            var page = PageInPart(shape.Row);
+            var area = pictures.Pictures[shape.Mark].Area = Place(shape.X, shape.Y, shape.Width, shape.Height, shape.Degrees, page, out var fit);
+            Log(shape.X, shape.Y, shape.Width, shape.Height, fit, page, area, "a drawn shape");
         }
     }
 

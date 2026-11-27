@@ -157,7 +157,8 @@ public static class PdfShapeSnap
             return false;
         }
 
-        bool down = false, up = false;
+        var downs = new List<(PdfPoint From, PdfPoint To)>();
+        var ups = new List<(PdfPoint From, PdfPoint To)>();
         foreach (var path in page.Paths)
         {
             if (path.IsClipping || (!path.IsFilled && !path.IsStroked))
@@ -177,14 +178,7 @@ public static class PdfShapeSnap
                 if (lines.Count == 1 && box.Width >= CrossLineCover * width && box.Height >= CrossLineCover * height)
                 {
                     var (from, to) = (lines[0].From, lines[0].To);
-                    if ((to.X - from.X) * (to.Y - from.Y) < 0)
-                    {
-                        down = true;
-                    }
-                    else
-                    {
-                        up = true;
-                    }
+                    ((to.X - from.X) * (to.Y - from.Y) < 0 ? downs : ups).Add((from, to));
                 }
                 else if (lines.Count is >= 11 and <= 12 && box.Width >= CrossShapeCover * width && box.Height >= CrossShapeCover * height && IsMultiply(subpath, box))
                 {
@@ -193,7 +187,27 @@ public static class PdfShapeSnap
             }
         }
 
-        return down && up;
+        return downs.Any(d => ups.Any(u => Cross(d, u)));
+    }
+
+    /// <summary>
+    /// Two lines make a "×": they meet inside both of them, not near the end of either (lines that would meet only beyond their ends, or a "V"
+    /// whose lines meet at their ends, are not one).
+    /// </summary>
+    private static bool Cross((PdfPoint From, PdfPoint To) a, (PdfPoint From, PdfPoint To) b)
+    {
+        const double end = 0.1; // the part of each line, at its ends, where they do not meet in a "×"
+        double ax = a.To.X - a.From.X, ay = a.To.Y - a.From.Y, bx = b.To.X - b.From.X, by = b.To.Y - b.From.Y;
+        var d = ax * by - ay * bx;
+        if (Math.Abs(d) < 1e-9)
+        {
+            return false;
+        }
+
+        double cx = b.From.X - a.From.X, cy = b.From.Y - a.From.Y;
+        var t = (cx * by - cy * bx) / d; // along a
+        var u = (cx * ay - cy * ax) / d; // along b
+        return t > end && t < 1 - end && u > end && u < 1 - end;
     }
 
     // The outline of a multiply shape: 12 corners, 4 of them inside, where the arms of the "×" meet (near the middle), and 8 at the ends of the arms
@@ -303,7 +317,8 @@ public static class PdfShapeSnap
     /// drawings found before), are taken in windows of the height of the drawing that start at the top of one of them. When <paramref name="expectedTop"/>
     /// is known, the drawing is the window of about its size (half of it each way at least) that starts nearest to it, within
     /// <see cref="ExpectedReachPoints"/> (or half the height of the drawing); when it
-    /// is not, the windows that have at least half of the most that a window has must all be in one place, which is the drawing. When the place across is
+    /// is not, the windows that have at least half of the most that a window has must all be in one place, which is the drawing, of about its size
+    /// too. When the place across is
     /// not known, what is found must not be much wider than the drawing (two drawings side by side are not one). Its area, with
     /// <paramref name="roomPoints"/> around it, or null when it is not found for sure.
     /// </summary>
@@ -398,6 +413,11 @@ public static class PdfShapeSnap
                         return null; // drawings of the size in two places: which one it is, is not known
                     }
                 }
+            }
+
+            if (start >= 0 && !OfTheSize(start))
+            {
+                return null; // the most that is drawn is much smaller than the drawing (a line, a mark): it is not found for sure
             }
         }
 
