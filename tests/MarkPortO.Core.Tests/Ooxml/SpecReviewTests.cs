@@ -101,7 +101,53 @@ public class SpecReviewTests
         var pictures = Directory.GetFiles(Path.Combine(document.OutputFolder, MarkPortO.Core.Pipeline.PictureFiles.Folder), "*.png");
         var markdown = File.ReadAllText(Path.Combine(document.OutputFolder, "long.md"));
         Assert.Equal(document.Pages.Count, pictures.Length); // one picture of the shapes on each page
-        Assert.All(pictures, p => Assert.Contains("pictures/" + Path.GetFileName(p), markdown, StringComparison.Ordinal));
+        for (var page = 1; page <= document.Pages.Count; page++)
+        {
+            // The picture of a page is named after it, and is in the Markdown of that page (R2 R1-02).
+            var name = $"pictures/page-{page:000}-1.png";
+            Assert.Contains(pictures, p => p.Replace('\\', '/').EndsWith(name, StringComparison.Ordinal));
+            var start = markdown.IndexOf($"<!-- page: {page} -->", StringComparison.Ordinal);
+            var end = markdown.IndexOf($"<!-- page: {page + 1} -->", StringComparison.Ordinal);
+            var at = markdown.IndexOf(name, StringComparison.Ordinal);
+            Assert.True(start >= 0 && at > start && (end < 0 || at < end), $"{name} is not in page {page}");
+        }
+    }
+
+    [LibreOfficeFact]
+    public async Task SheetShapesCutOutTogether_ThatAreTooSmallOnEachPage_KeepTheirText() // R2-01
+    {
+        // Two flat boxes near each other, one at the end of the first page and one at the top of the second (rows of 15 points, the first
+        // page of this sheet ends after row 61): together they are big enough, on each page not.
+        using var dir = new TempDir();
+        var source = dir.Combine("in", "split.xlsx");
+        string[][] cells = [.. Enumerable.Range(0, 300).Select(r => r == 299 ? Enumerable.Repeat("x", 6).ToArray() : ["row " + r])];
+        XlsxFactory.Create(source, new SheetSpec("Data", cells, Shapes:
+        [
+            new CellShapeSpec("rect", 2, 60, 4, 61, Description: "Inspection diagram"),
+            new CellShapeSpec("rect", 2, 62, 4, 63),
+        ]));
+        var options = Options();
+        options.ExtractShapes = true;
+        options.ExcelRange = MarkPortO.Core.Jobs.Models.ExcelRange.Columns;
+
+        var result = await RunAsync(dir, Request(dir.Combine("out"), options, source));
+
+        var document = Assert.Single(result.Documents);
+        // On one page they would be cut out as one picture: none is, as no piece on either page is big enough.
+        Assert.False(Directory.Exists(Path.Combine(document.OutputFolder, MarkPortO.Core.Pipeline.PictureFiles.Folder)), "nothing is cut out");
+        Assert.Contains("Inspection diagram", File.ReadAllText(Path.Combine(document.OutputFolder, "split.md")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheLinesOfAnX_DeleteOnlyAPageThatBothCanBeOn() // R2 R1-01
+    {
+        // A line down on pages 1-2, a line up on pages 2-3; the PDF draws a "×" on every page (another drawing on page 1).
+        Assert.Equal([2], MarkPortO.Core.Pipeline.Step1Worker.LineCrossPages([(1, 2, false), (2, 3, true)], _ => true));
+        // Two "×" on two pages, each of its two lines.
+        Assert.Equal([1, 2], MarkPortO.Core.Pipeline.Step1Worker.LineCrossPages([(1, 2, false), (1, 2, true), (2, 3, false), (2, 3, true)], _ => true));
+        // A page without a "×" in the PDF is not deleted; the lines are kept for the next page they can be on.
+        Assert.Equal([2], MarkPortO.Core.Pipeline.Step1Worker.LineCrossPages([(1, 2, false), (1, 2, true)], p => p != 1));
+        Assert.Empty(MarkPortO.Core.Pipeline.Step1Worker.LineCrossPages([(1, 3, false), (1, 3, false)], _ => true));
     }
 
     [LibreOfficeFact]

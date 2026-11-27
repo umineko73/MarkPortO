@@ -784,7 +784,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
     /// </summary>
     private static void MarkDocxCrosses(DocumentRecord document, Layout layout, DocxContent content, IReadOnlyList<int> effective, string pdfPath, int pageCount)
     {
-        var crosses = new List<(int First, int Last, CrossVerdict Verdict, int Count)>();
+        var crosses = new List<(int First, int Last, CrossVerdict Verdict, List<(int First, int Last, bool AntiDiagonal)>? Lines)>();
         var rest = new List<(int First, int Last, IReadOnlyList<ShapeBox> Boxes)>();
         foreach (var shapes in content.Shapes.Where(s => s.Boxes.Count > 0))
         {
@@ -792,7 +792,7 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             var verdict = CrossShapeDetector.Evaluate(shapes.Boxes);
             if (verdict.IsCross)
             {
-                crosses.Add((first, last, verdict, 1));
+                crosses.Add((first, last, verdict, null));
             }
             else
             {
@@ -804,16 +804,14 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
             }
         }
 
-        // The lines over the page of paragraphs whose pages overlap are taken together, on the pages of any of them (other shapes do not make
-        // those pages fewer): as many "×" as pairs of a line each way (the PDF tells on which of the pages they are).
+        // The lines over the page of paragraphs whose pages overlap are taken together (other shapes do not make those pages fewer): a "×" is a
+        // line each way that can both be on its page (LineCrossPages).
         foreach (var group in Overlapping(rest))
         {
-            var boxes = group.SelectMany(g => g.Boxes).ToList();
-            var verdict = CrossShapeDetector.Evaluate(boxes);
-            var pairs = Math.Min(boxes.Count(b => b.AntiDiagonal), boxes.Count(b => !b.AntiDiagonal));
-            if (verdict.IsCross && pairs > 0)
+            var verdict = CrossShapeDetector.Evaluate(group.SelectMany(g => g.Boxes));
+            if (verdict.IsCross)
             {
-                crosses.Add((group.Min(g => g.First), group.Max(g => g.Last), verdict, pairs));
+                crosses.Add((group.Min(g => g.First), group.Max(g => g.Last), verdict, [.. group.SelectMany(g => g.Boxes.Select(b => (g.First, g.Last, b.AntiDiagonal)))]));
             }
         }
 
@@ -825,9 +823,10 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         }
 
         using var pdf = OpenForFit(pdfPath);
-        foreach (var (first, last, verdict, count) in crosses)
+        foreach (var (first, last, verdict, lines) in crosses)
         {
-            var pages = Enumerable.Range(first, last - first + 1).Where(p => !layout.DeletedPages.Contains(p) && HasCross(p)).Take(count).ToList();
+            bool Deletable(int p) => !layout.DeletedPages.Contains(p) && HasCross(p);
+            var pages = lines is null ? [.. Enumerable.Range(first, last - first + 1).Where(Deletable).Take(1)] : LineCrossPages(lines, Deletable);
             foreach (var page in pages)
             {
                 MarkDeleted(layout, page, verdict, PageLabel.Page(page));
@@ -961,12 +960,16 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         foreach (var shape in shapes)
         {
             // Shapes cut out together that are printed on more than one page, or in more than one part across: each page of each part is cut out
-            // on its own, in the place of the picture of them all (which is not cut out).
+            // on its own, and written at the cell of its top shape (so on its page), in place of the picture of them all (which goes).
             if (shape.Parts is { Count: > 1 } parts
                 && (parts.Any(p => !InUnit(p.Column)) || parts.Select(p => PageInPart(p.Row)).Distinct().Count() > 1))
             {
-                var whole = pictures.Pictures[shape.Mark];
-                whole.Area = null;
+                pictures.Pictures[shape.Mark].Area = null;
+                var own = PictureCollector.MarkStart + shape.Mark.ToString(CultureInfo.InvariantCulture) + PictureCollector.MarkEnd;
+                // The reference of the group: its link is its mark (the text of another picture may have the same characters).
+                bool OfTheGroup(SheetPicture p) => p.Markdown.EndsWith("](" + own + ")", StringComparison.Ordinal);
+                var described = !sheet.Pictures.Any(OfTheGroup); // a part before had its text
+                var placed = new List<SheetPicture>();
                 foreach (var onPage in parts.Where(p => InUnit(p.Column)).GroupBy(p => PageInPart(p.Row)).OrderBy(g => g.Key))
                 {
                     var left = onPage.Min(p => p.X);
@@ -979,12 +982,17 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
                     }
 
                     var piece = Place(left, top, width, height, 0, onPage.Key, out var pieceFit);
-                    var reference = PictureCollector.Markdown(whole.Fallback is null ? shape.Description : null, pictures.AddShape(piece));
-                    whole.Fallback = whole.Fallback is null ? reference : whole.Fallback + "\n\n" + reference;
+                    placed.Add(new SheetPicture(onPage.Min(p => p.Row), onPage.Min(p => p.Column), PictureCollector.Markdown(described ? null : shape.Description, pictures.AddShape(piece))));
+                    described = true;
                     Log(left, top, width, height, pieceFit, onPage.Key, piece, $"{onPage.Count()} of {parts.Count} drawn shapes cut out together (printed on more than one page)");
                 }
 
-                continue;
+                if (placed.Count > 0)
+                {
+                    sheet.Pictures = [.. sheet.Pictures.Where(p => !OfTheGroup(p)), .. placed];
+                }
+
+                continue; // nothing cut out (only small arrows or lines on each page): the group keeps its place, with its text
             }
 
             var page = PageInPart(shape.Row);
@@ -1003,6 +1011,38 @@ public sealed class Step1Worker : IPipelineStep<DocumentWork>
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// The pages that the lines over the page of a "×" drawn in several paragraphs delete (FR-012): each "×" is a line each way (down to the right,
+    /// up to the right) that can both be on its page (the pages of their paragraphs), on a page where the PDF draws one (<paramref name="deletable"/>).
+    /// A line goes into one "×" at most; page by page, the lines whose pages end first are taken first.
+    /// </summary>
+    internal static List<int> LineCrossPages(IReadOnlyList<(int First, int Last, bool AntiDiagonal)> lines, Func<int, bool> deletable)
+    {
+        var pages = new List<int>();
+        if (lines.Count == 0)
+        {
+            return pages;
+        }
+
+        var used = new bool[lines.Count];
+        int Free(int page, bool anti) => Enumerable.Range(0, lines.Count)
+            .Where(i => !used[i] && lines[i].AntiDiagonal == anti && lines[i].First <= page && page <= lines[i].Last)
+            .OrderBy(i => lines[i].Last)
+            .DefaultIfEmpty(-1)
+            .First();
+        for (var page = lines.Min(l => l.First); page <= lines.Max(l => l.Last); page++)
+        {
+            int down = Free(page, false), up = Free(page, true);
+            if (down >= 0 && up >= 0 && deletable(page))
+            {
+                used[down] = used[up] = true;
+                pages.Add(page);
+            }
+        }
+
+        return pages;
     }
 
     /// <summary>Records that a page is a deleted page, or warns about a drawing that cannot be judged.</summary>

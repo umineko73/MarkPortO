@@ -57,8 +57,8 @@ public sealed record SheetSpec(
     string[]? FilledRanges = null,
     string[]? BoldRanges = null);
 
-/// <summary>A drawn shape anchored to cells (0-based, as in the file): from the top left of (FromColumn, FromRow) to the top left of (ToColumn, ToRow), turned by Degrees (clockwise) around its centre.</summary>
-public sealed record CellShapeSpec(string Geometry, int FromColumn, int FromRow, int ToColumn, int ToRow, bool FlipH = false, bool FlipV = false, int Degrees = 0);
+/// <summary>A drawn shape anchored to cells (0-based, as in the file): from the top left of (FromColumn, FromRow) to the top left of (ToColumn, ToRow), turned by Degrees (clockwise) around its centre, with its text (Description) when it is given.</summary>
+public sealed record CellShapeSpec(string Geometry, int FromColumn, int FromRow, int ToColumn, int ToRow, bool FlipH = false, bool FlipV = false, int Degrees = 0, string? Description = null);
 
 /// <summary>Builds small .xlsx files for tests.</summary>
 public static class XlsxFactory
@@ -201,11 +201,12 @@ public static class XlsxFactory
             var geometry = shape.Geometry == "custGeom"
                 ? "<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l=\"0\" t=\"0\" r=\"r\" b=\"b\"/><a:pathLst><a:path w=\"100\" h=\"100\"><a:moveTo><a:pt x=\"0\" y=\"0\"/></a:moveTo><a:lnTo><a:pt x=\"100\" y=\"100\"/></a:lnTo></a:path></a:pathLst></a:custGeom>"
                 : $"<a:prstGeom prst=\"{shape.Geometry}\"><a:avLst/></a:prstGeom>";
+            var descr = shape.Description is { } d ? $" descr=\"{System.Security.SecurityElement.Escape(d)}\"" : string.Empty;
             var line = "<a:ln w=\"38100\"><a:solidFill><a:srgbClr val=\"FF0000\"/></a:solidFill></a:ln>";
             var properties = $"<xdr:spPr><a:xfrm{flips}><a:off x=\"0\" y=\"0\"/><a:ext cx=\"100\" cy=\"100\"/></a:xfrm>{geometry}{line}</xdr:spPr>";
             var content = shape.Geometry is "line" or "straightConnector1"
                 ? $"<xdr:cxnSp macro=\"\"><xdr:nvCxnSpPr><xdr:cNvPr id=\"{i + 2}\" name=\"Line {i}\"/><xdr:cNvCxnSpPr/></xdr:nvCxnSpPr>{properties}</xdr:cxnSp>"
-                : $"<xdr:sp macro=\"\" textlink=\"\"><xdr:nvSpPr><xdr:cNvPr id=\"{i + 2}\" name=\"Shape {i}\"/><xdr:cNvSpPr/></xdr:nvSpPr>{properties}</xdr:sp>";
+                : $"<xdr:sp macro=\"\" textlink=\"\"><xdr:nvSpPr><xdr:cNvPr id=\"{i + 2}\" name=\"Shape {i}\"{descr}/><xdr:cNvSpPr/></xdr:nvSpPr>{properties}</xdr:sp>";
             xml.Append($"<xdr:twoCellAnchor><xdr:from><xdr:col>{shape.FromColumn}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>{shape.FromRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>")
                 .Append($"<xdr:to><xdr:col>{shape.ToColumn}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>{shape.ToRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>")
                 .Append(content).Append("<xdr:clientData/></xdr:twoCellAnchor>");

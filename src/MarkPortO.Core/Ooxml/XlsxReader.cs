@@ -127,7 +127,8 @@ public sealed class SheetContent
     public IReadOnlyList<SheetNote> Notes { get; init; } = [];
 
     /// <summary>The pictures of the sheet, when they are saved (FR-135), and the marks of its drawn shapes (FR-136): each before the first piece that starts below its row.</summary>
-    public IReadOnlyList<SheetPicture> Pictures { get; init; } = [];
+    /// <summary>The pictures and drawn shapes, at their cells. Set again when shapes cut out together are cut out page by page (Step1Worker).</summary>
+    public IReadOnlyList<SheetPicture> Pictures { get; set; } = [];
 
     /// <summary>The drawn shapes of the sheet that are cut out of the page images (FR-136); their marks are in <see cref="Pictures"/>.</summary>
     public IReadOnlyList<SheetShape> Shapes { get; init; } = [];
