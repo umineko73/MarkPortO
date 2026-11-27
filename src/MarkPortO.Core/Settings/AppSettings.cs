@@ -357,7 +357,7 @@ public sealed class InputSettings
 
     /// <summary>
     /// Cut the shapes and pictures that belong together out as one picture (<see cref="Ooxml.ShapeGrouping"/>): those near one another up and down
-    /// (<see cref="ShapeGroupGapPoints"/>) or on the same row, on a slide, a Word page (those of one paragraph always) or a sheet. Off: each shape is
+    /// (<see cref="ShapeGroupGapPoints"/>) or on the same row, on a slide, a Word page (of several paragraphs too) or a sheet. Off: each shape is
     /// cut out alone, and the pictures stay pictures.
     /// </summary>
     public bool GroupNearShapes { get; set; } = true;

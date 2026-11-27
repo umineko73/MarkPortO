@@ -130,7 +130,7 @@ With **Write the results to a separate file**, `name_vlm.md` has the text of Ste
 - **Turn on "Save the pictures of the document" in Step1.** When it is off, the pictures of the document are not saved as files, so they cannot be read as figures. A picture with an alternative text leaves only `![alternative text]`, and its page is written out whole; a picture without one leaves nothing, and is not read.
 - The shapes of PowerPoint and Excel (groups, and shapes of half an inch or more) are cut out of the page image as pictures with **Cut out the shapes** in Step1, and are then read as figures.
 - The shapes of Word (shapes, groups, an inline drawing canvas, and shapes in table cells) are cut out too with **Cut out the shapes**. A shape placed from its paragraph or line is looked for in the drawing of the PDF, near the text of its paragraph in the PDF. When it is not found for sure (nothing is drawn near the paragraph, drawings side by side cannot be told apart, and so on), it is not cut out, and the pictures in it (in a table cell, also the text of its text boxes) are written as they are. With the setting off, the shapes of Word are still read from the page image. Shapes of the old kind (VML) are not read.
-- With **Group nearby shapes** on, the shapes and pictures within 24 points of one another up and down (`input.shapeGroupGapPoints` in `settings.json`), and those on the same row however far apart across, are cut out as one picture: in PowerPoint on a slide, in Word on a page (the shapes of one paragraph always; a shape drawn alone is anchored in a paragraph of its own, so a diagram in several paragraphs is joined too), in Excel on a sheet (the shapes, with the small lines and arrows between them). Off, each shape is cut out alone, and the pictures stay as they are.
+- With **Group nearby shapes** on, the shapes and pictures within 24 points of one another up and down (`input.shapeGroupGapPoints` in `settings.json`), and those on the same row however far apart across, are cut out as one picture: in PowerPoint on a slide, in Word on a page (the shapes of one paragraph that are placed the same way, always; a shape drawn alone is anchored in a paragraph of its own, so a diagram in several paragraphs is joined too), in Excel on a sheet (the shapes, with the small lines and arrows between them). Off, each shape is cut out alone, and the pictures stay as they are.
 - The instruction for the figures is in the **Figures** tab of the prompt settings (one for every kind of file). `{pagetext}` in it is replaced by the text before and after the figure. The prompt of each kind of file is used when a page is written out whole.
 
 #### Tables and repeated tables
@@ -308,7 +308,7 @@ markporto-cli check-connection --settings settings.json
 | `--pdf-text on\|off` | Use the text layer of a PDF as the text of its pages (it also helps the VLM; the default is on). |
 | `--pictures on\|off` | Save the pictures of a Word, PowerPoint or Excel file in `pictures/` (the default is the settings file; off at first). Turn it on for Step3 to read figures with **Add to the text**. |
 | `--shapes on\|off` | Cut the drawn shapes of a Word, PowerPoint or Excel file out of the page image into `pictures/` (the default is the settings file; off at first). |
-| `--group-shapes on\|off` | With `--shapes on`: cut the shapes and pictures of a PowerPoint file that are near one another, or on the same row, and those of a Word page and the shapes of an Excel sheet in the same way (in Word those of one paragraph always), out as one picture (the default is on). |
+| `--group-shapes on\|off` | With `--shapes on`: cut the shapes and pictures of a PowerPoint file that are near one another, or on the same row, and those of a Word page and the shapes of an Excel sheet in the same way (in Word also those of several paragraphs), out as one picture (the default is on). |
 | `--extractor-docx\|xlsx\|pptx\|pdf <name>` | The extractor that writes the Markdown of that kind of file (`builtin` is the built-in one). |
 
 **Step2 and Step3 (VLM)**
@@ -533,14 +533,16 @@ Register the small MCP server `markporto-rag` (in `tools\markporto-rag\` of the 
    { "roots": ["D:\\MarkPortO-out"] }
    ```
 
-   By default the server also connects to the embedding model `text-embedding-multilingual-e5-small` of LM Studio (`http://localhost:1234/v1`) and mixes in a search by meaning when it can; when it cannot, it searches by keywords only. For another model, write `embedding` (with a model other than e5, set the prefixes to `""`):
+   By default the server also connects to the embedding model `text-embedding-multilingual-e5-small` of LM Studio (`http://localhost:1234/v1`) and mixes in a search by meaning when it can; when it cannot, it searches by keywords only. For another model, write `embedding`. What goes before a question and a chunk (`queryPrefix`, `passagePrefix`) is what the documentation of the model says (`"query: "` and `"passage: "` for e5, as below for Nomic, `""` for a model that needs none):
 
    ```json
    {
      "roots": ["D:\\MarkPortO-out"],
-     "embedding": { "url": "http://localhost:11434/v1", "model": "nomic-embed-text", "queryPrefix": "", "passagePrefix": "" }
+     "embedding": { "url": "http://localhost:11434/v1", "model": "nomic-embed-text", "queryPrefix": "search_query: ", "passagePrefix": "search_document: " }
    }
    ```
+
+   A cloud embedding API (Voyage AI, OpenAI and so on) and a rerank model can be used too; the text of the chunks is then sent out of the computer. See "A cloud API" in `tools\markporto-rag\README.md`.
 
 4. Register it in the tool. For Claude Code (use the folder where you unpacked the ZIP):
 

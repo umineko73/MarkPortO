@@ -134,7 +134,7 @@ VLMが「付け加えることはない」（`NONE`）と答えた図には、�
 - **Step1の「文書の画像を取り出す」をオンにしてください。** オフだと、文書に貼られた画像がファイルにならないので、図として読めません。代替テキストのある画像は `![代替テキスト]` だけが残るので、そのページはページ全体を書き写します。代替テキストのない画像は何も残らないので、読まれません。
 - PowerPoint・Excelの図形（グループや、縦横0.5インチ以上の図形）は、Step1の「図形を画像にする」をオンにすると、画像として切り出され、図として読まれます。
 - Wordの図形（図形やグループ、行内の描画キャンバス、表のセルの中の図形）も、「図形を画像にする」をオンにすると切り出されます。段落や行を基準に配置された図形は、PDF の中の段落の文字の位置を手がかりに、PDF の描画から位置を探します。確かに見つからないとき（段落の近くに図がない、横に並んだ図を見分けられない、など）は切り出さず、図形の中の画像（表のセルではテキストボックスの文字も）をそのまま書きます。オフのときも、Wordの図形はページ画像から読みます。古い形式（VML）の図形は読みません。
-- 「近くの図形をまとめる」がオンなら、縦の間隔が24ポイント以内（`settings.json` の `input.shapeGroupGapPoints`）の図形と画像、および横に離れていても同じ行にある図形と画像を1枚に切り出します。PowerPoint はスライドごと、Word はページごと（1つの段落の図形はいつも1枚。図形を1つずつ描くと別々の段落に付くので、いくつかの段落に分かれた図もまとめます）、Excel はシートごと（図形と、その間の小さな線・矢印）です。オフなら図形を1つずつ切り出し、画像はそのまま保存します。
+- 「近くの図形をまとめる」がオンなら、縦の間隔が24ポイント以内（`settings.json` の `input.shapeGroupGapPoints`）の図形と画像、および横に離れていても同じ行にある図形と画像を1枚に切り出します。PowerPoint はスライドごと、Word はページごと（1つの段落の図形は、同じ基準で配置されていれば1枚。図形を1つずつ描くと別々の段落に付くので、いくつかの段落に分かれた図もまとめます）、Excel はシートごと（図形と、その間の小さな線・矢印）です。オフなら図形を1つずつ切り出し、画像はそのまま保存します。
 - 図を読む指示は、「プロンプトの設定」の「図」のタブで変えられます（文書の種類によらず1つ）。`{pagetext}` は、図の前後の文字に置き換わります。ファイルの種類ごとのプロンプトは、ページ全体を書き写すときに使います。
 
 #### 表の選択と「繰り返しの表を除く」
@@ -338,7 +338,7 @@ markporto-cli check-connection --settings settings.json
 | `--pdf-text on\|off` | PDFの文字情報をページの本文に使う（VLMにも補助として渡す。既定はon）。 |
 | `--pictures on\|off` | Word・PowerPoint・Excel の画像を `pictures/` に保存する（既定は設定ファイルのまま、初期値はoff）。Step3の「補足」で図を読むには on にします。 |
 | `--shapes on\|off` | Word・PowerPoint・Excel の図形をページ画像から切り出して `pictures/` に保存する（既定はoff）。 |
-| `--group-shapes on\|off` | `--shapes on` のとき、近くの図形・画像と、同じ行の図形・画像を1枚にまとめて切り出す。PowerPoint はスライド、Word はページ（1つの段落の図形・画像はいつも1枚）、Excel はシートの図形（既定はon）。 |
+| `--group-shapes on\|off` | `--shapes on` のとき、近くの図形・画像と、同じ行の図形・画像を1枚にまとめて切り出す。PowerPoint はスライド、Word はページ（いくつかの段落に分かれた図も）、Excel はシートの図形（既定はon）。 |
 | `--extractor-docx\|xlsx\|pptx\|pdf <名前>` | その種類のファイルのMarkdownを書く抽出方法（`builtin` は内蔵）。 |
 
 **Step2・Step3（VLM）**
@@ -599,14 +599,16 @@ ZIP の `tools\markporto-rag\` にある小さな MCP サーバー `markporto-ra
    { "roots": ["D:\\MarkPortO-out"] }
    ```
 
-   既定では、LM Studio（`http://localhost:1234/v1`）の埋め込みのモデル `text-embedding-multilingual-e5-small` にもつなぎ、つながれば意味の検索も混ぜます。つながらないときは、キーワードだけで探します。ほかのモデルを使うときは、`embedding` を書きます（e5 以外のモデルでは、頭の文字を `""` にします）:
+   既定では、LM Studio（`http://localhost:1234/v1`）の埋め込みのモデル `text-embedding-multilingual-e5-small` にもつなぎ、つながれば意味の検索も混ぜます。つながらないときは、キーワードだけで探します。ほかのモデルを使うときは、`embedding` を書きます。質問と塊の頭に付ける文字（`queryPrefix`・`passagePrefix`）は、モデルの説明書のとおりにします（e5 は `"query: "`・`"passage: "`、Nomic は下のとおり、いらないモデルは `""`）:
 
    ```json
    {
      "roots": ["D:\\MarkPortO-out"],
-     "embedding": { "url": "http://localhost:11434/v1", "model": "nomic-embed-text", "queryPrefix": "", "passagePrefix": "" }
+     "embedding": { "url": "http://localhost:11434/v1", "model": "nomic-embed-text", "queryPrefix": "search_query: ", "passagePrefix": "search_document: " }
    }
    ```
+
+   クラウドの埋め込み（Voyage AI・OpenAI など）や並べ直しのモデルも使えます。そのときは塊の文字が PC の外へ送られます。書き方は `tools\markporto-rag\README.ja.md` の「クラウドの API」を見てください。
 
 4. 道具に登録します。Claude Code の例（パスは展開したフォルダに合わせます）:
 
