@@ -205,8 +205,8 @@
   <sys:String x:Key="Status_DpiInvalid">Enter a whole number from {0} to {1} for the DPI (now: {2}).</sys:String>
   <sys:String x:Key="Conn_None">(none)</sys:String>
   <sys:String x:Key="Status_NoDocuments">No documents to convert were found. {0}</sys:String>
-  <sys:String x:Key="Status_NothingChanged">None of the {0} files has changed since its last conversion. To convert them anyway, use Redo all in the ▼ menu.</sys:String>
-  <sys:String x:Key="Status_PastOpened">{0} files of a past output were opened. To convert them, use Redo all in the ▼ menu. To write only some of them again, select them in the list and choose Convert the selected files again from Step 1 from the right-click menu.</sys:String>
+  <sys:String x:Key="Status_NothingChanged">None of the {0} files has changed since its last conversion. To convert them anyway, use Redo all under More.</sys:String>
+  <sys:String x:Key="Status_PastOpened">{0} files of a past output were opened. To convert them, use Redo all under More. To write only some of them again, select them in the list and choose Convert the selected files again from Step 1 from the right-click menu.</sys:String>
   <sys:String x:Key="Status_Interrupting">Interrupting… the file being processed stops at a safe point.</sys:String>
   <sys:String x:Key="Status_CheckSettings">Check the settings: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">The VLM connection could not be prepared.</sys:String>
@@ -411,7 +411,8 @@
   <sys:String x:Key="Main_ChangedOnlyCount">Reconvert updated files ({0})</sys:String>
   <sys:String x:Key="Main_RunRunning">Converting…</sys:String>
   <sys:String x:Key="Main_RunNothing">Nothing to convert</sys:String>
-  <sys:String x:Key="Main_RunNothingTip">Every file of the list is converted and has not changed since. To convert again with other conditions, use "Redo all" in the ▼ menu on the right.</sys:String>
+  <sys:String x:Key="Main_RunNothingTip">Every file of the list is converted and has not changed since. To convert again with other conditions, use "Redo all" under "More" on the right.</sys:String>
+  <sys:String x:Key="Main_More">More</sys:String>
   <sys:String x:Key="Main_MoreTip">Other ways to convert: redo all, reconvert updated files, run Step 3 again, convert the chosen files again from Step1</sys:String>
   <sys:String x:Key="Main_Reread">Run Step 3 again</sys:String>
   <sys:String x:Key="Main_RereadTip">Reads again with the VLM, with the settings of now, the pages that are marked and the pages that were read with other settings (the connection and its model, the prompt of the kind of file). The earlier text of a page stays until the page has been read. Pages are marked in the page list of the preview, or with the right-click menu of the file list. Steps 1 and 2 are not done again.</sys:String>

@@ -205,8 +205,8 @@
   <sys:String x:Key="Status_DpiInvalid">DPIは {0}〜{1} の整数で指定してください(今の値: {2})。</sys:String>
   <sys:String x:Key="Conn_None">(未選択)</sys:String>
   <sys:String x:Key="Status_NoDocuments">変換できる文書が見つかりませんでした。{0}</sys:String>
-  <sys:String x:Key="Status_NothingChanged">{0} 件のファイルは、どれも前回の変換から変わっていません。すべて変換するときは、▼ の「すべてやり直し」を使ってください。</sys:String>
-  <sys:String x:Key="Status_PastOpened">過去の出力から {0} 件のファイルを開きました。変換するときは ▼ の「すべてやり直し」を使います。一部だけ書き直すときは、一覧で選んで右クリックの「選択したファイルをStep1から再変換」を使います。</sys:String>
+  <sys:String x:Key="Status_NothingChanged">{0} 件のファイルは、どれも前回の変換から変わっていません。すべて変換するときは、「ほかの変換」の「すべてやり直し」を使ってください。</sys:String>
+  <sys:String x:Key="Status_PastOpened">過去の出力から {0} 件のファイルを開きました。変換するときは「ほかの変換」の「すべてやり直し」を使います。一部だけ書き直すときは、一覧で選んで右クリックの「選択したファイルをStep1から再変換」を使います。</sys:String>
   <sys:String x:Key="Status_Interrupting">中断しています…処理中のファイルは区切りの良いところで止まります。</sys:String>
   <sys:String x:Key="Status_CheckSettings">設定を確認してください: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">VLMの接続を準備できませんでした。</sys:String>
@@ -412,7 +412,8 @@
   <sys:String x:Key="Main_ChangedOnlyCount">更新ファイルの再変換（{0} 件）</sys:String>
   <sys:String x:Key="Main_RunRunning">変換中…</sys:String>
   <sys:String x:Key="Main_RunNothing">変換するものはありません</sys:String>
-  <sys:String x:Key="Main_RunNothingTip">一覧のファイルは、どれも変換済みで、前回から変わっていません。条件を変えて変換し直すときは、右の ▼ の「すべてやり直し」を使います。</sys:String>
+  <sys:String x:Key="Main_RunNothingTip">一覧のファイルは、どれも変換済みで、前回から変わっていません。条件を変えて変換し直すときは、右の「ほかの変換」の「すべてやり直し」を使います。</sys:String>
+  <sys:String x:Key="Main_More">ほかの変換</sys:String>
   <sys:String x:Key="Main_MoreTip">ほかの変換の仕方: すべてやり直し、更新ファイルの再変換、Step3の再実行、選択したファイルのStep1からの再変換</sys:String>
   <sys:String x:Key="Main_RereadTip">印を付けたページと、いまの設定（接続・モデル、そのファイルの種類のプロンプト）と違う設定で読んだページを、いまの設定で VLM で読み直します。読み終えるまで、そのページの前の結果は残ります。ページの印は、プレビューのページ一覧、または一覧の右クリックのメニューで付けます。Step1・2はやり直しません。</sys:String>
   <sys:String x:Key="Status_RereadNoJob">印を付けたページの保存した状態が見つからないため、読み直せません。</sys:String>
