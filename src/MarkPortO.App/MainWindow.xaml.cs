@@ -400,7 +400,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>A row of the list of the history of output folders.</summary>
-    private sealed record OutputHistoryRow(string Input, string Output, string At, string State);
+    private sealed record OutputHistoryRow(string Input, string Output, string At, string State, bool CanOpen);
 
     /// <summary>
     /// The list of the output folders remembered for the inputs (FR-156): what they are used for, and they can be forgotten one by one or all
@@ -431,7 +431,10 @@ public partial class MainWindow : Window
         {
             grid.Columns.Add(new System.Windows.Controls.DataGridTextColumn
             {
-                Header = UiText.Get(header),
+                // The meaning of the states is in the tip of the header of their column (the line above the list is short).
+                Header = header == "History_ColumnState"
+                    ? new System.Windows.Controls.TextBlock { Text = UiText.Get(header), ToolTip = UiText.Get("History_ColumnStateTip") }
+                    : UiText.Get(header),
                 Binding = new System.Windows.Data.Binding(path),
                 Width = new System.Windows.Controls.DataGridLength(width),
             });
@@ -458,23 +461,32 @@ public partial class MainWindow : Window
 
         void Reload()
         {
-            var rows = _viewModel.OutputHistory.Select(o => new OutputHistoryRow(
-                o.Input,
-                o.Output,
-                o.At.LocalDateTime.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture),
-                System.IO.Directory.Exists(o.Output) ? string.Empty : UiText.Get("History_OutputGone"))).ToList();
+            var rows = _viewModel.OutputHistoryStates().Select(h => new OutputHistoryRow(
+                h.Memory.Input,
+                h.Memory.Output,
+                h.Memory.At.LocalDateTime.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+                h.State switch
+                {
+                    MainViewModel.HistoryState.InputGone => UiText.Get("History_InputGone"),
+                    MainViewModel.HistoryState.OutputGone => UiText.Get("History_OutputGone"),
+                    MainViewModel.HistoryState.NoRecord => UiText.Get("History_NoRecord"),
+                    _ => string.Empty,
+                },
+                h.State is MainViewModel.HistoryState.Ready or MainViewModel.HistoryState.NoRecord)).ToList();
             grid.ItemsSource = rows;
             empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             grid.Visibility = rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
             clear.IsEnabled = rows.Count > 0;
             forget.IsEnabled = grid.SelectedItems.Count > 0;
-            open.IsEnabled = grid.SelectedItems.Count == 1;
+            open.IsEnabled = CanOpenSelected();
         }
+
+        bool CanOpenSelected() => grid.SelectedItems.Count == 1 && grid.SelectedItem is OutputHistoryRow { CanOpen: true };
 
         // The screen goes back to the input chosen and its output folder; the list closes.
         void Open()
         {
-            if (grid.SelectedItems.Count != 1 || grid.SelectedItem is not OutputHistoryRow row)
+            if (!CanOpenSelected() || grid.SelectedItem is not OutputHistoryRow row)
             {
                 return;
             }
@@ -492,7 +504,7 @@ public partial class MainWindow : Window
         grid.SelectionChanged += (_, _) =>
         {
             forget.IsEnabled = grid.SelectedItems.Count > 0;
-            open.IsEnabled = grid.SelectedItems.Count == 1;
+            open.IsEnabled = CanOpenSelected();
         };
         grid.MouseDoubleClick += (_, e) =>
         {

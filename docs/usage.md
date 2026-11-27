@@ -214,7 +214,7 @@ When the files and folders to convert are chosen, the screen goes back to their 
 
 "The first" is the first input, from the top of the list, that has a record. Adding files or folders whose earlier output folder or conditions differ from the first asks first; when added, the output folder and the conditions stay those of the first, and the files without a record in its output folder are converted anew.
 
-**File > Past history** lists the remembered output folders (the input, the output folder, when, and those whose folder is gone); the ones chosen, or all of them, can be forgotten. **Go back to this** (or a double click on a row) puts the screen back to that input and its output folder (the conditions come back from its records). The results of the conversions stay.
+**File > Past history** lists the remembered output folders (the input, the output folder, when, and how the files are now: the input is gone, the output folder is gone, or the folder has no record of the input); the ones chosen, or all of them, can be forgotten. **Go back to this** (or a double click on a row) puts the screen back to that input and its output folder (the conditions come back from its records). The results of the conversions stay.
 
 ### Converting again
 

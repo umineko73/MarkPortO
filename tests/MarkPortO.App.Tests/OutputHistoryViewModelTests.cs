@@ -13,6 +13,8 @@
 // You should have received a copy of the GNU General Public License along with MarkPortO.
 // If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+using MarkPortO.App.ViewModels;
+using MarkPortO.Core.Tests.Fixtures;
 using static MarkPortO.App.Tests.PresetViewModelTests;
 
 namespace MarkPortO.App.Tests;
@@ -40,6 +42,31 @@ public sealed class OutputHistoryViewModelTests
 
         screen.Model.ClearHistory();
         Assert.Empty(screen.Model.OutputHistory);
+    });
+
+    [Fact]
+    public void TheStateOfEachInput_SaysWhatGoingBackWouldFind() => Sta.Run(screen =>
+    {
+        var root = System.IO.Path.GetDirectoryName(screen.Store.FilePath)!;
+        string Folder(params string[] parts) => System.IO.Directory.CreateDirectory(System.IO.Path.Combine([root, .. parts])).FullName;
+        var (input, empty, converted) = (Folder("in", "A"), Folder("out", "empty"), Folder("out", "converted"));
+        var file = System.IO.Path.Combine(Folder("in", "C"), "c.docx");
+        System.IO.File.WriteAllBytes(file, [1, 2, 3]);
+        FakeRecords.Write(converted, [file]);
+        var now = DateTimeOffset.Now;
+        screen.Store.Update(s =>
+        {
+            s.History.Remember(System.IO.Path.Combine(root, "in", "gone"), empty, now.AddMinutes(-3));
+            s.History.Remember(input, System.IO.Path.Combine(root, "out", "gone"), now.AddMinutes(-2));
+            s.History.Remember(Folder("in", "B"), empty, now.AddMinutes(-1));
+            s.History.Remember(System.IO.Path.GetDirectoryName(file)!, converted, now);
+        });
+
+        var states = screen.Model.OutputHistoryStates().Select(h => h.State);
+
+        Assert.Equal(
+            [MainViewModel.HistoryState.Ready, MainViewModel.HistoryState.NoRecord, MainViewModel.HistoryState.OutputGone, MainViewModel.HistoryState.InputGone],
+            states);
     });
 
     [Fact]

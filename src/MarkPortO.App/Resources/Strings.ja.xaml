@@ -219,13 +219,16 @@
   <sys:String x:Key="Menu_WorkSetNone">（作業セットはありません）</sys:String>
   <sys:String x:Key="Menu_OutputHistory">過去の履歴…</sys:String>
   <sys:String x:Key="History_Title">過去の履歴</sys:String>
-  <sys:String x:Key="History_About">入力（ファイルやフォルダ）ごとに、最後に変換した出力先を覚えています。入力を選んだとき、今の出力先にその記録がなければ、ここに覚えた出力先を見て、記録があれば出力先と条件をそこに切り替えます。入力を追加したときは、前回の出力先や条件が1つ目と違うかを確かめます。「この状態に戻す」（または行をダブルクリック）で、その入力と出力先の画面に戻せます（条件は、その出力先の記録から戻ります）。消しても、変換の結果は消えません。</sys:String>
+  <sys:String x:Key="History_About">入力ごとに、最後に変換した出力先です。行を選んで「この状態に戻す」を押すと、その入力と出力先に戻せます。</sys:String>
   <sys:String x:Key="History_Empty">覚えている出力先はありません。</sys:String>
   <sys:String x:Key="History_ColumnInput">入力</sys:String>
   <sys:String x:Key="History_ColumnOutput">出力先</sys:String>
   <sys:String x:Key="History_ColumnAt">日時</sys:String>
   <sys:String x:Key="History_ColumnState">状態</sys:String>
+  <sys:String x:Key="History_ColumnStateTip">今のファイルの様子です。空欄なら戻せます。「入力がありません」「出力先がありません」は戻せません。「記録がありません」は、入力と出力先だけ戻り、条件は戻りません。</sys:String>
   <sys:String x:Key="History_OutputGone">出力先がありません</sys:String>
+  <sys:String x:Key="History_InputGone">入力がありません</sys:String>
+  <sys:String x:Key="History_NoRecord">記録がありません</sys:String>
   <sys:String x:Key="History_Open">この状態に戻す</sys:String>
   <sys:String x:Key="History_OpenGone">戻せません。次のフォルダまたはファイルがありません: {0}</sys:String>
   <sys:String x:Key="History_Forget">選んだものを消す</sys:String>

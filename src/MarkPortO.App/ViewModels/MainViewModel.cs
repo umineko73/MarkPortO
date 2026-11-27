@@ -1981,6 +1981,58 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>The output folders remembered for the inputs (FR-156), newest first: what the list of the history shows.</summary>
     public IReadOnlyList<Core.Settings.OutputMemory> OutputHistory => [.. _store.Current.History.Outputs];
 
+    /// <summary>How an input of the history is now, for its list: what going back to it would find.</summary>
+    public enum HistoryState
+    {
+        /// <summary>The input, the output folder and the records of the input there are there.</summary>
+        Ready,
+
+        /// <summary>The input (a file or a folder) is gone: it cannot be gone back to.</summary>
+        InputGone,
+
+        /// <summary>The output folder is gone: it cannot be gone back to.</summary>
+        OutputGone,
+
+        /// <summary>The output folder has no record of the input: going back puts in the input and the folder, not the conditions.</summary>
+        NoRecord,
+    }
+
+    /// <summary>The history with the state of each input now. The records of each output folder are read once.</summary>
+    public IReadOnlyList<(Core.Settings.OutputMemory Memory, HistoryState State)> OutputHistoryStates()
+    {
+        var records = new Dictionary<string, IReadOnlyDictionary<string, (JobState Job, DocumentRecord Document)>>(StringComparer.OrdinalIgnoreCase);
+        return [.. OutputHistory.Select(o => (o, StateOf(o)))];
+
+        HistoryState StateOf(Core.Settings.OutputMemory memory)
+        {
+            if (!(File.Exists(memory.Input) || Directory.Exists(memory.Input)))
+            {
+                return HistoryState.InputGone;
+            }
+
+            if (!Directory.Exists(memory.Output))
+            {
+                return HistoryState.OutputGone;
+            }
+
+            if (!records.TryGetValue(memory.Output, out var last))
+            {
+                try
+                {
+                    last = FileStates.LastRecords(memory.Output);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    last = new Dictionary<string, (JobState Job, DocumentRecord Document)>();
+                }
+
+                records[memory.Output] = last;
+            }
+
+            return FileStates.RecordsUnder(last, [memory.Input]).Count > 0 ? HistoryState.Ready : HistoryState.NoRecord;
+        }
+    }
+
     /// <summary>
     /// Puts the screen back to an input of the history (FR-156): the input alone in the list, and the output folder it was converted into.
     /// The list of files and the conditions then follow from the records there, as when inputs are chosen (FR-157, FR-158). False while a
