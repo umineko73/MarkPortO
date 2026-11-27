@@ -41,4 +41,25 @@ public sealed class OutputHistoryViewModelTests
         screen.Model.ClearHistory();
         Assert.Empty(screen.Model.OutputHistory);
     });
+
+    [Fact]
+    public void GoingBackToAnInputOfTheHistory_PutsItAloneInTheList_WithItsOutputFolder() => Sta.Run(screen =>
+    {
+        var root = System.IO.Path.GetDirectoryName(screen.Store.FilePath)!;
+        string Folder(params string[] parts) => System.IO.Directory.CreateDirectory(System.IO.Path.Combine([root, .. parts])).FullName;
+        var (a, b, output) = (Folder("in", "A"), Folder("in", "B"), Folder("out", "1"));
+        screen.Model.InputPaths.Add(a);
+
+        Assert.True(screen.Model.OpenFromHistory(b, output));
+
+        Assert.Equal([b], screen.Model.InputPaths);
+        Assert.Equal(output, screen.Model.OutputFolder);
+        Assert.Equal([b], screen.Settings.Input.Paths); // saved, as a choice of the inputs is
+
+        // An input or an output folder that is gone: nothing changes.
+        Assert.False(screen.Model.OpenFromHistory(System.IO.Path.Combine(root, "in", "gone"), output));
+        Assert.False(screen.Model.OpenFromHistory(a, System.IO.Path.Combine(root, "out", "gone")));
+        Assert.Equal([b], screen.Model.InputPaths);
+        Assert.Equal(output, screen.Model.OutputFolder);
+    });
 }

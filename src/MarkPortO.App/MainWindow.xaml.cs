@@ -439,10 +439,11 @@ public partial class MainWindow : Window
 
         var about = new System.Windows.Controls.TextBlock { Text = UiText.Get("History_About"), TextWrapping = TextWrapping.Wrap, Width = 860, Margin = new Thickness(0, 0, 0, 8) };
         var empty = new System.Windows.Controls.TextBlock { Text = UiText.Get("History_Empty"), Margin = new Thickness(0, 0, 0, 8) };
+        var open = new System.Windows.Controls.Button { Content = UiText.Get("History_Open"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 18, 0) };
         var forget = new System.Windows.Controls.Button { Content = UiText.Get("History_Forget"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
         var clear = new System.Windows.Controls.Button { Content = UiText.Get("History_ForgetAll"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
         var close = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Close"), Padding = new Thickness(16, 3, 16, 3), IsCancel = true, IsDefault = true };
-        var buttons = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { forget, clear, close } };
+        var buttons = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { open, forget, clear, close } };
         var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(12), Children = { about, empty, grid, buttons } };
         var dialog = new Window
         {
@@ -467,9 +468,40 @@ public partial class MainWindow : Window
             grid.Visibility = rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
             clear.IsEnabled = rows.Count > 0;
             forget.IsEnabled = grid.SelectedItems.Count > 0;
+            open.IsEnabled = grid.SelectedItems.Count == 1;
         }
 
-        grid.SelectionChanged += (_, _) => forget.IsEnabled = grid.SelectedItems.Count > 0;
+        // The screen goes back to the input chosen and its output folder; the list closes.
+        void Open()
+        {
+            if (grid.SelectedItems.Count != 1 || grid.SelectedItem is not OutputHistoryRow row)
+            {
+                return;
+            }
+
+            if (!_viewModel.OpenFromHistory(row.Input, row.Output))
+            {
+                var gone = !(System.IO.File.Exists(row.Input) || System.IO.Directory.Exists(row.Input)) ? row.Input : row.Output;
+                MessageBox.Show(dialog, UiText.Get("History_OpenGone", gone), UiText.Get("History_Open"), MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            dialog.Close();
+        }
+
+        grid.SelectionChanged += (_, _) =>
+        {
+            forget.IsEnabled = grid.SelectedItems.Count > 0;
+            open.IsEnabled = grid.SelectedItems.Count == 1;
+        };
+        grid.MouseDoubleClick += (_, e) =>
+        {
+            if (e.OriginalSource is DependencyObject source && System.Windows.Controls.ItemsControl.ContainerFromElement(grid, source) is System.Windows.Controls.DataGridRow)
+            {
+                Open();
+            }
+        };
+        open.Click += (_, _) => Open();
         forget.Click += (_, _) =>
         {
             var inputs = grid.SelectedItems.OfType<OutputHistoryRow>().Select(r => r.Input).ToList();

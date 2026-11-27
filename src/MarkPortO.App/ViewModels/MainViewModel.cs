@@ -1981,6 +1981,43 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>The output folders remembered for the inputs (FR-156), newest first: what the list of the history shows.</summary>
     public IReadOnlyList<Core.Settings.OutputMemory> OutputHistory => [.. _store.Current.History.Outputs];
 
+    /// <summary>
+    /// Puts the screen back to an input of the history (FR-156): the input alone in the list, and the output folder it was converted into.
+    /// The list of files and the conditions then follow from the records there, as when inputs are chosen (FR-157, FR-158). False while a
+    /// conversion runs, or when the input or the output folder is gone (nothing changes).
+    /// </summary>
+    public bool OpenFromHistory(string input, string output)
+    {
+        if (IsRunning || !(File.Exists(input) || Directory.Exists(input)) || !Directory.Exists(output))
+        {
+            return false;
+        }
+
+        _keepList = true;
+        try
+        {
+            InputPaths.Clear();
+            InputPaths.Add(input);
+        }
+        finally
+        {
+            _keepList = false;
+        }
+
+        SaveInputs();
+        _restoreSuspended = false;
+        _workSetName = null;
+        if (!string.Equals(output, _store.Current.Output.Folder, StringComparison.Ordinal))
+        {
+            _store.Update(s => s.Output.Folder = output);
+            Raise(nameof(OutputFolder));
+        }
+
+        UpdateRunCommands();
+        _ = RefreshPreviousAsync(showFiles: true, inputsChanged: true);
+        return true;
+    }
+
     /// <summary>Forgets the output folders remembered for these inputs (the results of the conversions stay).</summary>
     public void ForgetOutputs(IReadOnlyCollection<string> inputs) =>
         _store.Update(s => s.History.Outputs.RemoveAll(o => inputs.Contains(o.Input, StringComparer.OrdinalIgnoreCase)));
