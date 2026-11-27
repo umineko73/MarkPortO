@@ -71,6 +71,7 @@
   <sys:String x:Key="Preset_SaveTitle">Save a preset</sys:String>
   <sys:String x:Key="Preset_ManageTitle">Presets</sys:String>
   <sys:String x:Key="Preset_NameLabel">Name of the preset:</sys:String>
+  <sys:String x:Key="WorkSet_NameLabel">Name of the work set:</sys:String>
   <sys:String x:Key="Preset_NameInvalid">This name cannot be used (empty, the name of a built-in preset, a line break or "--").</sys:String>
   <sys:String x:Key="Preset_Overwrite">The preset "{0}" exists. Replace it with the settings now?</sys:String>
   <sys:String x:Key="Preset_Rename">Rename…</sys:String>
@@ -169,7 +170,7 @@
   <sys:String x:Key="Main_Start">Start</sys:String>
   <sys:String x:Key="Main_Interrupt">Interrupt</sys:String>
   <sys:String x:Key="Main_Resume">Resume</sys:String>
-  <sys:String x:Key="Main_ResumeTip">Goes on with the previous conversion: the files that did not finish or, when only failures are left, the files and pages that failed. It uses the conditions of that conversion. It can be pressed when a file of the list is not done.</sys:String>
+  <sys:String x:Key="Main_ResumeTip">Goes on with the files that did not finish, does again the files and pages that failed, and converts the files not converted yet. A file converted before goes on with the conditions of that conversion (with Step3 on, only Step3 can be added). A file not converted yet is converted with the conditions of the screen. It can be pressed when a file of the list is not done.</sys:String>
   <sys:String x:Key="Main_RedoAll">Redo all</sys:String>
   <sys:String x:Key="Main_RedoAllTip">Converts every file of the inputs again with the conditions on the screen. Where a file with an earlier folder is written is chosen on the right (If the folder exists). It can be pressed when the list has files.</sys:String>
   <sys:String x:Key="Main_Existing">If the folder exists</sys:String>
@@ -180,9 +181,8 @@
   <sys:String x:Key="Status_Previous_Other">The output folder has a conversion of other inputs that did not finish or has failures. To continue it, use File - Open a past output...</sys:String>
   <sys:String x:Key="Main_StartTip">Converts every file of the inputs. It can be pressed when the list of files is empty (the output folder has no earlier conversion).</sys:String>
   <sys:String x:Key="Main_ChangedOnly">Reconvert updated files</sys:String>
-  <sys:String x:Key="Main_ChangedOnlyTip">Converts only the files that changed since their last conversion in the output folder or were never converted. They are written to the folders of their earlier conversion. A change of the conditions alone does not convert a file again. It can be pressed when every file of the list is done.</sys:String>
+  <sys:String x:Key="Main_ChangedOnlyTip">Converts only the files that changed since their last conversion in the output folder, were never converted, or whose last conversion did not finish. They are written to the folders of their earlier conversion. A change of the conditions alone does not convert a file again. It can be pressed when a file of the list is "Changed".</sys:String>
   <sys:String x:Key="Main_Reconvert">Convert the selected files again from Step 1</sys:String>
-  <sys:String x:Key="Main_ReconvertButton">Convert again from Step 1</sys:String>
   <sys:String x:Key="Main_ReconvertTip">Converts the selected files again with the conditions on the screen, into the folders of their earlier conversion (their Markdown and page images are replaced). Ctrl+click or Shift+click selects several files.</sys:String>
   <sys:String x:Key="Main_Col_File">File</sys:String>
   <sys:String x:Key="Main_Col_Type">Type</sys:String>
@@ -205,8 +205,8 @@
   <sys:String x:Key="Status_DpiInvalid">Enter a whole number from {0} to {1} for the DPI (now: {2}).</sys:String>
   <sys:String x:Key="Conn_None">(none)</sys:String>
   <sys:String x:Key="Status_NoDocuments">No documents to convert were found. {0}</sys:String>
-  <sys:String x:Key="Status_NothingChanged">None of the {0} files has changed since its last conversion. To convert them anyway, press Redo all.</sys:String>
-  <sys:String x:Key="Status_PastOpened">{0} files of a past output were opened. Press Redo all to convert them. To write only some of them again, select them in the list and press Convert again from Step 1.</sys:String>
+  <sys:String x:Key="Status_NothingChanged">None of the {0} files has changed since its last conversion. To convert them anyway, use Redo all in the ▼ menu.</sys:String>
+  <sys:String x:Key="Status_PastOpened">{0} files of a past output were opened. To convert them, use Redo all in the ▼ menu. To write only some of them again, select them in the list and choose Convert the selected files again from Step 1 from the right-click menu.</sys:String>
   <sys:String x:Key="Status_Interrupting">Interrupting… the file being processed stops at a safe point.</sys:String>
   <sys:String x:Key="Status_CheckSettings">Check the settings: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">The VLM connection could not be prepared.</sys:String>
@@ -396,6 +396,19 @@
   <sys:String x:Key="Past_PreviewOne">Select one file to preview it.</sys:String>
   <sys:String x:Key="Past_LoadFailed">It cannot be opened while a conversion is running. Try again when it has finished.</sys:String>
   <sys:String xml:space="preserve" x:Key="Confirm_ReconvertMarked">The settings for running Step 3 again are ignored, and every page is processed.&#10;&#10;</sys:String>
+  <sys:String x:Key="Main_RereadCount">Run Step 3 again ({0} pages)</sys:String>
+  <sys:String x:Key="Main_RunStartCount">Start ({0} files)</sys:String>
+  <sys:String x:Key="Main_RunResumeCount">Resume ({0})</sys:String>
+  <sys:String x:Key="Main_RunPartGoOn">go on {0}</sys:String>
+  <sys:String x:Key="Main_RunPartStep">add a step {0}</sys:String>
+  <sys:String x:Key="Main_RunPartNew">new {0}</sys:String>
+  <sys:String x:Key="Main_RunPartSeparator">, </sys:String>
+  <sys:String x:Key="Main_RunChangedCount">Convert updated files ({0})</sys:String>
+  <sys:String x:Key="Main_ChangedOnlyCount">Reconvert updated files ({0})</sys:String>
+  <sys:String x:Key="Main_RunRunning">Converting…</sys:String>
+  <sys:String x:Key="Main_RunNothing">Nothing to convert</sys:String>
+  <sys:String x:Key="Main_RunNothingTip">Every file of the list is converted and has not changed since. To convert again with other conditions, use "Redo all" in the ▼ menu on the right.</sys:String>
+  <sys:String x:Key="Main_MoreTip">Other ways to convert: redo all, reconvert updated files, run Step 3 again, convert the chosen files again from Step1</sys:String>
   <sys:String x:Key="Main_Reread">Run Step 3 again</sys:String>
   <sys:String x:Key="Main_RereadTip">Reads again with the VLM, with the settings of now, the pages that are marked and the pages that were read with other settings (the connection and its model, the prompt of the kind of file). The earlier text of a page stays until the page has been read. Pages are marked in the page list of the preview, or with the right-click menu of the file list. Steps 1 and 2 are not done again.</sys:String>
   <sys:String x:Key="Status_RereadNoJob">The saved state of the marked pages was not found, so they cannot be read again.</sys:String>

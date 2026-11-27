@@ -151,9 +151,9 @@ If Step1 extracted no table on that page, all three settings keep the tables the
 
 #### After changing the settings
 
-After the use of the VLM, the connection (the model) or a prompt is changed, **Run Step 3 again** reads again the pages that were read with the earlier settings. Step1 and Step2 are not done again.
+After the use of the VLM, the connection (the model) or a prompt is changed, **Run Step 3 again** in the ▼ menu of the run button reads again the pages that were read with the earlier settings. Step1 and Step2 are not done again.
 
-The mark that lets Step3 read the shapes of a Word page is made by Step1. To have the shapes of a document converted before this feature read, press **Convert again from Step 1**.
+The mark that lets Step3 read the shapes of a Word page is made by Step1. To have the shapes of a document converted before this feature read, choose **Convert the selected files again from Step 1**.
 
 ### Checking the results
 
@@ -175,7 +175,7 @@ The zoom and the scroll position are kept when the page changes or a new result 
 #### Reading pages again with the VLM
 
 1. Tick the check box of a page in the page list of the preview (or use **Mark this page** and **Mark pages that could not be read**: a page fails when the VLM gives no answer, times out, or the connection or the server gives an error). The right-click menu of the file list (**Mark for running Step 3 again**) marks every page of the selected files. Marked pages show "Waiting to run again" in the Step3 column of the file list and in the VLM column of the page list.
-2. Press **Run Step 3 again** on the main screen. Only the marked pages are read again, with the connection and the prompts chosen on the main screen, and the results are replaced.
+2. Choose **Run Step 3 again (N pages)** from the ▼ menu of the run button on the main screen; the number of pages to read is in the brackets. Only the marked pages are read again, with the connection and the prompts chosen on the main screen, and the results are replaced.
 3. A page that fails again keeps its earlier result and its mark.
 4. After the connection, a prompt or the use of the VLM is changed, **Run Step 3 again** can be pressed without marks: it reads again the pages that were read with the earlier settings.
 
@@ -227,9 +227,11 @@ When the files and folders to convert are chosen, the screen goes back to their 
 | Changed since the conversion | The file changed after its last conversion |
 | Running elsewhere | Another window or the command line converts it (no action takes it) |
 
+There is one run button. It becomes **Resume**, **Start** or **Convert updated files**, as the list calls for, and says in brackets how many files it takes (for example "Resume (go on 2, add a step 1, new 3)"). When none fits, it says **Nothing to convert**. The other ways to convert are in the ▼ menu next to it.
+
 - **Start**: when every file is "Not converted"; converts every file of the inputs.
 - **Resume**: goes on file by file: a file not finished goes on, failed files and pages are tried again, a step that is on now but was not then is run alone, and files not converted are converted with the conditions on the screen. Several earlier conversions go on in turn in one **Resume**.
-- **Redo all**: converts every file of the inputs again with the conditions on the screen.
+- **Redo all** (▼): converts every file of the inputs again with the conditions on the screen.
 - **Reconvert updated files**: converts the changed files and the new ones, into the folders of their earlier conversion.
 
 #### Adding Step3 to files converted up to Step2
@@ -242,7 +244,7 @@ A step switched off now that was on then leaves its results. A file that changed
 
 Where **Start** and **Redo all** write a file that was converted before is chosen beside the buttons, under **If the folder exists** (**Make a new one** or **Overwrite**).
 
-To convert some files again, select them in the file list and press **Convert again from Step 1**, or choose **Convert the selected files again from Step 1** from the right-click menu. **The Markdown and the page images in the earlier folder are replaced**, so the paths stay the same.
+To convert some files again, select them in the file list and choose **Convert the selected files again from Step 1** from the right-click menu (or the ▼ menu). **The Markdown and the page images in the earlier folder are replaced**, so the paths stay the same.
 
 ### Work sets
 

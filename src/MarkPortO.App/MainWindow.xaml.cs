@@ -48,6 +48,16 @@ public partial class MainWindow : Window
         };
         DataContext = _viewModel;
 
+        // While a conversion runs, the main button keeps its width: its text gets shorter ("Converting…"), and "Interrupt" next to it
+        // would move under a second click of a double click (run button review MP-03).
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.IsRunning))
+            {
+                MainRunButton.MinWidth = _viewModel.IsRunning ? Math.Max(MainRunButton.ActualWidth, 120) : 120;
+            }
+        };
+
         // A value of the folded part was refused while it was closed: it is open now, and the item has the focus (FR-102).
         _viewModel.ConditionItemRejected += item => Dispatcher.BeginInvoke(() =>
         {
@@ -137,6 +147,21 @@ public partial class MainWindow : Window
     private void OnOpenFolderClick(object sender, RoutedEventArgs e) => OpenWithShell(_viewModel.Selected is { HasOutputFolder: true } item ? item.OutputFolderPath : null);
 
     // FR-127: the files chosen in the list are converted again, into the folders of their earlier conversion.
+    /// <summary>The "▼" next to the main button: the other ways to convert, under the button.</summary>
+    private void OnMoreRunClick(object sender, RoutedEventArgs e)
+    {
+        if (MoreRunButton.ContextMenu is { } menu)
+        {
+            menu.DataContext = DataContext;
+            menu.PlacementTarget = MoreRunButton;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+    }
+
+    private void OnFileSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) =>
+        _viewModel.SetSelectedFiles([.. FileGrid.SelectedItems.OfType<FileItemViewModel>()]);
+
     private async void OnReconvertClick(object sender, RoutedEventArgs e) =>
         await _viewModel.ReconvertAsync([.. FileGrid.SelectedItems.OfType<FileItemViewModel>()]);
 
@@ -541,7 +566,7 @@ public partial class MainWindow : Window
         var ok = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Ok"), IsDefault = true, Width = 80, Margin = new Thickness(0, 0, 8, 0) };
         var cancel = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Cancel"), IsCancel = true, Width = 80 };
         var buttons = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { ok, cancel } };
-        var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(12), Children = { new System.Windows.Controls.TextBlock { Text = UiText.Get("Preset_NameLabel"), Margin = new Thickness(0, 0, 0, 4) }, box, error, buttons } };
+        var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(12), Children = { new System.Windows.Controls.TextBlock { Text = UiText.Get("WorkSet_NameLabel"), Margin = new Thickness(0, 0, 0, 4) }, box, error, buttons } };
         var dialog = new Window
         {
             Title = title,

@@ -138,6 +138,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             () => CanStart() && (_entries.Count > 0 ? _entries.Any(e => e.State == FileState.Changed) : Files.Count > 0 && Files.All(f => f.IsDone)));
         RereadCommand = new RelayCommand(() => RereadAsync(), () => CanReread);
         InterruptCommand = new RelayCommand(InterruptAsync, () => IsRunning);
+        MainRunCommand = new RelayCommand(
+            () =>
+            {
+                (NextRun() switch
+                {
+                    MainRun.Resume => ResumeCommand,
+                    MainRun.Start => StartCommand,
+                    MainRun.Changed => StartChangedCommand,
+                    _ => null,
+                })?.Execute(null);
+                return Task.CompletedTask;
+            },
+            () => NextRun() != MainRun.None);
         AddFilesCommand = new RelayCommand(AddFilesAsync, () => !IsRunning);
         AddFolderCommand = new RelayCommand(AddFolderAsync, () => !IsRunning);
         ClearInputsCommand = new RelayCommand(ClearInputsAsync, () => !IsRunning);
@@ -162,6 +175,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         };
         Files.CollectionChanged += (_, _) =>
         {
+            _unlistedMarks = null;
+            _selectedFiles = [];
             UpdateRunCommands();
             RaiseProgress();
         };
@@ -612,6 +627,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (Set(ref _selected, value))
             {
                 Raise(nameof(CanMarkSelectedForReread));
+                Raise(nameof(CanReconvertSelected));
             }
         }
     }
@@ -742,6 +758,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Raise(nameof(CanUse));
                 Raise(nameof(CanReread));
                 Raise(nameof(CanMarkSelectedForReread));
+                RaiseRunTexts();
                 foreach (var command in new[] { StartCommand, StartChangedCommand, RedoAllCommand, InterruptCommand, ResumeCommand, RereadCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
                 {
                     command.RaiseCanExecuteChanged();
@@ -1113,6 +1130,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         RaiseConnection();
         Raise(nameof(ConditionSummaryText));
         Raise(nameof(WaitMessage));
+        RaiseRunTexts();
         Status = _statusSource();
         if (!IsRunning)
         {
@@ -1193,6 +1211,208 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>"Read again with the VLM": the pages that are marked (FR-139).</summary>
     public RelayCommand RereadCommand { get; }
 
+    /// <summary>The one main button of the conversion: "Resume", else "Start", else "Changed files"; the others are in its menu.</summary>
+    public RelayCommand MainRunCommand { get; }
+
+    private enum MainRun
+    {
+        None,
+        Resume,
+        Start,
+        Changed,
+    }
+
+    /// <summary>
+    /// What the main button does now. When the list has the files of the inputs, it decides: "Resume" when a file of it goes on, else
+    /// "Start", else "Changed files"; an earlier run of the output folder that the list does not take (a type taken off since, for
+    /// example) goes on only from the menu. Without such a list (nothing listed yet, or a past output opened), the run of the output
+    /// folder comes first: both "Start" and "Resume" can be pressed then, and going on loses nothing.
+    /// </summary>
+    private MainRun NextRun()
+    {
+        if (IsRunning)
+        {
+            return MainRun.None;
+        }
+
+        var resume = ResumeCommand.CanExecute(null);
+        if (resume && (_entries.Count == 0 || FileStates.ToResume(_entries).Count > 0))
+        {
+            return MainRun.Resume;
+        }
+
+        return StartCommand.CanExecute(null) ? MainRun.Start
+            : StartChangedCommand.CanExecute(null) ? MainRun.Changed
+            : resume ? MainRun.Resume
+            : MainRun.None;
+    }
+
+    /// <summary>The text of the main button, with what it takes: "Resume (go on 2, add a step 1, new 3)".</summary>
+    public string MainRunText => NextRun() switch
+    {
+        MainRun.Resume => ResumeText(),
+        MainRun.Start => Files.Count > 0 ? UiText.Get("Main_RunStartCount", Files.Count) : UiText.Get("Main_Start"),
+        MainRun.Changed => ChangedFileCount is > 0 and var changed ? UiText.Get("Main_RunChangedCount", changed) : UiText.Get("Main_ChangedOnly"),
+        _ => IsRunning ? UiText.Get("Main_RunRunning") : UiText.Get("Main_RunNothing"),
+    };
+
+    public string MainRunTip => NextRun() switch
+    {
+        MainRun.Resume => UiText.Get("Main_ResumeTip"),
+        MainRun.Start => UiText.Get("Main_StartTip"),
+        MainRun.Changed => UiText.Get("Main_ChangedOnlyTip"),
+        _ => UiText.Get("Main_RunNothingTip"),
+    };
+
+    /// <summary>"Changed files" in the menu, with how many files it converts when the list knows it.</summary>
+    public string ChangedMenuText => ChangedFileCount is > 0 and var changed ? UiText.Get("Main_ChangedOnlyCount", changed) : UiText.Get("Main_ChangedOnly");
+
+    /// <summary>"Run Step3 again" in the menu, with how many pages it reads.</summary>
+    public string RereadMenuText => RereadPageCount is > 0 and var pages ? UiText.Get("Main_RereadCount", pages) : UiText.Get("Main_Reread");
+
+    /// <summary>The files chosen in the list can be converted again from Step1.</summary>
+    public bool CanReconvertSelected =>
+        CanEdit && (Selected is { Source: not null } || _selectedFiles.Any(f => f.Source is not null)); // a file with an earlier conversion (ReconvertAsync)
+
+    private IReadOnlyList<FileItemViewModel> _selectedFiles = [];
+
+    /// <summary>The files chosen in the list (it can choose several; <see cref="Selected"/> is one of them).</summary>
+    public void SetSelectedFiles(IReadOnlyList<FileItemViewModel> files)
+    {
+        _selectedFiles = files;
+        Raise(nameof(CanReconvertSelected));
+    }
+
+    /// <summary>The files of the list that "Resume" takes: those that go on (or are tried again), those that get a step, and the new ones.</summary>
+    public (int GoOn, int Steps, int New) ResumeCounts
+    {
+        get
+        {
+            var take = FileStates.ToResume(_entries);
+            var steps = take.Count(e => e.State == FileState.StepPending);
+            var fresh = take.Count(e => e.State == FileState.NotConverted);
+            return (take.Count - steps - fresh, steps, fresh);
+        }
+    }
+
+    private string ResumeText()
+    {
+        var (goOn, steps, fresh) = ResumeCounts;
+        if (goOn + steps + fresh == 0)
+        {
+            return UiText.Get("Main_Resume"); // the run of the output folder goes on (a past output, or a list not made yet)
+        }
+
+        var parts = new List<string>();
+        if (goOn > 0)
+        {
+            parts.Add(UiText.Get("Main_RunPartGoOn", goOn));
+        }
+
+        if (steps > 0)
+        {
+            parts.Add(UiText.Get("Main_RunPartStep", steps));
+        }
+
+        if (fresh > 0)
+        {
+            parts.Add(UiText.Get("Main_RunPartNew", fresh));
+        }
+
+        return UiText.Get("Main_RunResumeCount", string.Join(UiText.Get("Main_RunPartSeparator"), parts));
+    }
+
+    /// <summary>
+    /// The files of the list that "Changed files" converts: as <see cref="PreviousOutputs.ChangedOnly"/> takes them, those that are not up
+    /// to date (never converted, their last conversion not finished, or changed since).
+    /// </summary>
+    public int ChangedFileCount
+    {
+        get
+        {
+            // A run of a folder made with the other layout wrote elsewhere: its files are converted as new ones (PreviousOutputs.Load).
+            var layout = _store.Current.Output.FolderLayout;
+            var elsewhere = _entries.Select(e => e.Job).OfType<JobState>().Distinct()
+                .Where(j => j.Options.FolderLayout != layout && j.Inputs.Any(Directory.Exists)).Select(j => j.JobId).ToHashSet();
+            return _entries.Count(e => e.State != FileState.RunningElsewhere // the run leaves out a file that another process converts
+                && (e.Document is not { } document || !document.IsDone() || e.State == FileState.Changed || elsewhere.Contains(document.JobId)));
+        }
+    }
+
+    /// <summary>
+    /// The pages "Run Step3 again" reads (FR-139), as <see cref="RereadAsync"/> takes them: the job of the first file of the list that has
+    /// some; of its documents in the list, the marked pages and the pages read with other settings than those of now (they are marked when it
+    /// starts); and the marked pages of its documents that the list does not show (the reading takes the whole job).
+    /// </summary>
+    public int RereadPageCount
+    {
+        get
+        {
+        if (!Step3)
+        {
+            return 0;
+        }
+
+        Guid? job = null;
+        var count = 0;
+        foreach (var document in Files.Select(f => f.Source).OfType<DocumentRecord>())
+        {
+            var stale = document.Step3 == StepStatus.Done
+                ? RereadMarks.Stale(document, CurrentStep3(document.Kind).Model, CurrentStep3(document.Kind).Prompt, CurrentStep3(document.Kind).Mode).Select(p => p.Index).ToHashSet()
+                : [];
+            var pages = RereadMarks.Markable(document).Count(p => p.RereadMark || stale.Contains(p.Index));
+            if (pages == 0 || document.JobId == Guid.Empty || (job is { } id && id != document.JobId))
+            {
+                continue;
+            }
+
+            job = document.JobId;
+            count += pages;
+        }
+
+        return job is { } id2 ? count + UnlistedMarkedPages(id2) : count;
+        }
+    }
+
+    /// <summary>The marked pages of the documents of a job that the list does not show; read once for each list (they change only when a run ends).</summary>
+    private int UnlistedMarkedPages(Guid job)
+    {
+        if (_unlistedMarks is { } known && known.Job == job)
+        {
+            return known.Pages;
+        }
+
+        var listed = Files.Select(f => f.Source).OfType<DocumentRecord>().Where(d => d.JobId == job).Select(d => d.DocId).ToHashSet(StringComparer.Ordinal);
+        var pages = 0;
+        try
+        {
+            var store = new StateStore(_store.Current.Output.Folder);
+            foreach (var id in store.LoadJob(job)?.Documents.Where(id => !listed.Contains(id)) ?? [])
+            {
+                pages += store.LoadDocument(job, id) is { } document ? RereadMarks.Count(document).Marked : 0;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            // The count leaves them out; the reading itself tells what it could not read.
+        }
+
+        _unlistedMarks = (job, pages);
+        return pages;
+    }
+
+    private (Guid Job, int Pages)? _unlistedMarks;
+
+    private void RaiseRunTexts()
+    {
+        MainRunCommand.RaiseCanExecuteChanged();
+        Raise(nameof(MainRunText));
+        Raise(nameof(MainRunTip));
+        Raise(nameof(ChangedMenuText));
+        Raise(nameof(RereadMenuText));
+        Raise(nameof(CanReconvertSelected));
+    }
+
     /// <summary>The pages that are marked can be read again: Step 3 is on, nothing is running, and a page is marked (FR-139).</summary>
     public bool CanReread => !IsRunning && Step3 && (Files.Any(f => f.RereadCount.Marked > 0) || StaleCount() > 0);
 
@@ -1213,6 +1433,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         RereadCommand.RaiseCanExecuteChanged();
         Raise(nameof(CanReread));
+        Raise(nameof(RereadMenuText));
     }
 
     /// <summary>The marks of a re-reading can be put on the files chosen in the list: Step 3 is on and nothing runs (FR-138).</summary>
@@ -1256,6 +1477,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Files.FirstOrDefault(f => ReferenceEquals(f.Source, document))?.Reproject();
         RereadCommand.RaiseCanExecuteChanged();
         Raise(nameof(CanReread));
+        Raise(nameof(RereadMenuText));
     }
 
     /// <summary>
@@ -1449,6 +1671,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Raise(nameof(PagesVisibility));
             RereadCommand.RaiseCanExecuteChanged();
             Raise(nameof(CanReread));
+            Raise(nameof(RereadMenuText));
             Raise(nameof(CanMarkSelectedForReread));
             Raise();
         }
@@ -1935,10 +2158,35 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         // The interrupted runs that this one replaces are given up once it has really started (FR-013g). There is no question first:
         // "Redo all" says what it does, and "Resume" is the button beside it (FR-129).
-        var replaced = _previous is { CanResume: true }
-            ? new StateStore(_store.Current.Output.Folder).FindResumableJobs([.. InputPaths], includeFinishedWithErrors: false).Select(j => j.JobId).ToList()
-            : [];
-        return StartRunAsync(kind, replaced);
+        return StartRunAsync(kind, RunsAStartReplaces());
+    }
+
+    /// <summary>
+    /// The interrupted runs of the inputs that a new run replaces (FR-013g): when the list has the files of the inputs, only the runs whose
+    /// unfinished files are all in it. A run with a file that the list does not take (a type taken off since, for example) is kept for a later
+    /// "Resume", as the main button offers "Start" then (run button review MP-07).
+    /// </summary>
+    public IReadOnlyList<Guid> RunsAStartReplaces()
+    {
+        if (_previous is not { CanResume: true })
+        {
+            return [];
+        }
+
+        var store = new StateStore(_store.Current.Output.Folder);
+        var runs = store.FindResumableJobs([.. InputPaths], includeFinishedWithErrors: false);
+        if (_entries.Count == 0)
+        {
+            return [.. runs.Select(j => j.JobId)];
+        }
+
+        var listed = _entries.Select(e => e.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return
+        [
+            .. runs.Where(job => job.Documents.All(id =>
+                store.LoadDocument(job.JobId, id) is not { } document || document.IsDone() || listed.Contains(Path.GetFullPath(document.SourcePath))))
+                .Select(j => j.JobId),
+        ];
     }
 
     /// <summary>
@@ -2497,6 +2745,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ResumeCommand.RaiseCanExecuteChanged();
         RereadCommand.RaiseCanExecuteChanged();
         Raise(nameof(CanReread));
+        RaiseRunTexts();
     }
 
     /// <summary>

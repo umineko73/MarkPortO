@@ -417,17 +417,29 @@
             <Setter Property="Padding" Value="6,4" />
           </Style>
         </DockPanel.Resources>
-        <!-- The conversion (FR-129). The list of files decides which of the four can be pressed. -->
+        <!-- The conversion (FR-129): one main button that does what the list calls for and says how many files it takes; the other ways are in its menu.
+             "Interrupt" stays a button of its own, so that a double click on the main button never stops what it has just started. -->
         <Border DockPanel.Dock="Left" Style="{StaticResource ActionGroup}">
           <StackPanel Orientation="Horizontal">
-            <Button Style="{StaticResource PrimaryGlyphButton}" Tag="&#xE768;" Content="{DynamicResource Main_Start}" Command="{Binding StartCommand}" MinWidth="90" Padding="12,6" Margin="0,0,8,0" FontWeight="SemiBold"
-                    ToolTip="{DynamicResource Main_StartTip}" ToolTipService.ShowOnDisabled="True" />
-            <Button Style="{StaticResource PrimaryGlyphButton}" Tag="&#xE768;" Content="{DynamicResource Main_Resume}" Command="{Binding ResumeCommand}" Padding="12,6" Margin="0,0,8,0" FontWeight="SemiBold"
-                    ToolTip="{DynamicResource Main_ResumeTip}" ToolTipService.ShowOnDisabled="True" />
-            <Button Style="{StaticResource GlyphButton}" Tag="&#xE72C;" Content="{DynamicResource Main_RedoAll}" Command="{Binding RedoAllCommand}" Padding="12,6" Margin="0,0,8,0"
-                    ToolTip="{DynamicResource Main_RedoAllTip}" ToolTipService.ShowOnDisabled="True" />
-            <Button Style="{StaticResource GlyphButton}" Tag="&#xE895;" Content="{DynamicResource Main_ChangedOnly}" Command="{Binding StartChangedCommand}" Padding="12,6" Margin="0,0,16,0"
-                    ToolTip="{DynamicResource Main_ChangedOnlyTip}" ToolTipService.ShowOnDisabled="True" />
+            <Button x:Name="MainRunButton" Style="{StaticResource PrimaryGlyphButton}" Tag="&#xE768;" Content="{Binding MainRunText}" Command="{Binding MainRunCommand}" MinWidth="120" Padding="12,6" FontWeight="SemiBold"
+                    ToolTip="{Binding MainRunTip}" ToolTipService.ShowOnDisabled="True" />
+            <Button x:Name="MoreRunButton" Click="OnMoreRunClick" Padding="8,6" Margin="2,0,16,0" IsEnabled="{Binding CanEdit}"
+                    ToolTip="{DynamicResource Main_MoreTip}" ToolTipService.ShowOnDisabled="True">
+              <TextBlock Text="&#xE70D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" />
+              <Button.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="{DynamicResource Main_Start}" Command="{Binding StartCommand}" ToolTip="{DynamicResource Main_StartTip}" ToolTipService.ShowOnDisabled="True" />
+                  <MenuItem Header="{DynamicResource Main_Resume}" Command="{Binding ResumeCommand}" ToolTip="{DynamicResource Main_ResumeTip}" ToolTipService.ShowOnDisabled="True" />
+                  <Separator />
+                  <MenuItem Header="{DynamicResource Main_RedoAll}" Command="{Binding RedoAllCommand}" ToolTip="{DynamicResource Main_RedoAllTip}" ToolTipService.ShowOnDisabled="True" />
+                  <MenuItem Header="{Binding ChangedMenuText}" Command="{Binding StartChangedCommand}" ToolTip="{DynamicResource Main_ChangedOnlyTip}" ToolTipService.ShowOnDisabled="True" />
+                  <Separator />
+                  <MenuItem Header="{Binding RereadMenuText}" Command="{Binding RereadCommand}" ToolTip="{DynamicResource Main_RereadTip}" ToolTipService.ShowOnDisabled="True" />
+                  <MenuItem Header="{DynamicResource Main_Reconvert}" Click="OnReconvertClick" IsEnabled="{Binding CanReconvertSelected}"
+                            ToolTip="{DynamicResource Main_ReconvertTip}" ToolTipService.ShowOnDisabled="True" />
+                </ContextMenu>
+              </Button.ContextMenu>
+            </Button>
             <Button Style="{StaticResource GlyphButton}" Tag="&#xE71A;" Content="{DynamicResource Main_Interrupt}" Command="{Binding InterruptCommand}" MinWidth="90" Padding="12,6" />
           </StackPanel>
         </Border>
@@ -442,28 +454,12 @@
             </ComboBox>
           </StackPanel>
         </Border>
-        <!-- The file chosen in the list (FR-127: "Convert again" is the same as "Convert the selected files again" of the list's context menu). -->
+        <!-- The file chosen in the list. "Run Step3 again" and "Convert again from Step1" are in the menu of the main button and of the list. -->
         <Border DockPanel.Dock="Right" Style="{StaticResource ActionGroup}" Margin="10,0,0,0">
           <StackPanel Orientation="Horizontal">
             <Button x:Name="PreviewButton" Content="{DynamicResource Main_Preview}" Click="OnPreviewClick" MinWidth="90" Padding="6"
                     IsEnabled="{Binding Selected.CanPreview, FallbackValue=False, TargetNullValue=False}"
                     ToolTip="{DynamicResource Main_PreviewTip}" ToolTipService.ShowOnDisabled="True" />
-            <Button Content="{DynamicResource Main_Reread}" Command="{Binding RereadCommand}" Padding="6" Margin="8,0,0,0"
-                    ToolTip="{DynamicResource Main_RereadTip}" ToolTipService.ShowOnDisabled="True" />
-            <Button Content="{DynamicResource Main_ReconvertButton}" Click="OnReconvertClick" MinWidth="90" Padding="6" Margin="8,0,0,0"
-                    ToolTip="{DynamicResource Main_ReconvertTip}" ToolTipService.ShowOnDisabled="True">
-              <Button.Style>
-                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                  <Setter Property="VerticalAlignment" Value="Center" />
-                  <Setter Property="IsEnabled" Value="{Binding CanEdit}" />
-                  <Style.Triggers>
-                    <DataTrigger Binding="{Binding Selected}" Value="{x:Null}">
-                      <Setter Property="IsEnabled" Value="False" />
-                    </DataTrigger>
-                  </Style.Triggers>
-                </Style>
-              </Button.Style>
-            </Button>
           </StackPanel>
         </Border>
       </DockPanel>
@@ -476,7 +472,7 @@
         </Grid.RowDefinitions>
         <!-- File list -->
         <DataGrid x:Name="FileGrid" Grid.Row="0" ItemsSource="{Binding Files}" SelectedItem="{Binding Selected}"
-                  AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" MouseDoubleClick="OnFileDoubleClick"
+                  AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" MouseDoubleClick="OnFileDoubleClick" SelectionChanged="OnFileSelectionChanged"
                   CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
           <DataGrid.ContextMenu>
             <ContextMenu>
