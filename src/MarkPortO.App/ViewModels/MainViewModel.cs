@@ -1978,6 +1978,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>Forgets the output folders of the inputs (FR-156, "Clear history").</summary>
     public void ClearHistory() => _store.Update(s => s.History.Outputs.Clear());
 
+    /// <summary>The output folders remembered for the inputs (FR-156), newest first: what the list of the history shows.</summary>
+    public IReadOnlyList<Core.Settings.OutputMemory> OutputHistory => [.. _store.Current.History.Outputs];
+
+    /// <summary>Forgets the output folders remembered for these inputs (the results of the conversions stay).</summary>
+    public void ForgetOutputs(IReadOnlyCollection<string> inputs) =>
+        _store.Update(s => s.History.Outputs.RemoveAll(o => inputs.Contains(o.Input, StringComparer.OrdinalIgnoreCase)));
+
     private Task StartRunCoreAsync(RunKind kind, IReadOnlyList<Guid> replaced) => RunAsync(async (service, snapshot, token) =>
     {
         var found = InputEnumerator.Enumerate(snapshot.Input.Paths, snapshot.Input.Types, snapshot.Input.Recurse, snapshot.Output.FolderLayout);

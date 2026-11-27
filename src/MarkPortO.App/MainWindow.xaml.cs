@@ -399,12 +399,96 @@ public partial class MainWindow : Window
         dialog.ShowDialog();
     }
 
-    private void OnClearHistoryClick(object sender, RoutedEventArgs e)
+    /// <summary>A row of the list of the history of output folders.</summary>
+    private sealed record OutputHistoryRow(string Input, string Output, string At, string State);
+
+    /// <summary>
+    /// The list of the output folders remembered for the inputs (FR-156): what they are used for, and they can be forgotten one by one or all
+    /// (the results of the conversions stay).
+    /// </summary>
+    private void OnOutputHistoryClick(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(this, UiText.Get("History_ClearConfirm"), UiText.Get("Menu_ClearHistory"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes)
+        var grid = new System.Windows.Controls.DataGrid
         {
-            _viewModel.ClearHistory();
+            AutoGenerateColumns = false,
+            IsReadOnly = true,
+            CanUserAddRows = false,
+            SelectionMode = System.Windows.Controls.DataGridSelectionMode.Extended,
+            SelectionUnit = System.Windows.Controls.DataGridSelectionUnit.FullRow,
+            HeadersVisibility = System.Windows.Controls.DataGridHeadersVisibility.Column,
+            MinHeight = 220,
+            MaxHeight = 480,
+            Width = 860,
+            Margin = new Thickness(0, 0, 0, 8),
+        };
+        foreach (var (header, path, width) in new[]
+        {
+            ("History_ColumnInput", nameof(OutputHistoryRow.Input), 300.0),
+            ("History_ColumnOutput", nameof(OutputHistoryRow.Output), 280.0),
+            ("History_ColumnAt", nameof(OutputHistoryRow.At), 130.0),
+            ("History_ColumnState", nameof(OutputHistoryRow.State), 130.0),
+        })
+        {
+            grid.Columns.Add(new System.Windows.Controls.DataGridTextColumn
+            {
+                Header = UiText.Get(header),
+                Binding = new System.Windows.Data.Binding(path),
+                Width = new System.Windows.Controls.DataGridLength(width),
+            });
         }
+
+        var about = new System.Windows.Controls.TextBlock { Text = UiText.Get("History_About"), TextWrapping = TextWrapping.Wrap, Width = 860, Margin = new Thickness(0, 0, 0, 8) };
+        var empty = new System.Windows.Controls.TextBlock { Text = UiText.Get("History_Empty"), Margin = new Thickness(0, 0, 0, 8) };
+        var forget = new System.Windows.Controls.Button { Content = UiText.Get("History_Forget"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
+        var clear = new System.Windows.Controls.Button { Content = UiText.Get("History_ForgetAll"), Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
+        var close = new System.Windows.Controls.Button { Content = UiText.Get("Prompts_Close"), Padding = new Thickness(16, 3, 16, 3), IsCancel = true, IsDefault = true };
+        var buttons = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { forget, clear, close } };
+        var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(12), Children = { about, empty, grid, buttons } };
+        var dialog = new Window
+        {
+            Title = UiText.Get("History_Title"),
+            Owner = this,
+            Content = panel,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false,
+        };
+
+        void Reload()
+        {
+            var rows = _viewModel.OutputHistory.Select(o => new OutputHistoryRow(
+                o.Input,
+                o.Output,
+                o.At.LocalDateTime.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+                System.IO.Directory.Exists(o.Output) ? string.Empty : UiText.Get("History_OutputGone"))).ToList();
+            grid.ItemsSource = rows;
+            empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            grid.Visibility = rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+            clear.IsEnabled = rows.Count > 0;
+            forget.IsEnabled = grid.SelectedItems.Count > 0;
+        }
+
+        grid.SelectionChanged += (_, _) => forget.IsEnabled = grid.SelectedItems.Count > 0;
+        forget.Click += (_, _) =>
+        {
+            var inputs = grid.SelectedItems.OfType<OutputHistoryRow>().Select(r => r.Input).ToList();
+            if (inputs.Count > 0)
+            {
+                _viewModel.ForgetOutputs(inputs);
+                Reload();
+            }
+        };
+        clear.Click += (_, _) =>
+        {
+            if (MessageBox.Show(dialog, UiText.Get("History_ClearConfirm"), UiText.Get("History_ForgetAll"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes)
+            {
+                _viewModel.ClearHistory();
+                Reload();
+            }
+        };
+        Reload();
+        dialog.ShowDialog();
     }
 
     /// <summary>A name asked in a small window (a work set); null when cancelled. <paramref name="current"/>: the name being renamed.</summary>

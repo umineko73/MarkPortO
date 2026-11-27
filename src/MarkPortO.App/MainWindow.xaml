@@ -48,7 +48,7 @@
         <MenuItem Header="{DynamicResource Menu_Prompts}" Command="{Binding PromptsCommand}"><MenuItem.Icon><TextBlock Text="&#xE70F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
         <MenuItem Header="{DynamicResource Menu_ExtractorSettings}" Command="{Binding ExtractorSettingsCommand}"><MenuItem.Icon><TextBlock Text="&#xE756;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
         <Separator />
-        <MenuItem Header="{DynamicResource Menu_ClearHistory}" Click="OnClearHistoryClick" IsEnabled="{Binding CanEdit}"><MenuItem.Icon><TextBlock Text="&#xE74D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
+        <MenuItem Header="{DynamicResource Menu_OutputHistory}" Click="OnOutputHistoryClick" IsEnabled="{Binding CanEdit}"><MenuItem.Icon><TextBlock Text="&#xE74D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>
       </MenuItem>
       <MenuItem Header="{DynamicResource Menu_Help}">
         <MenuItem Header="{DynamicResource Menu_About}" Click="OnAboutClick"><MenuItem.Icon><TextBlock Text="&#xE946;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" /></MenuItem.Icon></MenuItem>

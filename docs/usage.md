@@ -214,7 +214,7 @@ When the files and folders to convert are chosen, the screen goes back to their 
 
 "The first" is the first input, from the top of the list, that has a record. Adding files or folders whose earlier output folder or conditions differ from the first asks first; when added, the output folder and the conditions stay those of the first, and the files without a record in its output folder are converted anew.
 
-**Settings > Clear the history of output folders** forgets the remembered output folders.
+**Settings > History of output folders** lists the remembered output folders (the input, the output folder, when, and those whose folder is gone); the ones chosen, or all of them, can be forgotten. The results of the conversions stay.
 
 ### Converting again
 
