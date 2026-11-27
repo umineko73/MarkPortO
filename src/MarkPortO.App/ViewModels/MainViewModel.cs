@@ -55,7 +55,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private int _waitTurn; // counts the times the screen began to wait, so that a delay of an earlier wait does not show the message of a later one
     private bool _showsWait;
     private Func<string> _waitText = () => string.Empty; // makes the text again when the language changes
-    private bool _adding;
+    private Task _addTurn = Task.CompletedTask; // the inputs added before, checked one after another (AddInputsAsync)
     private string _dpiText;
     private string _pageRangeText = string.Empty;
     private FileItemViewModel? _selected;
@@ -737,6 +737,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 RaiseProgress();
                 Raise(nameof(BusyVisibility));
                 Raise(nameof(WaitVisibility));
+                Raise(nameof(CanUse));
                 Raise(nameof(CanReread));
                 Raise(nameof(CanMarkSelectedForReread));
                 foreach (var command in new[] { StartCommand, StartChangedCommand, RedoAllCommand, InterruptCommand, ResumeCommand, RereadCommand, AddFilesCommand, AddFolderCommand, ClearInputsCommand, RemoveSelectedInputsCommand, BrowseOutputCommand, ConnectionSettingsCommand, ExtractorSettingsCommand, PromptsCommand })
@@ -778,6 +779,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (Set(ref _showsWait, value))
             {
                 Raise(nameof(WaitVisibility));
+                Raise(nameof(CanUse));
             }
         }
     }
@@ -785,6 +787,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public System.Windows.Visibility WaitVisibility => ShowsWait && !IsRunning
         ? System.Windows.Visibility.Visible
         : System.Windows.Visibility.Collapsed;
+
+    /// <summary>The window can be used (keys too): not while the message of a wait is shown (<see cref="WaitVisibility"/>).</summary>
+    public bool CanUse => WaitVisibility != System.Windows.Visibility.Visible;
 
     /// <summary>What the screen is waiting for (<see cref="ShowsWait"/>).</summary>
     public string WaitMessage => _waitText();
@@ -1531,30 +1536,34 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>
     /// Adds inputs in their order. When the earlier output folder or conditions of one of them differ from those of the first (FR-160), one
     /// question asks first: "Add" adds them (the output folder and the conditions stay those of the first), "Cancel" changes nothing.
-    /// The records are read away from the screen, which waits for them (<see cref="ShowsWait"/>); inputs added while it waits are not taken.
+    /// The records are read away from the screen, which waits for them (<see cref="ShowsWait"/>); inputs added while it waits are added after
+    /// those, in turn (a drop is not lost).
     /// </summary>
-    private async Task AddInputsAsync(IReadOnlyList<string> paths)
+    private Task AddInputsAsync(IReadOnlyList<string> paths) => _addTurn = AddInTurnAsync(_addTurn, paths);
+
+    private async Task AddInTurnAsync(Task before, IReadOnlyList<string> paths)
     {
+        try
+        {
+            await before;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // what the inputs before met is theirs: these are still added
+        }
+
         var adding = paths.Where(p => !InputPaths.Contains(p, StringComparer.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        if (adding.Count == 0 || _adding)
+        if (adding.Count == 0)
         {
             return;
         }
 
-        _adding = true;
-        try
+        List<string> differences = [];
+        IReadOnlyList<string> already = [.. InputPaths];
+        await WhileWaitingAsync(() => UiText.Get("Busy_CheckingInputs"), async () => differences = await Task.Run(() => AddDifferences(adding, already)));
+        if (!IsRunning)
         {
-            List<string> differences = [];
-            IReadOnlyList<string> before = [.. InputPaths];
-            await WhileWaitingAsync(() => UiText.Get("Busy_CheckingInputs"), async () => differences = await Task.Run(() => AddDifferences(adding, before)));
-            if (!IsRunning)
-            {
-                AddChecked(adding, differences);
-            }
-        }
-        finally
-        {
-            _adding = false;
+            AddChecked(adding, differences);
         }
     }
 

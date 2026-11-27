@@ -20,7 +20,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Icon="Assets/MarkPortO.ico" Title="MarkPortO" Height="1000" Width="1360" MinHeight="640" MinWidth="780">
   <Grid>
-  <DockPanel>
+  <DockPanel IsEnabled="{Binding CanUse}">
     <!-- Menu bar (FR-032) -->
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="{DynamicResource Menu_File}">

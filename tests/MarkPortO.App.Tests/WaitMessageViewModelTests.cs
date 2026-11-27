@@ -62,4 +62,39 @@ public sealed class WaitMessageViewModelTests
         Pump(screen, MarkPortO.App.ViewModels.MainViewModel.WaitShownAfter * 1.5);
         Assert.Equal(Visibility.Collapsed, screen.Model.WaitVisibility);
     });
+
+    [Fact]
+    public void InputsDroppedWhileOthersAreChecked_AreAddedAfterThem() => Sta.Run(screen => // MP-07
+    {
+        var root = System.IO.Path.GetDirectoryName(screen.Store.FilePath)!;
+        string Folder(string name) => System.IO.Directory.CreateDirectory(System.IO.Path.Combine(root, "in", name)).FullName;
+        var (a, b) = (Folder("A"), Folder("B"));
+
+        screen.Model.DropInputs([a]); // checked away from the screen
+        screen.Model.DropInputs([b]); // dropped before the first is checked
+
+        var until = DateTime.UtcNow.AddSeconds(10);
+        while (screen.Model.InputPaths.Count < 2 && DateTime.UtcNow < until)
+        {
+            screen.Pump();
+            Thread.Sleep(20);
+        }
+
+        Assert.Equal([a, b], screen.Model.InputPaths);
+    });
+
+    [Fact]
+    public void WhileTheMessageIsShown_TheWindowTakesNoKeys() => Sta.Run(screen => // MP-07
+    {
+        Assert.True(screen.Model.CanUse);
+        var done = new TaskCompletionSource();
+        _ = screen.Model.WhileWaitingAsync(() => "Reading", () => done.Task);
+
+        Pump(screen, MarkPortO.App.ViewModels.MainViewModel.WaitShownAfter * 2);
+        Assert.False(screen.Model.CanUse);
+
+        done.SetResult();
+        Pump(screen, TimeSpan.FromMilliseconds(100));
+        Assert.True(screen.Model.CanUse);
+    });
 }
