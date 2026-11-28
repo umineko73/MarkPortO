@@ -615,6 +615,25 @@ async def main():
     res = build_cache("legacy-cache-again", {"roots": [str(legacy)], "embedding": dict(emb), "cacheDir": str(legacy_cache)})
     check("... and then found under the new name alone (the old file gone)", "0 file(s) to embed" in res.stdout and api.inputs == asked, res.stdout)
 
+    # Converted again with the same text: only the time of the document (and the id) changed -> the vectors are kept
+    same_text = BASE / "same-text"
+    same_cfg = {"roots": [str(same_text)], "embedding": dict(emb), "cacheDir": str(BASE / "same-text-kept")}
+    write(same_text / "設計書", [chunk("c0001", "同じ本文の一つ目"), chunk("c0002", "同じ本文の二つ目")])
+    first_run = build_cache("same-text-1", same_cfg)
+    write(same_text / "設計書", [chunk("x0001", "同じ本文の一つ目", sourceModified="2026-11-28T01:02:03Z"),
+                                chunk("x0002", "同じ本文の二つ目", sourceModified="2026-11-28T01:02:03Z")])
+    asked = api.inputs
+    res = build_cache("same-text-2", same_cfg)
+    check("a file converted again with the same text (another time of the document) is not embedded again",
+          "1 file(s) to embed" in first_run.stdout and "0 file(s) to embed" in res.stdout and api.inputs == asked, [first_run.stdout, res.stdout])
+    write(same_text / "設計書", [chunk("x0001", "同じ本文の一つ目"), chunk("x0002", "変わった本文の二つ目")])
+    res = build_cache("same-text-3", same_cfg)
+    check("... a changed text is embedded again", "1 file(s) to embed" in res.stdout and api.inputs > asked, res.stdout)
+    write(same_text / "設計書", [chunk("x0001", "同じ本文の一つ目", headings=["別の見出し"]), chunk("x0002", "変わった本文の二つ目")])
+    asked = api.inputs
+    res = build_cache("same-text-4", same_cfg)
+    check("... and so is a changed heading (it is sent with the text)", "1 file(s) to embed" in res.stdout and api.inputs > asked, res.stdout)
+
     # R1-01: two servers of the office network, told apart: each keeps its own vectors, none writes over the other's
     second = Embeddings()
     lan = str(BASE / "lan-cache")

@@ -523,13 +523,14 @@ class Entry:
         self.warnings = warnings
         if EMB.get("enabled", True):
             signature = embedding_signature()
-            self.digest = hashlib.sha1(read_digest.encode() + signature).hexdigest()  # of the bytes the chunks came from, not of the file now
+            # The digest of 0.4.7 and before: of the bytes the chunks came from (not of the file now). Vectors kept with it are taken over.
+            self.byte_digest = hashlib.sha1(read_digest.encode() + signature).hexdigest()
             # The kept file of this file for these settings: two configurations that share cacheDir (another URL, model or prefix) keep
             # their own files instead of writing over each other's (until 0.4.7 it was named by the path alone: PCs that wrote LM Studio
             # as "localhost" and as its address took turns, and each start embedded everything again).
             self.cache_key = cache_slot(path) + "\n" + signature.decode()
         else:  # keywords only: the embedding part of the configuration is not looked at
-            self.digest = self.cache_key = ""
+            self.digest = self.byte_digest = self.cache_key = ""
         terms = [Counter(tokens(" ".join(c["headings"]) + "\n" + c["text"])) for c in chunks]
         self.lengths = [sum(t.values()) for t in terms]
         self.postings: dict[str, list[tuple[int, int]]] = {}
@@ -552,6 +553,9 @@ class Entry:
                 for part in pieces_of(c["text"], EMB["passageChars"], passage_overlap()):
                     self.parts.append(EMB["passagePrefix"] + " > ".join(c["headings"]) + "\n" + part)
                     self.owner.append(j)
+            # The digest of the vectors: of the texts sent to the API (and the settings), not of the bytes of the file. A file converted
+            # again with the same text (only the time of the document or another field changed) keeps its vectors.
+            self.digest = hashlib.sha1(b"texts\n" + json.dumps(self.parts, ensure_ascii=False).encode() + signature).hexdigest()
         self.count = len(self.parts)  # the vectors of the file
 
     def texts(self) -> list[str]:
@@ -715,8 +719,9 @@ class Index:
         if chunks and EMB.get("enabled", True):
             kept = read_cache(entry.cache_key, entry.digest, entry.count)
             if kept is None:
-                # Kept by 0.4.7 and before: the file named by the path alone (the same digest): kept under the name of now.
-                kept = read_cache(entry.path, entry.digest, entry.count, keep_as=(entry.cache_key, entry.digest))
+                # Kept by 0.4.7 and before: the file named by the path alone, with the digest of its bytes: kept under the name and the
+                # digest of now.
+                kept = read_cache(entry.path, entry.byte_digest, entry.count, keep_as=(entry.cache_key, entry.digest))
             if kept is None and entry.count == len(chunks) and not EMB["passageParams"]:
                 # Kept before a chunk was embedded in parts (0.4.5 and before: the first passageChars characters of each, 1500 by default):
                 # the same texts when every chunk is one part, as long as it was not cut then.
