@@ -91,9 +91,19 @@
   <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
     <Setter Property="MinHeight" Value="0" />
   </Style>
+  <!-- The theme puts the grippers that resize a column inside the header's padding: a padding at the sides moves them away from the
+       line between two columns (they were 6 pixels inside, with no gripper on the line itself). The space beside the text is therefore
+       given to the content (a string or a TextBlock), not to the header. -->
   <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
     <Setter Property="MinHeight" Value="0" />
-    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="Padding" Value="0,2" />
+    <Setter Property="ContentTemplate">
+      <Setter.Value>
+        <DataTemplate>
+          <ContentPresenter Content="{Binding}" Margin="6,0" />
+        </DataTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
   <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
     <Setter Property="MinHeight" Value="0" />
