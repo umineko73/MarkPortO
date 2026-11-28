@@ -133,7 +133,7 @@ public class ConditionSummaryTests
             s.Steps.Step1Tables = Step1TablesMode.Replace;
             s.Steps.DropRepeatedTables = true;
         }), "ja");
-        Assert.EndsWith(" | LibreOffice 150dpi | 印刷イメージ: リンク | VLMの結果は別ファイル | 表: 抽出テキストを採用 | 繰り返しの表を除く", line, StringComparison.Ordinal);
+        Assert.EndsWith(" | LibreOffice 150dpi | ページ画像: リンク | VLMの結果は別ファイル | 表: 抽出テキストを採用 | 繰り返しの表を除く", line, StringComparison.Ordinal);
 
         // The settings of Step3 are not said while Step3 is off, nor the page image while Step2 is off.
         line = Build(Settings(s =>

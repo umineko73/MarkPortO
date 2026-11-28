@@ -124,8 +124,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         };
 
         // The four ways to convert; the list of files decides which can be pressed (FR-129):
-        // empty: "Start". Something not finished: "Resume" and "Redo all". Everything done: "Redo all" and "Changed files only".
-        // FR-157: "Start" when the list is empty or no file has been converted; "Redo all" otherwise.
+        // empty: "Start". Something not finished: "Resume" and "Reconvert all". Everything done: "Reconvert all" and "Changed files only".
+        // FR-157: "Start" when the list is empty or no file has been converted; "Reconvert all" otherwise.
         StartCommand = new RelayCommand(StartAllAsync, () => CanStart() && (Files.Count == 0 || ListIsNotConverted));
         ResumeCommand = new RelayCommand(
             () => FileStates.ToResume(_entries).Count > 0
@@ -700,7 +700,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// The types, the range and the conversion (engine, DPI). A resume does not use them (it goes on with those of its run), but they can be
-    /// changed while it can be done: "Redo all" uses them (FR-129).
+    /// changed while it can be done: "Reconvert all" uses them (FR-129).
     /// </summary>
     public bool CanEditNewRun => !IsRunning;
 
@@ -1553,7 +1553,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public RelayCommand PromptsCommand { get; }
 
-    /// <summary>How the print image of a page is written in the Markdown: 0 an image that a viewer shows, 1 a comment that it does not, 2 a link (FR-149).</summary>
+    /// <summary>How the page image of a page is written in the Markdown: 0 an image that a viewer shows, 1 a comment that it does not, 2 a link (FR-149).</summary>
     public int PageImageIndex
     {
         get => (int)_store.Current.Steps.PageImage;
@@ -1604,7 +1604,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>Leave the tables that the VLM wrote again on a page out of the Markdown (FR-124).</summary>
     /// <summary>
-    /// "Start" and "Redo all" write a file that was converted before into its earlier folder (true) or into a new folder (false) (FR-129).
+    /// "Start" and "Reconvert all" write a file that was converted before into its earlier folder (true) or into a new folder (false) (FR-129).
     /// The two items of the drop-down list beside the buttons are the two values (<see cref="SameFolderIndex"/>).
     /// </summary>
     public bool SameFolder
@@ -2157,7 +2157,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         // The interrupted runs that this one replaces are given up once it has really started (FR-013g). There is no question first:
-        // "Redo all" says what it does, and "Resume" is the button beside it (FR-129).
+        // "Reconvert all" says what it does, and "Resume" is the button beside it (FR-129).
         return StartRunAsync(kind, RunsAStartReplaces());
     }
 
@@ -2190,7 +2190,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// "Start" and "Redo all" (FR-129): every file of the inputs is converted with the conditions on the screen. A file that was converted
+    /// "Start" and "Reconvert all" (FR-129): every file of the inputs is converted with the conditions on the screen. A file that was converted
     /// before goes to a new folder or into its earlier folder, as chosen beside the buttons (<see cref="SameFolder"/>).
     /// </summary>
     private Task StartAllAsync() => StartAsync(SameFolder ? RunKind.SameFolders : RunKind.New);
@@ -2202,7 +2202,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Remembers the output folder of the inputs (FR-156): of all of them for "Start" and "Redo all"; of those not remembered yet for the
+    /// Remembers the output folder of the inputs (FR-156): of all of them for "Start" and "Reconvert all"; of those not remembered yet for the
     /// runs that convert files for the first time ("Resume", "changed files").
     /// </summary>
     private void RememberOutputs(bool onlyNew, IReadOnlyCollection<string>? only = null)

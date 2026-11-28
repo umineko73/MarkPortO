@@ -102,13 +102,13 @@
   <sys:String x:Key="Main_Cond_OffSlideTip">PowerPoint: the text of the shapes that lie outside the slide (memos on the pasteboard) is written as a quote "Off-slide". They are not in the image of the slide.</sys:String>
   <sys:String x:Key="Main_Cond_Engine">Print engine</sys:String>
   <sys:String x:Key="Main_Cond_Dpi">DPI</sys:String>
-  <sys:String x:Key="Main_Cond_Step1">Save the print images and extract the text (always done)</sys:String>
-  <sys:String x:Key="Main_Cond_PageImage">Write the print image as</sys:String>
-  <sys:String x:Key="Main_Cond_PageImageTip">An image: a Markdown viewer shows the print image of each page. A link: [Page 1](images/page-001.png), a viewer shows the link, not the image. A reference: the path is written as a comment (&lt;!-- page-image: images/page-001.png --&gt;), so a viewer does not show it and a program or a model can still read it. Not writing it at all is Step2 off.</sys:String>
+  <sys:String x:Key="Main_Cond_Step1">Save the page images and extract the text (always done)</sys:String>
+  <sys:String x:Key="Main_Cond_PageImage">Write the page image as</sys:String>
+  <sys:String x:Key="Main_Cond_PageImageTip">An image: a Markdown viewer shows the page image of each page. A link: [Page 1](images/page-001.png), a viewer shows the link, not the image. A reference: the path is written as a comment (&lt;!-- page-image: images/page-001.png --&gt;), so a viewer does not show it and a program or a model can still read it. Not writing it at all is Step2 off.</sys:String>
   <sys:String x:Key="Main_Cond_PageImageImage">an image (shown by a viewer)</sys:String>
   <sys:String x:Key="Main_Cond_PageImageReference">a reference (a comment, not shown)</sys:String>
   <sys:String x:Key="Main_Cond_PageImageLink">a link (the file can be opened)</sys:String>
-  <sys:String x:Key="Main_Cond_Step2">Put print images into the Markdown (built-in only)</sys:String>
+  <sys:String x:Key="Main_Cond_Step2">Put the page images into the Markdown (built-in only)</sys:String>
   <sys:String x:Key="Main_Cond_Extractor">Extractor</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorBuiltIn">built-in</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorTip">An external command that is written in settings.json writes the Markdown. There are no pages marks, and the VLM results go to a file of their own.</sys:String>
@@ -159,7 +159,7 @@
   <sys:String x:Key="Main_Cond_Step3ModeSupplement">add to the text</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTranscribe">read every page</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTip">Add to the text: the text, tables and code of Step1 are kept, and the VLM reads only the pictures that Step1 saved (one by one, after each picture it writes what the text does not have). A page that Step1 has almost no text of, and a PDF, are read whole. A page that the text of Step1 is enough for is not sent. The drawn shapes of Word are read from the page image, for the shapes only. Turn on &quot;Save the pictures of the document&quot; in Step1 (when it is off, a page with a picture that has an alternative text is read whole, and a picture without one is not read). Read every page: the VLM reads every page image whole and writes it out (as before).</sys:String>
-  <sys:String x:Key="Main_Cond_Step3">Extract text from print images with the VLM</sys:String>
+  <sys:String x:Key="Main_Cond_Step3">Read the page images with the VLM</sys:String>
   <sys:String x:Key="Main_Cond_Pages">Pages</sys:String>
   <sys:String x:Key="Main_Cond_PagesTip">Write the pages that Step3 reads, like 3-5,8 (empty: all). Step1 still converts the whole file.</sys:String>
   <sys:String x:Key="Main_Cond_PagesOneFileTip">Pages can be chosen only when one file is converted.</sys:String>
@@ -171,13 +171,13 @@
   <sys:String x:Key="Main_Interrupt">Interrupt</sys:String>
   <sys:String x:Key="Main_Resume">Resume</sys:String>
   <sys:String x:Key="Main_ResumeTip">Goes on with the files that did not finish, does again the files and pages that failed, and converts the files not converted yet. A file converted before goes on with the conditions of that conversion (with Step3 on, only Step3 can be added). A file not converted yet is converted with the conditions of the screen. It can be pressed when a file of the list is not done.</sys:String>
-  <sys:String x:Key="Main_RedoAll">Redo all</sys:String>
+  <sys:String x:Key="Main_RedoAll">Reconvert all</sys:String>
   <sys:String x:Key="Main_RedoAllTip">Converts every file of the inputs again with the conditions on the screen. Where a file with an earlier folder is written is chosen on the right (If the folder exists). It can be pressed when the list has files.</sys:String>
   <sys:String x:Key="Main_Existing">If the folder exists</sys:String>
   <sys:String x:Key="Main_ExistingNew">Make a new one</sys:String>
   <sys:String x:Key="Main_ExistingSame">Overwrite</sys:String>
-  <sys:String xml:space="preserve" x:Key="Main_ExistingTip">Where Start and Redo all write a file that was converted before.&#10;Make a new one: a new folder such as "name (2)" (the earlier folder stays).&#10;Overwrite: the folder of the earlier conversion (its Markdown and page images are replaced).&#10;Reconvert updated files, Resume and Convert again always write into the earlier folder.</sys:String>
-  <sys:String x:Key="Status_Previous_Done">Showing the previous conversion of the output folder: {0} done. Convert with Reconvert updated files or Redo all.</sys:String>
+  <sys:String xml:space="preserve" x:Key="Main_ExistingTip">Where Start and Reconvert all write a file that was converted before.&#10;Make a new one: a new folder such as "name (2)" (the earlier folder stays).&#10;Overwrite: the folder of the earlier conversion (its Markdown and page images are replaced).&#10;Reconvert updated files, Resume and Convert again always write into the earlier folder.</sys:String>
+  <sys:String x:Key="Status_Previous_Done">Showing the previous conversion of the output folder: {0} done. Convert with Reconvert updated files or Reconvert all.</sys:String>
   <sys:String x:Key="Status_Previous_Other">The output folder has a conversion of other inputs that did not finish or has failures. To continue it, use View output... in File - Past history... (when the history does not have it, Find a folder... and choose this output folder).</sys:String>
   <sys:String x:Key="Main_StartTip">Converts every file of the inputs. It can be pressed when the list of files is empty (the output folder has no earlier conversion).</sys:String>
   <sys:String x:Key="Main_ChangedOnly">Reconvert updated files</sys:String>
@@ -205,8 +205,8 @@
   <sys:String x:Key="Status_DpiInvalid">Enter a whole number from {0} to {1} for the DPI (now: {2}).</sys:String>
   <sys:String x:Key="Conn_None">(none)</sys:String>
   <sys:String x:Key="Status_NoDocuments">No documents to convert were found. {0}</sys:String>
-  <sys:String x:Key="Status_NothingChanged">None of the {0} files has changed since its last conversion. To convert them anyway, use Redo all under More.</sys:String>
-  <sys:String x:Key="Status_PastOpened">{0} files of a past output were opened. To convert them, use Redo all under More. To write only some of them again, select them in the list and choose Convert the selected files again from Step 1 from the right-click menu.</sys:String>
+  <sys:String x:Key="Status_NothingChanged">None of the {0} files has changed since its last conversion. To convert them anyway, use Reconvert all under More.</sys:String>
+  <sys:String x:Key="Status_PastOpened">{0} files of a past output were opened. To convert them, use Reconvert all under More. To write only some of them again, select them in the list and choose Convert the selected files again from Step 1 from the right-click menu.</sys:String>
   <sys:String x:Key="Status_Interrupting">Interrupting… the file being processed stops at a safe point.</sys:String>
   <sys:String x:Key="Status_CheckSettings">Check the settings: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">The VLM connection could not be prepared.</sys:String>
@@ -411,9 +411,9 @@
   <sys:String x:Key="Main_ChangedOnlyCount">Reconvert updated files ({0})</sys:String>
   <sys:String x:Key="Main_RunRunning">Converting…</sys:String>
   <sys:String x:Key="Main_RunNothing">Nothing to convert</sys:String>
-  <sys:String x:Key="Main_RunNothingTip">Every file of the list is converted and has not changed since. To convert again with other conditions, use "Redo all" under "More" on the right.</sys:String>
+  <sys:String x:Key="Main_RunNothingTip">Every file of the list is converted and has not changed since. To convert again with other conditions, use "Reconvert all" under "More" on the right.</sys:String>
   <sys:String x:Key="Main_More">More</sys:String>
-  <sys:String x:Key="Main_MoreTip">Other ways to convert: redo all, reconvert updated files, run Step 3 again, convert the chosen files again from Step1</sys:String>
+  <sys:String x:Key="Main_MoreTip">Other ways to convert: reconvert all, reconvert updated files, run Step 3 again, convert the chosen files again from Step1</sys:String>
   <sys:String x:Key="Main_Reread">Run Step 3 again</sys:String>
   <sys:String x:Key="Main_RereadTip">Reads again with the VLM, with the settings of now, the pages that are marked and the pages that were read with other settings (the connection and its model, the prompt of the kind of file). The earlier text of a page stays until the page has been read. Pages are marked in the page list of the preview, or with the right-click menu of the file list. Steps 1 and 2 are not done again.</sys:String>
   <sys:String x:Key="Status_RereadNoJob">The saved state of the marked pages was not found, so they cannot be read again.</sys:String>

@@ -45,7 +45,7 @@ public enum FolderLayout
     Contents,
 }
 
-/// <summary>How the print image of a page is written in the Markdown (FR-149); the images are made by Step2, which is on or off.</summary>
+/// <summary>How the page image of a page is written in the Markdown (FR-149); the images are made by Step2, which is on or off.</summary>
 [JsonConverter(typeof(LowercaseEnumConverter<PageImageStyle>))]
 public enum PageImageStyle
 {

@@ -102,13 +102,13 @@
   <sys:String x:Key="Main_Cond_OffSlideTip">PowerPoint: スライドの外に置いたシェイプ(メモ)の文字を、「Off-slide」の引用として書きます。スライドの画像には写りません。</sys:String>
   <sys:String x:Key="Main_Cond_Engine">印刷エンジン</sys:String>
   <sys:String x:Key="Main_Cond_Dpi">DPI</sys:String>
-  <sys:String x:Key="Main_Cond_Step1">印刷イメージ保存・テキスト抽出（常に実行）</sys:String>
-  <sys:String x:Key="Main_Cond_PageImage">印刷イメージの書き方</sys:String>
-  <sys:String x:Key="Main_Cond_PageImageTip">画像: Markdown のビューアに、各ページの印刷イメージが表示されます。リンク: [ページ 1](images/page-001.png)。ビューアには、画像ではなくリンクが表示されます。参照: パスをコメント（&lt;!-- page-image: images/page-001.png --&gt;）で書くので、ビューアには表示されず、プログラムやモデルは読めます。まったく書かないのは Step2 をオフにします。</sys:String>
+  <sys:String x:Key="Main_Cond_Step1">ページ画像の保存・テキスト抽出（常に実行）</sys:String>
+  <sys:String x:Key="Main_Cond_PageImage">ページ画像の書き方</sys:String>
+  <sys:String x:Key="Main_Cond_PageImageTip">画像: Markdown のビューアに、各ページのページ画像が表示されます。リンク: [ページ 1](images/page-001.png)。ビューアには、画像ではなくリンクが表示されます。参照: パスをコメント（&lt;!-- page-image: images/page-001.png --&gt;）で書くので、ビューアには表示されず、プログラムやモデルは読めます。まったく書かないのは Step2 をオフにします。</sys:String>
   <sys:String x:Key="Main_Cond_PageImageImage">画像（ビューアに表示）</sys:String>
   <sys:String x:Key="Main_Cond_PageImageReference">参照（コメント、表示しない）</sys:String>
   <sys:String x:Key="Main_Cond_PageImageLink">リンク（ファイルを開ける）</sys:String>
-  <sys:String x:Key="Main_Cond_Step2">Markdownに印刷イメージ差し込み(内蔵選択時のみ)</sys:String>
+  <sys:String x:Key="Main_Cond_Step2">Markdownにページ画像を入れる（内蔵の抽出のみ）</sys:String>
   <sys:String x:Key="Main_Cond_Extractor">抽出方法</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorBuiltIn">内蔵</sys:String>
   <sys:String x:Key="Main_Cond_ExtractorTip">Markdownへの抽出を、settings.json に登録した外部コマンドに任せます。ページの区切りはなくなり、VLMの結果は別ファイルになります。</sys:String>
@@ -159,7 +159,7 @@
   <sys:String x:Key="Main_Cond_Step3ModeSupplement">補足</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTranscribe">書き写し</sys:String>
   <sys:String x:Key="Main_Cond_Step3ModeTip">補足: Step1 の本文・表・コードをそのまま使い、VLM は Step1 で取り出した図だけを1つずつ読んで、本文にない情報を図の直後に書き足します。Step1 の本文がほとんどないページと PDF は、ページ全体を読みます。Step1 の本文で足りるページは送りません。Word の図形は、ページ画像から図形だけを読みます。Step1 の「文書の画像を取り出す」をオンにしてください（オフだと、代替テキストのある画像のページはページ全体を読み、代替テキストのない画像は読まれません）。書き写し: すべてのページの画像を VLM が読み、書き起こします（これまでの動き）。</sys:String>
-  <sys:String x:Key="Main_Cond_Step3">VLMで印刷イメージからテキスト抽出</sys:String>
+  <sys:String x:Key="Main_Cond_Step3">VLMでページ画像を読む</sys:String>
   <sys:String x:Key="Main_Cond_Pages">ページの範囲</sys:String>
   <sys:String x:Key="Main_Cond_PagesTip">Step3で読むページを、3-5,8 のように書きます(空欄: すべて)。Step1は文書全体を変換します。</sys:String>
   <sys:String x:Key="Main_Cond_PagesOneFileTip">ページの範囲は、ファイルを1つだけ変換するときに選べます。</sys:String>
@@ -171,19 +171,19 @@
   <sys:String x:Key="Main_Interrupt">中断</sys:String>
   <sys:String x:Key="Main_Resume">再開</sys:String>
   <sys:String x:Key="Main_ResumeTip">途中のファイルの続き、失敗したファイルとページのやり直し、まだ変換していないファイルの変換をします。変換したことのあるファイルは前回の条件のまま続けます（Step3 をオンにすると、Step3 だけを足せます）。まだ変換していないファイルは、画面の条件で変換します。ファイルの一覧に完了以外のファイルがあるときに押せます。</sys:String>
-  <sys:String x:Key="Main_RedoAll">すべてやり直し</sys:String>
-  <sys:String x:Key="Main_RedoAllTip">入力のファイルを、画面の条件ですべて変換し直します。前回のフォルダがあるファイルの書き先は、右の「同名フォルダ存在時は」で選びます。ファイルの一覧にファイルがあるときに押せます。</sys:String>
+  <sys:String x:Key="Main_RedoAll">すべて再変換</sys:String>
+  <sys:String x:Key="Main_RedoAllTip">入力のファイルを、画面の条件ですべて再変換します。前回のフォルダがあるファイルの書き先は、右の「同名フォルダ存在時は」で選びます。ファイルの一覧にファイルがあるときに押せます。</sys:String>
   <sys:String x:Key="Main_Existing">同名フォルダ存在時は</sys:String>
   <sys:String x:Key="Main_ExistingNew">別名で新しく作る</sys:String>
   <sys:String x:Key="Main_ExistingSame">上書きする</sys:String>
-  <sys:String xml:space="preserve" x:Key="Main_ExistingTip">「開始」「すべてやり直し」で、前に変換したファイルをどこに書くかを選びます。&#10;別名で新しく作る: 「名前 (2)」のような新しいフォルダに書きます（前回のフォルダは残ります）。&#10;上書きする: 前回と同じフォルダに書きます（Markdown とページ画像は置き換わります）。&#10;「更新ファイルの再変換」「再開」「再変換」は、いつも前回と同じフォルダに書きます。</sys:String>
-  <sys:String x:Key="Status_Previous_Done">出力先の前回の変換を表示しています: 完了 {0} 件。「更新ファイルの再変換」か「すべてやり直し」で変換できます。</sys:String>
+  <sys:String xml:space="preserve" x:Key="Main_ExistingTip">「開始」「すべて再変換」で、前に変換したファイルをどこに書くかを選びます。&#10;別名で新しく作る: 「名前 (2)」のような新しいフォルダに書きます（前回のフォルダは残ります）。&#10;上書きする: 前回と同じフォルダに書きます（Markdown とページ画像は置き換わります）。&#10;「更新ファイルの再変換」「再開」「再変換」は、いつも前回と同じフォルダに書きます。</sys:String>
+  <sys:String x:Key="Status_Previous_Done">出力先の前回の変換を表示しています: 完了 {0} 件。「更新ファイルの再変換」か「すべて再変換」で変換できます。</sys:String>
   <sys:String x:Key="Status_Previous_Other">出力先に、別の入力の変換（未完了または失敗あり）が残っています。続きは「ファイル」→「過去の履歴…」の「出力を見る…」（履歴にないときは「フォルダから探す…」でこの出力先を選ぶ）から再開できます。</sys:String>
   <sys:String x:Key="Main_StartTip">入力のファイルをすべて変換します。ファイルの一覧が空のときに押せます（出力先に前回の変換がないとき）。</sys:String>
   <sys:String x:Key="Main_ChangedOnly">更新ファイルの再変換</sys:String>
-  <sys:String x:Key="Main_ChangedOnlyTip">出力先での前回の変換から変わったファイル、まだ変換していないファイル、前回の変換が終わっていないファイルだけを変換します。出力は前回と同じフォルダに書きます。条件を変えただけでは、変換し直しません。ファイルの一覧に「変更あり」のファイルがあるときに押せます。</sys:String>
+  <sys:String x:Key="Main_ChangedOnlyTip">出力先での前回の変換から変わったファイル、まだ変換していないファイル、前回の変換が終わっていないファイルだけを変換します。出力は前回と同じフォルダに書きます。条件を変えただけでは、再変換しません。ファイルの一覧に「変更あり」のファイルがあるときに押せます。</sys:String>
   <sys:String x:Key="Main_Reconvert">選択したファイルをStep1から再変換</sys:String>
-  <sys:String x:Key="Main_ReconvertTip">選択したファイルを、画面の条件で変換し直します。出力は前回と同じフォルダに書きます（Markdown とページ画像は置き換わります）。Ctrl＋クリック、Shift＋クリックで複数選べます。</sys:String>
+  <sys:String x:Key="Main_ReconvertTip">選択したファイルを、画面の条件で再変換します。出力は前回と同じフォルダに書きます（Markdown とページ画像は置き換わります）。Ctrl＋クリック、Shift＋クリックで複数選べます。</sys:String>
   <sys:String x:Key="Main_Col_File">ファイル</sys:String>
   <sys:String x:Key="Main_Col_Type">種類</sys:String>
   <sys:String x:Key="Main_Col_State">状態</sys:String>
@@ -205,8 +205,8 @@
   <sys:String x:Key="Status_DpiInvalid">DPIは {0}〜{1} の整数で指定してください(今の値: {2})。</sys:String>
   <sys:String x:Key="Conn_None">(未選択)</sys:String>
   <sys:String x:Key="Status_NoDocuments">変換できる文書が見つかりませんでした。{0}</sys:String>
-  <sys:String x:Key="Status_NothingChanged">{0} 件のファイルは、どれも前回の変換から変わっていません。すべて変換するときは、「ほかの変換」の「すべてやり直し」を使ってください。</sys:String>
-  <sys:String x:Key="Status_PastOpened">過去の出力から {0} 件のファイルを開きました。変換するときは「ほかの変換」の「すべてやり直し」を使います。一部だけ書き直すときは、一覧で選んで右クリックの「選択したファイルをStep1から再変換」を使います。</sys:String>
+  <sys:String x:Key="Status_NothingChanged">{0} 件のファイルは、どれも前回の変換から変わっていません。すべて変換するときは、「ほかの変換」の「すべて再変換」を使ってください。</sys:String>
+  <sys:String x:Key="Status_PastOpened">過去の出力から {0} 件のファイルを開きました。変換するときは「ほかの変換」の「すべて再変換」を使います。一部だけ書き直すときは、一覧で選んで右クリックの「選択したファイルをStep1から再変換」を使います。</sys:String>
   <sys:String x:Key="Status_Interrupting">中断しています…処理中のファイルは区切りの良いところで止まります。</sys:String>
   <sys:String x:Key="Status_CheckSettings">設定を確認してください: {0}</sys:String>
   <sys:String x:Key="Status_VlmNotReady">VLMの接続を準備できませんでした。</sys:String>
@@ -219,7 +219,7 @@
   <sys:String x:Key="Menu_WorkSetNone">（作業セットはありません）</sys:String>
   <sys:String x:Key="Menu_OutputHistory">過去の履歴…</sys:String>
   <sys:String x:Key="History_Title">過去の履歴</sys:String>
-  <sys:String x:Key="History_About">入力ごとに、最後に変換した出力先です。「この状態に戻す」でその入力と出力先に戻り、「出力を見る…」で変換の結果を開きます。</sys:String>
+  <sys:String x:Key="History_About">入力ごとに、最後に変換した出力先です。「この状態に戻す」でその入力と出力先に戻り、「出力を見る…」で変換結果を開きます。</sys:String>
   <sys:String x:Key="History_Empty">覚えている出力先はありません。</sys:String>
   <sys:String x:Key="History_ColumnInput">入力</sys:String>
   <sys:String x:Key="History_ColumnOutput">出力先</sys:String>
@@ -232,17 +232,17 @@
   <sys:String x:Key="History_Open">この状態に戻す</sys:String>
   <sys:String x:Key="Past_Unreadable">出力先の記録を読めませんでした: {0}&#10;&#10;{1}</sys:String>
   <sys:String x:Key="History_View">出力を見る…</sys:String>
-  <sys:String x:Key="History_ViewTip">選んだ行の出力先にある変換の結果を一覧にします。結果を選んで、プレビューしたり、メイン画面に読み込んで再開したりできます。</sys:String>
+  <sys:String x:Key="History_ViewTip">選んだ行の出力先にある変換結果を一覧にします。結果を選んで、プレビューしたり、メイン画面に読み込んで再開したりできます。</sys:String>
   <sys:String x:Key="History_Find">フォルダから探す…</sys:String>
-  <sys:String x:Key="History_FindTip">履歴にない出力フォルダ（移したもの、コピーしたものなど）や、文書1つのフォルダを選んで、その変換の結果を開きます。</sys:String>
+  <sys:String x:Key="History_FindTip">履歴にない出力フォルダ（移したもの、コピーしたものなど）や、文書1つのフォルダを選んで、その変換結果を開きます。</sys:String>
   <sys:String x:Key="History_OpenGone">戻せません。次のフォルダまたはファイルがありません: {0}</sys:String>
   <sys:String x:Key="History_Forget">選んだものを消す</sys:String>
   <sys:String x:Key="History_ForgetAll">すべて消す…</sys:String>
-  <sys:String x:Key="History_ClearConfirm">入力ごとに覚えた前回の出力先を消します。よろしいですか？（変換の結果は消えません）</sys:String>
+  <sys:String x:Key="History_ClearConfirm">入力ごとに覚えた前回の出力先を消します。よろしいですか？（変換結果は消えません）</sys:String>
   <sys:String x:Key="WorkSet_SaveTitle">作業セットを保存</sys:String>
   <sys:String x:Key="WorkSet_ManageTitle">作業セットの管理</sys:String>
   <sys:String x:Key="WorkSet_Overwrite">作業セット「{0}」を上書きしますか？</sys:String>
-  <sys:String x:Key="WorkSet_DeleteConfirm">作業セット「{0}」を削除しますか？（入力や変換の結果は消えません）</sys:String>
+  <sys:String x:Key="WorkSet_DeleteConfirm">作業セット「{0}」を削除しますか？（入力や変換結果は消えません）</sys:String>
   <sys:String x:Key="WorkSet_NameInvalid">名前を入れてください。</sys:String>
   <sys:String x:Key="Preset_Previous">前回の条件</sys:String>
   <sys:String x:Key="Preset_WorkSet">作業セット: {0}</sys:String>
@@ -269,7 +269,7 @@
   <sys:String x:Key="Status_Head_DoneWithFailures">完了しました(失敗あり)</sys:String>
   <sys:String x:Key="Status_Head_Done">完了しました</sys:String>
   <sys:String x:Key="Status_Summary">{0}: 完了 {1}、失敗 {2}、未完了 {3}。出力先: {4}</sys:String>
-  <sys:String xml:space="preserve" x:Key="Confirm_Reconvert">{0} 件のファイルを、画面の条件で変換し直します。&#10;&#10;出力先の Markdown とページ画像は置き換わります。&#10;&#10;{1}Step1から再変換しますか？</sys:String>
+  <sys:String xml:space="preserve" x:Key="Confirm_Reconvert">{0} 件のファイルを、画面の条件で再変換します。&#10;&#10;出力先の Markdown とページ画像は置き換わります。&#10;&#10;{1}Step1から再変換しますか？</sys:String>
   <sys:String x:Key="Main_Cond_Excel">シートの範囲</sys:String>
   <sys:String x:Key="Main_Cond_ExcelColumns">すべての列をできるだけ1ページに収める</sys:String>
   <sys:String x:Key="Main_Cond_ExcelColumnsTip">列は1ページの幅に収め、行は複数ページに続けます。極端に幅の広いシートは、読めなくなるため分割します。</sys:String>
@@ -412,9 +412,9 @@
   <sys:String x:Key="Main_ChangedOnlyCount">更新ファイルの再変換（{0} 件）</sys:String>
   <sys:String x:Key="Main_RunRunning">変換中…</sys:String>
   <sys:String x:Key="Main_RunNothing">変換するものはありません</sys:String>
-  <sys:String x:Key="Main_RunNothingTip">一覧のファイルは、どれも変換済みで、前回から変わっていません。条件を変えて変換し直すときは、右の「ほかの変換」の「すべてやり直し」を使います。</sys:String>
+  <sys:String x:Key="Main_RunNothingTip">一覧のファイルは、どれも変換済みで、前回から変わっていません。条件を変えて再変換するときは、右の「ほかの変換」の「すべて再変換」を使います。</sys:String>
   <sys:String x:Key="Main_More">ほかの変換</sys:String>
-  <sys:String x:Key="Main_MoreTip">ほかの変換の仕方: すべてやり直し、更新ファイルの再変換、Step3の再実行、選択したファイルのStep1からの再変換</sys:String>
+  <sys:String x:Key="Main_MoreTip">ほかの変換の仕方: すべて再変換、更新ファイルの再変換、Step3の再実行、選択したファイルのStep1からの再変換</sys:String>
   <sys:String x:Key="Main_RereadTip">印を付けたページと、いまの設定（接続・モデル、そのファイルの種類のプロンプト）と違う設定で読んだページを、いまの設定で VLM で読み直します。読み終えるまで、そのページの前の結果は残ります。ページの印は、プレビューのページ一覧、または一覧の右クリックのメニューで付けます。Step1・2はやり直しません。</sys:String>
   <sys:String x:Key="Status_RereadNoJob">印を付けたページの保存した状態が見つからないため、読み直せません。</sys:String>
   <sys:String x:Key="Preview_PrevFile">前のファイル（Ctrl＋←）</sys:String>

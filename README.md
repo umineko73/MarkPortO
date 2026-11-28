@@ -14,14 +14,14 @@ You can check the result side by side with the original page images, and make ch
 
 ## Features
 
-- **Markdown**: headings, tables, lists, code, equations and pictures are read straight from the Office files.
-- **Compare with the original**: the preview shows the page image next to the result.
-- **Diagrams cut out**: diagrams drawn with shapes are saved as pictures.
-- **Figures read by a VLM** (optional): a VLM (vision-language model) describes figures and charts. Scanned pages are read whole.
-- **Chunks for RAG**: chunks (JSON Lines) with their headings and pages. The bundled MCP server lets Claude Code and similar tools search them.
-- **Whole folders**: convert a folder at once, and resume a conversion that stopped.
+- **Markdown conversion**: headings, tables, lists, code, equations and pictures are read straight from the Office files.
+- **Preview**: the original page image and the result side by side.
+- **Diagram extraction**: diagrams drawn with shapes are saved as pictures.
+- **VLM integration** (optional): a VLM (vision-language model) describes figures and charts. Scanned pages are read whole.
+- **RAG support**: chunks (JSON Lines) with their headings and pages. The bundled MCP server lets Claude Code and similar tools search them.
+- **Batch conversion**: convert a folder at once, and resume a conversion that stopped.
 - **Work management**: the past history, work sets, reconverting only updated files, and converting single files or pages again.
-- **External tools**: MarkItDown, Docling and other commands can do the conversion too.
+- **External tool integration**: MarkItDown, Docling and other commands can do the conversion too.
 
 MarkPortO is still in development. Check the results in the preview.
 
@@ -44,7 +44,7 @@ The page image, the extracted text and the VLM result side by side, to compare w
 
 ![The preview: the page image of a Word document, its Markdown, and the VLM result with the chart described](docs/images/preview-document.png)
 
-## Converting again
+## Reconversion
 
 You do not need to convert everything again to fix part of the result.
 

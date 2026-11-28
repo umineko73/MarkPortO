@@ -446,7 +446,7 @@
             <Button Style="{StaticResource GlyphButton}" Tag="&#xE71A;" Content="{DynamicResource Main_Interrupt}" Command="{Binding InterruptCommand}" MinWidth="90" Padding="12,6" />
           </StackPanel>
         </Border>
-        <!-- FR-129: what "Start" and "Redo all" do with a file that was converted before. -->
+        <!-- FR-129: what "Start" and "Reconvert all" do with a file that was converted before. -->
         <Border DockPanel.Dock="Left" Style="{StaticResource ActionGroup}" Margin="10,0,0,0"
                 ToolTip="{DynamicResource Main_ExistingTip}" ToolTipService.ShowOnDisabled="True">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center" IsEnabled="{Binding CanEdit}">

@@ -119,7 +119,7 @@
     <value>入力ファイルが見つかりません。前回の実行のあとに、削除または移動された可能性があります。</value>
   </data>
   <data name="The input file changed since the earlier run, so the earlier result was discarded and the file is converted again." xml:space="preserve">
-    <value>入力ファイルが前回の実行のあとに変更されたため、前回の結果を破棄して、最初から変換し直します。</value>
+    <value>入力ファイルが前回の実行のあとに変更されたため、前回の結果を破棄して、最初から再変換します。</value>
   </data>
   <data name="Could not find the page of this text in the PDF: &quot;{0}&quot;. It is placed between its neighbours." xml:space="preserve">
     <value>このテキストのページをPDFの中に見つけられませんでした: 「{0}」。前後のブロックの間に置きます。</value>
@@ -433,8 +433,8 @@
   <data name="unavailable" xml:space="preserve">
     <value>取得不可</value>
   </data>
-  <data name="{0} page(s) could not be read ({1}: {2}). Use &quot;Retry failed only&quot; to read only the failed pages." xml:space="preserve">
-    <value>{0}ページの読み取りに失敗しました({1}: {2})。「失敗のみ再試行」で、失敗したページだけをやり直せます。</value>
+  <data name="{0} page(s) could not be read ({1}: {2}). Use &quot;Resume&quot; to read only the failed pages again." xml:space="preserve">
+    <value>{0}ページの読み取りに失敗しました({1}: {2})。「再開」で、失敗したページだけを読み直せます。</value>
   </data>
   <data name="The page image could not be made smaller." xml:space="preserve">
     <value>ページの画像を縮小できませんでした。</value>
@@ -653,10 +653,10 @@
     <value>太字・斜体なし</value>
   </data>
   <data name="Page images: image" xml:space="preserve">
-    <value>印刷イメージ: 画像</value>
+    <value>ページ画像: 画像</value>
   </data>
   <data name="Page images: link" xml:space="preserve">
-    <value>印刷イメージ: リンク</value>
+    <value>ページ画像: リンク</value>
   </data>
   <data name="VLM results in a separate file" xml:space="preserve">
     <value>VLMの結果は別ファイル</value>

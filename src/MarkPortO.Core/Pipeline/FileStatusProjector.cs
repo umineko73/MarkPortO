@@ -222,7 +222,7 @@ public static class FileStatusProjector
         var failedPages = document.Pages.Where(p => p.Step3 == PageStep3Status.Failed).ToList();
         if (failedPages.Count > 0)
         {
-            return Loc.T("{0} page(s) could not be read ({1}: {2}). Use \"Retry failed only\" to read only the failed pages.", failedPages.Count, PageLabel.Text(failedPages[0].SourceLabel, CultureInfo.CurrentUICulture), failedPages[0].Error);
+            return Loc.T("{0} page(s) could not be read ({1}: {2}). Use \"Resume\" to read only the failed pages again.", failedPages.Count, PageLabel.Text(failedPages[0].SourceLabel, CultureInfo.CurrentUICulture), failedPages[0].Error);
         }
 
         var restarted = document.Warnings.FirstOrDefault(w => w.Code == Jobs.ResumePlanner.RestartedCode);

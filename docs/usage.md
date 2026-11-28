@@ -67,7 +67,7 @@ Step3 adds what a VLM reads in the images to the text that Step1 took from the d
 
 | Where | Item | What it does |
 |---|---|---|
-| Row of Step3 | Extract text from print images with the VLM | Turns Step3 on or off. When it is off, the other items are hidden. |
+| Row of Step3 | Read the page images with the VLM | Turns Step3 on or off. When it is off, the other items are hidden. |
 | 〃 | Use of the VLM | **Add to the text** (the default) or **Read every page**. See below. |
 | 〃 | Connection | The VLM connection to use. Set them up with the gear button beside it (**VLM connection settings…**). |
 | 〃 | Prompt | The prompt for each kind of file. Edit them with the pencil button beside them (**Prompt settings…**). |
@@ -230,7 +230,7 @@ There is one run button. It becomes **Resume**, **Start** or **Convert updated f
 
 - **Start**: when every file is "Not converted"; converts every file of the inputs.
 - **Resume**: goes on file by file: a file not finished goes on, failed files and pages are tried again, a step that is on now but was not then is run alone, and files not converted are converted with the conditions on the screen. Several earlier conversions go on in turn in one **Resume**.
-- **Redo all** (under **More**): converts every file of the inputs again with the conditions on the screen.
+- **Reconvert all** (under **More**): converts every file of the inputs again with the conditions on the screen.
 - **Reconvert updated files**: converts the changed files, the new ones and those whose last conversion did not finish, into the folders of their earlier conversion.
 
 #### Adding Step3 to files converted up to Step2
@@ -241,7 +241,7 @@ There is one run button. It becomes **Resume**, **Start** or **Convert updated f
 
 A step switched off now that was on then leaves its results. A file that changed is converted again from Step1 instead.
 
-Where **Start** and **Redo all** write a file that was converted before is chosen beside the buttons, under **If the folder exists** (**Make a new one** or **Overwrite**).
+Where **Start** and **Reconvert all** write a file that was converted before is chosen beside the buttons, under **If the folder exists** (**Make a new one** or **Overwrite**).
 
 To convert some files again, select them in the file list and choose **Convert the selected files again from Step 1** from the right-click menu (or **More**). **The Markdown and the page images in the earlier folder are replaced**, so the paths stay the same.
 
