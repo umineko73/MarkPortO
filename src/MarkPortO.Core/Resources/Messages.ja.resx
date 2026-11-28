@@ -374,7 +374,7 @@
     <value>冒頭の説明 {0}</value>
   </data>
   <data name="Chunks {0}" xml:space="preserve">
-    <value>塊 {0}</value>
+    <value>チャンク {0}</value>
   </data>
   <data name="Excel per sheet {0}" xml:space="preserve">
     <value>シートごと {0}</value>
@@ -689,10 +689,10 @@
     <value>presets: 「{0}」の DPI は {1} から {2} にしてください（{3}）。</value>
   </data>
   <data name="Chunks for RAG" xml:space="preserve">
-    <value>RAG 用の小分け</value>
+    <value>RAG用チャンク</value>
   </data>
   <data name="The chunks for RAG could not be written: {0}" xml:space="preserve">
-    <value>RAG 用の小分け（_chunks.jsonl）を書けませんでした: {0}</value>
+    <value>RAG用チャンク（_chunks.jsonl）を書けませんでした: {0}</value>
   </data>
   <data name="The record of the conversion (conversion.json) could not be written: {0}" xml:space="preserve">
     <value>変換の記録（conversion.json）を書けませんでした: {0}</value>

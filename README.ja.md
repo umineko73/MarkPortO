@@ -8,7 +8,7 @@
 [English](README.md) | **日本語**
 
 Word・Excel・PowerPoint・PDF を Markdown に変換する Windows アプリです。
-変換結果は元のページ画像と並べて確認でき、RAG 用のデータも作れます。どの文も、元のページまでたどれます。
+変換結果は元のページ画像と並べて確認でき、RAG用チャンクも作れます。変換結果から元のページを参照できます。
 
 ![メイン画面](docs/images/main-window.ja.png)
 
@@ -16,10 +16,11 @@ Word・Excel・PowerPoint・PDF を Markdown に変換する Windows アプリ�
 
 - **Markdown に変換**：見出し・表・箇条書き・コード・数式・図を、Office のファイルから直接読み取ります。
 - **元のページと見比べる**：プレビューで、ページ画像と変換結果を並べて確認できます。
-- **図を切り出す**：図形で描いた図を、画像として切り出します。×印で消したページは本文に書きません。
-- **VLM で図を読む**（任意）：画像を読めるモデルで、図やグラフの中身を書き足します。スキャンしたページは全体を読み取ります。
-- **RAG 用のデータ**：見出しとページの付いた小分けのデータを書きます。同梱の MCP サーバーで、Claude Code などから検索できます。
+- **図を切り出す**：図形で描いた図を、画像として切り出します。
+- **VLM で図を読む**（任意）：VLM（画像認識対応 LLM）で、図やグラフの中身を書き足します。スキャンしたページは全体を読み取ります。
+- **RAG用チャンク**：見出しとページの付いたチャンク（JSON Lines）を書きます。同梱の MCP サーバーで、Claude Code などから検索できます。
 - **まとめて変換**：フォルダごとに変換できます。中断しても、続きから再開できます。
+- **作業管理**：変換の履歴、作業セット、更新ファイルだけの再変換、ファイル・ページ単位の再処理に対応しています。
 - **外部ツール**：MarkItDown や Docling などのコマンドでも変換できます。
 
 開発中です。変換後は、プレビューで結果を確認してください。
@@ -55,9 +56,9 @@ PDF の内蔵の抽出は簡易的です。PDF には MarkItDown か Docling を
 
 ## RAG で使う
 
-プリセット「RAG用」で変換すると、Markdown の隣に検索用の小分け（`<名前>_chunks.jsonl`）を書きます。同梱の MCP サーバー（`tools\markporto-rag\`）を登録すると、Claude Code などから検索して、答えの出どころのページまでたどれます。
+プリセット「RAG用」で変換すると、Markdown の隣に検索用のチャンク（`<名前>_chunks.jsonl`）を書きます。同梱の MCP サーバー（`tools\markporto-rag\`）を登録すると、Claude Code などから検索して、答えの出どころのページまでたどれます。
 
-[小分けの形式](docs/usage.ja.md#rag用の小分け_chunksjsonl) | [検索サーバーの準備](tools/markporto-rag/README.ja.md)
+[チャンクの形式](docs/usage.ja.md#rag用チャンク_chunksjsonl) | [検索サーバーの準備](tools/markporto-rag/README.ja.md)
 
 ## インストール
 
@@ -72,7 +73,7 @@ markporto-cli convert D:\docs --out D:\out
 - Windows 11
 - .NET 10 デスクトップ ランタイム
 - Microsoft Office または [LibreOffice](https://www.libreoffice.org/)
-- VLM を使うとき：画像を読めるモデルを載せた OpenAI 互換のサーバー（LM Studio など）
+- VLM を使うとき：VLM を載せた OpenAI 互換のサーバー（LM Studio など）
 
 [詳しい使い方](docs/usage.ja.md)
 

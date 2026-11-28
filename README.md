@@ -8,7 +8,7 @@
 **English** | [日本語](README.ja.md)
 
 A Windows app that converts Word, Excel, PowerPoint and PDF files into Markdown.
-You can check the result side by side with the original page images, and make data for RAG. Every passage can be traced back to its page.
+You can check the result side by side with the original page images, and make chunks for RAG. The result refers back to the original pages.
 
 ![The main window of MarkPortO](docs/images/main-window.png)
 
@@ -16,10 +16,11 @@ You can check the result side by side with the original page images, and make da
 
 - **Markdown**: headings, tables, lists, code, equations and pictures are read straight from the Office files.
 - **Compare with the original**: the preview shows the page image next to the result.
-- **Diagrams cut out**: diagrams drawn with shapes are saved as pictures. A page crossed out with an "x" is left out of the text.
-- **Figures read by a VLM** (optional): a model that reads images describes figures and charts. Scanned pages are read whole.
-- **Data for RAG**: chunks with their headings and pages. The bundled MCP server lets Claude Code and similar tools search them.
+- **Diagrams cut out**: diagrams drawn with shapes are saved as pictures.
+- **Figures read by a VLM** (optional): a VLM (vision-language model) describes figures and charts. Scanned pages are read whole.
+- **Chunks for RAG**: chunks (JSON Lines) with their headings and pages. The bundled MCP server lets Claude Code and similar tools search them.
 - **Whole folders**: convert a folder at once, and resume a conversion that stopped.
+- **Work management**: the past history, work sets, reconverting only updated files, and converting single files or pages again.
 - **External tools**: MarkItDown, Docling and other commands can do the conversion too.
 
 MarkPortO is still in development. Check the results in the preview.
@@ -72,7 +73,7 @@ Requirements:
 - Windows 11
 - .NET 10 Desktop Runtime
 - Microsoft Office or [LibreOffice](https://www.libreoffice.org/)
-- For a VLM: an OpenAI-compatible server with a model that reads images (LM Studio, for example)
+- For a VLM: an OpenAI-compatible server with a VLM (LM Studio, for example)
 
 [Detailed usage](docs/usage.md)
 

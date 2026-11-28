@@ -58,8 +58,8 @@
   <sys:String x:Key="Main_Cond_FolderLayoutFolder">フォルダごと作る</sys:String>
   <sys:String x:Key="Main_Cond_FolderLayoutContents">中身だけを置く</sys:String>
   <sys:String x:Key="Main_Cond_FolderLayoutTip">フォルダを追加したときの出力の作り方です。「フォルダごと作る」は、出力先にそのフォルダと同じ名前のフォルダを作り、その中に書きます。「中身だけを置く」は、そのフォルダを作らず、中のファイルとサブフォルダを出力先の直下に作ります。ファイルを1つずつ追加したものは、どちらでも出力先の直下に作ります。</sys:String>
-  <sys:String x:Key="Main_Cond_Chunks">RAG 用の小分け（_chunks.jsonl）を書く</sys:String>
-  <sys:String x:Key="Main_Cond_ChunksTip">Markdown の隣に、文書を検索（RAG）のための塊に分けたファイルを書きます。1行に1つの JSON で、塊ごとに見出し・ページ・ページ画像を持ちます。表とコードは途中で切りません。LLM や検索の仕組みに読ませるためのもので、人が読むときは要りません。</sys:String>
+  <sys:String x:Key="Main_Cond_Chunks">RAG用チャンク（_chunks.jsonl）を書く</sys:String>
+  <sys:String x:Key="Main_Cond_ChunksTip">Markdown の隣に、文書を検索（RAG）のためのチャンクに分けたファイルを書きます。1行に1つの JSON で、チャンクごとに見出し・ページ・ページ画像を持ちます。表とコードは途中で切りません。LLM や検索の仕組みに読ませるためのもので、人が読むときは要りません。</sys:String>
   <sys:String x:Key="Main_Cond_StructureNoteTip">Markdown の冒頭に、ページの区切りや印の読み方を説明する引用を書きます。LLM に読ませるときは役に立ち、人が読む資料ではじゃまになることがあります。見出し、変換ツールのコメント、ページの区切りは、オフでも書きます。</sys:String>
   <sys:String x:Key="Main_Preset">プリセット</sys:String>
   <sys:String x:Key="Main_PresetTip">目的に合わせて、Step1〜3 のおすすめの設定をまとめて入れます。入れたあとも、各設定は自由に変えられます。入力、出力先、印刷エンジン、VLMの接続、対象の種類などは変わりません。</sys:String>
