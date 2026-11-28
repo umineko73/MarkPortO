@@ -612,6 +612,8 @@ ZIP の `tools\markporto-rag\` にある小さな MCP サーバー `markporto-ra
 
    クラウドの埋め込み（Voyage AI・OpenAI など）や並べ直しのモデルも使えます。そのときはチャンクの文字が PC の外へ送られます。書き方は `tools\markporto-rag\README.ja.md` の「クラウドの API」を見てください。
 
+   たくさん変換したあとは、`server.py --build-cache` で埋め込みを先に作っておくと、最初の検索から意味の検索も使えます（作り終わるまでは、サーバーはキーワードだけで答えます）。`tools\markporto-rag\README.ja.md` の「埋め込みを先に作っておく」を見てください。
+
 4. 道具に登録します。Claude Code の例（パスは展開したフォルダに合わせます）:
 
    ```

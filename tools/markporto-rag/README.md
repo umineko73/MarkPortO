@@ -98,6 +98,19 @@ Use the path of this folder. A tool sees the server after it is opened again.
 
 The way to write these can change with the version of a tool; see its documentation when it does not work.
 
+### Making the embeddings beforehand (--build-cache)
+
+The server embeds the chunks that have no embeddings yet in the background, when it is first asked; until then it answers by keywords only. After converting many documents, make them beforehand, so that the first search uses the meaning too:
+
+```powershell
+uv run --no-project --with mcp --with numpy python C:\MarkPortO\tools\markporto-rag\server.py --build-cache
+```
+
+- It reads every `*_chunks.jsonl` with the same configuration as the server (`MARKPORTO_RAG_CONFIG`, `MARKPORTO_RAG_ROOT`), makes only the embeddings that are not in `cacheDir`, and ends (no MCP server).
+- It shows how far it is, file by file, and how long it took. Exit code 0: everything is embedded; 1: the embedding is off, the API cannot be reached, or another model answered. What was embedded before it stopped is kept.
+- It can run while the server runs; the cache stays whole.
+- With a cloud embedding API, this command sends the text of the chunks out of the PC too.
+
 ### Behind a proxy, or without the internet
 
 The first time, uv fetches the packages (`mcp`, `numpy`; numpy is about 15 MB) from PyPI into its cache. Later starts use the cache, but uv still asks PyPI for the versions at every start.

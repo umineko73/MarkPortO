@@ -520,6 +520,205 @@ async def main():
 
     api = Embeddings()
     emb = {"url": api.url, "model": "test-model", "queryPrefix": "", "passagePrefix": "", "retrySeconds": 1}
+
+    # ---- --build-cache: the vectors are made and kept before the server is started (no MCP) ----
+    def build_cache(case: str, config: dict, *extra: str) -> subprocess.CompletedProcess:
+        folder = BASE / case
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / "config.json"
+        path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+        env = {k: v for k, v in os.environ.items() if k not in ("MARKPORTO_RAG_ROOT",)}
+        env["MARKPORTO_RAG_CONFIG"] = str(path)
+        try:
+            return subprocess.run([sys.executable, str(SERVER), "--build-cache", *extra], capture_output=True, text=True, encoding="utf-8",
+                                  errors="replace", env=env, timeout=120)
+        except subprocess.TimeoutExpired as ex:
+            return subprocess.CompletedProcess(ex.cmd, -1, "did not end in 120 s", "")
+
+    built = BASE / "built"
+    write(built / "a" / "設計書", [chunk("c0001", "A：タイムアウトは30秒。"), chunk("c0002", "B：別の話。", prev="c0001")])
+    write(built / "b" / "手順書", [chunk("c0001", "再開の手順")])
+    built_cfg = {"roots": [str(built)], "embedding": dict(emb), "cacheDir": str(BASE / "built-cache")}
+    before = api.inputs
+    res = build_cache("build-cache", dict(built_cfg))
+    check("--build-cache: exit 0 when every file is embedded", res.returncode == 0, res.stdout + res.stderr)
+    check("... it says how many files it embedded and how many came from the cache", "2 file(s) to embed" in res.stdout
+          and "0 from the cache" in res.stdout and "done" in res.stdout, res.stdout)
+    check("... the vectors of both files are kept", len(kept_files(BASE / "built-cache")) == 2, kept_files(BASE / "built-cache"))
+    check("... every chunk was sent to the API once", api.inputs - before == 3, api.inputs - before)
+    before = api.inputs
+    res = build_cache("build-cache-again", dict(built_cfg))
+    check("--build-cache again: nothing to embed, all from the cache", res.returncode == 0 and "0 file(s) to embed" in res.stdout
+          and "2 from the cache" in res.stdout and api.inputs == before, res.stdout + res.stderr)
+
+    async def by_meaning_at_once(call):
+        asked = api.inputs
+        res = await call("search_docs", {"query": "タイムアウト"})
+        check("a server started after --build-cache searches by meaning at once", res.get("mode") == "hybrid" and not res.get("note"), res)
+        check("... sending only the question to the API, not the documents", api.inputs - asked == 1, api.inputs - asked)
+
+    await run("build-cache-then-server", dict(built_cfg), by_meaning_at_once)
+    api.up = False
+    res = build_cache("build-cache-down", dict(built_cfg, cacheDir=str(BASE / "down-cache")))
+    api.up = True
+    check("--build-cache: exit 1 when the embedding API cannot be reached, and it says so", res.returncode == 1
+          and "could not be reached" in res.stdout, res.stdout + res.stderr)
+    check("... nothing is kept", not kept_files(BASE / "down-cache"), kept_files(BASE / "down-cache"))
+    api.model = "another-embedding-model"
+    res = build_cache("build-cache-other-model", dict(built_cfg, cacheDir=str(BASE / "other-cache")))
+    api.model = None
+    check("--build-cache: exit 1 when the API answers as another model, and it names the model", res.returncode == 1
+          and "another-embedding-model" in res.stdout, res.stdout + res.stderr)
+    res = build_cache("build-cache-off", dict(built_cfg, embedding={"enabled": False}))
+    check("--build-cache: exit 1 when the embedding is off in the configuration", res.returncode == 1
+          and "embedding.enabled" in res.stdout, res.stdout + res.stderr)
+    # Two PCs share the output folder and cacheDir (2026-11-28, at work): LM Studio is "localhost" on its PC and an address on the
+    # others, and they reach the folder by different paths. Before 0.4.8 each start of one embedded everything again (each wrote over
+    # the other's kept file).
+    share = BASE / "share" / "out"
+    write(share / "設計書", [chunk("c0001", "タイムアウトは30秒。"), chunk("c0002", "再開の手順", prev="c0001")])
+    other_pc = BASE / "pc2"
+    other_pc.mkdir(parents=True, exist_ok=True)
+    junction = subprocess.run(["cmd", "/c", "mklink", "/J", str(other_pc / "out"), str(share)], capture_output=True)
+    shared_cache = str(BASE / "two-pcs-cache")
+    pc1 = {"roots": [str(share)], "embedding": dict(emb), "cacheDir": shared_cache}
+    pc2 = {"roots": [str(other_pc / "out")], "embedding": dict(emb, url=api.url.replace("127.0.0.1", "localhost")), "cacheDir": shared_cache}
+    first = api.inputs
+    made = [build_cache(f"two-pcs-{n}", dict(cfg)) for n, cfg in enumerate([pc1, pc2, pc1, pc2])]
+    check("two PCs sharing the folder and the cache, LM Studio written two ways: each embeds once, then they take no turns",
+          junction.returncode == 0 and all(r.returncode == 0 for r in made) and ["1 file(s) to embed" in r.stdout for r in made[:2]] == [True, True]
+          and all("0 file(s) to embed" in r.stdout for r in made[2:]) and api.inputs - first == 4,
+          [r.stdout.splitlines()[0] if r.stdout else r.stderr for r in made] + [junction.stderr.decode("mbcs", "replace")])
+    res = build_cache("two-pcs-same-url", dict(pc2, embedding=dict(emb)))
+    check("... with the same URL, the other PC finds the vectors though it reaches the folder by another path (a junction here)",
+          "0 file(s) to embed" in res.stdout, res.stdout)
+    other = build_cache("two-pcs-other-model", dict(pc1, embedding=dict(emb, model="other-test-model")))
+    again = build_cache("two-pcs-after-other-model", dict(pc1))
+    check("... a configuration with another model keeps its own vectors: the first ones are not written over",
+          "1 file(s) to embed" in other.stdout and "0 file(s) to embed" in again.stdout, [other.stdout, again.stdout])
+
+    # Kept by 0.4.7 and before (named by the path, the URL as written): taken over without the API.
+    legacy = BASE / "legacy"
+    write(legacy / "設計書", [chunk("c0001", "古いキャッシュの塊")])
+    legacy_file = next(legacy.rglob("*_chunks.jsonl"))
+    legacy_cache = BASE / "legacy-kept"
+    legacy_cache.mkdir(parents=True, exist_ok=True)
+    signature = json.dumps([api.url.rstrip("/"), "test-model", "", 400, 50, {}, "parts 2"], sort_keys=True).encode()
+    digest = hashlib.sha1(hashlib.sha1(legacy_file.read_bytes()).hexdigest().encode() + signature).hexdigest()
+    write_kept_binary(legacy_cache / (hashlib.sha1(str(legacy_file).encode()).hexdigest() + ".bin"),
+                      {"digest": digest, "model": "test-model", "count": 1, "dim": 8}, [[1.0] + [0.0] * 7])
+    asked = api.inputs
+    res = build_cache("legacy-cache", {"roots": [str(legacy)], "embedding": dict(emb), "cacheDir": str(legacy_cache)})
+    check("vectors kept by 0.4.7 (named by the path) are taken over without asking the API, and kept under the new name",
+          "0 file(s) to embed" in res.stdout and api.inputs == asked and len(kept_files(legacy_cache)) == 2, [res.stdout, kept_files(legacy_cache)])
+    (legacy_cache / (hashlib.sha1(str(legacy_file).encode()).hexdigest() + ".bin")).unlink()
+    res = build_cache("legacy-cache-again", {"roots": [str(legacy)], "embedding": dict(emb), "cacheDir": str(legacy_cache)})
+    check("... and then found under the new name alone (the old file gone)", "0 file(s) to embed" in res.stdout and api.inputs == asked, res.stdout)
+
+    # R1-01: two servers of the office network, told apart: each keeps its own vectors, none writes over the other's
+    second = Embeddings()
+    lan = str(BASE / "lan-cache")
+    by_turns = [build_cache(f"lan-{n}", {"roots": [str(share)], "embedding": dict(emb, url=u), "cacheDir": lan})
+                for n, u in enumerate([api.url, second.url, api.url, second.url])]
+    check("two embedding APIs that share a cache take no turns: each embeds once, then both take their own vectors (review R1-01)",
+          ["1 file(s) to embed" in r.stdout for r in by_turns[:2]] == [True, True]
+          and all("0 file(s) to embed" in r.stdout for r in by_turns[2:]), [r.stdout.splitlines()[0] for r in by_turns if r.stdout])
+    second.http.shutdown()
+
+    # R1-04: two folders of the same name: each document keeps its own vectors
+    same_name = BASE / "same-name"
+    write(same_name / "left" / "out" / "a", [chunk("c0001", "左の文書")])
+    write(same_name / "right" / "out" / "a", [chunk("c0001", "右の文書")])
+    both = {"roots": [str(same_name / "left" / "out"), str(same_name / "right" / "out")], "embedding": dict(emb),
+            "cacheDir": str(BASE / "same-name-cache")}
+    build_cache("same-name-1", dict(both))
+    res = build_cache("same-name-2", dict(both))
+    check("two search folders of the same name: the vectors of both documents are kept, none is embedded again (review R1-04)",
+          len(kept_files(BASE / "same-name-cache")) == 2 and "0 file(s) to embed" in res.stdout, [kept_files(BASE / "same-name-cache"), res.stdout])
+
+    # R1-03: the vectors cannot be kept: not a success
+    blocked = BASE / "not-a-folder"
+    blocked.write_text("a file where the cache folder should be", encoding="utf-8")
+    res = build_cache("cache-not-kept", dict(built_cfg, cacheDir=str(blocked)))
+    check("--build-cache: exit 1 when the vectors cannot be kept, and it says so (review R1-03)", res.returncode == 1
+          and "could not be kept" in res.stdout, res.stdout + res.stderr)
+
+    # R1-05: a configuration that cannot be read, a folder that is not there, a file that cannot be read: not a success
+    broken_cfg = BASE / "broken-config"
+    broken_cfg.mkdir(parents=True, exist_ok=True)
+    (broken_cfg / "config.json").write_text("{", encoding="utf-8")
+    res = subprocess.run([sys.executable, str(SERVER), "--build-cache"], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                         env=dict({k: v for k, v in os.environ.items() if k != "MARKPORTO_RAG_ROOT"}, MARKPORTO_RAG_CONFIG=str(broken_cfg / "config.json")),
+                         timeout=120)
+    check("--build-cache: exit 1 when the configuration cannot be read (review R1-05)", res.returncode == 1
+          and "could not be read" in res.stdout, res.stdout + res.stderr)
+    res = build_cache("root-not-there", dict(built_cfg, roots=[str(built), str(BASE / "no-such-folder")], cacheDir=str(BASE / "root-not-there-cache")))
+    check("--build-cache: exit 1 when a search folder is not there, the others still embedded (review R1-05)", res.returncode == 1
+          and "no-such-folder" in res.stdout and len(kept_files(BASE / "root-not-there-cache")) == 2, res.stdout + res.stderr)
+    unreadable = BASE / "unreadable"
+    write(unreadable / "good", [chunk("c0001", "読める文書")])
+    (unreadable / "bad").mkdir(parents=True, exist_ok=True)
+    (unreadable / "bad" / "bad_chunks.jsonl").write_bytes(b"\xff\xfe\x00 not utf-8 \x81\n")
+    res = build_cache("unreadable-file", {"roots": [str(unreadable)], "embedding": dict(emb), "cacheDir": str(BASE / "unreadable-cache")})
+    check("--build-cache: exit 1 when a chunks file cannot be read, the others still embedded (review R1-05)", res.returncode == 1
+          and "bad_chunks.jsonl" in res.stdout and len(kept_files(BASE / "unreadable-cache")) == 1, res.stdout + res.stderr)
+
+    # R1-02: the API answers slowly as another model and retrySeconds is short: the command still ends
+    def slow(texts):
+        time.sleep(1.25)
+    api.hook, api.model = slow, "another-embedding-model"
+    two = BASE / "slow-two"
+    write(two / "a", [chunk("c0001", "一つ目")])
+    write(two / "b", [chunk("c0001", "二つ目")])
+    began = time.monotonic()
+    res = build_cache("slow-other-model", {"roots": [str(two)], "embedding": dict(emb, batchSize=1, retrySeconds=0), "cacheDir": str(BASE / "slow-cache")})
+    api.hook, api.model = None, None
+    check("--build-cache: ends with exit 1 when a slow API answers as another model, though the files would be tried again (review R1-02)",
+          res.returncode == 1 and time.monotonic() - began < 60, (res.returncode, round(time.monotonic() - began, 1), res.stdout[-300:]))
+
+    # R2-01: two files that fail slowly do not keep the third from being embedded
+    def slow_for_two(texts):
+        if any(m in x for x in texts for m in ("AAA", "BBB")):
+            time.sleep(1.25)
+    api.hook = slow_for_two
+    api.pick = lambda text: "another-embedding-model" if ("AAA" in text or "BBB" in text) else None
+    three_files = BASE / "slow-three"
+    for name, text in (("a", "AAA の文書"), ("b", "BBB の文書"), ("c", "CCC の文書")):
+        write(three_files / name, [chunk("c0001", text)])
+    began = time.monotonic()
+    res = build_cache("slow-two-of-three", {"roots": [str(three_files)], "embedding": dict(emb, batchSize=1, retrySeconds=0),
+                                            "cacheDir": str(BASE / "slow-three-cache")})
+    api.hook = api.pick = None
+    check("--build-cache: two files that fail slowly are not tried again and again; the third is embedded, exit 1 (review R2-01)",
+          res.returncode == 1 and len(kept_files(BASE / "slow-three-cache")) == 1 and time.monotonic() - began < 60,
+          (res.returncode, round(time.monotonic() - began, 1), res.stdout[-300:]))
+
+    # R2-04: a file whose lines are all broken is not a success
+    all_broken = BASE / "all-broken"
+    write(all_broken / "good", [chunk("c0001", "読める文書")])
+    write(all_broken / "bad", [], raw=["{broken", "not json"])
+    res = build_cache("all-broken", {"roots": [str(all_broken)], "embedding": dict(emb), "cacheDir": str(BASE / "all-broken-cache")})
+    check("--build-cache: exit 1 when no chunk can be read from a file, the others still embedded (review R2-04)", res.returncode == 1
+          and len(kept_files(BASE / "all-broken-cache")) == 1, res.stdout + res.stderr)
+
+    # R2-05: a JSON of 0.4.3 that cannot be kept as binary under the name of now is not a success
+    json_old = BASE / "json-old"
+    write(json_old / "設計書", [chunk("c0001", "旧形式")])
+    json_file = next(json_old.rglob("*_chunks.jsonl"))
+    json_cache = BASE / "json-old-kept"
+    json_cache.mkdir(parents=True, exist_ok=True)
+    signature = json.dumps([api.url.rstrip("/"), "test-model", "", 400, 50, {}, "parts 2"], sort_keys=True)
+    digest = hashlib.sha1(hashlib.sha1(json_file.read_bytes()).hexdigest().encode() + signature.encode()).hexdigest()
+    (json_cache / (hashlib.sha1(str(json_file).encode()).hexdigest() + ".json")).write_text(
+        json.dumps({"digest": digest, "model": "test-model", "vectors": [[3, 4, 0, 0, 0, 0, 0, 0]]}), encoding="utf-8")
+    key = os.path.normcase(os.path.realpath(json_file)) + "\n" + signature
+    (json_cache / (hashlib.sha1(key.encode()).hexdigest() + ".bin")).mkdir()  # the binary of now cannot be written there
+    res = build_cache("json-old", {"roots": [str(json_old)], "embedding": dict(emb), "cacheDir": str(json_cache)})
+    check("--build-cache: exit 1 when a JSON of 0.4.3 cannot be kept as binary (review R2-05)", res.returncode == 1
+          and "could not be kept" in res.stdout, res.stdout + res.stderr)
+
+    res = build_cache("build-cache-unknown", dict(built_cfg), "--what")
+    check("an unknown argument: exit 2 with the usage", res.returncode == 2 and "--build-cache" in res.stderr, res.stdout + res.stderr)
     (comes_back, other_model, other_model_for_the_question, publishers, two_publishers, batches_of_two_names,
      two_models_kept_then_one, question_not_reached, same_index, bool_index) = embedding_cases(api)
     await run("embeddings-come-back", {"roots": [str(one)], "embedding": dict(emb)}, comes_back)

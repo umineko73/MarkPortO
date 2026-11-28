@@ -545,6 +545,8 @@ Register the small MCP server `markporto-rag` (in `tools\markporto-rag\` of the 
 
    A cloud embedding API (Voyage AI, OpenAI and so on) and a rerank model can be used too; the text of the chunks is then sent out of the computer. See "A cloud API" in `tools\markporto-rag\README.md`.
 
+   After converting many documents, run `server.py --build-cache` to make the embeddings beforehand, so that the first search uses the meaning too (until they are made, the server answers by keywords only). See "Making the embeddings beforehand" in `tools\markporto-rag\README.md`.
+
 4. Register it in the tool. For Claude Code (use the folder where you unpacked the ZIP):
 
    ```

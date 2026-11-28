@@ -23,6 +23,7 @@ Configuration (JSON): the file named by MARKPORTO_RAG_CONFIG, else %APPDATA%\\Ma
 to this file. MARKPORTO_RAG_ROOT (folders separated by ';') replaces "roots". See markporto-rag.sample.json and README.md.
 
 Start: uv run --no-project --with mcp --with numpy python server.py (numpy is optional: without it, the search by meaning is slower)
+With --build-cache, it embeds the chunks that have no kept vectors yet, keeps them, and ends (no MCP): see build_cache().
 """
 from __future__ import annotations
 
@@ -39,6 +40,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.parse
 import urllib.request
 from array import array
 from collections import Counter
@@ -87,7 +89,16 @@ DEFAULTS = {
 }
 
 
+KEEP_ERRORS: list[str] = []  # kept files that could not be written (--build-cache does not end as a success then)
+LOGGED: set[str] | None = None  # --build-cache: the lines already written (the index writes its warnings again at each change)
+
+
 def log(*args):
+    if LOGGED is not None:
+        line = " ".join(str(a) for a in args)
+        if line in LOGGED:
+            return
+        LOGGED.add(line)
     print(*args, file=sys.stderr, flush=True)
 
 
@@ -337,15 +348,34 @@ def rows_to_bytes(rows) -> bytes:
     return flat.tobytes()
 
 
-def cache_file(path: str, suffix: str) -> Path:
-    return CACHE / (hashlib.sha1(path.encode()).hexdigest() + suffix)
+def cache_file(key: str, suffix: str) -> Path:
+    """The kept file of a key: the Entry.cache_key (0.4.8 and later), or the path of the chunks file (0.4.7 and before)."""
+    return CACHE / (hashlib.sha1(key.encode()).hexdigest() + suffix)
 
 
-def write_cache(path: str, digest: str, model: str | None, rows) -> None:
+def embedding_signature() -> bytes:
+    """What the vectors of a file depend on besides its text: the API (its URL as written, without a "/" at the end), the model, and how
+    the chunks are cut and prefixed. The same as 0.4.7 and before, so the vectors kept then are taken over."""
+    return json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], EMB["passageChars"], passage_overlap(), EMB["passageParams"], "parts 2"],
+                      sort_keys=True).encode()
+
+
+def cache_slot(path: str) -> str:
+    """A chunks file as the kept vectors name it: its whole path as Windows compares it (case does not count, a mapped drive is its
+    network path). PCs that share a cache find the same vectors when they reach the output folder by the same path and write the same
+    URL; otherwise each keeps its own (made once), without writing over another's."""
+    try:
+        path = os.path.realpath(path)
+    except (OSError, ValueError):
+        path = os.path.abspath(path)
+    return os.path.normcase(path)
+
+
+def write_cache(key: str, digest: str, model: str | None, rows) -> None:
     """Writes the kept vectors of a file: through a temporary file of its own (two servers may keep the same file at once), then the
     JSON of 0.4.1-0.4.3 goes."""
     head = json.dumps({"digest": digest, "model": model, "count": len(rows), "dim": rows_dim(rows)}).encode()
-    target = cache_file(path, ".bin")
+    target = cache_file(key, ".bin")
     CACHE.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=TMP_PREFIX + target.stem + ".", suffix=".tmp", dir=CACHE)
     try:
@@ -364,7 +394,7 @@ def write_cache(path: str, digest: str, model: str | None, rows) -> None:
             os.unlink(tmp)
         raise
     with contextlib.suppress(OSError):
-        cache_file(path, ".json").unlink(missing_ok=True)  # the form of 0.4.1-0.4.3, now kept as binary
+        cache_file(key, ".json").unlink(missing_ok=True)  # the form of 0.4.1-0.4.3, now kept as binary
 
 
 def read_binary_cache(path: str, digest: str, count: int):
@@ -385,11 +415,19 @@ def read_binary_cache(path: str, digest: str, count: int):
         return None
 
 
-def read_cache(path: str, digest: str, count: int):
+def read_cache(path: str, digest: str, count: int, keep_as: tuple[str, str] | None = None):
     """(rows, model) kept for a file read from these bytes, or None. A file kept as JSON by 0.4.1-0.4.3 is turned into the binary form
-    once, without asking the API again; if the binary file cannot be written, its vectors are used all the same."""
+    once, without asking the API again; if the binary file cannot be written, its vectors are used all the same. keep_as (key, digest):
+    vectors found under the name and digest of an earlier version are kept under the name and the digest of now (the old file stays,
+    for a server of the earlier version)."""
     kept = read_binary_cache(path, digest, count)
     if kept is not None:
+        if keep_as:
+            try:
+                write_cache(keep_as[0], keep_as[1], kept[1], kept[0])
+            except OSError as ex:
+                KEEP_ERRORS.append(f"{keep_as[0].splitlines()[0]}: {ex}")
+                log(f"markporto-rag: the embeddings could not be kept ({ex})")
         return kept
     try:
         saved = json.loads(cache_file(path, ".json").read_text(encoding="utf-8"))
@@ -404,8 +442,11 @@ def read_cache(path: str, digest: str, count: int):
     except Exception:
         return None
     try:
-        write_cache(path, digest, model, rows)
+        write_cache(*(keep_as or (path, digest)), model, rows)
+        if keep_as:
+            cache_file(path, ".json").unlink(missing_ok=True)
     except OSError as ex:
+        KEEP_ERRORS.append(f"{(keep_as[0] if keep_as else path).splitlines()[0]}: {ex}")
         log(f"markporto-rag: the embeddings could not be kept as binary ({ex}); the JSON stays")
     return rows, model
 
@@ -481,11 +522,14 @@ class Entry:
         self.chunks = chunks
         self.warnings = warnings
         if EMB.get("enabled", True):
-            signature = json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], EMB["passageChars"], passage_overlap(),
-                                    EMB["passageParams"], "parts 2"], sort_keys=True).encode()
+            signature = embedding_signature()
             self.digest = hashlib.sha1(read_digest.encode() + signature).hexdigest()  # of the bytes the chunks came from, not of the file now
+            # The kept file of this file for these settings: two configurations that share cacheDir (another URL, model or prefix) keep
+            # their own files instead of writing over each other's (until 0.4.7 it was named by the path alone: PCs that wrote LM Studio
+            # as "localhost" and as its address took turns, and each start embedded everything again).
+            self.cache_key = cache_slot(path) + "\n" + signature.decode()
         else:  # keywords only: the embedding part of the configuration is not looked at
-            self.digest = ""
+            self.digest = self.cache_key = ""
         terms = [Counter(tokens(" ".join(c["headings"]) + "\n" + c["text"])) for c in chunks]
         self.lengths = [sum(t.values()) for t in terms]
         self.postings: dict[str, list[tuple[int, int]]] = {}
@@ -546,6 +590,7 @@ class Index:
         self.worker: threading.Thread | None = None
         self.owner = None  # the chunk (in self.chunks) of each row of self.matrix
         self.parts_total = 0  # the vectors of all the files
+        self.once = False  # --build-cache: a file that could not be embedded is not tried again (the others get their turn)
         self.recheck_at = 0.0  # the files are compared by their bytes then (recheckSeconds), though their size and time are the same
 
     def files(self) -> tuple[list[Path], list[str]]:
@@ -668,7 +713,10 @@ class Index:
         entry = Entry(str(path), stamp, hashlib.sha1(raw).hexdigest(), chunks, warnings)
         entry.read_hash = hashlib.sha1(raw).hexdigest()
         if chunks and EMB.get("enabled", True):
-            kept = read_cache(entry.path, entry.digest, entry.count)
+            kept = read_cache(entry.cache_key, entry.digest, entry.count)
+            if kept is None:
+                # Kept by 0.4.7 and before: the file named by the path alone (the same digest): kept under the name of now.
+                kept = read_cache(entry.path, entry.digest, entry.count, keep_as=(entry.cache_key, entry.digest))
             if kept is None and entry.count == len(chunks) and not EMB["passageParams"]:
                 # Kept before a chunk was embedded in parts (0.4.5 and before: the first passageChars characters of each, 1500 by default):
                 # the same texts when every chunk is one part, as long as it was not cut then.
@@ -676,12 +724,14 @@ class Index:
                 for chars in dict.fromkeys([EMB["passageChars"], 1500]):
                     if longest <= chars:
                         before = json.dumps([EMB["url"].rstrip("/"), EMB["model"], EMB["passagePrefix"], chars]).encode()
-                        kept = read_cache(entry.path, hashlib.sha1(entry.read_hash.encode() + before).hexdigest(), entry.count)
+                        kept = read_cache(entry.path, hashlib.sha1(entry.read_hash.encode() + before).hexdigest(), entry.count,
+                                          keep_as=(entry.cache_key, entry.digest))
                         if kept is not None:
                             break
             if kept is not None:
                 entry.rows, entry.model = kept
         return entry
+
 
     def add(self, e: Entry):
         self.entries[e.path] = e
@@ -871,16 +921,17 @@ class Index:
             e.model = model
             e.embed_warning = None
             self.matrix_dirty = True
-            to_keep.append((e.path, e.digest, model, e.rows))
+            to_keep.append((e.cache_key, e.digest, model, e.rows))
         if to_keep:  # written without COND: a search waiting for the embeddings answers meanwhile
             self.evaluate()
             self.writing += 1
             COND.release()
             try:
-                for path, digest, m, rows in to_keep:
+                for key, digest, m, rows in to_keep:
                     try:
-                        write_cache(path, digest, m, rows)
+                        write_cache(key, digest, m, rows)
                     except OSError as ex:
+                        KEEP_ERRORS.append(f"{key.splitlines()[0]}: {ex}")
                         log(f"markporto-rag: the embeddings could not be kept ({ex})")
             finally:
                 COND.acquire()
@@ -899,7 +950,7 @@ class Index:
         total = 0
         now = time.monotonic()
         for e in self.ordered:
-            if not e.chunks or e.rows is not None or now < e.retry_at:
+            if not e.chunks or e.rows is not None or now < e.retry_at or (self.once and e.embed_warning):
                 continue
             if pack and total + e.count > size:
                 break
@@ -1318,12 +1369,14 @@ def list_documents(path: str | None = None, offset: int = 0, limit: int = 200) -
     return result
 
 
-def finish_writing(limit: float = 10.0) -> None:
-    """At the end of the server, the kept files being written are finished (else a vector made by the API would be made again)."""
+def finish_writing(limit: float = 10.0) -> bool:
+    """At the end of the server, the kept files being written are finished (else a vector made by the API would be made again).
+    False: some were still being written when the time was up."""
     deadline = time.monotonic() + limit
     with COND:
         while INDEX.writing and time.monotonic() < deadline:
             COND.wait(timeout=deadline - time.monotonic())
+        return not INDEX.writing
 
 
 def remove_old_temporary_files(age: float = 3600.0) -> None:
@@ -1335,7 +1388,100 @@ def remove_old_temporary_files(age: float = 3600.0) -> None:
                     f.unlink()
 
 
+def build_cache(out=sys.stdout) -> int:
+    """--build-cache: embeds every file that has no kept vectors yet and keeps them, as the server would, then ends (no MCP). The
+    server started after it searches by meaning at once. The work is done by the embedding thread of the index, so the vectors and the
+    kept files are the same as the server's; this only waits for it and tells how far it is. 0: every file has its vectors; 1: the
+    embedding is off, the API could not be reached, or it answered as another model."""
+    def say(text: str) -> None:
+        print(text, file=out, flush=True)
+
+    global LOGGED
+    LOGGED = set()
+    if CONFIG_ERROR:  # the defaults would be used instead: not what was meant to be built
+        say("markporto-rag: " + CONFIG_ERROR)
+        return 1
+    if not EMB.get("enabled", True):
+        say("markporto-rag: the embedding is off in the configuration (embedding.enabled is false); nothing to build.")
+        return 1
+    began = time.monotonic()
+    code = 0
+    with COND:
+        INDEX.once = True
+        INDEX.refresh()  # reads the files and the kept vectors; starts the embedding thread for the others
+        files = [e for e in INDEX.ordered if e.chunks]
+        to_make = {e.path for e in files if e.rows is None}
+        say(f"markporto-rag: {len(files)} file(s) of chunks in {len(ROOTS)} folder(s): {len(to_make)} file(s) to embed, "
+            f"{len(files) - len(to_make)} from the cache. API: {EMB['url']} ({EMB['model']}); kept in {CACHE}")
+        for w in INDEX.warnings:
+            say("  warning: " + w)
+        # Folders that are not there and files that could not be read: the others are embedded, but it is not a success.
+        missing = (list(INDEX.scan_warnings) + list(INDEX.unread.values())
+                   + [w for e in INDEX.ordered if not e.chunks for w in e.warnings])  # no chunk read from it (review R2-04)
+        shown = None
+        while True:
+            now = time.monotonic()
+            waiting = [e for e in INDEX.ordered if e.chunks and e.rows is None]
+            made = len(to_make) - len([e for e in waiting if e.path in to_make])
+            if (made, INDEX.pending) != shown:
+                shown = (made, INDEX.pending)
+                if to_make:
+                    say(f"  {made} of {len(to_make)} file(s) embedded ({INDEX.pending} part(s) of chunks left)")
+            if not waiting and not INDEX.mixed:
+                break
+            if now < INDEX.api_down_until:
+                say(f"markporto-rag: the embedding API could not be reached ({EMB['url']}, model {EMB['model']}); "
+                    "is it started, and is the model loaded? The files embedded so far are kept.")
+                code = 1
+                break
+            # A file that failed in this run (another model, vectors that are not numbers) counts as failed, though the embedding
+            # thread would try it again: waiting for its retry time could go on for ever with a slow API (review R1-02).
+            stopped = [e for e in waiting if e.embed_warning]
+            if waiting and len(stopped) == len(waiting):
+                by_reason: dict[str, list[str]] = {}
+                for e in stopped:
+                    by_reason.setdefault(e.embed_warning or "not embedded", []).append(e.path)
+                for reason, paths in by_reason.items():
+                    say(f"  {len(paths)} file(s): {reason}")
+                say("markporto-rag: some files could not be embedded (see above); the files embedded so far are kept.")
+                code = 1
+                break
+            if INDEX.mixed and INDEX.retry_at:
+                say("markporto-rag: the embedding API answered with vectors of two models; see the warning above. Nothing more is built.")
+                code = 1
+                break
+            COND.wait(timeout=1.0)
+    if not finish_writing(limit=600.0):
+        say("markporto-rag: the kept files were still being written after 10 minutes (a slow shared folder?); not all are kept.")
+        code = 1
+    if KEEP_ERRORS:
+        for e in KEEP_ERRORS[:10]:
+            say("  " + e)
+        say(f"markporto-rag: the embeddings of {len(KEEP_ERRORS)} file(s) could not be kept in {CACHE}; they are embedded again next time.")
+        code = 1
+    if missing:
+        for w in missing:
+            say("  " + w)
+        say("markporto-rag: some folders or files could not be read (see above); the others are embedded.")
+        code = 1
+    say(f"markporto-rag: {'done' if code == 0 else 'stopped'} in {time.monotonic() - began:.1f} s.")
+    return code
+
+
+USAGE = """usage: server.py [--build-cache]
+  (no argument)   run the MCP server on stdin and stdout (as Claude Code and other tools start it)
+  --build-cache   embed the chunks that have no kept vectors yet, keep them, and end (exit 0: done, 1: not all embedded)"""
+
+
 if __name__ == "__main__":
+    arguments = sys.argv[1:]
+    if arguments == ["--build-cache"]:
+        atexit.register(finish_writing)
+        remove_old_temporary_files()
+        sys.exit(build_cache())
+    if arguments:
+        print(USAGE, file=sys.stderr)
+        sys.exit(2)
     atexit.register(finish_writing)
     remove_old_temporary_files()
     mcp.run()
